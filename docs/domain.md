@@ -1,44 +1,51 @@
-# Budget Planner Domain Model
+# Domain Model
 
-## Purpose
+## Security
 
-The planner describes a budget over one or more periods and lets users compare several possible futures. A budget contains opening account balances, base operations, and mutually exclusive sets of scenario operations.
+The Security domain describes a person recognized by the system and the information associated with that person.
 
-The main calculation results are income, expenses, and balances by account and category:
+### User
 
-1. for base operations alone;
-2. for each scenario alone;
-3. for the base combined with each scenario.
+A user has an identity, an email address, a phone number, a password credential, a first name, and a last name. The identity distinguishes one user from another. Contact details and names may change without changing that identity.
 
-The budget is the aggregate root: references to accounts, categories, and scenarios are resolved only within the same budget.
+### Rules
+
+- An email address identifies one mailbox. It cannot include a display name or surrounding whitespace.
+- A phone number uses international notation: a plus sign followed by 2 to 15 digits, with a nonzero first digit. Spaces and punctuation are not allowed.
+- The password credential is stored as a nonempty hash. The domain model does not prescribe a hashing algorithm.
+- First and last names must each contain a non-whitespace character and be no longer than 100 characters.
+- An invalid change to contact details, the credential, or a name leaves the existing value intact.
+
+Authentication flows, sessions, roles, and permissions are outside the current Security model.
+
+## Finance
+
+### Purpose
+
+The planner describes a budget over one or more periods. A budget contains opening account balances and planned operations grouped by period.
+
+Its calculation results are income, expenses, and balances by account and category for each period and for the budget as a whole.
+
+The budget is the aggregate root: accounts and categories referenced by an operation must belong to that budget.
 
 ```mermaid
 flowchart LR
     Budget[Budget]
     Account[Account]
-    Scenario[Scenario]
     Category[Category]
     Period[Period]
-    BaseGroup[Base operation group]
-    ScenarioGroup[Scenario operation group]
+    OperationGroup[Operation group]
     Income[Income]
     Expense[Expense]
     Transfer[Transfer]
 
     Budget --> Account
-    Budget --> Scenario
     Budget --> Category
-    Budget --> BaseGroup
-    Budget --> ScenarioGroup
-    BaseGroup -.-> Period
-    ScenarioGroup -.-> Period
-    Scenario --> ScenarioGroup
-    BaseGroup --> Income
-    BaseGroup --> Expense
-    BaseGroup --> Transfer
-    ScenarioGroup --> Income
-    ScenarioGroup --> Expense
-    ScenarioGroup --> Transfer
+    Budget --> OperationGroup
+    OperationGroup -.-> Period
+    OperationGroup --> Income
+    OperationGroup --> Expense
+    OperationGroup --> Transfer
     Income --> Account
     Expense --> Account
     Transfer -->|from| Account
@@ -48,249 +55,95 @@ flowchart LR
     Transfer -.-> Category
 ```
 
-## Entities
+### Entities
 
-### Budget
+#### Budget
 
-A budget brings together the reference data and operations needed for one or more calculation periods.
+A budget brings together the accounts, categories, and operations needed for its calculation periods. It has an optional title, a display language, zero or more currency declarations, ordered accounts and categories, and any number of operation groups.
 
-A budget has:
+Account and category order matters when presenting operations: accounts appear in their declared order, followed by categories in their declared order within each account. Uncategorized operations appear after the declared categories for their account.
 
-- an optional title;
-- a display language;
-- zero or more currency declarations;
-- an ordered list of accounts;
-- an ordered list of scenarios;
-- an ordered list of categories;
-- any number of operation groups.
+The title identifies the budget in its results, and the language determines the labels shown to the user. Monetary values use the symbol of the first declared currency. Accounts and operations do not currently have separate currencies.
 
-Account and category order matters for presentation: the report sorts operations first by account order, then by category order. Operations without a category appear after the declared categories for their account.
+#### Account
 
-The title is used as the report heading. The language determines interface labels. Monetary values in the report use the symbol of the first declared currency; a separate currency cannot currently be assigned to an account or operation.
+An account represents a place where money is held, such as a bank account, cash, or another wallet. It has a unique, nonempty identifier, a display name, and an opening balance that defaults to zero.
 
-### Account
+The opening balance may be positive, zero, or negative. Income and expense operations each affect one account; a transfer affects a source and a destination account.
 
-An account represents a place where money is held, such as a bank account, cash, or another wallet.
+#### Category
 
-Account properties:
+A category classifies operations by purpose. It has a unique, nonempty identifier, a display name, and one of three kinds: income, expense, or transfer.
 
-- a unique, nonempty identifier;
-- a display name;
-- an opening balance, which defaults to zero.
+The category kind must match the operation kind. Categories are optional for operations; amounts without a category are tracked separately as uncategorized.
 
-The opening balance is a signed number: it may be positive, zero, or negative. Income and expense operations each refer to one account. A transfer refers to a source and a destination account.
+#### Period and operation group
 
-### Scenario
+An operation group contains operations for an optional calendar period. A period may be a year, a month within a year, or a range with two year or month boundaries. For example, September 2026 through October 2026 is one range; 2026 through 2027 is another. A range does not itself repeat or multiply its operations.
 
-A scenario describes one possible version of the budget, such as "car sold" or "car not sold".
+Each period can have at most one operation group in a budget. At most one group can have no period. Any number of groups, including zero, is allowed.
 
-Scenario properties:
+Periods are considered in the order their groups are defined. Operations and amounts from different periods remain separate. A group without a period forms its own separate result.
 
-- a unique, nonempty identifier;
-- a display name.
+Account balances carry forward in period order. The first period starts with each account's declared opening balance. Each later period starts with that account's closing balance from the previous period.
 
-A scenario does not contain operations directly. Operation groups for different periods are associated with it. A declared scenario may have no operation group; in that case, its own effect is zero.
+For each account, net change is period income minus period expenses. Closing balance is opening balance plus net change.
 
-Scenarios are not combined with one another. Each combined result consists of the base plus one selected scenario.
+#### Operation
 
-### Category
+An operation is a planned movement of money. It has an optional description, a nonnegative amount per unit, an optional nonnegative whole-number repetition count, an optional matching category, optional dates, and membership in an operation group.
 
-A category classifies operations by purpose.
+The repetition count defaults to one. The effective amount is the amount per unit multiplied by that count; a count of zero produces an effective amount of zero. Monetary calculations are exact, without binary floating-point rounding.
 
-Category properties:
+Dates describe when an operation is planned, but do not affect its amount.
 
-- a unique, nonempty identifier;
-- a display name;
-- a type: `income`, `expense`, or `transfer`.
+##### Income
 
-A category's type must match the operation's type. Income cannot use an expense category, and a transfer cannot use an income category. A category is optional; the total of uncategorized operations is tracked separately as "Uncategorized".
+Income credits the effective amount to one account. It increases both that account's balance and the budget's overall balance.
 
-### Operation group
+##### Expense
 
-An operation group assigns all its operations to the base or to one scenario and, optionally, to a calendar period.
+An expense debits the effective amount from one account. It decreases both that account's balance and the budget's overall balance.
 
-There are two kinds of group:
+##### Transfer
 
-- **Base group:** the `scenario` attribute is absent, empty, or contains only whitespace.
-- **Scenario group:** `scenario` contains the identifier of a declared scenario.
+A transfer moves the effective amount from one account to another. It decreases the source account's balance and increases the destination account's balance by the same amount. It is not external income or expense and does not change the budget's overall balance.
 
-An optional period contains one value or two range boundaries separated by whitespace. Each value uses one of these formats:
+### Calculations
 
-- `YYYY`: a year, for example `2026`;
-- `YYYY-MM`: a month, for example `2026-09`.
+For each period, an account's closing balance is its opening balance plus income minus expenses. The budget's overall closing balance is the sum of account opening balances plus external income minus external expenses.
 
-Examples of ranges:
+The budget summary totals income and expenses across all periods. Its closing balances reflect the cumulative effect of those periods in order.
 
-- `2026-09 2026-10`: a budget covering the two specified months;
-- `2026 2027`: a budget covering the two specified years.
+### Aggregation
 
-At most two values are allowed. Whitespace between them is normalized, so `2026  2027` and `2026 2027` designate the same period.
-
-The combination of normalized `scenario` and `period` must be unique. A scenario can therefore have groups for different periods, but cannot repeat the same period. An absent `period` also participates in the uniqueness key as a distinct empty value. Any number of groups, including zero, is allowed.
-
-The period groups operations in the HTML report. Periods appear in the order of their first occurrence in the XML. A monthly value such as `2026-10` is displayed as `2026 October`, and range boundaries in a heading are separated by a dash. Within each period, the base, each scenario's operations, and each base-plus-scenario result are calculated separately, so amounts and operation lists from neighboring periods do not mix. Groups without a `period` form a separate "No period" block.
-
-Balances carry forward between periods in that same order. For the first period, the account's `balance` is the opening balance for both the base and each combined scenario result. The next period's opening balance is the previous period's closing balance in the same calculation path:
-
-- the base continues from the previous base result;
-- scenario operations continue the cumulative effect of that scenario alone, starting from zero;
-- a base-plus-scenario result continues from the previous result for that same base-and-scenario pair.
-
-For each account in a period:
-
-```text
-net change = period income − period expenses
-closing balance = opening balance + net change
-```
-
-The terminal text report remains a summary and sums matching operations across all periods. A range does not itself multiply operation amounts; use `count` to repeat an operation.
-
-The `scenario` attribute belongs to the group, not to an individual operation. All operations in a group have the same scenario association.
-
-### Operation
-
-An operation is a planned movement of money. Common properties are:
-
-- an optional description;
-- a nonnegative amount per unit;
-- an optional nonnegative integer count;
-- an optional category of the matching type;
-- optional dates;
-- membership in an operation group.
-
-If the count is absent, it defaults to one. The effective amount is:
-
-```text
-effective amount = amount per unit × count
-```
-
-A count of zero is allowed and produces an effective amount of zero. Monetary calculations are exact, without binary floating-point rounding.
-
-Dates are used for presentation and do not affect amounts. Dates in `YYYY-MM-DD` format are displayed as `YYYY.MM.DD`; multiple values are separated by a dash.
-
-#### Income
-
-Income credits the effective amount to the specified account:
-
-```text
-account income += effective amount
-```
-
-Income increases both the account balance and the budget's overall balance.
-
-#### Expense
-
-An expense debits the effective amount from the specified account:
-
-```text
-account expenses += effective amount
-```
-
-An expense decreases both the account balance and the budget's overall balance.
-
-#### Transfer
-
-A transfer moves the effective amount between two accounts:
-
-```text
-source account expenses += effective amount
-destination account income += effective amount
-```
-
-A transfer affects the balances of the participating accounts but is not counted as external budget income or expense. It therefore does not change the budget's overall balance.
-
-## Calculation views
-
-The report produces three views of the same entities.
-
-### Base operations
-
-This view includes only base groups. The first period includes the account's opening balance; later periods use the closing balance of the previous base period:
-
-```text
-account balance = opening balance + income − expenses
-overall balance = sum of opening balances + external income − external expenses
-```
-
-### Scenario operations
-
-This view includes only the selected scenario's operations. Opening balances and base operations are excluded. The first period starts at zero; later periods include that scenario's cumulative effect:
-
-```text
-account change = previous change + scenario income − scenario expenses
-overall change = previous overall change + external scenario income − external scenario expenses
-```
-
-### Combined scenario result
-
-This view includes base operations and the operations of one selected scenario. The first period starts with the opening balance; later periods start with the previous result for the same base-and-scenario pair:
-
-```text
-account balance = opening balance
-                + period base income − period base expenses
-                + scenario income − scenario expenses
-```
-
-Base and scenario operations remain visually separate in the combined operation list.
-
-In the HTML report, accounts appear as compact cards. For the base and individual scenarios, the cards show income, expenses, and balance for the current period only. Opening balance and overall balance appear in the "base + scenario" results, where they describe the account's complete state. Categories remain next to the operation list, and tabs switch between multiple scenarios within a section; the period menu opens the selected scenario directly.
-
-## Aggregation
-
-Each view calculates:
+For each period and for the budget summary, the results include:
 
 - each account's opening balance, income, expenses, net change, and closing balance;
 - totals for income, expense, and transfer categories;
 - totals for uncategorized operations;
 - overall external income and expenses;
-- the budget's overall balance or change.
+- the budget's overall closing balance.
 
-Categories with a zero total are hidden. Transfers appear in individual account figures and transfer categories, but are excluded from overall external income and expenses.
+Categories with no amount are omitted from the results. Transfers appear in individual account figures and transfer categories, but are excluded from overall external income and expenses.
 
-## Invariants
+### Invariants
 
 A valid budget follows these rules:
 
-1. Accounts, scenarios, and categories have nonempty identifiers that are unique within their respective types.
-2. An account's opening balance is a finite numeric value.
-3. An operation group refers only to a declared scenario.
-4. Each combination of normalized `scenario` and `period` is unique among operation groups; absent, empty, and whitespace-only `scenario` values are equivalent.
-5. If present, `period` contains one or two values in `YYYY` or `YYYY-MM` format, with a month from `01` through `12`.
-6. An operation cannot declare its own scenario.
-7. Income and expenses refer to an existing account.
-8. Transfers refer to existing source and destination accounts.
-9. An operation's category exists and matches the operation's type.
-10. An operation's amount is nonnegative.
-11. The count is a nonnegative integer.
-12. The budget title and language setting appear at most once each.
+1. Accounts and categories have nonempty identifiers that are unique within their respective kinds.
+2. An account's opening balance is a finite number.
+3. Each period has at most one operation group, and at most one group has no period.
+4. A period has one or two boundaries, each identifying a year or a month within a year.
+5. Income and expenses refer to an account in the budget.
+6. Transfers refer to source and destination accounts in the budget.
+7. An operation's category belongs to the budget and matches its kind.
+8. An operation's amount is nonnegative.
+9. The repetition count is a nonnegative whole number.
+10. A budget has at most one title and one display language.
 
-## Example of entity interaction
+### Example
 
-```xml
-<budget>
-    <head>
-        <title>October 2026 Budget</title>
-        <translation>en</translation>
-        <currency symbol="€">EUR</currency>
+Consider a budget with a bank account opening at 250 and a cash account opening at zero. In one period, the bank receives 1,500 in salary, pays 100 for insurance, and transfers 200 to cash.
 
-        <account description="Bank" balance="250">bank</account>
-        <account description="Cash">cash</account>
-
-        <scenario description="Car sold">car-sold</scenario>
-        <category type="income" description="Salary">salary</category>
-        <category type="expense" description="Insurance">insurance</category>
-        <category type="transfer" description="Cash withdrawal">withdrawal</category>
-    </head>
-
-    <operations period="2026-10">
-        <income account="bank" category="salary">1500</income>
-        <transfer from="bank" to="cash" category="withdrawal">200</transfer>
-    </operations>
-
-    <operations scenario="car-sold" period="2026-10">
-        <expense account="bank" category="insurance">100</expense>
-    </operations>
-</budget>
-```
-
-Here the base balance of the bank account is `250 + 1500 − 200 = 1550`, and the cash balance is `0 + 200 = 200`. The transfer changes how money is distributed between accounts but does not change the overall balance of `1750`. In the `car-sold` scenario, the expense reduces both the bank account's combined balance and the budget's overall balance by `100`.
+The bank closes at 1,450: 250 + 1,500 − 100 − 200. Cash closes at 200. The overall budget closes at 1,650. The transfer changes where the money is held but has no effect on the overall balance.

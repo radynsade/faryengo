@@ -1,6 +1,7 @@
 package languages
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -12,6 +13,7 @@ var (
 	ErrInvalidLanguageCode        = errors.New("invalid language code")
 	ErrInvalidLanguageEnglishName = errors.New("invalid language English name")
 	ErrInvalidLanguageNativeName  = errors.New("invalid language native name")
+	ErrLanguageNotFound           = errors.New("language not found")
 )
 
 var languageCodePattern = regexp.MustCompile(`^[a-z]{2}$`)
@@ -108,4 +110,10 @@ func (l *Language) EnglishName() LanguageEnglishName {
 
 func (l *Language) NativeName() LanguageNativeName {
 	return l.nativeName
+}
+
+// LanguageRepository stores and retrieves languages by code.
+type LanguageRepository interface {
+	Save(ctx context.Context, language *Language) error
+	FindByCode(ctx context.Context, code LanguageCode) (*Language, error)
 }
