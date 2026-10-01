@@ -1,6 +1,7 @@
 package security
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -17,6 +18,7 @@ var (
 	ErrInvalidPasswordHash = errors.New("invalid password hash")
 	ErrInvalidFirstName    = errors.New("invalid first name")
 	ErrInvalidLastName     = errors.New("invalid last name")
+	ErrUserNotFound        = errors.New("user not found")
 )
 
 var phonePattern = regexp.MustCompile(`^\+[1-9][0-9]{1,14}$`)
@@ -127,6 +129,7 @@ type UserID uuid.UUID
 
 type User struct {
 	id           UserID
+	roleID       RoleID
 	email        Email
 	phone        Phone
 	passwordHash PasswordHash
@@ -136,12 +139,17 @@ type User struct {
 
 func NewUser(
 	id UserID,
+	roleID RoleID,
 	email Email,
 	phone Phone,
 	passwordHash PasswordHash,
 	firstName FirstName,
 	lastName LastName,
 ) (*User, error) {
+	if err := roleID.Validate(); err != nil {
+		return nil, fmt.Errorf("create user: %w", err)
+	}
+
 	if err := email.Validate(); err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
 	}
@@ -164,6 +172,7 @@ func NewUser(
 
 	return &User{
 		id:           id,
+		roleID:       roleID,
 		email:        email,
 		phone:        phone,
 		passwordHash: passwordHash,
@@ -178,6 +187,19 @@ func (u *User) ID() UserID {
 
 func (u *User) SetID(id UserID) {
 	u.id = id
+}
+
+func (u *User) RoleID() RoleID {
+	return u.roleID
+}
+
+func (u *User) SetRoleID(roleID RoleID) error {
+	if err := roleID.Validate(); err != nil {
+		return fmt.Errorf("set user role ID: %w", err)
+	}
+
+	u.roleID = roleID
+	return nil
 }
 
 func (u *User) Email() Email {
@@ -243,4 +265,10 @@ func (u *User) SetLastName(lastName LastName) error {
 
 	u.lastName = lastName
 	return nil
+}
+
+// UserRepository stores and retrieves users by ID.
+type UserRepository interface {
+	Save(ctx context.Context, user *User) error
+	FindByID(ctx context.Context, id UserID) (*User, error)
 }

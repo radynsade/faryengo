@@ -132,6 +132,7 @@ func TestUserRejectsZeroValues(t *testing.T) {
 	hash, _ := NewPasswordHash("hash")
 	first, _ := NewFirstName("First")
 	last, _ := NewLastName("Last")
+	roleID := RoleID{1}
 
 	for _, tt := range []struct {
 		name  string
@@ -149,7 +150,7 @@ func TestUserRejectsZeroValues(t *testing.T) {
 		{name: "last name", email: email, phone: phone, hash: hash, first: first, want: ErrInvalidLastName},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			user, err := NewUser(UserID{}, tt.email, tt.phone, tt.hash, tt.first, tt.last)
+			user, err := NewUser(UserID{}, roleID, tt.email, tt.phone, tt.hash, tt.first, tt.last)
 
 			if user != nil || !errors.Is(err, tt.want) {
 				t.Fatalf("NewUser() = (%v, %v), want (nil, %v)", user, err, tt.want)
@@ -157,7 +158,7 @@ func TestUserRejectsZeroValues(t *testing.T) {
 		})
 	}
 
-	user, err := NewUser(UserID{}, email, phone, hash, first, last)
+	user, err := NewUser(UserID{}, roleID, email, phone, hash, first, last)
 
 	if err != nil {
 		t.Fatalf("NewUser() = %v, want nil", err)
@@ -181,7 +182,7 @@ func TestUserRejectsZeroValues(t *testing.T) {
 		})
 	}
 
-	if user.Email() != email || user.Phone() != phone || user.PasswordHash() != hash || user.FirstName() != first || user.LastName() != last {
+	if user.RoleID() != roleID || user.Email() != email || user.Phone() != phone || user.PasswordHash() != hash || user.FirstName() != first || user.LastName() != last {
 		t.Fatal("invalid setters changed user")
 	}
 
@@ -205,5 +206,37 @@ func TestUserRejectsZeroValues(t *testing.T) {
 
 	if user.Email() != newEmail || user.Phone() != newPhone || user.PasswordHash() != newHash || user.FirstName() != newFirst || user.LastName() != newLast {
 		t.Fatal("valid setters did not update user")
+	}
+}
+
+func TestUserRequiresRoleID(t *testing.T) {
+	email, _ := NewEmail("person@example.com")
+	phone, _ := NewPhone("+37123456789")
+	hash, _ := NewPasswordHash("hash")
+	first, _ := NewFirstName("First")
+	last, _ := NewLastName("Last")
+
+	user, err := NewUser(UserID{}, RoleID{}, email, phone, hash, first, last)
+	if user != nil || !errors.Is(err, ErrInvalidRoleID) {
+		t.Fatalf("NewUser(zero RoleID) = (%v, %v), want (nil, %v)", user, err, ErrInvalidRoleID)
+	}
+
+	originalRoleID := RoleID{1}
+	user, err = NewUser(UserID{}, originalRoleID, email, phone, hash, first, last)
+	if err != nil {
+		t.Fatalf("NewUser(valid RoleID) error = %v", err)
+	}
+
+	if err := user.SetRoleID(RoleID{}); !errors.Is(err, ErrInvalidRoleID) {
+		t.Fatalf("SetRoleID(zero) = %v, want %v", err, ErrInvalidRoleID)
+	}
+
+	if user.RoleID() != originalRoleID {
+		t.Fatal("invalid RoleID setter changed user")
+	}
+
+	newRoleID := RoleID{2}
+	if err := user.SetRoleID(newRoleID); err != nil || user.RoleID() != newRoleID {
+		t.Fatalf("SetRoleID(valid) = (%v, %v), want (nil, %v)", err, user.RoleID(), newRoleID)
 	}
 }

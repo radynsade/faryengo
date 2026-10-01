@@ -6,7 +6,17 @@ The Security domain describes a person recognized by the system and the informat
 
 ### User
 
-A user has an identity, an email address, a phone number, a password credential, a first name, and a last name. The identity distinguishes one user from another. Contact details and names may change without changing that identity.
+A user has an identity, a role ID, an email address, a phone number, a password credential, a first name, and a last name. The identity distinguishes one user from another. The role ID identifies the user's role. Contact details and names may change without changing that identity.
+
+### Role
+
+A role has an ID and a list of permissions. A role may have no permissions.
+Each permission in the list must be one of the defined permissions.
+
+### Permission
+
+A permission names an action the system may authorize. The initial permissions
+are `PermissionManageUser` and `PermissionViewUser`.
 
 ### Rules
 
@@ -14,9 +24,10 @@ A user has an identity, an email address, a phone number, a password credential,
 - A phone number uses international notation: a plus sign followed by 2 to 15 digits, with a nonzero first digit. Spaces and punctuation are not allowed.
 - The password credential is stored as a nonempty hash. The domain model does not prescribe a hashing algorithm.
 - First and last names must each contain a non-whitespace character and be no longer than 100 characters.
-- An invalid change to contact details, the credential, or a name leaves the existing value intact.
+- An invalid change to contact details, the credential, a name, a role ID, or role permissions leaves the existing value intact.
+- Role IDs must be nonzero UUIDs.
 
-Authentication flows, sessions, roles, and permissions are outside the current Security model.
+Authentication flows and sessions are outside the current Security model.
 
 ## Finance
 

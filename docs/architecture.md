@@ -4,8 +4,11 @@
 
 We use Domain-Driven Design (DDD). Each domain scope under `internal/`
 contains its aggregates and domain interfaces. The `internal/app/`
-package coordinates use cases, while implementations of domain interfaces live
-in descriptive subdirectories within their domain scope.
+package coordinates use cases. The `internal/config/` package contains the
+configuration struct and utilities to read configuration from environment
+variables, loading `.env` with `godotenv` when present. Neither package is
+a domain scope. Implementations of domain interfaces live in descriptive
+subdirectories within their domain scope.
 
 ## Technological stack
 
@@ -46,7 +49,8 @@ have a purpose; not every directory below needs to exist from the start.
 | Directory | Purpose |
 | --- | --- |
 | `cmd/` | Application entry points. Each executable has its own directory (for example, `cmd/server/`) and wires its dependencies in `main`. |
-| `internal/` | Application code that must not be imported by other repositories. Every directory directly under `internal/` is a domain scope, except `app/`, which contains application-level coordination. Keep domain logic, services, storage, and transport implementations within their scopes. |
+| `internal/` | Application code that must not be imported by other repositories. Every directory directly under `internal/` is a domain scope, except `app/` and `config/`. Keep domain logic, services, storage, and transport implementations within their scopes. |
+| `internal/config/` | Application configuration struct and utilities to load `.env` with `godotenv` and read environment variables. This is not a domain scope. |
 | `internal/<domain>/` | A domain-scoped directory. Put each aggregate in its own `.go` file named after the aggregate (for example, a `User` aggregate belongs in `user.go`). |
 | `internal/<domain>/<implementation_name>/` | Place each implementation of a domain interface in a directory under its domain scope. The team chooses a descriptive implementation name. For example, a `UserRepository` implementation using a pgx PostgreSQL connection pool and the goqu query builder belongs in `internal/security/pgxgoqu/`. |
 | `pkg/` | Packages intended for import by other repositories. Add packages here only when they have a real external consumer. |

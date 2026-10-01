@@ -14,6 +14,7 @@ lint: vet
 build: lint
 	mkdir -p bin
 	go build -o bin/faryen ./cmd/server
+	go build -o bin/migrate ./cmd/migrate
 
 test: lint
 	go test -race -count=1 -timeout 60s ./...
