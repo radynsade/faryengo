@@ -2,6 +2,7 @@ CREATE TYPE permission AS ENUM ('manage_user', 'view_user');
 
 CREATE TABLE "role" (
     id uuid PRIMARY KEY,
+    name_id bigint NOT NULL UNIQUE REFERENCES "text" (id) ON DELETE RESTRICT,
     permissions permission[] NOT NULL DEFAULT ARRAY[]::permission[],
     CONSTRAINT role_id_not_nil CHECK (id <> '00000000-0000-0000-0000-000000000000'::uuid),
     CONSTRAINT role_permissions_valid CHECK (
@@ -9,6 +10,16 @@ CREATE TABLE "role" (
         AND array_position(permissions, NULL::permission) IS NULL
     )
 );
+
+CREATE FUNCTION delete_role_name() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN
+    DELETE FROM "text" WHERE id = OLD.name_id;
+    RETURN NULL;
+END;
+$$;
+
+CREATE TRIGGER delete_role_name AFTER DELETE ON "role"
+FOR EACH ROW EXECUTE FUNCTION delete_role_name();
 
 CREATE TABLE "user" (
     id uuid PRIMARY KEY,

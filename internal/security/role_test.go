@@ -6,24 +6,29 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
+	"github.com/radynsade/faryengo/internal/languages"
 )
 
 func TestNewRole(t *testing.T) {
 	id := RoleID(uuid.UUID{1})
+	name := testName(t)
 
 	for _, tt := range []struct {
 		name        string
 		id          RoleID
 		permissions []Permission
+		roleName    languages.Text
 		wantErr     error
 	}{
-		{name: "empty permissions", id: id},
-		{name: "valid permissions", id: id, permissions: []Permission{PermissionViewUser, PermissionManageUser}},
-		{name: "missing ID", permissions: []Permission{PermissionViewUser}, wantErr: ErrInvalidRoleID},
-		{name: "invalid permission", id: id, permissions: []Permission{"unknown"}, wantErr: ErrInvalidPermission},
+		{name: "empty permissions", id: id, roleName: name},
+		{name: "valid permissions", id: id, roleName: name, permissions: []Permission{PermissionViewUser, PermissionManageUser}},
+		{name: "missing ID", roleName: name, permissions: []Permission{PermissionViewUser}, wantErr: ErrInvalidRoleID},
+		{name: "invalid permission", id: id, roleName: name, permissions: []Permission{"unknown"}, wantErr: ErrInvalidPermission},
+		{name: "missing name", id: id, wantErr: ErrInvalidRoleName},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			role, err := NewRole(tt.id, tt.permissions)
+			role, err := NewRole(tt.id, tt.roleName, tt.permissions)
 			if tt.wantErr != nil {
 				if role != nil || !errors.Is(err, tt.wantErr) {
 					t.Fatalf("NewRole() = (%v, %v), want (nil, %v)", role, err, tt.wantErr)
@@ -36,7 +41,7 @@ func TestNewRole(t *testing.T) {
 				t.Fatalf("NewRole() = (%v, %v), want role and nil error", role, err)
 			}
 
-			if role.ID() != id || !slices.Equal(role.Permissions(), tt.permissions) {
+			if role.ID() != id || len(role.Name()) != len(tt.roleName) || !slices.Equal(role.Permissions(), tt.permissions) {
 				t.Fatalf("NewRole() = (%v, %v), want ID %v and permissions %v", role, err, id, tt.permissions)
 			}
 		})
@@ -46,7 +51,7 @@ func TestNewRole(t *testing.T) {
 func TestRoleChangesPreserveValidState(t *testing.T) {
 	originalID := RoleID(uuid.UUID{1})
 	permissions := []Permission{PermissionViewUser}
-	role, err := NewRole(originalID, permissions)
+	role, err := NewRole(originalID, testName(t), permissions)
 	if err != nil {
 		t.Fatalf("NewRole() error = %v", err)
 	}
@@ -87,5 +92,61 @@ func TestRoleChangesPreserveValidState(t *testing.T) {
 
 	if role.ID() != newID || !slices.Equal(role.Permissions(), []Permission{PermissionManageUser}) {
 		t.Fatal("valid setters did not preserve role state")
+	}
+}
+
+func testName(t *testing.T) languages.Text {
+	t.Helper()
+	translation, err := languages.NewTranslation("en", "Administrator")
+	if err != nil {
+		t.Fatalf("NewTranslation() error = %v", err)
+	}
+
+	name, err := languages.NewText([]languages.Translation{translation})
+	if err != nil {
+		t.Fatalf("NewText() error = %v", err)
+	}
+
+	return name
+}
+
+func TestRoleNamePreservesValidState(t *testing.T) {
+	name := testName(t)
+	role, err := NewRole(RoleID{1}, name, nil)
+	if err != nil {
+		t.Fatalf("NewRole() error = %v", err)
+	}
+
+	delete(name, "en")
+	if len(role.Name()) != 1 {
+		t.Fatal("caller changed role name through constructor input")
+	}
+
+	returned := role.Name()
+	delete(returned, "en")
+	if len(role.Name()) != 1 {
+		t.Fatal("caller changed role name through getter result")
+	}
+
+	if err := role.SetName(nil); !errors.Is(err, ErrInvalidRoleName) {
+		t.Fatalf("SetName(nil) error = %v, want %v", err, ErrInvalidRoleName)
+	}
+
+	if err := role.SetName(languages.Text{"EN": {}}); !errors.Is(err, languages.ErrInvalidLanguageCode) {
+		t.Fatalf("SetName(invalid) error = %v, want invalid language code", err)
+	}
+
+	if len(role.Name()) != 1 {
+		t.Fatal("invalid name setter changed role")
+	}
+
+	newName := testName(t)
+	if err := role.SetName(newName); err != nil {
+		t.Fatalf("SetName(valid) error = %v", err)
+	}
+
+	delete(newName, "en")
+	if len(role.Name()) != 1 {
+		t.Fatal("caller changed role name through setter input")
 	}
 }

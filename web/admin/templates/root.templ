@@ -1,0 +1,24 @@
+package templates
+
+import "github.com/radynsade/faryengo/web/admin/assets"
+
+templ Root() {
+	<!DOCTYPE html>
+	<html>
+		<head>
+			<title></title>
+			<meta charset="UTF-8">
+			<meta name="robots" content="noindex" />
+			<meta name="viewport" content="width=device-width, initial-scale=1" />
+			<link rel="stylesheet" href={ assets.BuiltCSS("src/style.scss") } />
+			<script type="module" src={ assets.BuiltAsset("src/main.ts") }></script>
+		</head>
+		<body
+			hx-boost="true"
+			hx-ext="preload"
+			hx-ext="head-support"
+		>
+			<h1>Hello, world!</h1>
+		</body>
+	</html>
+}

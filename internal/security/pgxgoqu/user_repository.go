@@ -33,15 +33,15 @@ func NewUserRepository(pool *pgxpool.Pool) (*UserRepository, error) {
 	return repository, err
 }
 
-func (r *UserRepository) Save(ctx context.Context, user *security.User) error {
+func (r *UserRepository) Create(ctx context.Context, user *security.User) error {
 	var err error
 
 	if r == nil || r.db == nil {
 		err = ErrNilPool
 	} else if user == nil {
 		err = ErrNilUser
-	} else if _, validationErr := security.NewUser(user.ID(), user.RoleID(), user.Email(), user.Phone(), user.PasswordHash(), user.FirstName(), user.LastName()); validationErr != nil {
-		err = fmt.Errorf("validate user: %w", validationErr)
+	} else if validationErr := validateUser(user); validationErr != nil {
+		err = validationErr
 	} else {
 		id := uuid.UUID(user.ID())
 		roleID := uuid.UUID(user.RoleID())
@@ -49,36 +49,110 @@ func (r *UserRepository) Save(ctx context.Context, user *security.User) error {
 			Insert("user").
 			Cols("id", "role_id", "email", "phone", "password_hash", "first_name", "last_name").
 			Vals(goqu.Vals{
-				id.String(),
-				roleID.String(),
-				string(user.Email()),
-				string(user.Phone()),
-				string(user.PasswordHash()),
-				string(user.FirstName()),
-				string(user.LastName()),
+				id.String(), roleID.String(), string(user.Email()), string(user.Phone()),
+				string(user.PasswordHash()), string(user.FirstName()), string(user.LastName()),
 			}).
-			OnConflict(goqu.DoUpdate("id", goqu.Record{
-				"role_id":       goqu.I("excluded.role_id"),
-				"email":         goqu.I("excluded.email"),
-				"phone":         goqu.I("excluded.phone"),
-				"password_hash": goqu.I("excluded.password_hash"),
-				"first_name":    goqu.I("excluded.first_name"),
-				"last_name":     goqu.I("excluded.last_name"),
-			})).
+			OnConflict(goqu.DoNothing()).
 			Prepared(true).
 			ToSQL()
 
 		if buildErr != nil {
-			err = fmt.Errorf("build save user %s query: %w", id, buildErr)
+			err = fmt.Errorf("build create user %s query: %w", id, buildErr)
 		} else if bindErr := bindUUIDArgs(args, [16]byte(id), [16]byte(roleID)); bindErr != nil {
-			err = fmt.Errorf("build save user %s query: %w", id, bindErr)
+			err = fmt.Errorf("build create user %s query: %w", id, bindErr)
 		} else {
-			_, execErr := r.db.Exec(ctx, query, args...)
+			tag, execErr := r.db.Exec(ctx, query, args...)
 
 			if execErr != nil {
-				err = fmt.Errorf("save user %s: %w", id, execErr)
+				err = fmt.Errorf("create user %s: %w", id, execErr)
+			} else if tag.RowsAffected() == 0 {
+				err = fmt.Errorf("create user %s: %w", id, security.ErrUserAlreadyExists)
 			}
 		}
+	}
+
+	return err
+}
+
+func (r *UserRepository) Update(ctx context.Context, user *security.User) error {
+	var err error
+
+	if r == nil || r.db == nil {
+		err = ErrNilPool
+	} else if user == nil {
+		err = ErrNilUser
+	} else if validationErr := validateUser(user); validationErr != nil {
+		err = validationErr
+	} else {
+		id := uuid.UUID(user.ID())
+		roleID := uuid.UUID(user.RoleID())
+		query, args, buildErr := goqu.Dialect("postgres").
+			Update("user").
+			Set(goqu.Record{
+				"role_id":       roleID.String(),
+				"email":         string(user.Email()),
+				"phone":         string(user.Phone()),
+				"password_hash": string(user.PasswordHash()),
+				"first_name":    string(user.FirstName()),
+				"last_name":     string(user.LastName()),
+			}).
+			Where(goqu.Ex{"id": id.String()}).
+			Prepared(true).
+			ToSQL()
+
+		if buildErr != nil {
+			err = fmt.Errorf("build update user %s query: %w", id, buildErr)
+		} else if bindErr := bindUUIDArgsAt(args, len(args)-2, [16]byte(roleID), [16]byte(id)); bindErr != nil {
+			err = fmt.Errorf("bind update user %s query: %w", id, bindErr)
+		} else {
+			tag, execErr := r.db.Exec(ctx, query, args...)
+
+			if execErr != nil {
+				err = fmt.Errorf("update user %s: %w", id, execErr)
+			} else if tag.RowsAffected() == 0 {
+				err = fmt.Errorf("update user %s: %w", id, security.ErrUserNotFound)
+			}
+		}
+	}
+
+	return err
+}
+
+func (r *UserRepository) Delete(ctx context.Context, id security.UserID) error {
+	var err error
+
+	if r == nil || r.db == nil {
+		err = ErrNilPool
+	} else {
+		userID := uuid.UUID(id)
+		query, args, buildErr := goqu.Dialect("postgres").
+			Delete("user").
+			Where(goqu.Ex{"id": userID.String()}).
+			Prepared(true).
+			ToSQL()
+
+		if buildErr != nil {
+			err = fmt.Errorf("build delete user %s query: %w", userID, buildErr)
+		} else if bindErr := bindUUIDArgs(args, [16]byte(userID)); bindErr != nil {
+			err = fmt.Errorf("bind delete user %s query: %w", userID, bindErr)
+		} else {
+			tag, execErr := r.db.Exec(ctx, query, args...)
+
+			if execErr != nil {
+				err = fmt.Errorf("delete user %s: %w", userID, execErr)
+			} else if tag.RowsAffected() == 0 {
+				err = fmt.Errorf("delete user %s: %w", userID, security.ErrUserNotFound)
+			}
+		}
+	}
+
+	return err
+}
+
+func validateUser(user *security.User) error {
+	_, err := security.NewUser(user.ID(), user.RoleID(), user.Email(), user.Phone(), user.PasswordHash(), user.FirstName(), user.LastName())
+	if err != nil {
+		err = fmt.Errorf("validate user: %w", err)
 	}
 
 	return err

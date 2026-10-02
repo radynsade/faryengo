@@ -1,0 +1,25 @@
+$background: #f6f7f9;
+$text: #1f2937;
+
+:root {
+  font-family: system-ui, sans-serif;
+  color: $text;
+  background: $background;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  margin: 0;
+}
+
+#app {
+  max-width: 72rem;
+  margin: 0 auto;
+  padding: 2rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.75rem;
+  }
+}

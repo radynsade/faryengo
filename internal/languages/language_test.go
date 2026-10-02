@@ -101,19 +101,21 @@ func TestNewLanguage(t *testing.T) {
 	}
 
 	for _, tt := range []struct {
-		name    string
-		code    LanguageCode
-		english LanguageEnglishName
-		native  LanguageNativeName
-		want    error
+		name     string
+		code     LanguageCode
+		english  LanguageEnglishName
+		native   LanguageNativeName
+		fallback bool
+		want     error
 	}{
 		{name: "valid", code: code, english: english, native: native},
+		{name: "fallback", code: code, english: english, native: native, fallback: true},
 		{name: "zero code", english: english, native: native, want: ErrInvalidLanguageCode},
 		{name: "zero English name", code: code, native: native, want: ErrInvalidLanguageEnglishName},
 		{name: "zero native name", code: code, english: english, want: ErrInvalidLanguageNativeName},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			language, err := NewLanguage(tt.code, tt.english, tt.native)
+			language, err := NewLanguage(tt.code, tt.english, tt.native, tt.fallback)
 			if tt.want != nil {
 				if language != nil || !errors.Is(err, tt.want) {
 					t.Fatalf("NewLanguage() = (%v, %v), want (nil, %v)", language, err, tt.want)
@@ -123,7 +125,7 @@ func TestNewLanguage(t *testing.T) {
 			if err != nil || language == nil {
 				t.Fatalf("NewLanguage() = (%v, %v), want language and nil", language, err)
 			}
-			if language.Code() != code || language.EnglishName() != english || language.NativeName() != native {
+			if language.Code() != code || language.EnglishName() != english || language.NativeName() != native || language.IsFallback() != tt.fallback {
 				t.Fatal("NewLanguage() did not retain the supplied values")
 			}
 		})

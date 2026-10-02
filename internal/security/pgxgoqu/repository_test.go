@@ -11,6 +11,7 @@ import (
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/security"
 )
 
@@ -19,17 +20,28 @@ type fakeSecurityDB struct {
 	execQuery    string
 	execArgs     []any
 	execErr      error
+	execTag      pgconn.CommandTag
 	queryContext context.Context
 	query        string
 	queryArgs    []any
 	row          pgx.Row
+	beginErr     error
+	tx           *fakeRoleTx
+}
+
+func (f *fakeSecurityDB) Begin(ctx context.Context) (pgx.Tx, error) {
+	if f.beginErr != nil {
+		return nil, f.beginErr
+	}
+
+	return f.tx, nil
 }
 
 func (f *fakeSecurityDB) Exec(ctx context.Context, query string, args ...any) (pgconn.CommandTag, error) {
 	f.execContext = ctx
 	f.execQuery = query
 	f.execArgs = args
-	return pgconn.CommandTag{}, f.execErr
+	return f.execTag, f.execErr
 }
 
 func (f *fakeSecurityDB) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
@@ -51,6 +63,8 @@ func (r fakeSecurityRow) Scan(destinations ...any) error {
 
 	for index, value := range r.values {
 		switch destination := destinations[index].(type) {
+		case *int64:
+			*destination = value.(int64)
 		case *pgtype.UUID:
 			*destination = value.(pgtype.UUID)
 		case *[]string:
@@ -65,7 +79,7 @@ func (r fakeSecurityRow) Scan(destinations ...any) error {
 
 func testRole(t *testing.T) *security.Role {
 	t.Helper()
-	role, err := security.NewRole(security.RoleID{1}, []security.Permission{
+	role, err := security.NewRole(security.RoleID{1}, testRoleName(t), []security.Permission{
 		security.PermissionViewUser, security.PermissionManageUser,
 	})
 	if err != nil {
@@ -102,66 +116,182 @@ func TestRepositoryConstructorsRejectNilPool(t *testing.T) {
 	}
 }
 
-func TestRoleRepositorySave(t *testing.T) {
+func testRoleName(t *testing.T) languages.Text {
+	t.Helper()
+	english, err := languages.NewTranslation("en", "Administrator")
+	if err != nil {
+		t.Fatalf("NewTranslation() error = %v", err)
+	}
+
+	latvian, err := languages.NewTranslation("lv", "Administrators")
+	if err != nil {
+		t.Fatalf("NewTranslation() error = %v", err)
+	}
+
+	name, err := languages.NewText([]languages.Translation{latvian, english})
+	if err != nil {
+		t.Fatalf("NewText() error = %v", err)
+	}
+
+	return name
+}
+
+type fakeRoleTx struct {
+	pgx.Tx
+	queries    []string
+	args       [][]any
+	rows       []pgx.Row
+	execErr    error
+	execFailOn string
+	commitErr  error
+	committed  bool
+	rolledBack bool
+}
+
+func (t *fakeRoleTx) QueryRow(_ context.Context, query string, args ...any) pgx.Row {
+	t.queries = append(t.queries, query)
+	t.args = append(t.args, args)
+	row := t.rows[0]
+	t.rows = t.rows[1:]
+	return row
+}
+
+func (t *fakeRoleTx) Exec(_ context.Context, query string, args ...any) (pgconn.CommandTag, error) {
+	t.queries = append(t.queries, query)
+	t.args = append(t.args, args)
+	if t.execFailOn == "" || strings.Contains(query, t.execFailOn) {
+		return pgconn.CommandTag{}, t.execErr
+	}
+
+	return pgconn.CommandTag{}, nil
+}
+
+func (t *fakeRoleTx) Commit(context.Context) error {
+	t.committed = true
+	return t.commitErr
+}
+
+func (t *fakeRoleTx) Rollback(context.Context) error {
+	if !t.committed {
+		t.rolledBack = true
+	}
+
+	return nil
+}
+
+func mustRole(t *testing.T, permissions []security.Permission) *security.Role {
+	t.Helper()
+	role, err := security.NewRole(security.RoleID{1}, testRoleName(t), permissions)
+	if err != nil {
+		t.Fatalf("NewRole() error = %v", err)
+	}
+
+	return role
+}
+
+func TestRoleRepositoryCreate(t *testing.T) {
 	ctx := context.Background()
 	for _, tt := range []struct {
-		name     string
-		role     *security.Role
-		execErr  error
-		wantErr  error
-		wantExec bool
+		name       string
+		role       *security.Role
+		insertErr  error
+		beginErr   error
+		execErr    error
+		wantErr    error
+		wantCommit bool
 	}{
-		{name: "upsert", role: testRole(t), wantExec: true},
-		{name: "empty permissions", role: mustRole(t, nil), wantExec: true},
+		{name: "created", role: testRole(t), wantCommit: true},
+		{name: "empty permissions", role: mustRole(t, nil), wantCommit: true},
+		{name: "duplicate", role: testRole(t), insertErr: pgx.ErrNoRows, wantErr: security.ErrRoleAlreadyExists},
 		{name: "nil role", wantErr: ErrNilRole},
 		{name: "invalid role", role: &security.Role{}, wantErr: security.ErrInvalidRoleID},
-		{name: "database error", role: testRole(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantExec: true},
+		{name: "begin error", role: testRole(t), beginErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
+		{name: "translation error", role: testRole(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			db := &fakeSecurityDB{execErr: tt.execErr}
+			tx := &fakeRoleTx{rows: []pgx.Row{
+				fakeSecurityRow{values: []any{int64(10)}},
+				fakeSecurityRow{values: []any{int64(10)}, err: tt.insertErr},
+			}, execErr: tt.execErr, execFailOn: `INSERT INTO "translation"`}
+			db := &fakeSecurityDB{tx: tx, beginErr: tt.beginErr}
 			repository := &RoleRepository{db: db}
-			err := repository.Save(ctx, tt.role)
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("Save() error = %v, want %v", err, tt.wantErr)
+			err := repository.Create(ctx, tt.role)
+			if !errors.Is(err, tt.wantErr) || tx.committed != tt.wantCommit {
+				t.Fatalf("Create() error = %v, committed = %v; want %v and %v", err, tx.committed, tt.wantErr, tt.wantCommit)
 			}
 
-			if (db.execQuery != "") != tt.wantExec {
-				t.Fatalf("Save() executed query = %v, want %v", db.execQuery != "", tt.wantExec)
+			if len(tx.queries) > 0 && tx.rolledBack == tt.wantCommit {
+				t.Fatalf("Create() rolled back = %v, want %v", tx.rolledBack, !tt.wantCommit)
 			}
 
-			if tt.wantExec {
-				if db.execContext != ctx {
-					t.Fatal("Save() did not forward context")
+			if tt.wantCommit {
+				if len(tx.queries) != 4 || !strings.Contains(tx.queries[1], `INSERT INTO "role"`) || !strings.Contains(tx.queries[1], "ON CONFLICT DO NOTHING") || !strings.Contains(tx.queries[1], "::permission[]") || strings.Contains(tx.queries[1], "manage_user") {
+					t.Fatalf("Create() queries = %v, want role insert and two translation inserts", tx.queries)
 				}
 
-				if !strings.Contains(db.execQuery, `INSERT INTO "role"`) || !strings.Contains(db.execQuery, "ON CONFLICT") || !strings.Contains(db.execQuery, `"excluded"."permissions"`) || !strings.Contains(db.execQuery, "::permission[]") || strings.Contains(db.execQuery, "manage_user") {
-					t.Fatalf("Save() query = %q, want parameterized role upsert", db.execQuery)
-				}
-
-				if len(db.execArgs) == 0 || db.execArgs[0] != (pgtype.UUID{Bytes: [16]byte{1}, Valid: true}) {
-					t.Fatalf("Save() args = %v, want native UUID first", db.execArgs)
+				if tx.args[1][0] != (pgtype.UUID{Bytes: [16]byte{1}, Valid: true}) || tx.args[1][1] != int64(10) {
+					t.Fatalf("Create() role args = %v", tx.args[1])
 				}
 
 				if len(tt.role.Permissions()) == 0 {
-					if !strings.Contains(db.execQuery, "ARRAY[]::permission[]") || len(db.execArgs) != 1 {
-						t.Fatalf("Save() = (%q, %v), want empty text array", db.execQuery, db.execArgs)
+					if !strings.Contains(tx.queries[1], "ARRAY[]::permission[]") || len(tx.args[1]) != 2 {
+						t.Fatalf("Create() role args = %v, want empty permissions", tx.args[1])
 					}
-				} else if !strings.Contains(db.execQuery, "ARRAY[$2::permission,$3::permission]::permission[]") || len(db.execArgs) != 3 || db.execArgs[1] != "view_user" || db.execArgs[2] != "manage_user" {
-					t.Fatalf("Save() = (%q, %v), want ordered bound permissions", db.execQuery, db.execArgs)
+				} else if len(tx.args[1]) != 4 || tx.args[1][2] != "view_user" || tx.args[1][3] != "manage_user" {
+					t.Fatalf("Create() role args = %v, want bound permissions", tx.args[1])
+				}
+
+				if tx.args[2][1] != "en" || tx.args[2][2] != "Administrator" || tx.args[3][1] != "lv" {
+					t.Fatalf("Create() translation args = %v", tx.args[2:])
 				}
 			}
 		})
 	}
 }
 
-func mustRole(t *testing.T, permissions []security.Permission) *security.Role {
-	t.Helper()
-	role, err := security.NewRole(security.RoleID{1}, permissions)
-	if err != nil {
-		t.Fatalf("NewRole() error = %v", err)
-	}
+func TestRoleRepositoryUpdate(t *testing.T) {
+	ctx := context.Background()
+	for _, tt := range []struct {
+		name       string
+		role       *security.Role
+		updateErr  error
+		beginErr   error
+		execErr    error
+		wantErr    error
+		wantCommit bool
+	}{
+		{name: "updated", role: testRole(t), wantCommit: true},
+		{name: "clear permissions", role: mustRole(t, nil), wantCommit: true},
+		{name: "not found", role: testRole(t), updateErr: pgx.ErrNoRows, wantErr: security.ErrRoleNotFound},
+		{name: "nil role", wantErr: ErrNilRole},
+		{name: "invalid role", role: &security.Role{}, wantErr: security.ErrInvalidRoleID},
+		{name: "begin error", role: testRole(t), beginErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
+		{name: "translation error", role: testRole(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tx := &fakeRoleTx{rows: []pgx.Row{fakeSecurityRow{values: []any{int64(9)}, err: tt.updateErr}}, execErr: tt.execErr, execFailOn: `INSERT INTO "translation"`}
+			db := &fakeSecurityDB{tx: tx, beginErr: tt.beginErr}
+			repository := &RoleRepository{db: db}
+			err := repository.Update(ctx, tt.role)
+			if !errors.Is(err, tt.wantErr) || tx.committed != tt.wantCommit {
+				t.Fatalf("Update() error = %v, committed = %v; want %v and %v", err, tx.committed, tt.wantErr, tt.wantCommit)
+			}
 
-	return role
+			if len(tx.queries) > 0 && tx.rolledBack == tt.wantCommit {
+				t.Fatalf("Update() rolled back = %v, want %v", tx.rolledBack, !tt.wantCommit)
+			}
+
+			if tt.wantCommit {
+				if len(tx.queries) != 4 || !strings.Contains(tx.queries[0], `UPDATE "role"`) || !strings.Contains(tx.queries[0], `RETURNING "name_id"`) || !strings.Contains(tx.queries[1], `DELETE FROM "translation"`) || tx.args[1][0] != int64(9) {
+					t.Fatalf("Update() queries = %v, args = %v", tx.queries, tx.args)
+				}
+
+				if tx.args[0][len(tx.args[0])-1] != (pgtype.UUID{Bytes: [16]byte{1}, Valid: true}) || tx.args[2][0] != int64(9) || tx.args[3][0] != int64(9) {
+					t.Fatalf("Update() args = %v, want existing role and name ID", tx.args)
+				}
+			}
+		})
+	}
 }
 
 func TestRoleRepositoryFindByID(t *testing.T) {
@@ -175,12 +305,12 @@ func TestRoleRepositoryFindByID(t *testing.T) {
 		wantQuery       bool
 		wantPermissions []security.Permission
 	}{
-		{name: "found", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"view_user", "manage_user"}}}, wantQuery: true, wantPermissions: []security.Permission{security.PermissionViewUser, security.PermissionManageUser}},
-		{name: "found empty", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{}}}, wantQuery: true},
+		{name: "found", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"view_user", "manage_user"}, []string{"en", "lv"}, []string{"Administrator", "Administrators"}}}, wantQuery: true, wantPermissions: []security.Permission{security.PermissionViewUser, security.PermissionManageUser}},
 		{name: "not found", id: security.RoleID{1}, row: fakeSecurityRow{err: pgx.ErrNoRows}, wantErr: security.ErrRoleNotFound, wantQuery: true},
 		{name: "invalid ID", wantErr: security.ErrInvalidRoleID},
 		{name: "scan error", id: security.RoleID{1}, row: fakeSecurityRow{err: context.DeadlineExceeded}, wantErr: context.DeadlineExceeded, wantQuery: true},
-		{name: "invalid stored permission", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"unknown"}}}, wantErr: security.ErrInvalidPermission, wantQuery: true},
+		{name: "invalid stored permission", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"unknown"}, []string{"en"}, []string{"Administrator"}}}, wantErr: security.ErrInvalidPermission, wantQuery: true},
+		{name: "missing translation", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{}, []string{}, []string{}}}, wantErr: security.ErrInvalidRoleName, wantQuery: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			db := &fakeSecurityDB{row: tt.row}
@@ -194,18 +324,12 @@ func TestRoleRepositoryFindByID(t *testing.T) {
 				t.Fatalf("FindByID() queried = %v, want %v", db.query != "", tt.wantQuery)
 			}
 
-			if tt.wantQuery {
-				if db.queryContext != ctx || !strings.Contains(db.query, `FROM "role"`) || !strings.Contains(db.query, `"permissions"::text[]`) || !strings.Contains(db.query, "$1") {
-					t.Fatalf("FindByID() query = %q, context = %v", db.query, db.queryContext)
-				}
-
-				if len(db.queryArgs) != 1 || db.queryArgs[0] != (pgtype.UUID{Bytes: [16]byte{1}, Valid: true}) {
-					t.Fatalf("FindByID() args = %v, want native UUID", db.queryArgs)
-				}
+			if tt.wantQuery && (db.queryContext != ctx || !strings.Contains(db.query, `FROM "role"`) || !strings.Contains(db.query, `"permissions"::text[]`) || !strings.Contains(db.query, `FROM "translation"`) || len(db.queryArgs) != 1 || db.queryArgs[0] != (pgtype.UUID{Bytes: [16]byte{1}, Valid: true})) {
+				t.Fatalf("FindByID() query = %q, args = %v", db.query, db.queryArgs)
 			}
 
 			if tt.wantErr == nil {
-				if role == nil || role.ID() != (security.RoleID{1}) || !slices.Equal(role.Permissions(), tt.wantPermissions) {
+				if role == nil || role.ID() != (security.RoleID{1}) || !slices.Equal(role.Permissions(), tt.wantPermissions) || len(role.Name()) != 2 || role.Name()["en"].Content() != "Administrator" || role.Name()["lv"].Content() != "Administrators" {
 					t.Fatalf("FindByID() role = %v, want stored role", role)
 				}
 			} else if role != nil {
@@ -215,40 +339,102 @@ func TestRoleRepositoryFindByID(t *testing.T) {
 	}
 }
 
-func TestUserRepositorySave(t *testing.T) {
+func TestUserRepositoryCreate(t *testing.T) {
 	ctx := context.Background()
 	for _, tt := range []struct {
 		name     string
 		user     *security.User
+		tag      pgconn.CommandTag
 		execErr  error
 		wantErr  error
 		wantExec bool
 	}{
-		{name: "upsert", user: testUser(t), wantExec: true},
+		{name: "created", user: testUser(t), tag: pgconn.NewCommandTag("INSERT 0 1"), wantExec: true},
+		{name: "duplicate", user: testUser(t), tag: pgconn.NewCommandTag("INSERT 0 0"), wantErr: security.ErrUserAlreadyExists, wantExec: true},
 		{name: "nil user", wantErr: ErrNilUser},
 		{name: "invalid user", user: &security.User{}, wantErr: security.ErrInvalidRoleID},
 		{name: "database error", user: testUser(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantExec: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			db := &fakeSecurityDB{execErr: tt.execErr}
+			db := &fakeSecurityDB{execTag: tt.tag, execErr: tt.execErr}
 			repository := &UserRepository{db: db}
-			err := repository.Save(ctx, tt.user)
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("Save() error = %v, want %v", err, tt.wantErr)
-			}
-
-			if (db.execQuery != "") != tt.wantExec {
-				t.Fatalf("Save() executed query = %v, want %v", db.execQuery != "", tt.wantExec)
+			err := repository.Create(ctx, tt.user)
+			if !errors.Is(err, tt.wantErr) || (db.execQuery != "") != tt.wantExec {
+				t.Fatalf("Create() error = %v, query = %q; want %v and exec %v", err, db.execQuery, tt.wantErr, tt.wantExec)
 			}
 
 			if tt.wantExec {
-				if db.execContext != ctx || !strings.Contains(db.execQuery, `INSERT INTO "user"`) || !strings.Contains(db.execQuery, "ON CONFLICT") || !strings.Contains(db.execQuery, `"excluded"."role_id"`) || strings.Contains(db.execQuery, "person@example.com") {
-					t.Fatalf("Save() query = %q, context = %v", db.execQuery, db.execContext)
+				if db.execContext != ctx || !strings.Contains(db.execQuery, `INSERT INTO "user"`) || !strings.Contains(db.execQuery, "ON CONFLICT DO NOTHING") || strings.Contains(db.execQuery, "person@example.com") {
+					t.Fatalf("Create() query = %q, context = %v", db.execQuery, db.execContext)
 				}
 
 				if len(db.execArgs) != 7 || db.execArgs[0] != (pgtype.UUID{Bytes: [16]byte{2}, Valid: true}) || db.execArgs[1] != (pgtype.UUID{Bytes: [16]byte{1}, Valid: true}) || db.execArgs[2] != "person@example.com" || db.execArgs[4] != "hash" {
-					t.Fatalf("Save() args = %v, want seven bound values with UUIDs first", db.execArgs)
+					t.Fatalf("Create() args = %v, want seven bound values with UUIDs first", db.execArgs)
 				}
+			}
+		})
+	}
+}
+
+func TestUserRepositoryUpdate(t *testing.T) {
+	ctx := context.Background()
+	for _, tt := range []struct {
+		name     string
+		user     *security.User
+		tag      pgconn.CommandTag
+		execErr  error
+		wantErr  error
+		wantExec bool
+	}{
+		{name: "updated", user: testUser(t), tag: pgconn.NewCommandTag("UPDATE 1"), wantExec: true},
+		{name: "not found", user: testUser(t), tag: pgconn.NewCommandTag("UPDATE 0"), wantErr: security.ErrUserNotFound, wantExec: true},
+		{name: "nil user", wantErr: ErrNilUser},
+		{name: "invalid user", user: &security.User{}, wantErr: security.ErrInvalidRoleID},
+		{name: "database error", user: testUser(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantExec: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			db := &fakeSecurityDB{execTag: tt.tag, execErr: tt.execErr}
+			repository := &UserRepository{db: db}
+			err := repository.Update(ctx, tt.user)
+			if !errors.Is(err, tt.wantErr) || (db.execQuery != "") != tt.wantExec {
+				t.Fatalf("Update() error = %v, query = %q; want %v and exec %v", err, db.execQuery, tt.wantErr, tt.wantExec)
+			}
+
+			if tt.wantExec {
+				if db.execContext != ctx || !strings.Contains(db.execQuery, `UPDATE "user"`) || !strings.Contains(db.execQuery, `WHERE ("id" =`) || strings.Contains(db.execQuery, "person@example.com") {
+					t.Fatalf("Update() query = %q, context = %v", db.execQuery, db.execContext)
+				}
+
+				if len(db.execArgs) != 7 || db.execArgs[len(db.execArgs)-2] != (pgtype.UUID{Bytes: [16]byte{1}, Valid: true}) || db.execArgs[len(db.execArgs)-1] != (pgtype.UUID{Bytes: [16]byte{2}, Valid: true}) {
+					t.Fatalf("Update() args = %v, want seven bound values with user ID last", db.execArgs)
+				}
+			}
+		})
+	}
+}
+
+func TestUserRepositoryDelete(t *testing.T) {
+	ctx := context.Background()
+	for _, tt := range []struct {
+		name    string
+		tag     pgconn.CommandTag
+		execErr error
+		wantErr error
+	}{
+		{name: "deleted", tag: pgconn.NewCommandTag("DELETE 1")},
+		{name: "not found", tag: pgconn.NewCommandTag("DELETE 0"), wantErr: security.ErrUserNotFound},
+		{name: "database error", execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			db := &fakeSecurityDB{execTag: tt.tag, execErr: tt.execErr}
+			repository := &UserRepository{db: db}
+			err := repository.Delete(ctx, security.UserID{2})
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Delete() error = %v, want %v", err, tt.wantErr)
+			}
+
+			if db.execContext != ctx || !strings.Contains(db.execQuery, `DELETE FROM "user"`) || !strings.Contains(db.execQuery, `WHERE ("id" =`) || len(db.execArgs) != 1 || db.execArgs[0] != (pgtype.UUID{Bytes: [16]byte{2}, Valid: true}) {
+				t.Fatalf("Delete() query = %q, args = %v, context = %v", db.execQuery, db.execArgs, db.execContext)
 			}
 		})
 	}
@@ -299,16 +485,28 @@ func TestRepositoryNilReceivers(t *testing.T) {
 	ctx := context.Background()
 	var roleRepository *RoleRepository
 	var userRepository *UserRepository
-	if err := roleRepository.Save(ctx, testRole(t)); !errors.Is(err, ErrNilPool) {
-		t.Fatalf("RoleRepository.Save(nil receiver) = %v, want %v", err, ErrNilPool)
+	if err := roleRepository.Create(ctx, testRole(t)); !errors.Is(err, ErrNilPool) {
+		t.Fatalf("RoleRepository.Create(nil receiver) = %v, want %v", err, ErrNilPool)
+	}
+
+	if err := roleRepository.Update(ctx, testRole(t)); !errors.Is(err, ErrNilPool) {
+		t.Fatalf("RoleRepository.Update(nil receiver) = %v, want %v", err, ErrNilPool)
 	}
 
 	if _, err := roleRepository.FindByID(ctx, security.RoleID{1}); !errors.Is(err, ErrNilPool) {
 		t.Fatalf("RoleRepository.FindByID(nil receiver) = %v, want %v", err, ErrNilPool)
 	}
 
-	if err := userRepository.Save(ctx, testUser(t)); !errors.Is(err, ErrNilPool) {
-		t.Fatalf("UserRepository.Save(nil receiver) = %v, want %v", err, ErrNilPool)
+	if err := userRepository.Create(ctx, testUser(t)); !errors.Is(err, ErrNilPool) {
+		t.Fatalf("UserRepository.Create(nil receiver) = %v, want %v", err, ErrNilPool)
+	}
+
+	if err := userRepository.Update(ctx, testUser(t)); !errors.Is(err, ErrNilPool) {
+		t.Fatalf("UserRepository.Update(nil receiver) = %v, want %v", err, ErrNilPool)
+	}
+
+	if err := userRepository.Delete(ctx, security.UserID{2}); !errors.Is(err, ErrNilPool) {
+		t.Fatalf("UserRepository.Delete(nil receiver) = %v, want %v", err, ErrNilPool)
 	}
 
 	if _, err := userRepository.FindByID(ctx, security.UserID{2}); !errors.Is(err, ErrNilPool) {
@@ -319,5 +517,9 @@ func TestRepositoryNilReceivers(t *testing.T) {
 func TestBindUUIDArgsRejectsMissingArguments(t *testing.T) {
 	if err := bindUUIDArgs(nil, [16]byte{1}); err == nil {
 		t.Fatal("bindUUIDArgs(nil) = nil, want an error")
+	}
+
+	if err := bindUUIDArgsAt([]any{"value"}, 1, [16]byte{1}); err == nil {
+		t.Fatal("bindUUIDArgsAt(out of range) = nil, want an error")
 	}
 }

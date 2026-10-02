@@ -19,6 +19,7 @@ var (
 	ErrInvalidFirstName    = errors.New("invalid first name")
 	ErrInvalidLastName     = errors.New("invalid last name")
 	ErrUserNotFound        = errors.New("user not found")
+	ErrUserAlreadyExists   = errors.New("user already exists")
 )
 
 var phonePattern = regexp.MustCompile(`^\+[1-9][0-9]{1,14}$`)
@@ -267,8 +268,9 @@ func (u *User) SetLastName(lastName LastName) error {
 	return nil
 }
 
-// UserRepository stores and retrieves users by ID.
 type UserRepository interface {
-	Save(ctx context.Context, user *User) error
+	Create(ctx context.Context, user *User) error
+	Update(ctx context.Context, user *User) error
+	Delete(ctx context.Context, id UserID) error
 	FindByID(ctx context.Context, id UserID) (*User, error)
 }

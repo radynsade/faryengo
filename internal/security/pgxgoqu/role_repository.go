@@ -8,16 +8,23 @@ import (
 
 	"github.com/doug-martin/goqu/v9"
 	_ "github.com/doug-martin/goqu/v9/dialect/postgres"
+	"github.com/doug-martin/goqu/v9/exp"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/security"
 )
 
+type roleDB interface {
+	Begin(ctx context.Context) (pgx.Tx, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
 type RoleRepository struct {
-	db securityDB
+	db roleDB
 }
 
 var _ security.RoleRepository = (*RoleRepository)(nil)
@@ -35,50 +42,175 @@ func NewRoleRepository(pool *pgxpool.Pool) (*RoleRepository, error) {
 	return repository, err
 }
 
-func (r *RoleRepository) Save(ctx context.Context, role *security.Role) error {
+func (r *RoleRepository) Create(ctx context.Context, role *security.Role) error {
 	var err error
 
 	if r == nil || r.db == nil {
 		err = ErrNilPool
 	} else if role == nil {
 		err = ErrNilRole
-	} else if _, validationErr := security.NewRole(role.ID(), role.Permissions()); validationErr != nil {
-		err = fmt.Errorf("validate role: %w", validationErr)
+	} else if validationErr := validateRole(role); validationErr != nil {
+		err = validationErr
 	} else {
-		id := uuid.UUID(role.ID())
-		permissions := role.Permissions()
-		placeholders := make([]string, len(permissions))
-		values := make([]any, len(permissions))
-		for index, permission := range permissions {
-			placeholders[index] = "?::permission"
-			values[index] = string(permission)
-		}
-
-		array := goqu.L("ARRAY["+strings.Join(placeholders, ",")+"]::permission[]", values...)
-		query, args, buildErr := goqu.Dialect("postgres").
-			Insert("role").
-			Cols("id", "permissions").
-			Vals(goqu.Vals{id.String(), array}).
-			OnConflict(goqu.DoUpdate("id", goqu.Record{
-				"permissions": goqu.I("excluded.permissions"),
-			})).
-			Prepared(true).
-			ToSQL()
-
-		if buildErr != nil {
-			err = fmt.Errorf("build save role %s query: %w", id, buildErr)
-		} else if bindErr := bindUUIDArgs(args, [16]byte(id)); bindErr != nil {
-			err = fmt.Errorf("build save role %s query: %w", id, bindErr)
-		} else {
-			_, execErr := r.db.Exec(ctx, query, args...)
-
-			if execErr != nil {
-				err = fmt.Errorf("save role %s: %w", id, execErr)
-			}
-		}
+		err = r.createValidRole(ctx, role)
 	}
 
 	return err
+}
+
+func (r *RoleRepository) createValidRole(ctx context.Context, role *security.Role) error {
+	id := uuid.UUID(role.ID())
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin create role %s: %w", id, err)
+	}
+
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var nameID int64
+	err = tx.QueryRow(ctx, `INSERT INTO "text" DEFAULT VALUES RETURNING id`).Scan(&nameID)
+	if err != nil {
+		return fmt.Errorf("create name for role %s: %w", id, err)
+	}
+
+	query, args, err := goqu.Dialect("postgres").
+		Insert("role").
+		Cols("id", "name_id", "permissions").
+		Vals(goqu.Vals{id.String(), nameID, rolePermissionsArray(role.Permissions())}).
+		OnConflict(goqu.DoNothing()).
+		Returning("name_id").
+		Prepared(true).
+		ToSQL()
+	if err != nil {
+		return fmt.Errorf("build create role %s query: %w", id, err)
+	}
+
+	if err = bindUUIDArgs(args, [16]byte(id)); err != nil {
+		return fmt.Errorf("bind create role %s query: %w", id, err)
+	}
+
+	var insertedNameID int64
+	err = tx.QueryRow(ctx, query, args...).Scan(&insertedNameID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("create role %s: %w", id, security.ErrRoleAlreadyExists)
+	} else if err != nil {
+		return fmt.Errorf("create role %s: %w", id, err)
+	}
+
+	if err = writeRoleTranslations(ctx, tx, id, insertedNameID, role.Name()); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit create role %s: %w", id, err)
+	}
+
+	return nil
+}
+
+func (r *RoleRepository) Update(ctx context.Context, role *security.Role) error {
+	var err error
+
+	if r == nil || r.db == nil {
+		err = ErrNilPool
+	} else if role == nil {
+		err = ErrNilRole
+	} else if validationErr := validateRole(role); validationErr != nil {
+		err = validationErr
+	} else {
+		err = r.updateValidRole(ctx, role)
+	}
+
+	return err
+}
+
+func (r *RoleRepository) updateValidRole(ctx context.Context, role *security.Role) error {
+	id := uuid.UUID(role.ID())
+	tx, err := r.db.Begin(ctx)
+	if err != nil {
+		return fmt.Errorf("begin update role %s: %w", id, err)
+	}
+
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	query, args, err := goqu.Dialect("postgres").
+		Update("role").
+		Set(goqu.Record{"permissions": rolePermissionsArray(role.Permissions())}).
+		Where(goqu.Ex{"id": id.String()}).
+		Returning("name_id").
+		Prepared(true).
+		ToSQL()
+	if err != nil {
+		return fmt.Errorf("build update role %s query: %w", id, err)
+	}
+
+	if err = bindUUIDArgsAt(args, len(args)-1, [16]byte(id)); err != nil {
+		return fmt.Errorf("bind update role %s query: %w", id, err)
+	}
+
+	var nameID int64
+	err = tx.QueryRow(ctx, query, args...).Scan(&nameID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return fmt.Errorf("update role %s: %w", id, security.ErrRoleNotFound)
+	} else if err != nil {
+		return fmt.Errorf("update role %s: %w", id, err)
+	}
+
+	_, err = tx.Exec(ctx, `DELETE FROM "translation" WHERE text_id = $1`, nameID)
+	if err != nil {
+		return fmt.Errorf("replace name for role %s: %w", id, err)
+	}
+
+	if err = writeRoleTranslations(ctx, tx, id, nameID, role.Name()); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(ctx); err != nil {
+		return fmt.Errorf("commit update role %s: %w", id, err)
+	}
+
+	return nil
+}
+
+func validateRole(role *security.Role) error {
+	_, err := security.NewRole(role.ID(), role.Name(), role.Permissions())
+	if err != nil {
+		err = fmt.Errorf("validate role: %w", err)
+	}
+
+	return err
+}
+
+func rolePermissionsArray(permissions []security.Permission) exp.LiteralExpression {
+	placeholders := make([]string, len(permissions))
+	values := make([]any, len(permissions))
+	for index, permission := range permissions {
+		placeholders[index] = "?::permission"
+		values[index] = string(permission)
+	}
+
+	return goqu.L("ARRAY["+strings.Join(placeholders, ",")+"]::permission[]", values...)
+}
+
+func writeRoleTranslations(ctx context.Context, tx pgx.Tx, id uuid.UUID, nameID int64, name languages.Text) error {
+	for _, translation := range name.Translations() {
+		query, args, err := goqu.Dialect("postgres").
+			Insert("translation").
+			Cols("text_id", "language_code", "content").
+			Vals(goqu.Vals{nameID, string(translation.LanguageCode()), translation.Content()}).
+			Prepared(true).
+			ToSQL()
+		if err != nil {
+			return fmt.Errorf("build name translation for role %s: %w", id, err)
+		}
+
+		_, err = tx.Exec(ctx, query, args...)
+		if err != nil {
+			return fmt.Errorf("write name translation for role %s: %w", id, err)
+		}
+	}
+
+	return nil
 }
 
 func (r *RoleRepository) FindByID(ctx context.Context, id security.RoleID) (*security.Role, error) {
@@ -93,7 +225,9 @@ func (r *RoleRepository) FindByID(ctx context.Context, id security.RoleID) (*sec
 		storedID := uuid.UUID(id)
 		query, args, buildErr := goqu.Dialect("postgres").
 			From("role").
-			Select("id", goqu.L(`"permissions"::text[]`)).
+			Select("id", goqu.L(`"permissions"::text[]`),
+				goqu.L(`ARRAY(SELECT language_code FROM "translation" WHERE text_id = "role".name_id ORDER BY language_code)`),
+				goqu.L(`ARRAY(SELECT content FROM "translation" WHERE text_id = "role".name_id ORDER BY language_code)`)).
 			Where(goqu.Ex{"id": storedID.String()}).
 			Prepared(true).
 			ToSQL()
@@ -105,7 +239,9 @@ func (r *RoleRepository) FindByID(ctx context.Context, id security.RoleID) (*sec
 		} else {
 			var rowID pgtype.UUID
 			var rawPermissions []string
-			scanErr := r.db.QueryRow(ctx, query, args...).Scan(&rowID, &rawPermissions)
+			var codes []string
+			var contents []string
+			scanErr := r.db.QueryRow(ctx, query, args...).Scan(&rowID, &rawPermissions, &codes, &contents)
 
 			if errors.Is(scanErr, pgx.ErrNoRows) {
 				err = fmt.Errorf("find role %s: %w", storedID, security.ErrRoleNotFound)
@@ -117,9 +253,32 @@ func (r *RoleRepository) FindByID(ctx context.Context, id security.RoleID) (*sec
 					permissions[index] = security.Permission(permission)
 				}
 
-				role, err = security.NewRole(security.RoleID(rowID.Bytes), permissions)
-				if err != nil {
-					err = fmt.Errorf("decode role %s: %w", storedID, err)
+				translations := make([]languages.Translation, 0, len(codes))
+				if len(codes) != len(contents) {
+					err = fmt.Errorf("decode role %s: mismatched name translations", storedID)
+				} else {
+					for index, code := range codes {
+						var translation languages.Translation
+						translation, err = languages.NewTranslation(languages.LanguageCode(code), contents[index])
+						if err != nil {
+							err = fmt.Errorf("decode role %s name: %w", storedID, err)
+							break
+						}
+
+						translations = append(translations, translation)
+					}
+
+					if err == nil {
+						var name languages.Text
+						name, err = languages.NewText(translations)
+						if err == nil {
+							role, err = security.NewRole(security.RoleID(rowID.Bytes), name, permissions)
+						}
+
+						if err != nil {
+							err = fmt.Errorf("decode role %s: %w", storedID, err)
+						}
+					}
 				}
 			}
 		}

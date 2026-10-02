@@ -50,6 +50,7 @@ have a purpose; not every directory below needs to exist from the start.
 | --- | --- |
 | `cmd/` | Application entry points. Each executable has its own directory (for example, `cmd/server/`) and wires its dependencies in `main`. |
 | `internal/` | Application code that must not be imported by other repositories. Every directory directly under `internal/` is a domain scope, except `app/` and `config/`. Keep domain logic, services, storage, and transport implementations within their scopes. |
+| `internal/app/input/` | Application service input values and their validation. This is not a domain scope. |
 | `internal/config/` | Application configuration struct and utilities to load `.env` with `godotenv` and read environment variables. This is not a domain scope. |
 | `internal/<domain>/` | A domain-scoped directory. Put each aggregate in its own `.go` file named after the aggregate (for example, a `User` aggregate belongs in `user.go`). |
 | `internal/<domain>/<implementation_name>/` | Place each implementation of a domain interface in a directory under its domain scope. The team chooses a descriptive implementation name. For example, a `UserRepository` implementation using a pgx PostgreSQL connection pool and the goqu query builder belongs in `internal/security/pgxgoqu/`. |

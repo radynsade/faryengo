@@ -29,3 +29,5 @@ already applied schema; do not edit an applied migration. Version `000000`
 creates `public.schema_migration`; rolling it back drops the table. If a database
 has the previous `public.schema_migrations` table, the command stops so its
 history can be reconciled before using the new table.
+
+Migration `000003_add_language_fallback` adds the language fallback flag, defaults existing languages to `false`, and enforces a single fallback. It protects a fallback with translations from deletion or clearing its flag. Apply it before using the updated language repository or the CLI's `--fallback` option.

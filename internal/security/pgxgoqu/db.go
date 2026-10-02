@@ -22,12 +22,16 @@ type securityDB interface {
 }
 
 func bindUUIDArgs(args []any, ids ...[16]byte) error {
-	if len(args) < len(ids) {
+	return bindUUIDArgsAt(args, 0, ids...)
+}
+
+func bindUUIDArgsAt(args []any, start int, ids ...[16]byte) error {
+	if start < 0 || len(args)-start < len(ids) {
 		return fmt.Errorf("bind UUID arguments: got %d, need %d", len(args), len(ids))
 	}
 
 	for index, id := range ids {
-		args[index] = pgtype.UUID{Bytes: id, Valid: true}
+		args[start+index] = pgtype.UUID{Bytes: id, Valid: true}
 	}
 
 	return nil

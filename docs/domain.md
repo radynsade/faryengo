@@ -8,9 +8,11 @@ The Security domain describes a person recognized by the system and the informat
 
 A user has an identity, a role ID, an email address, a phone number, a password credential, a first name, and a last name. The identity distinguishes one user from another. The role ID identifies the user's role. Contact details and names may change without changing that identity.
 
+The application `UserService` creates users with a generated UUID and a hashed password. Updates replace the role, contact details, and names; omitting a new password preserves the current hash. Deletion uses the user ID. The service validates inputs before accessing the repository.
+
 ### Role
 
-A role has an ID and a list of permissions. A role may have no permissions.
+A role has an ID, a translated name, and a list of permissions. The name contains at least one translation. A role may have no permissions.
 Each permission in the list must be one of the defined permissions.
 
 ### Permission
@@ -22,12 +24,18 @@ are `PermissionManageUser` and `PermissionViewUser`.
 
 - An email address identifies one mailbox. It cannot include a display name or surrounding whitespace.
 - A phone number uses international notation: a plus sign followed by 2 to 15 digits, with a nonzero first digit. Spaces and punctuation are not allowed.
-- The password credential is stored as a nonempty hash. The domain model does not prescribe a hashing algorithm.
+- The password credential is stored as a nonempty hash. `PasswordHasher` rejects empty passwords when hashing and verifies candidates against stored credentials. The Argon2id implementation uses 64 MiB, three passes, four lanes, a random 16-byte salt, and a 32-byte derived key. Its encoded hash includes the algorithm version and parameters.
 - First and last names must each contain a non-whitespace character and be no longer than 100 characters.
 - An invalid change to contact details, the credential, a name, a role ID, or role permissions leaves the existing value intact.
 - Role IDs must be nonzero UUIDs.
 
 Authentication flows and sessions are outside the current Security model.
+
+## Languages
+
+A language has a code, English and native names, and an `IsFallback` flag. The fallback identifies the language to use when the requested translation is missing. Languages default to non-fallback, and at most one language may be the fallback.
+
+`LanguageRepository.FindFallback` returns the configured fallback or `ErrLanguageNotFound` when none exists. Creating a second fallback returns `ErrFallbackLanguageAlreadyExists`. A fallback used by existing translations cannot be deleted or unset; attempts return `ErrFallbackLanguageAlreadyInUse`. These rules are enforced in PostgreSQL as well as during application creation. The existing restriction on deleting any language with translations still applies.
 
 ## Finance
 

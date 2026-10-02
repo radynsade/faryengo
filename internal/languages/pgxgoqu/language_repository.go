@@ -43,42 +43,104 @@ func NewLanguageRepository(pool *pgxpool.Pool) (*LanguageRepository, error) {
 	return repository, err
 }
 
-func (r *LanguageRepository) Save(ctx context.Context, language *languages.Language) error {
+// Create inserts a language, rejecting duplicate codes and a second fallback.
+func (r *LanguageRepository) Create(ctx context.Context, language *languages.Language) error {
 	var err error
 
 	if r == nil || r.db == nil {
 		err = ErrNilPool
 	} else if language == nil {
 		err = ErrNilLanguage
+	} else if validationErr := validateLanguage(language); validationErr != nil {
+		err = validationErr
 	} else {
-		err = validateLanguage(language)
+		code := string(language.Code())
+		query, args, buildErr := goqu.Dialect("postgres").
+			Insert("language").
+			Rows(goqu.Record{
+				"code":         code,
+				"english_name": string(language.EnglishName()),
+				"native_name":  string(language.NativeName()),
+				"is_fallback":  language.IsFallback(),
+			}).
+			Prepared(true).
+			ToSQL()
 
-		if err == nil {
-			code := string(language.Code())
-			englishName := string(language.EnglishName())
-			nativeName := string(language.NativeName())
-			query, args, buildErr := goqu.Dialect("postgres").
-				Insert("language").
-				Rows(goqu.Record{
-					"code":         code,
-					"english_name": englishName,
-					"native_name":  nativeName,
-				}).
-				OnConflict(goqu.DoUpdate("code", goqu.Record{
-					"english_name": englishName,
-					"native_name":  nativeName,
-				})).
-				Prepared(true).
-				ToSQL()
+		if buildErr != nil {
+			err = fmt.Errorf("build create language %s query: %w", code, buildErr)
+		} else {
+			_, execErr := r.db.Exec(ctx, query, args...)
 
-			if buildErr != nil {
-				err = fmt.Errorf("build save language %s query: %w", code, buildErr)
-			} else {
-				_, execErr := r.db.Exec(ctx, query, args...)
+			if execErr != nil {
+				err = fmt.Errorf("create language %s: %w", code, mapLanguageError(execErr))
+			}
+		}
+	}
 
-				if execErr != nil {
-					err = fmt.Errorf("save language %s: %w", code, execErr)
-				}
+	return err
+}
+
+func (r *LanguageRepository) Update(ctx context.Context, language *languages.Language) error {
+	var err error
+
+	if r == nil || r.db == nil {
+		err = ErrNilPool
+	} else if language == nil {
+		err = ErrNilLanguage
+	} else if validationErr := validateLanguage(language); validationErr != nil {
+		err = validationErr
+	} else {
+		code := string(language.Code())
+		query, args, buildErr := goqu.Dialect("postgres").
+			Update("language").
+			Set(goqu.Record{
+				"english_name": string(language.EnglishName()),
+				"native_name":  string(language.NativeName()),
+				"is_fallback":  language.IsFallback(),
+			}).
+			Where(goqu.Ex{"code": code}).
+			Prepared(true).
+			ToSQL()
+
+		if buildErr != nil {
+			err = fmt.Errorf("build update language %s query: %w", code, buildErr)
+		} else {
+			tag, execErr := r.db.Exec(ctx, query, args...)
+
+			if execErr != nil {
+				err = fmt.Errorf("update language %s: %w", code, mapLanguageError(execErr))
+			} else if tag.RowsAffected() == 0 {
+				err = fmt.Errorf("update language %s: %w", code, languages.ErrLanguageNotFound)
+			}
+		}
+	}
+
+	return err
+}
+
+func (r *LanguageRepository) Delete(ctx context.Context, code languages.LanguageCode) error {
+	var err error
+
+	if r == nil || r.db == nil {
+		err = ErrNilPool
+	} else if validationErr := code.Validate(); validationErr != nil {
+		err = fmt.Errorf("delete language: %w", validationErr)
+	} else {
+		query, args, buildErr := goqu.Dialect("postgres").
+			Delete("language").
+			Where(goqu.Ex{"code": string(code)}).
+			Prepared(true).
+			ToSQL()
+
+		if buildErr != nil {
+			err = fmt.Errorf("build delete language %s query: %w", code, buildErr)
+		} else {
+			tag, execErr := r.db.Exec(ctx, query, args...)
+
+			if execErr != nil {
+				err = fmt.Errorf("delete language %s: %w", code, mapLanguageError(execErr))
+			} else if tag.RowsAffected() == 0 {
+				err = fmt.Errorf("delete language %s: %w", code, languages.ErrLanguageNotFound)
 			}
 		}
 	}
@@ -95,40 +157,90 @@ func (r *LanguageRepository) FindByCode(ctx context.Context, code languages.Lang
 	} else if validationErr := code.Validate(); validationErr != nil {
 		err = fmt.Errorf("find language by code: %w", validationErr)
 	} else {
-		query, args, buildErr := goqu.Dialect("postgres").
-			From("language").
-			Select("code", "english_name", "native_name").
-			Where(goqu.Ex{"code": string(code)}).
-			Prepared(true).
-			ToSQL()
+		language, err = r.find(ctx, goqu.Ex{"code": string(code)})
 
-		if buildErr != nil {
-			err = fmt.Errorf("build find language %s query: %w", code, buildErr)
+		if err != nil {
+			err = fmt.Errorf("find language %s: %w", code, err)
+		}
+	}
+
+	return language, err
+}
+
+// FindFallback returns ErrLanguageNotFound when no fallback is configured.
+func (r *LanguageRepository) FindFallback(ctx context.Context) (*languages.Language, error) {
+	var language *languages.Language
+	var err error
+
+	if r == nil || r.db == nil {
+		err = ErrNilPool
+	} else {
+		language, err = r.find(ctx, goqu.Ex{"is_fallback": true})
+
+		if err != nil {
+			err = fmt.Errorf("find fallback language: %w", err)
+		}
+	}
+
+	return language, err
+}
+
+func (r *LanguageRepository) find(ctx context.Context, filter goqu.Ex) (*languages.Language, error) {
+	var language *languages.Language
+	var err error
+	query, args, buildErr := goqu.Dialect("postgres").
+		From("language").
+		Select("code", "english_name", "native_name", "is_fallback").
+		Where(filter).
+		Prepared(true).
+		ToSQL()
+
+	if buildErr != nil {
+		err = fmt.Errorf("build language lookup query: %w", buildErr)
+	} else {
+		var storedCode string
+		var englishName string
+		var nativeName string
+		var isFallback bool
+		scanErr := r.db.QueryRow(ctx, query, args...).Scan(&storedCode, &englishName, &nativeName, &isFallback)
+
+		if errors.Is(scanErr, pgx.ErrNoRows) {
+			err = languages.ErrLanguageNotFound
+		} else if scanErr != nil {
+			err = fmt.Errorf("scan language: %w", scanErr)
 		} else {
-			var storedCode string
-			var englishName string
-			var nativeName string
-			scanErr := r.db.QueryRow(ctx, query, args...).Scan(&storedCode, &englishName, &nativeName)
+			language, err = languages.NewLanguage(
+				languages.LanguageCode(storedCode),
+				languages.LanguageEnglishName(englishName),
+				languages.LanguageNativeName(nativeName),
+				isFallback,
+			)
 
-			if errors.Is(scanErr, pgx.ErrNoRows) {
-				err = fmt.Errorf("find language %s: %w", code, languages.ErrLanguageNotFound)
-			} else if scanErr != nil {
-				err = fmt.Errorf("find language %s: %w", code, scanErr)
-			} else {
-				language, err = languages.NewLanguage(
-					languages.LanguageCode(storedCode),
-					languages.LanguageEnglishName(englishName),
-					languages.LanguageNativeName(nativeName),
-				)
-
-				if err != nil {
-					err = fmt.Errorf("decode language %s: %w", code, err)
-				}
+			if err != nil {
+				err = fmt.Errorf("decode language: %w", err)
 			}
 		}
 	}
 
 	return language, err
+}
+
+func mapLanguageError(err error) error {
+	var postgresErr *pgconn.PgError
+	result := err
+
+	if errors.As(err, &postgresErr) {
+		switch {
+		case postgresErr.Code == "23505" && postgresErr.ConstraintName == "language_is_fallback_true":
+			result = errors.Join(languages.ErrFallbackLanguageAlreadyExists, err)
+		case postgresErr.Code == "23505" && postgresErr.ConstraintName == "language_pkey":
+			result = errors.Join(languages.ErrLanguageAlreadyExists, err)
+		case postgresErr.Code == "23514" && postgresErr.ConstraintName == "language_fallback_in_use":
+			result = errors.Join(languages.ErrFallbackLanguageAlreadyInUse, err)
+		}
+	}
+
+	return result
 }
 
 func validateLanguage(language *languages.Language) error {

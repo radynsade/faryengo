@@ -10,10 +10,13 @@ import (
 )
 
 var (
-	ErrInvalidLanguageCode        = errors.New("invalid language code")
-	ErrInvalidLanguageEnglishName = errors.New("invalid language English name")
-	ErrInvalidLanguageNativeName  = errors.New("invalid language native name")
-	ErrLanguageNotFound           = errors.New("language not found")
+	ErrInvalidLanguageCode           = errors.New("invalid language code")
+	ErrInvalidLanguageEnglishName    = errors.New("invalid language English name")
+	ErrInvalidLanguageNativeName     = errors.New("invalid language native name")
+	ErrLanguageNotFound              = errors.New("language not found")
+	ErrLanguageAlreadyExists         = errors.New("language already exists")
+	ErrFallbackLanguageAlreadyExists = errors.New("fallback language already exists")
+	ErrFallbackLanguageAlreadyInUse  = errors.New("fallback language already in use")
 )
 
 var languageCodePattern = regexp.MustCompile(`^[a-z]{2}$`)
@@ -82,9 +85,10 @@ type Language struct {
 	code        LanguageCode
 	englishName LanguageEnglishName
 	nativeName  LanguageNativeName
+	isFallback  bool
 }
 
-func NewLanguage(code LanguageCode, englishName LanguageEnglishName, nativeName LanguageNativeName) (*Language, error) {
+func NewLanguage(code LanguageCode, englishName LanguageEnglishName, nativeName LanguageNativeName, isFallback bool) (*Language, error) {
 	if err := code.Validate(); err != nil {
 		return nil, fmt.Errorf("create language: %w", err)
 	}
@@ -97,7 +101,7 @@ func NewLanguage(code LanguageCode, englishName LanguageEnglishName, nativeName 
 		return nil, fmt.Errorf("create language: %w", err)
 	}
 
-	return &Language{code: code, englishName: englishName, nativeName: nativeName}, nil
+	return &Language{code: code, englishName: englishName, nativeName: nativeName, isFallback: isFallback}, nil
 }
 
 func (l *Language) Code() LanguageCode {
@@ -112,8 +116,19 @@ func (l *Language) NativeName() LanguageNativeName {
 	return l.nativeName
 }
 
-// LanguageRepository stores and retrieves languages by code.
+func (l *Language) IsFallback() bool {
+	return l.isFallback
+}
+
+func (l *Language) SetIsFallback(isFallback bool) {
+	l.isFallback = isFallback
+}
+
+// LanguageRepository stores and retrieves languages.
 type LanguageRepository interface {
-	Save(ctx context.Context, language *Language) error
+	Create(ctx context.Context, language *Language) error
+	Update(ctx context.Context, language *Language) error
+	Delete(ctx context.Context, code LanguageCode) error
 	FindByCode(ctx context.Context, code LanguageCode) (*Language, error)
+	FindFallback(ctx context.Context) (*Language, error)
 }
