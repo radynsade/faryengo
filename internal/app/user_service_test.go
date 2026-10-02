@@ -139,12 +139,13 @@ func TestUserServiceUpdate(t *testing.T) {
 		wantWrite   int
 	}{
 		{name: "preserve password", request: validUpdateUserInput(), stored: stored, wantHash: "old-hash", wantFind: 1, wantWrite: 1},
-		{name: "change password", request: withPassword, wantHash: "new-hash", wantHashOps: 1, wantWrite: 1},
+		{name: "change password", request: withPassword, stored: stored, wantFind: 1, wantHash: "new-hash", wantHashOps: 1, wantWrite: 1},
+		{name: "credentials changed during update", request: validUpdateUserInput(), stored: stored, updateErr: security.ErrUserConflict, wantErr: security.ErrUserConflict, wantFind: 1, wantWrite: 1},
 		{name: "invalid", request: input.UpdateUserInput{}, wantErr: input.ErrInvalidUpdateUserInput},
 		{name: "missing user", request: validUpdateUserInput(), findErr: security.ErrUserNotFound, wantErr: security.ErrUserNotFound, wantFind: 1},
 		{name: "nil loaded user", request: validUpdateUserInput(), wantErr: security.ErrUserNotFound, wantFind: 1},
-		{name: "hash failure", request: withPassword, hashErr: context.Canceled, wantErr: context.Canceled, wantHashOps: 1},
-		{name: "write failure", request: withPassword, updateErr: security.ErrUserNotFound, wantErr: security.ErrUserNotFound, wantHashOps: 1, wantWrite: 1},
+		{name: "hash failure", request: withPassword, stored: stored, wantFind: 1, hashErr: context.Canceled, wantErr: context.Canceled, wantHashOps: 1},
+		{name: "write failure", request: withPassword, stored: stored, wantFind: 1, updateErr: security.ErrUserNotFound, wantErr: security.ErrUserNotFound, wantHashOps: 1, wantWrite: 1},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			store := &fakeUserStore{stored: tt.stored, findErr: tt.findErr, updateErr: tt.updateErr}
@@ -160,7 +161,7 @@ func TestUserServiceUpdate(t *testing.T) {
 			}
 
 			if tt.wantErr == nil {
-				if user == nil || user != store.user || user.ID() != tt.request.ID || user.PasswordHash() != tt.wantHash || user.Email() != security.Email(tt.request.Email) || store.ctx != ctx {
+				if user == nil || user != store.user || user.ID() != tt.request.ID || user.PasswordHash() != tt.wantHash || user.OriginalPasswordHash() != "old-hash" || user.Email() != security.Email(tt.request.Email) || store.ctx != ctx {
 					t.Fatalf("Update() user = %v, store = %+v", user, store)
 				}
 			} else if user != nil {

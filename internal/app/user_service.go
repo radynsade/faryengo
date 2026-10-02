@@ -86,35 +86,42 @@ func (s *UserService) Update(ctx context.Context, request input.UpdateUserInput)
 	} else if validationErr := request.Validate(); validationErr != nil {
 		err = fmt.Errorf("validate update user input: %w", validationErr)
 	} else {
-		var hash security.PasswordHash
-		if request.Password == nil {
-			var existing *security.User
-			existing, err = s.repository.FindByID(ctx, request.ID)
-			if err != nil {
-				err = fmt.Errorf("load user %s: %w", uuid.UUID(request.ID), err)
-			} else if existing == nil {
-				err = fmt.Errorf("load user %s: %w", uuid.UUID(request.ID), security.ErrUserNotFound)
-			} else {
-				hash = existing.PasswordHash()
-			}
-		} else {
-			hash, err = s.hasher.Hash(ctx, *request.Password)
-			if err != nil {
-				err = fmt.Errorf("hash user password: %w", err)
-			}
+		var existing *security.User
+		existing, err = s.repository.FindByID(ctx, request.ID)
+
+		if err != nil {
+			err = fmt.Errorf("load user %s: %w", uuid.UUID(request.ID), err)
+		} else if existing == nil {
+			err = fmt.Errorf("load user %s: %w", uuid.UUID(request.ID), security.ErrUserNotFound)
 		}
 
 		if err == nil {
 			user, err = security.NewUser(
 				request.ID, request.RoleID, security.Email(request.Email),
-				security.Phone(request.Phone), hash, security.FirstName(request.FirstName),
+				security.Phone(request.Phone), existing.PasswordHash(), security.FirstName(request.FirstName),
 				security.LastName(request.LastName),
 			)
 			if err != nil {
 				err = fmt.Errorf("update user %s: %w", uuid.UUID(request.ID), err)
-			} else if updateErr := s.repository.Update(ctx, user); updateErr != nil {
+			} else if request.Password != nil {
+				var hash security.PasswordHash
+				hash, err = s.hasher.Hash(ctx, *request.Password)
+
+				if err != nil {
+					err = fmt.Errorf("hash user password: %w", err)
+				} else if hashErr := user.SetPasswordHash(hash); hashErr != nil {
+					err = fmt.Errorf("change user password: %w", hashErr)
+				}
+			}
+
+			if err == nil {
+				if updateErr := s.repository.Update(ctx, user); updateErr != nil {
+					err = fmt.Errorf("update user %s: %w", uuid.UUID(request.ID), updateErr)
+				}
+			}
+
+			if err != nil {
 				user = nil
-				err = fmt.Errorf("update user %s: %w", uuid.UUID(request.ID), updateErr)
 			}
 		}
 	}

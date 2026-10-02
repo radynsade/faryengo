@@ -48,7 +48,7 @@ func (h *Hasher) Hash(ctx context.Context, password string) (security.PasswordHa
 		err = ErrNilHasher
 	} else if contextErr := ctx.Err(); contextErr != nil {
 		err = fmt.Errorf("hash password: %w", contextErr)
-	} else if password == "" {
+	} else if password == "" || len(password) > security.MaxPasswordBytes {
 		err = security.ErrInvalidPassword
 	} else {
 		salt := make([]byte, saltBytes)
@@ -86,6 +86,8 @@ func (h *Hasher) Verify(ctx context.Context, password string, hash security.Pass
 		err = ErrNilHasher
 	} else if contextErr := ctx.Err(); contextErr != nil {
 		err = fmt.Errorf("verify password: %w", contextErr)
+	} else if len(password) > security.MaxPasswordBytes {
+		err = security.ErrInvalidPassword
 	} else {
 		var params hashParameters
 		var salt []byte

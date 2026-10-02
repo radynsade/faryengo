@@ -1,8 +1,10 @@
 # Built web assets
 
-Each frontend produces a Vite build in its own `assets/dist` directory. Vite emits `.vite/manifest.json` to map source paths to compiled filenames. `web/vite` reads that manifest, checks its referenced files, resolves URLs, and implements `http.Handler` to serve the build.
+Each frontend produces a Vite build in its own `assets/dist` directory. Vite emits `.vite/manifest.json` to map source paths to compiled filenames. The admin assets package embeds the complete build, including the hidden `.vite` manifest, into the Go binary with `//go:embed all:dist`. It loads and validates the embedded manifest during package initialization. `web/vite` resolves URLs and implements `http.Handler` to serve the embedded files.
 
-Build the admin assets first:
+`make build` compiles the admin assets, generates templ code, runs the Go checks, and builds the binaries. `make check` also builds assets before checking Go code. npm dependencies are installed with `npm ci` when missing or when the package files change.
+
+For direct Go commands, build the frontend first:
 
 ```sh
 cd web/admin/assets
@@ -10,14 +12,16 @@ npm ci
 npm run build
 ```
 
-Wire the admin routes in the Go server using a filesystem rooted at `dist`:
+Wire the admin routes in the Go server:
 
 ```go
 mux := http.NewServeMux()
-if err := admin.RegisterHandlers(ctx, mux, os.DirFS("web/admin/assets/dist")); err != nil {
+if err := admin.RegisterHandlers(mux); err != nil {
     return fmt.Errorf("configure admin: %w", err)
 }
 ```
+
+Registration only mounts routes, so it takes no context or filesystem argument. The binary serves assets independently of its working directory and does not need `dist` on disk at runtime. Rebuild the Go binary after changing frontend assets.
 
 The admin assets are served at `/assets/admin/`. The template imports `web/admin/assets` and calls its package-level aliases:
 
@@ -26,10 +30,10 @@ The admin assets are served at `/assets/admin/`. The template imports `web/admin
 <script type="module" src={ assets.BuiltAsset("src/main.ts") }></script>
 ```
 
-Both helpers return `(string, error)`, which templ accepts in URL attributes. They resolve the source path to a URL containing the actual compiled filename. Unknown source paths return `vite.ErrAssetNotFound`. Calls before the build is loaded return `vite.ErrNotLoaded`, and `BuiltCSS` rejects non-CSS output with `vite.ErrNotCSS`.
+Both helpers return `(string, error)`, which templ accepts in URL attributes. They resolve the source path to a URL containing the actual compiled filename. Unknown source paths return `vite.ErrAssetNotFound`. `BuiltCSS` rejects non-CSS output with `vite.ErrNotCSS`.
 
 A stylesheet must have its own manifest entry to be resolved by source path. The admin Vite configuration includes both `src/main.ts` and `src/style.scss` as inputs. Its relative `base` lets references inside the compiled assets work under the Go server's mount path.
 
-For another frontend, create a private `vite.New()` instance in its assets package and expose `BuiltAsset` and `BuiltCSS` as aliases to that instance's function fields. Initialize it with `Load(ctx, builtFS, baseURL)`, then mount the instance on a ServeMux. `baseURL` can be a root-relative prefix or an absolute HTTP(S) URL; mount it at the URL's path. Choose an asset prefix outside routes with language wildcards.
+For another frontend, create a private `vite.New()` instance in its assets package and expose `BuiltAsset` and `BuiltCSS` as aliases to that instance's function fields. Embed its build directory, obtain a filesystem rooted at `dist` with `fs.Sub`, and initialize the instance with `Load(ctx, builtFS, baseURL)` before mounting it on a ServeMux. `baseURL` can be a root-relative prefix or an absolute HTTP(S) URL; mount it at the URL's path. Choose an asset prefix outside routes with language wildcards.
 
-A successful `Load` replaces the manifest snapshot atomically, so existing aliases keep working. A failed reload keeps the previous snapshot. The HTTP handler supports GET and HEAD, including range requests. It serves manifest-referenced assets and does not expose the manifest, unlisted files, or directory listings.
+The generic Vite instance returns `vite.ErrNotLoaded` before initialization. A successful `Load` replaces the manifest snapshot atomically, so existing aliases keep working. A failed reload keeps the previous snapshot. The HTTP handler supports GET and HEAD, including range requests. It serves manifest-referenced assets and does not expose the manifest, unlisted files, or directory listings.

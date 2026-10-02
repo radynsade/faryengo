@@ -96,13 +96,13 @@ func (r *UserRepository) Update(ctx context.Context, user *security.User) error 
 				"first_name":    string(user.FirstName()),
 				"last_name":     string(user.LastName()),
 			}).
-			Where(goqu.Ex{"id": id.String()}).
+			Where(goqu.Ex{"id": id.String(), "password_hash": string(user.OriginalPasswordHash())}).
 			Prepared(true).
 			ToSQL()
 
 		if buildErr != nil {
 			err = fmt.Errorf("build update user %s query: %w", id, buildErr)
-		} else if bindErr := bindUUIDArgsAt(args, len(args)-2, [16]byte(roleID), [16]byte(id)); bindErr != nil {
+		} else if bindErr := bindUUIDArgsAt(args, len(args)-3, [16]byte(roleID), [16]byte(id)); bindErr != nil {
 			err = fmt.Errorf("bind update user %s query: %w", id, bindErr)
 		} else {
 			tag, execErr := r.db.Exec(ctx, query, args...)
@@ -110,7 +110,13 @@ func (r *UserRepository) Update(ctx context.Context, user *security.User) error 
 			if execErr != nil {
 				err = fmt.Errorf("update user %s: %w", id, execErr)
 			} else if tag.RowsAffected() == 0 {
-				err = fmt.Errorf("update user %s: %w", id, security.ErrUserNotFound)
+				_, findErr := r.FindByID(ctx, user.ID())
+
+				if findErr != nil {
+					err = fmt.Errorf("check user %s after unsuccessful update: %w", id, findErr)
+				} else {
+					err = fmt.Errorf("update user %s: %w", id, security.ErrUserConflict)
+				}
 			}
 		}
 	}

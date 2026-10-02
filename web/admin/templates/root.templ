@@ -2,23 +2,36 @@ package templates
 
 import "github.com/radynsade/faryengo/web/admin/assets"
 
-templ Root() {
+templ Root(title string) {
 	<!DOCTYPE html>
-	<html>
+	<html lang="en">
 		<head>
-			<title></title>
-			<meta charset="UTF-8">
-			<meta name="robots" content="noindex" />
-			<meta name="viewport" content="width=device-width, initial-scale=1" />
-			<link rel="stylesheet" href={ assets.BuiltCSS("src/style.scss") } />
+			<meta charset="UTF-8"/>
+			<meta name="robots" content="noindex, nofollow"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1"/>
+			<meta name="color-scheme" content="light"/>
+			<title id="page-title">{ title }</title>
+			<link rel="stylesheet" href={ assets.BuiltCSS("src/style.scss") }/>
 			<script type="module" src={ assets.BuiltAsset("src/main.ts") }></script>
 		</head>
-		<body
-			hx-boost="true"
-			hx-ext="preload"
-			hx-ext="head-support"
-		>
-			<h1>Hello, world!</h1>
+		<body data-on:popstate__window="@navigate(window.location.href, false)">
+			{ children... }
+			<p id="navigation-error" class="navigation-error" role="alert" hidden>
+				Unable to load this page. Please try again.
+			</p>
 		</body>
 	</html>
+}
+
+// Page renders a full document for direct browser navigation.
+templ Page(title string, content templ.Component) {
+	@Root(title) {
+		@content
+	}
+}
+
+// PageFragment patches the existing title and page content through Datastar.
+templ PageFragment(title string, content templ.Component) {
+	<title id="page-title">{ title }</title>
+	@content
 }

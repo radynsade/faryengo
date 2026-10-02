@@ -1,8 +1,17 @@
 .DEFAULT_GOAL := build
 
-.PHONY: fmt vet lint build test check
+.PHONY: assets templates fmt vet lint build test check
 
-fmt:
+web/admin/assets/node_modules/.package-lock.json: web/admin/assets/package.json web/admin/assets/package-lock.json
+	npm ci --prefix web/admin/assets
+
+assets: web/admin/assets/node_modules/.package-lock.json
+	npm run build --prefix web/admin/assets
+
+templates: assets
+	go tool templ generate
+
+fmt: templates
 	go fmt ./...
 
 vet: fmt
@@ -12,9 +21,9 @@ lint: vet
 	golangci-lint run ./...
 
 build: lint
+	rm bin -d -r
 	mkdir -p bin
-	go tool templ generate
-	go build -o bin/faryen ./cmd/server
+	go build -o bin/server ./cmd/server
 	go build -o bin/migrate ./cmd/migrate
 	go build -o bin/cli ./cmd/cli
 

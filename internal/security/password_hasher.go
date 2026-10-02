@@ -5,6 +5,8 @@ import (
 	"errors"
 )
 
+const MaxPasswordBytes = 4096
+
 var ErrInvalidPassword = errors.New("invalid password")
 
 // PasswordHasher creates password credentials and checks candidate passwords.

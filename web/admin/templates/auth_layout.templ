@@ -1,0 +1,18 @@
+package templates
+
+// AuthLayout centers a compact panel and allows its contents to grow on small screens.
+templ AuthLayout(title string, description string) {
+	<main id="page-content" class="auth-layout">
+		<section class="auth-panel" aria-labelledby="auth-title">
+			<div class="auth-panel__brand">
+				@Brand()
+				<span class="auth-panel__badge">Admin</span>
+			</div>
+			<header class="auth-panel__heading">
+				<h1 id="auth-title" tabindex="-1">{ title }</h1>
+				<p>{ description }</p>
+			</header>
+			{ children... }
+		</section>
+	</main>
+}

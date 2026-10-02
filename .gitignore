@@ -14,3 +14,4 @@ go.work.sum
 .env
 .idea/
 .vscode/
+*_templ.go

@@ -1,0 +1,31 @@
+package templates
+
+// TextInputProps describes a labeled input and its browser autofill hint.
+type TextInputProps struct {
+	ID string
+	Name string
+	Type string
+	Label string
+	Placeholder string
+	Autocomplete string
+}
+
+templ TextInput(props TextInputProps) {
+	<div class="form-field">
+		<label class="form-field__label" for={ props.ID }>{ props.Label }</label>
+		<input
+			class="form-field__input"
+			id={ props.ID }
+			name={ props.Name }
+			type={ props.Type }
+			placeholder={ props.Placeholder }
+			autocomplete={ props.Autocomplete }
+		/>
+	</div>
+}
+
+templ PrimaryButton(buttonType string) {
+	<button class="button button--primary" type={ buttonType }>
+		{ children... }
+	</button>
+}

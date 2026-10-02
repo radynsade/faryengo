@@ -3,6 +3,7 @@ package assets
 
 import (
 	"context"
+	"embed"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -15,6 +16,9 @@ const URLPrefix = "/assets/admin/"
 
 var ErrNilServeMux = errors.New("nil admin asset ServeMux")
 
+//go:embed all:dist
+var embeddedFiles embed.FS
+
 var server = vite.New()
 
 // BuiltAsset resolves a source path to its compiled asset URL.
@@ -23,14 +27,24 @@ var BuiltAsset = server.BuiltAsset
 // BuiltCSS resolves a stylesheet entry path to its compiled CSS URL.
 var BuiltCSS = server.BuiltCSS
 
-// RegisterHandlers loads a filesystem rooted at dist and mounts its assets.
-func RegisterHandlers(ctx context.Context, mux *http.ServeMux, built fs.FS) error {
+func init() {
+	built, err := fs.Sub(embeddedFiles, "dist")
+
+	if err != nil {
+		panic(fmt.Errorf("open embedded admin assets: %w", err))
+	}
+
+	if err := server.Load(context.Background(), built, URLPrefix); err != nil {
+		panic(fmt.Errorf("load embedded admin assets: %w", err))
+	}
+}
+
+// RegisterHandlers mounts the embedded admin build.
+func RegisterHandlers(mux *http.ServeMux) error {
 	var err error
 
 	if mux == nil {
 		err = ErrNilServeMux
-	} else if loadErr := server.Load(ctx, built, URLPrefix); loadErr != nil {
-		err = fmt.Errorf("load admin assets: %w", loadErr)
 	} else {
 		mux.Handle(URLPrefix, server)
 	}

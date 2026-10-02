@@ -47,6 +47,7 @@ func TestLoad(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			directory := t.TempDir()
 			t.Chdir(directory)
+			clearAuthEnvironment(t)
 			unsetEnv(t, "DATABASE_URL")
 			unsetEnv(t, "FARYEN_CONFIG_TEST_EXTRA")
 

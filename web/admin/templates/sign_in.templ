@@ -1,0 +1,33 @@
+package templates
+
+// SignIn is the presentation of the admin sign-in page, without submission behavior.
+templ SignIn() {
+	@AuthLayout("Sign in", "Enter your details to access the admin panel.") {
+		<div class="form-stack">
+			@TextInput(TextInputProps{
+				ID: "email",
+				Name: "email",
+				Type: "email",
+				Label: "Email address",
+				Placeholder: "you@example.com",
+				Autocomplete: "username",
+			})
+			@TextInput(TextInputProps{
+				ID: "password",
+				Name: "password",
+				Type: "password",
+				Label: "Password",
+				Placeholder: "Enter your password",
+				Autocomplete: "current-password",
+			})
+			@PrimaryButton("button") {
+				Sign in
+			}
+		</div>
+		<p class="auth-panel__footer">
+			@PageLink("restore-password") {
+				Forgot your password?
+			}
+		</p>
+	}
+}

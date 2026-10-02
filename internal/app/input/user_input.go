@@ -27,7 +27,7 @@ type CreateUserInput struct {
 func (request CreateUserInput) Validate() error {
 	validationErrors := validateUserFields(request.RoleID, request.Email, request.Phone, request.FirstName, request.LastName)
 
-	if request.Password == "" {
+	if request.Password == "" || len(request.Password) > security.MaxPasswordBytes {
 		validationErrors = append(validationErrors, fmt.Errorf("password: %w", security.ErrInvalidPassword))
 	}
 
@@ -55,7 +55,7 @@ func (request UpdateUserInput) Validate() error {
 		validationErrors = append(validationErrors, fmt.Errorf("ID: %w", ErrInvalidUserID))
 	}
 
-	if request.Password != nil && *request.Password == "" {
+	if request.Password != nil && (*request.Password == "" || len(*request.Password) > security.MaxPasswordBytes) {
 		validationErrors = append(validationErrors, fmt.Errorf("password: %w", security.ErrInvalidPassword))
 	}
 

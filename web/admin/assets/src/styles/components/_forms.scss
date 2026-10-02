@@ -1,0 +1,89 @@
+.form-stack {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.form-field {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+
+  &__label {
+    font-size: 0.9286rem;
+    font-weight: 550;
+    line-height: 1.25;
+  }
+
+  &__input {
+    width: 100%;
+    min-height: 42px;
+    padding: 9px 12px;
+    border: 1px solid var(--color-line);
+    border-radius: var(--radius-control);
+    color: var(--color-ink);
+    background: var(--color-surface);
+    outline: none;
+    transition: border-color 120ms ease, box-shadow 120ms ease;
+
+    &::placeholder {
+      color: var(--color-placeholder);
+      opacity: 1;
+    }
+
+    &:hover {
+      border-color: #afc2cd;
+    }
+
+    &:focus {
+      border-color: var(--color-accent);
+      box-shadow: 0 0 0 3px var(--color-focus);
+    }
+  }
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: 42px;
+  padding: 9px 16px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  font-weight: 600;
+  line-height: 1.5;
+  cursor: pointer;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+
+  &:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  &--primary {
+    color: var(--color-surface);
+    background: var(--color-accent);
+
+    &:hover {
+      background: var(--color-accent-hover);
+    }
+
+    &:active {
+      background: #174c47;
+    }
+  }
+}
+
+@media (max-width: 480px) {
+  .form-field__input {
+    // Avoid zooming the page when focusing a field on iOS.
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .form-field__input,
+  .button {
+    transition: none;
+  }
+}

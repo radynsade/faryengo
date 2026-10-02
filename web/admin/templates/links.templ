@@ -1,0 +1,8 @@
+package templates
+
+// PageLink keeps native links available and enhances ordinary clicks with Datastar.
+templ PageLink(href string) {
+	<a class="text-link" href={ templ.URL(href) } data-on:click="@navigate(el.href)">
+		{ children... }
+	</a>
+}

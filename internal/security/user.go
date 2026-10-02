@@ -20,6 +20,7 @@ var (
 	ErrInvalidLastName     = errors.New("invalid last name")
 	ErrUserNotFound        = errors.New("user not found")
 	ErrUserAlreadyExists   = errors.New("user already exists")
+	ErrUserConflict        = errors.New("user credentials changed during update")
 )
 
 var phonePattern = regexp.MustCompile(`^\+[1-9][0-9]{1,14}$`)
@@ -129,13 +130,14 @@ func (n LastName) Validate() error {
 type UserID uuid.UUID
 
 type User struct {
-	id           UserID
-	roleID       RoleID
-	email        Email
-	phone        Phone
-	passwordHash PasswordHash
-	firstName    FirstName
-	lastName     LastName
+	id                   UserID
+	roleID               RoleID
+	email                Email
+	phone                Phone
+	passwordHash         PasswordHash
+	originalPasswordHash PasswordHash
+	firstName            FirstName
+	lastName             LastName
 }
 
 func NewUser(
@@ -172,13 +174,14 @@ func NewUser(
 	}
 
 	return &User{
-		id:           id,
-		roleID:       roleID,
-		email:        email,
-		phone:        phone,
-		passwordHash: passwordHash,
-		firstName:    firstName,
-		lastName:     lastName,
+		id:                   id,
+		roleID:               roleID,
+		email:                email,
+		phone:                phone,
+		passwordHash:         passwordHash,
+		originalPasswordHash: passwordHash,
+		firstName:            firstName,
+		lastName:             lastName,
 	}, nil
 }
 
@@ -231,6 +234,12 @@ func (u *User) SetPhone(phone Phone) error {
 
 func (u *User) PasswordHash() PasswordHash {
 	return u.passwordHash
+}
+
+// OriginalPasswordHash is the credential snapshot used for optimistic updates.
+// Repositories must reject updates if another operation changed this hash.
+func (u *User) OriginalPasswordHash() PasswordHash {
+	return u.originalPasswordHash
 }
 
 func (u *User) SetPasswordHash(passwordHash PasswordHash) error {

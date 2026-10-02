@@ -61,5 +61,16 @@ have a purpose; not every directory below needs to exist from the start.
 | `db/migrations/` | Versioned PostgreSQL schema changes. Add migration files when the schema changes; a human runs migrations. |
 | `deploy/` | Deployment configuration, manifests, and environment templates. |
 
+The admin assets package embeds its Vite build and manifest into the Go binary. The Makefile builds frontend assets and generates templ code before Go checks and compilation. Asset serving uses the embedded filesystem, so deployed binaries do not need the build directory on disk.
+
 Keep tests beside the Go packages they exercise. The root contains module and
 build files such as `go.mod` and `Makefile`.
+
+## Authentication state
+
+Authentication uses Ed25519 JWT access and refresh tokens, PostgreSQL credential
+versions, and revocable Redis/Dragonfly session state. Password changes and
+account-wide logout invalidate the durable version. Session checks and current
+role permissions are required for every access-token authentication; storage
+outages deny access. See [authentication.md](authentication.md) for transport,
+configuration, rotation policy, and operational requirements.

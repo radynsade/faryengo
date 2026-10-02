@@ -393,7 +393,7 @@ func TestUserRepositoryUpdate(t *testing.T) {
 		{name: "database error", user: testUser(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantExec: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			db := &fakeSecurityDB{execTag: tt.tag, execErr: tt.execErr}
+			db := &fakeSecurityDB{execTag: tt.tag, execErr: tt.execErr, row: fakeSecurityRow{err: pgx.ErrNoRows}}
 			repository := &UserRepository{db: db}
 			err := repository.Update(ctx, tt.user)
 			if !errors.Is(err, tt.wantErr) || (db.execQuery != "") != tt.wantExec {
@@ -401,12 +401,12 @@ func TestUserRepositoryUpdate(t *testing.T) {
 			}
 
 			if tt.wantExec {
-				if db.execContext != ctx || !strings.Contains(db.execQuery, `UPDATE "user"`) || !strings.Contains(db.execQuery, `WHERE ("id" =`) || strings.Contains(db.execQuery, "person@example.com") {
+				if db.execContext != ctx || !strings.Contains(db.execQuery, `UPDATE "user"`) || !strings.Contains(db.execQuery, `"id" =`) || strings.Contains(db.execQuery, "person@example.com") {
 					t.Fatalf("Update() query = %q, context = %v", db.execQuery, db.execContext)
 				}
 
-				if len(db.execArgs) != 7 || db.execArgs[len(db.execArgs)-2] != (pgtype.UUID{Bytes: [16]byte{1}, Valid: true}) || db.execArgs[len(db.execArgs)-1] != (pgtype.UUID{Bytes: [16]byte{2}, Valid: true}) {
-					t.Fatalf("Update() args = %v, want seven bound values with user ID last", db.execArgs)
+				if len(db.execArgs) != 8 || db.execArgs[len(db.execArgs)-3] != (pgtype.UUID{Bytes: [16]byte{1}, Valid: true}) || db.execArgs[len(db.execArgs)-2] != (pgtype.UUID{Bytes: [16]byte{2}, Valid: true}) {
+					t.Fatalf("Update() args = %v, want eight bound values with the credential snapshot last", db.execArgs)
 				}
 			}
 		})
