@@ -3,7 +3,8 @@
 The application service is `internal/app.AuthenticationService`. JWT encoding is
 implemented in `internal/security/jwt` using `github.com/golang-jwt/jwt/v5`.
 Session state and sign-in throttling use `github.com/redis/go-redis/v9` in
-`internal/security/redis`. HTTP transport is in `internal/security/httpauth`.
+`internal/security/redis`. Admin web transport is in `web/admin`, outside the
+domain directories. There is no authentication REST API.
 Dependencies are wired explicitly in `cmd/server`.
 
 ## Token policy
@@ -95,7 +96,7 @@ Production must use HTTPS, including across untrusted proxy hops, and keep
 `AUTH_COOKIE_SECURE=true`. Secure cookies use the `__Host-` prefix, `Path=/`,
 `HttpOnly`, and `SameSite=Strict`, with no Domain attribute. For local HTTP
 only, `AUTH_COOKIE_SECURE=false` uses ordinary cookie names. Both tokens stay
-in HttpOnly cookies; do not copy them into localStorage or Datastar signals.
+in HttpOnly cookies; do not copy them into browser storage or client-side state.
 No authentication responses may be cached.
 
 Sign-in limits are shared across instances: 10 requests per account and 100 per
@@ -107,37 +108,48 @@ limited to four concurrent operations per application instance; further requests
 return 503 immediately rather than accumulating a password-verification queue. Unknown accounts
 verify against a dummy Argon2id hash and return the same 401 as wrong passwords.
 
-## HTTP API
+## Admin web transport
 
-| Endpoint | Request | Success |
+| Route | Request | Success |
 | --- | --- | --- |
-| `POST /api/auth/sign-in` | `application/json` with `email` and `password` | 204 and both token cookies |
-| `POST /api/auth/refresh` | Refresh cookie; no body required | 204 and rotated cookies |
-| `POST /api/auth/sign-out` | Refresh cookie, or a valid access token if unavailable | 204 and cleared cookies |
-| `POST /api/auth/sign-out-all` | Valid access cookie or Bearer token | 204 and cleared cookies; all devices revoked |
-| `GET /api/auth/me` | Valid access cookie or Bearer token | JSON user ID, session ID, role ID, and current permissions |
+| `GET /admin/{language}/sign-in` | Browser navigation | HTML sign-in page |
+| `POST /admin/{language}/sign-in` | Native `application/x-www-form-urlencoded` form with `email` and `password` | Both token cookies and a 303 redirect to `/admin/{language}` |
+| `GET /admin/{language}` | Valid access cookie | Authenticated admin page with a sign-out form |
+| `POST /admin/{language}/refresh` | Refresh cookie, submitted by the continuation form | Rotated cookies and a 303 redirect to `/admin/{language}` |
+| `POST /admin/{language}/sign-out` | Refresh cookie, or an access cookie if unavailable | Device session revoked, cookies cleared, and a 303 redirect to sign-in |
 
-Sign-in accepts only JSON, rejects extra fields and trailing JSON, and limits
-the request to 32 KiB. Email and password lengths are bounded. Authentication
-failures return 401, permission failures 403, throttling 429, and storage failures
-503. Responses never disclose token validation details or account existence.
+The sign-in form works without JavaScript. It accepts exactly one email and
+password in the request body, rejects unknown or repeated fields, and limits
+the request to 32 KiB. Query parameters cannot supply credentials. Email and
+password lengths are bounded. Failed submissions render an inline error and
+retain the email, never the password. Authentication failures return 401,
+permission failures 403, throttling 429, and storage failures 503. Responses
+never disclose token validation details or account existence.
 
-Browser requests use same-origin cookies. HTTP mutation routes are protected by
-Go's `http.CrossOriginProtection`, checking Origin and Fetch Metadata; no trusted
-cross-origin exceptions or CORS access are configured. The admin sign-in and
-password restoration templates remain presentation components; the API is the
-transport for integrating those forms with application actions.
+The admin page calls `AuthenticationService.Authenticate` on every request,
+checking session state, credential version, and current role. Missing or invalid
+access cookies redirect to the sign-in page. If a refresh cookie is present,
+the sign-in page offers a **Continue your session** form. Refreshing is an
+explicit POST rather than a side effect of page navigation. A successful
+refresh also checks the current role before setting cookies. A failed refresh
+clears cookies and requires a new sign-in, preventing retries after an ambiguous
+rotation. Sign-out also clears cookies when the presented session is already
+invalid.
 
-For future protected routes, wrap their handlers with `Authenticate` or
-`RequirePermission` from the HTTP handler. `PrincipalFromContext` retrieves the
-identity after successful authentication. For example:
+Browser requests use same-origin HttpOnly cookies; Bearer headers are not an
+admin authentication mechanism. All admin routes are wrapped in Go's
+`http.CrossOriginProtection`, checking Origin and Fetch Metadata for mutations;
+no trusted cross-origin exceptions or CORS access are configured. Pages and
+errors have `Cache-Control: no-store`. Native form success redirects load a
+full document; GET page navigation also supports HTMX fragments. Password
+restoration remains a presentation component without submission behavior.
+HTMX history snapshots are disabled with `hx-history="false"`; Back and Forward
+fetch full documents from the server so authentication is checked again.
 
-```go
-mux.Handle("GET /api/users", auth.RequirePermission(
-    security.PermissionViewUser,
-    userListHandler,
-))
-```
+Account-wide sign-out and authorization remain application use cases; they
+have no public transport routes. Future admin handlers must call
+`AuthenticationService.Authenticate` or `Authorize` before accessing protected
+content or performing actions.
 
 `PermissionManageUser` and `PermissionViewUser` are independent permissions.
 No permission is inferred from a role name. `RevokeUserSessions` accepts a user

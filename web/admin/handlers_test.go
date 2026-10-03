@@ -10,11 +10,7 @@ import (
 )
 
 func TestAdminAssetURLs(t *testing.T) {
-	mux := http.NewServeMux()
-
-	if err := RegisterHandlers(mux); err != nil {
-		t.Fatal(err)
-	}
+	mux, _, _ := httpFixture(t)
 
 	scriptURL, err := assets.BuiltAsset("src/main.ts")
 	if err != nil {
@@ -50,28 +46,28 @@ func TestAdminAssetURLs(t *testing.T) {
 }
 
 func TestAdminPageResponses(t *testing.T) {
-	mux := http.NewServeMux()
-
-	if err := RegisterHandlers(mux); err != nil {
-		t.Fatal(err)
-	}
+	mux, _, _ := httpFixture(t)
 
 	for _, tt := range []struct {
-		name           string
-		path           string
-		datastarHeader string
-		fragment       bool
+		name          string
+		path          string
+		htmxHeader    string
+		historyHeader string
+		fragment      bool
 	}{
 		{name: "sign-in document", path: "/admin/en/sign-in"},
 		{name: "restore document", path: "/admin/en/restore-password"},
-		{name: "sign-in fragment", path: "/admin/en/sign-in", datastarHeader: "true", fragment: true},
-		{name: "restore fragment", path: "/admin/en/restore-password", datastarHeader: "true", fragment: true},
-		{name: "language path fragment", path: "/admin/lv/restore-password", datastarHeader: "true", fragment: true},
-		{name: "false header document", path: "/admin/en/sign-in", datastarHeader: "false"},
+		{name: "sign-in fragment", path: "/admin/en/sign-in", htmxHeader: "true", fragment: true},
+		{name: "restore fragment", path: "/admin/en/restore-password", htmxHeader: "true", fragment: true},
+		{name: "language path fragment", path: "/admin/lv/restore-password", htmxHeader: "true", fragment: true},
+		{name: "false header document", path: "/admin/en/sign-in", htmxHeader: "false"},
+		{name: "history document", path: "/admin/en/sign-in", historyHeader: "true"},
+		{name: "history document with request header", path: "/admin/en/sign-in", htmxHeader: "true", historyHeader: "true"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			request := httptest.NewRequest(http.MethodGet, tt.path, nil)
-			request.Header.Set("Datastar-Request", tt.datastarHeader)
+			request.Header.Set("HX-Request", tt.htmxHeader)
+			request.Header.Set("HX-History-Restore-Request", tt.historyHeader)
 			response := httptest.NewRecorder()
 			mux.ServeHTTP(response, request)
 
@@ -79,8 +75,8 @@ func TestAdminPageResponses(t *testing.T) {
 				t.Fatalf("status = %d, body = %s", response.Code, response.Body.String())
 			}
 
-			if response.Header().Get("Vary") != "Datastar-Request" {
-				t.Fatalf("Vary = %q", response.Header().Get("Vary"))
+			if vary := strings.Join(response.Header().Values("Vary"), ", "); vary != "HX-Request, HX-History-Restore-Request" {
+				t.Fatalf("Vary = %q", vary)
 			}
 
 			if !strings.HasPrefix(response.Header().Get("Content-Type"), "text/html") {
@@ -102,6 +98,10 @@ func TestAdminPageResponses(t *testing.T) {
 
 			if tt.fragment && (strings.Contains(body, "<script") || strings.Contains(body, "<link")) {
 				t.Fatalf("fragment reloads assets: %s", body)
+			}
+
+			if !tt.fragment && !strings.Contains(body, `hx-history="false"`) {
+				t.Fatal("admin document allows history snapshots")
 			}
 		})
 	}

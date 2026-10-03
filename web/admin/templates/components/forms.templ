@@ -1,4 +1,4 @@
-package templates
+package components
 
 // TextInputProps describes a labeled input and its browser autofill hint.
 type TextInputProps struct {
@@ -8,6 +8,8 @@ type TextInputProps struct {
 	Label string
 	Placeholder string
 	Autocomplete string
+	Value string
+	Required bool
 }
 
 templ TextInput(props TextInputProps) {
@@ -20,6 +22,8 @@ templ TextInput(props TextInputProps) {
 			type={ props.Type }
 			placeholder={ props.Placeholder }
 			autocomplete={ props.Autocomplete }
+			value={ props.Value }
+			required?={ props.Required }
 		/>
 	</div>
 }

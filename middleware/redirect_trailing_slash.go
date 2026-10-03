@@ -5,7 +5,7 @@ import (
 	"path"
 )
 
-func RedirectTrailigSlash(next http.Handler) http.Handler {
+func RedirectTrailingSlash(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		targetPath := path.Clean(request.URL.Path)
 

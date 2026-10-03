@@ -1,0 +1,17 @@
+package pages
+
+import (
+	"github.com/radynsade/faryengo/web/admin/templates/components"
+	"github.com/radynsade/faryengo/web/admin/templates/layouts"
+)
+
+// Home is the initial authenticated admin page.
+templ Home(signOutAction string) {
+	@layouts.AuthLayout("Admin panel", "You are signed in.") {
+		<form class="form-stack" method="post" action={ templ.URL(signOutAction) }>
+			@components.PrimaryButton("submit") {
+				Sign out
+			}
+		</form>
+	}
+}

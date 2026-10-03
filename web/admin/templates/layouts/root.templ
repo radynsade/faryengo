@@ -1,4 +1,4 @@
-package templates
+package layouts
 
 import "github.com/radynsade/faryengo/web/admin/assets"
 
@@ -14,7 +14,7 @@ templ Root(title string) {
 			<link rel="stylesheet" href={ assets.BuiltCSS("src/style.scss") }/>
 			<script type="module" src={ assets.BuiltAsset("src/main.ts") }></script>
 		</head>
-		<body data-on:popstate__window="@navigate(window.location.href, false)">
+		<body hx-history="false">
 			{ children... }
 			<p id="navigation-error" class="navigation-error" role="alert" hidden>
 				Unable to load this page. Please try again.
@@ -30,7 +30,7 @@ templ Page(title string, content templ.Component) {
 	}
 }
 
-// PageFragment patches the existing title and page content through Datastar.
+// PageFragment supplies the title and page content for an HTMX navigation swap.
 templ PageFragment(title string, content templ.Component) {
 	<title id="page-title">{ title }</title>
 	@content

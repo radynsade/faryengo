@@ -1,0 +1,60 @@
+package pages
+
+import (
+	"github.com/radynsade/faryengo/web/admin/templates/components"
+	"github.com/radynsade/faryengo/web/admin/templates/layouts"
+)
+
+type SignInProps struct {
+	Action string
+	RefreshAction string
+	RestorePasswordURL string
+	Email string
+	Error string
+	CanContinue bool
+}
+
+// SignIn submits credentials using a native form, including without JavaScript.
+templ SignIn(props SignInProps) {
+	@layouts.AuthLayout("Sign in", "Enter your details to access the admin panel.") {
+		if props.Error != "" {
+			<p class="form-error" role="alert">{ props.Error }</p>
+		}
+		if props.CanContinue {
+			<form class="form-stack" method="post" action={ templ.URL(props.RefreshAction) }>
+				@components.PrimaryButton("submit") {
+					Continue your session
+				}
+			</form>
+		}
+		<form class="form-stack" method="post" action={ templ.URL(props.Action) }>
+			@components.TextInput(components.TextInputProps{
+				ID: "email",
+				Name: "email",
+				Type: "email",
+				Label: "Email address",
+				Placeholder: "you@example.com",
+				Autocomplete: "username",
+				Value: props.Email,
+				Required: true,
+			})
+			@components.TextInput(components.TextInputProps{
+				ID: "password",
+				Name: "password",
+				Type: "password",
+				Label: "Password",
+				Placeholder: "Enter your password",
+				Autocomplete: "current-password",
+				Required: true,
+			})
+			@components.PrimaryButton("submit") {
+				Sign in
+			}
+		</form>
+		<p class="auth-panel__footer">
+			@components.PageLink(props.RestorePasswordURL) {
+				Forgot your password?
+			}
+		</p>
+	}
+}

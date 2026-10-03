@@ -19,7 +19,6 @@ import (
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/config"
 	"github.com/radynsade/faryengo/internal/security/argon2id"
-	"github.com/radynsade/faryengo/internal/security/httpauth"
 	securityjwt "github.com/radynsade/faryengo/internal/security/jwt"
 	"github.com/radynsade/faryengo/internal/security/pgxgoqu"
 	securityredis "github.com/radynsade/faryengo/internal/security/redis"
@@ -126,23 +125,19 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("configure authentication: %w", err)
 	}
 
-	auth, err := httpauth.NewHandler(service, limiter, settings.AuthCookieSecure)
+	adminHandler, err := admin.NewHandler(service, limiter, settings.AuthCookieSecure)
 
 	if err != nil {
-		return fmt.Errorf("configure authentication HTTP: %w", err)
+		return fmt.Errorf("configure admin transport: %w", err)
 	}
 
 	mux := http.NewServeMux()
 
-	if err := admin.RegisterHandlers(mux); err != nil {
+	if err := adminHandler.RegisterHandlers(mux); err != nil {
 		return fmt.Errorf("register admin handlers: %w", err)
 	}
 
-	if err := auth.RegisterHandlers(mux); err != nil {
-		return fmt.Errorf("register authentication handlers: %w", err)
-	}
-
-	server := &http.Server{Addr: settings.HTTPAddress, Handler: middleware.RedirectTrailigSlash(mux),
+	server := &http.Server{Addr: settings.HTTPAddress, Handler: middleware.RedirectTrailingSlash(mux),
 		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
 	return serve(ctx, server)
 }

@@ -13,20 +13,28 @@ npm run dev
 
 Run `npm run build` to type-check and compile JavaScript, CSS, and imported assets directly into `dist/`. Output filenames include content hashes, and `.vite/manifest.json` maps source paths to those files. HTML is rendered by the backend.
 
-The Go assets package exposes `BuiltAsset` and `BuiltCSS` as package-level aliases. The manifest and compiled files are embedded into the Go binary and initialized automatically. `admin.RegisterHandlers(mux)` serves them at `/assets/admin/`. Run `make build` or `make check` from the project root to build assets before the Go compilation; rebuild the binary after changing assets. See [the asset integration documentation](../../../docs/assets.md) for wiring and template usage.
+The Go assets package exposes `BuiltAsset` and `BuiltCSS` as package-level aliases. The manifest and compiled files are embedded into the Go binary and initialized automatically. `adminHandler.RegisterHandlers(mux)` serves them at `/assets/admin/`. Run `make build` or `make check` from the project root to build assets before the Go compilation; rebuild the binary after changing assets. See [the asset integration documentation](../../../docs/assets.md) for wiring and template usage.
 
 Use `npm run preview` to serve the compiled assets locally.
 
 ## Admin UI components
 
-The static sign-in and password restoration pages are available at
+The sign-in and password restoration pages are available at
 `/admin/en/sign-in` and `/admin/en/restore-password`. Their navigation links keep
-the current language path. Buttons are presentation controls; authentication,
-password recovery, and submission are not implemented.
+the current language path. The sign-in form posts credentials to the admin web
+handler and redirects to
+the authenticated admin page. It works without JavaScript and renders inline
+errors for failed attempts. Password recovery remains presentation only.
 
-Templates in `../templates` share the `Root` document, `AuthLayout`, `Brand`,
-`TextInput`, `PrimaryButton`, and `PageLink` components. Compose new page contents using
-templ's children blocks. `Root` currently describes English page content.
+Templates in `../templates` are organized into three packages:
+
+- `pages/`: sign-in, password restoration, and the authenticated home page.
+- `layouts/`: the `Root` document, full-page and HTMX fragment wrappers, and `AuthLayout`.
+- `components/`: reusable `Brand`, `TextInput`, `PrimaryButton`, and `PageLink` components.
+
+Pages compose layouts and components using templ's children blocks. Layouts may
+use components; components do not depend on pages or layouts. `Root` currently
+describes English page content.
 
 `src/style.scss` loads the shared tokens and base styles from `src/styles/`,
 followed by component and layout partials. Reuse the CSS color, spacing, radius,
@@ -35,17 +43,22 @@ and consistent. There are no external font or image requests.
 
 ## Navigation
 
-The pinned Datastar bundle in `src/vendor/` is included in the embedded Vite
-build. `PageLink` enhances ordinary clicks with the `@navigate` action. Modified
-clicks and JavaScript-free navigation retain standard link behavior.
+The installed `htmx.org` NPM package is bundled by Vite into the embedded build,
+with no runtime CDN request or additional extensions. `PageLink` uses
+`hx-boost="true"` to enhance ordinary links. Native forms, modified clicks, and
+JavaScript-free navigation retain standard browser behavior.
 
-Handlers return a full document for direct requests and HTML fragments for
-requests with `Datastar-Request: true`. Fragments patch `#page-title` and
-`#page-content`; `Vary: Datastar-Request` keeps the responses distinct for caches.
-Templates for each screen describe the same content in both response modes.
+Handlers return HTML fragments for `HX-Request: true` and full documents for
+ordinary navigation and `HX-History-Restore-Request: true`. Fragments include a
+`<title>` and `#page-content`; HTMX updates the document title and swaps the page
+content without reloading assets. Responses vary on both request headers.
 
-Navigation updates browser history after a successful patch. Back and Forward
-request the current URL through Datastar. Navigation cancels any previous page
-request, excludes all signals from requests, moves focus to the page heading,
-and shows an error message if loading fails. Page content and existing assets
-stay in the current document. Authentication buttons remain presentation only.
+HTMX manages browser history and `hx-sync="body:replace"` cancels a pending link
+request when another starts. `hx-params="none"` keeps page navigation free of
+form values. `navigation.ts` configures full-document history restoration,
+focuses the page heading after navigation, and shows the navigation error when
+a request fails. Inline evaluation and response scripts are disabled.
+
+`hx-history="false"` prevents admin page snapshots from entering HTMX's browser
+storage cache. Back and Forward fetch the page from the server and recheck
+access. Authentication forms use native submissions and browser redirects.

@@ -1,69 +1,34 @@
-import { action, actions } from './vendor/datastar.js'
+import htmx from 'htmx.org'
 
-let pendingNavigation: AbortController | undefined
+// History restoration needs full documents; ordinary HTMX requests use fragments.
+htmx.config.historyRestoreAsHxRequest = false
+htmx.config.allowEval = false
+htmx.config.allowScriptTags = false
 
-// Keep Datastar's request and DOM patching behavior, adding browser history
-// and cancellation across different page URLs.
-action({
-  name: 'navigate',
-  async apply(context, href, pushHistory = true) {
-    const event = context.evt
+function showNavigationError(show: boolean) {
+  const message = document.getElementById('navigation-error')
+  if (message) message.hidden = !show
+}
 
-    if (event instanceof MouseEvent) {
-      if (event.defaultPrevented || event.button !== 0 || event.ctrlKey ||
-          event.metaKey || event.shiftKey || event.altKey) {
-        return
-      }
-    }
+function focusPageHeading() {
+  showNavigationError(false)
+  document.getElementById('auth-title')?.focus({ preventScroll: true })
+}
 
-    const url = new URL(String(href), window.location.href)
+// Let the browser handle modified clicks before HTMX cancels the link event.
+document.addEventListener('click', (event) => {
+  if ((event.defaultPrevented || event.button !== 0 || event.ctrlKey ||
+       event.metaKey || event.shiftKey || event.altKey) &&
+      event.target instanceof Element && event.target.closest('a[hx-boost="true"]')) {
+    event.stopImmediatePropagation()
+  }
+}, true)
 
-    if (url.origin !== window.location.origin) {
-      return
-    }
+document.addEventListener('htmx:beforeRequest', () => showNavigationError(false))
+document.addEventListener('htmx:afterSettle', focusPageHeading)
+document.addEventListener('htmx:historyRestore', focusPageHeading)
 
-    event?.preventDefault()
-    pendingNavigation?.abort()
-
-    const controller = new AbortController()
-    pendingNavigation = controller
-    const errorMessage = document.getElementById('navigation-error')
-    if (errorMessage) errorMessage.hidden = true
-
-    let patched = false
-    const onFetch = (event: Event) => {
-      const detail = (event as CustomEvent<{ type: string; el: Element }>).detail
-      if (detail.el === context.el && detail.type === 'datastar-patch-elements') {
-        patched = true
-      }
-    }
-
-    document.addEventListener('datastar-fetch', onFetch)
-
-    try {
-      await actions.get(context, url.href, {
-        filterSignals: { include: /^$/ },
-        requestCancellation: controller,
-        openWhenHidden: true,
-        retry: 'never',
-      })
-
-      if (!controller.signal.aborted) {
-        if (!patched) throw new Error('Page content was not received')
-
-        if (pushHistory && url.href !== window.location.href) {
-          history.pushState(null, '', url.href)
-        }
-
-        document.getElementById('auth-title')?.focus({ preventScroll: true })
-      }
-    } catch {
-      if (!controller.signal.aborted && errorMessage) {
-        errorMessage.hidden = false
-      }
-    } finally {
-      document.removeEventListener('datastar-fetch', onFetch)
-      if (pendingNavigation === controller) pendingNavigation = undefined
-    }
-  },
-})
+for (const event of ['htmx:responseError', 'htmx:sendError', 'htmx:timeout',
+                     'htmx:swapError', 'htmx:historyCacheMissLoadError']) {
+  document.addEventListener(event, () => showNavigationError(true))
+}

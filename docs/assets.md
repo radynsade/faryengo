@@ -15,13 +15,22 @@ npm run build
 Wire the admin routes in the Go server:
 
 ```go
+adminHandler, err := admin.NewHandler(authenticationService, signInLimiter, secureCookies)
+if err != nil {
+    return fmt.Errorf("configure admin: %w", err)
+}
+
 mux := http.NewServeMux()
-if err := admin.RegisterHandlers(mux); err != nil {
+if err := adminHandler.RegisterHandlers(mux); err != nil {
     return fmt.Errorf("configure admin: %w", err)
 }
 ```
 
-Registration only mounts routes, so it takes no context or filesystem argument. The binary serves assets independently of its working directory and does not need `dist` on disk at runtime. Rebuild the Go binary after changing frontend assets.
+The handler receives the application authentication service, sign-in rate limiter,
+and cookie security setting. Registration only mounts routes, so it takes no
+context or filesystem argument. The binary serves assets independently of its
+working directory and does not need `dist` on disk at runtime. Rebuild the Go
+binary after changing frontend assets.
 
 The admin assets are served at `/assets/admin/`. The template imports `web/admin/assets` and calls its package-level aliases:
 

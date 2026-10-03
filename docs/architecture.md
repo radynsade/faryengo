@@ -7,15 +7,19 @@ contains its aggregates and domain interfaces. The `internal/app/`
 package coordinates use cases. The `internal/config/` package contains the
 configuration struct and utilities to read configuration from environment
 variables, loading `.env` with `godotenv` when present. Neither package is
-a domain scope. Implementations of domain interfaces live in descriptive
-subdirectories within their domain scope.
+a domain scope. Subdirectories within a domain scope are reserved for
+infrastructure implementations of domain interfaces, such as Redis,
+PostgreSQL, hashing algorithms, and other infrastructure features. The
+transport layer lives outside domain directories, under `web/`, `api/`, and
+`middleware/`, and calls application use cases.
 
 ## Technological stack
 
 The application is written in Go. The services and libraries below are the
 intended stack; add their dependencies when the corresponding integration is
-implemented. Keep technology-specific code in the implementation package for
-its domain, and let the application layer coordinate use cases.
+implemented. Keep infrastructure-specific code in the implementation package
+for its domain and transport-specific code under `web/`, `api/`, or
+`middleware/`. Let the application layer coordinate use cases.
 
 ### Data and messaging
 
@@ -32,12 +36,12 @@ its domain, and let the application layer coordinate use cases.
 | Technology | Role and usage |
 | --- | --- |
 | [templ](https://templ.guide/core-concepts/components/) | Go-based HTML components for server-rendered pages and reusable fragments. Render both full pages and the fragments returned by interactive endpoints from the same component system. |
-| [Datastar](https://data-star.dev/guide/reactive_signals) | Declarative browser reactivity through signals and server-driven updates through Server-Sent Events (SSE). Use it where local UI state or streamed changes are needed. Keep authoritative business state on the server and validate values received from the browser. |
+| [HTMX](https://htmx.org/docs/) | HTML-driven interaction through requests and server-rendered HTML fragments. Use boosted links for navigation and swap the returned content into the page. Keep authoritative business state on the server and validate values received from the browser. |
 
 A typical request enters a Go HTTP handler, runs an application use case, and
 uses a domain interface whose implementation accesses PostgreSQL through pgx
 and, when useful, goqu. The handler renders pages or fragments with templ;
-Datastar can manage reactive UI state or receive SSE updates. Dragonfly can
+HTMX can request and swap HTML fragments without reloading assets. Dragonfly can
 accelerate reads of rebuildable data, and NATS can carry events to other
 processes.
 
@@ -49,14 +53,15 @@ have a purpose; not every directory below needs to exist from the start.
 | Directory | Purpose |
 | --- | --- |
 | `cmd/` | Application entry points. Each executable has its own directory (for example, `cmd/server/`) and wires its dependencies in `main`. |
-| `internal/` | Application code that must not be imported by other repositories. Every directory directly under `internal/` is a domain scope, except `app/` and `config/`. Keep domain logic, services, storage, and transport implementations within their scopes. |
+| `internal/` | Application code that must not be imported by other repositories. Every directory directly under `internal/` is a domain scope, except `app/` and `config/`. Keep domain logic and infrastructure implementations within their scopes; transport belongs outside domain directories. |
 | `internal/app/input/` | Application service input values and their validation. This is not a domain scope. |
 | `internal/config/` | Application configuration struct and utilities to load `.env` with `godotenv` and read environment variables. This is not a domain scope. |
 | `internal/<domain>/` | A domain-scoped directory. Put each aggregate in its own `.go` file named after the aggregate (for example, a `User` aggregate belongs in `user.go`). |
-| `internal/<domain>/<implementation_name>/` | Place each implementation of a domain interface in a directory under its domain scope. The team chooses a descriptive implementation name. For example, a `UserRepository` implementation using a pgx PostgreSQL connection pool and the goqu query builder belongs in `internal/security/pgxgoqu/`. |
+| `internal/<domain>/<implementation_name>/` | Infrastructure layer only: implementations of domain interfaces for Redis, PostgreSQL, hashing algorithms, and other infrastructure features. The team chooses a descriptive implementation name. For example, a `UserRepository` implementation using a pgx PostgreSQL connection pool and the goqu query builder belongs in `internal/security/pgxgoqu/`. Transport implementations must not live here. |
 | `pkg/` | Packages intended for import by other repositories. Add packages here only when they have a real external consumer. |
-| `api/` | API contracts and schemas, such as OpenAPI or Protocol Buffers. Generate code from the source definitions rather than editing generated files. |
-| `web/` | Web assets and frontend source, including styles, scripts, and static files. |
+| `api/` | API transport handlers, routing, contracts, and schemas, such as OpenAPI or Protocol Buffers. Generate code from the source definitions rather than editing generated files. |
+| `web/` | Web transport handlers, routing, page rendering, and frontend source and assets, including styles, scripts, and static files. |
+| `middleware/` | Transport middleware shared by web and API endpoints. |
 | `docs/` | Architecture, development, and operational documentation. |
 | `db/migrations/` | Versioned PostgreSQL schema changes. Add migration files when the schema changes; a human runs migrations. |
 | `deploy/` | Deployment configuration, manifests, and environment templates. |

@@ -1,0 +1,16 @@
+package components
+
+// PageLink uses HTMX for navigation and keeps native links available without JavaScript.
+templ PageLink(href string) {
+	<a
+		class="text-link"
+		href={ templ.URL(href) }
+		hx-boost="true"
+		hx-target="#page-content"
+		hx-swap="outerHTML show:none"
+		hx-sync="body:replace"
+		hx-params="none"
+	>
+		{ children... }
+	</a>
+}

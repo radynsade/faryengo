@@ -1,11 +1,13 @@
-package templates
+package layouts
+
+import "github.com/radynsade/faryengo/web/admin/templates/components"
 
 // AuthLayout centers a compact panel and allows its contents to grow on small screens.
 templ AuthLayout(title string, description string) {
 	<main id="page-content" class="auth-layout">
 		<section class="auth-panel" aria-labelledby="auth-title">
 			<div class="auth-panel__brand">
-				@Brand()
+				@components.Brand()
 				<span class="auth-panel__badge">Admin</span>
 			</div>
 			<header class="auth-panel__heading">
