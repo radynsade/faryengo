@@ -31,3 +31,7 @@ has the previous `public.schema_migrations` table, the command stops so its
 history can be reconciled before using the new table.
 
 Migration `000003_add_language_fallback` adds the language fallback flag, defaults existing languages to `false`, and enforces a single fallback. It protects a fallback with translations from deletion or clearing its flag. Apply it before using the updated language repository or the CLI's `--fallback` option.
+
+Migration `000005_add_role_super` adds the role's `is_super` flag, defaulting
+existing roles to `false`. Apply it before deploying the updated server or using
+the role commands. Its down migration removes the flag.

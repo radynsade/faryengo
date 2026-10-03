@@ -273,6 +273,30 @@ func TestAuthenticationCurrentPermissions(t *testing.T) {
 	}
 }
 
+func TestAuthenticationCurrentSuperRole(t *testing.T) {
+	service, repository, _, _ := authFixture(t)
+	pair := signIn(t, service)
+
+	for _, tt := range []struct {
+		name    string
+		isSuper bool
+		want    error
+	}{
+		{name: "regular role denied", want: security.ErrPermissionDenied},
+		{name: "super role allowed", isSuper: true},
+		{name: "super flag cleared", want: security.ErrPermissionDenied},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			repository.role.SetIsSuper(tt.isSuper)
+			principal, err := service.Authorize(context.Background(), pair.AccessToken, security.PermissionManageUser)
+
+			if !errors.Is(err, tt.want) || (err == nil && principal.IsSuper != tt.isSuper) {
+				t.Fatalf("Authorize() = %v, %v, want %v", principal, err, tt.want)
+			}
+		})
+	}
+}
+
 func TestAuthenticationInvalidCredentials(t *testing.T) {
 	for _, tt := range []struct {
 		name, email, password string

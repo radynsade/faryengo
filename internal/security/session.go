@@ -57,8 +57,9 @@ type Principal struct {
 	SessionID   uuid.UUID
 	RoleID      RoleID
 	Permissions []Permission
+	IsSuper     bool
 }
 
 func (p Principal) HasPermission(permission Permission) bool {
-	return permission.Validate() == nil && slices.Contains(p.Permissions, permission)
+	return permission.Validate() == nil && (p.IsSuper || slices.Contains(p.Permissions, permission))
 }

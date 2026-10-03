@@ -7,10 +7,14 @@ import (
 	"strings"
 	"testing"
 
+	"go.uber.org/goleak"
+
 	"github.com/radynsade/faryengo/internal/app"
 	appinput "github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/languages"
 )
+
+func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 
 func TestParseCreateLanguage(t *testing.T) {
 	for _, tt := range []struct {
@@ -64,6 +68,16 @@ func TestRunWithoutDatabase(t *testing.T) {
 		{name: "invalid language before connection", args: []string{"languages", "create-language", "LV", "Latvian", "Latviešu"}, wantError: "invalid language code"},
 		{name: "missing connection for delete", args: []string{"languages", "delete-language", "lv"}, wantError: "DATABASE_URL"},
 		{name: "delete with missing code", args: []string{"languages", "delete-language"}, wantError: "invalid command"},
+		{name: "missing connection for user creation", args: createUserArguments(), wantError: "DATABASE_URL"},
+		{name: "missing connection for user deletion", args: []string{"security", "delete-user", testUserUUID}, wantError: "DATABASE_URL"},
+		{name: "invalid user before connection", args: changedUserArguments(2, "invalid-email"), wantError: "invalid email"},
+		{name: "invalid user UUID before connection", args: []string{"security", "delete-user", "invalid-uuid"}, wantError: "invalid user ID"},
+		{name: "missing connection for role creation", args: []string{"security", "create-role", "en:Administrator", "--super"}, wantError: "DATABASE_URL"},
+		{name: "missing connection for role deletion", args: []string{"security", "delete-role", testRoleUUID}, wantError: "DATABASE_URL"},
+		{name: "malformed role name before connection", args: []string{"security", "create-role", "broken"}, wantError: "invalid string translations"},
+		{name: "invalid role code before connection", args: []string{"security", "create-role", "EN:Administrator"}, wantError: "invalid language code"},
+		{name: "invalid permission before connection", args: []string{"security", "create-role", "en:Administrator", "-p", "unknown"}, wantError: "invalid permission"},
+		{name: "invalid role UUID before connection", args: []string{"security", "delete-role", "invalid-uuid"}, wantError: "invalid role ID"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout bytes.Buffer

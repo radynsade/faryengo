@@ -3,6 +3,8 @@ package input
 import (
 	"errors"
 	"fmt"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -27,7 +29,7 @@ type CreateUserInput struct {
 func (request CreateUserInput) Validate() error {
 	validationErrors := validateUserFields(request.RoleID, request.Email, request.Phone, request.FirstName, request.LastName)
 
-	if request.Password == "" || len(request.Password) > security.MaxPasswordBytes {
+	if strings.TrimSpace(request.Password) == "" || utf8.RuneCountInString(request.Password) < 8 || len(request.Password) > security.MaxPasswordBytes {
 		validationErrors = append(validationErrors, fmt.Errorf("password: %w", security.ErrInvalidPassword))
 	}
 

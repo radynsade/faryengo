@@ -11,6 +11,7 @@ import (
 	"github.com/doug-martin/goqu/v9/exp"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -21,6 +22,7 @@ import (
 type roleDB interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
 type RoleRepository struct {
@@ -75,8 +77,8 @@ func (r *RoleRepository) createValidRole(ctx context.Context, role *security.Rol
 
 	query, args, err := goqu.Dialect("postgres").
 		Insert("role").
-		Cols("id", "name_id", "permissions").
-		Vals(goqu.Vals{id.String(), nameID, rolePermissionsArray(role.Permissions())}).
+		Cols("id", "name_id", "permissions", "is_super").
+		Vals(goqu.Vals{id.String(), nameID, rolePermissionsArray(role.Permissions()), role.IsSuper()}).
 		OnConflict(goqu.DoNothing()).
 		Returning("name_id").
 		Prepared(true).
@@ -135,7 +137,7 @@ func (r *RoleRepository) updateValidRole(ctx context.Context, role *security.Rol
 
 	query, args, err := goqu.Dialect("postgres").
 		Update("role").
-		Set(goqu.Record{"permissions": rolePermissionsArray(role.Permissions())}).
+		Set(goqu.Record{"permissions": rolePermissionsArray(role.Permissions()), "is_super": role.IsSuper()}).
 		Where(goqu.Ex{"id": id.String()}).
 		Returning("name_id").
 		Prepared(true).
@@ -206,6 +208,12 @@ func writeRoleTranslations(ctx context.Context, tx pgx.Tx, id uuid.UUID, nameID 
 
 		_, err = tx.Exec(ctx, query, args...)
 		if err != nil {
+			var foreignKey *pgconn.PgError
+
+			if errors.As(err, &foreignKey) && foreignKey.Code == "23503" && foreignKey.ConstraintName == "translation_language_code_fkey" {
+				err = fmt.Errorf("%w: %w", languages.ErrLanguageNotFound, err)
+			}
+
 			return fmt.Errorf("write name translation for role %s: %w", id, err)
 		}
 	}
@@ -227,7 +235,7 @@ func (r *RoleRepository) FindByID(ctx context.Context, id security.RoleID) (*sec
 			From("role").
 			Select("id", goqu.L(`"permissions"::text[]`),
 				goqu.L(`ARRAY(SELECT language_code FROM "translation" WHERE text_id = "role".name_id ORDER BY language_code)`),
-				goqu.L(`ARRAY(SELECT content FROM "translation" WHERE text_id = "role".name_id ORDER BY language_code)`)).
+				goqu.L(`ARRAY(SELECT content FROM "translation" WHERE text_id = "role".name_id ORDER BY language_code)`), "is_super").
 			Where(goqu.Ex{"id": storedID.String()}).
 			Prepared(true).
 			ToSQL()
@@ -241,7 +249,8 @@ func (r *RoleRepository) FindByID(ctx context.Context, id security.RoleID) (*sec
 			var rawPermissions []string
 			var codes []string
 			var contents []string
-			scanErr := r.db.QueryRow(ctx, query, args...).Scan(&rowID, &rawPermissions, &codes, &contents)
+			var isSuper bool
+			scanErr := r.db.QueryRow(ctx, query, args...).Scan(&rowID, &rawPermissions, &codes, &contents, &isSuper)
 
 			if errors.Is(scanErr, pgx.ErrNoRows) {
 				err = fmt.Errorf("find role %s: %w", storedID, security.ErrRoleNotFound)
@@ -277,6 +286,8 @@ func (r *RoleRepository) FindByID(ctx context.Context, id security.RoleID) (*sec
 
 						if err != nil {
 							err = fmt.Errorf("decode role %s: %w", storedID, err)
+						} else {
+							role.SetIsSuper(isSuper)
 						}
 					}
 				}
@@ -285,4 +296,43 @@ func (r *RoleRepository) FindByID(ctx context.Context, id security.RoleID) (*sec
 	}
 
 	return role, err
+}
+
+// Delete relies on PostgreSQL's foreign key to reject roles assigned to users.
+// The existing delete_role_name trigger removes the name and its translations
+// in the same statement, so a rejected deletion leaves them intact.
+func (r *RoleRepository) Delete(ctx context.Context, id security.RoleID) error {
+	var err error
+
+	if r == nil || r.db == nil {
+		err = ErrNilPool
+	} else if validationErr := id.Validate(); validationErr != nil {
+		err = fmt.Errorf("delete role: %w", validationErr)
+	} else {
+		storedID := uuid.UUID(id)
+		query, args, buildErr := goqu.Dialect("postgres").Delete("role").
+			Where(goqu.Ex{"id": storedID.String()}).Prepared(true).ToSQL()
+
+		if buildErr != nil {
+			err = fmt.Errorf("build delete role %s query: %w", storedID, buildErr)
+		} else if bindErr := bindUUIDArgs(args, [16]byte(storedID)); bindErr != nil {
+			err = fmt.Errorf("bind delete role %s query: %w", storedID, bindErr)
+		} else {
+			tag, deleteErr := r.db.Exec(ctx, query, args...)
+
+			if deleteErr != nil {
+				var foreignKey *pgconn.PgError
+
+				if errors.As(deleteErr, &foreignKey) && foreignKey.Code == "23503" && foreignKey.ConstraintName == "user_role_id_fkey" {
+					deleteErr = fmt.Errorf("%w: %w", security.ErrRoleAlreadyInUse, deleteErr)
+				}
+
+				err = fmt.Errorf("delete role %s: %w", storedID, deleteErr)
+			} else if tag.RowsAffected() == 0 {
+				err = fmt.Errorf("delete role %s: %w", storedID, security.ErrRoleNotFound)
+			}
+		}
+	}
+
+	return err
 }

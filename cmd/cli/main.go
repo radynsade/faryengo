@@ -18,9 +18,23 @@ import (
 	languagespgxgoqu "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
 )
 
-const usage = "Usage:\n  bin/cli languages create-language <code> <englishName> <nativeName> [--fallback|-f]\n  bin/cli languages delete-language <code>"
+const usage = `Usage:
+  bin/cli languages create-language <code> <englishName> <nativeName> [--fallback|-f]
+  bin/cli languages delete-language <code>
+  bin/cli security create-user <email> <firstName> <lastName> <password> <phone> <roleUUID>
+  bin/cli security delete-user <userUUID>
+  bin/cli security create-role <nameTranslations> [--super|-s] [--permission|-p <permission>]...
+  bin/cli security delete-role <roleUUID>`
 
 var errInvalidCommand = errors.New("invalid command")
+
+type cliCommand struct {
+	group    string
+	action   string
+	language languageCommand
+	user     userCommand
+	role     roleCommand
+}
 
 type languageCommand struct {
 	action      string
@@ -48,7 +62,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return err
 	}
 
-	command, err := parseLanguageCommand(args)
+	command, err := parseCommand(args)
 	if err != nil {
 		if _, writeErr := fmt.Fprintln(stderr, usage); writeErr != nil {
 			return fmt.Errorf("write CLI usage: %w", writeErr)
@@ -76,6 +90,60 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 		return fmt.Errorf("connect to PostgreSQL: %w", err)
 	}
 
+	switch command.group {
+	case "languages":
+		err = runLanguageCommand(ctx, command.language, pool, stdout)
+	case "security":
+		switch command.action {
+		case "create-user", "delete-user":
+			err = runUserCommand(ctx, command.user, pool, stdout)
+		case "create-role", "delete-role":
+			err = runRoleCommand(ctx, command.role, pool, stdout)
+		default:
+			err = errInvalidCommand
+		}
+	default:
+		err = errInvalidCommand
+	}
+
+	return err
+}
+
+func parseCommand(args []string) (cliCommand, error) {
+	var command cliCommand
+	var err error
+
+	if len(args) < 2 {
+		err = errInvalidCommand
+	} else {
+		command.group = args[0]
+		command.action = args[1]
+
+		switch command.group {
+		case "languages":
+			command.language, err = parseLanguageCommand(args)
+		case "security":
+			switch command.action {
+			case "create-user", "delete-user":
+				command.user, err = parseUserCommand(args)
+			case "create-role", "delete-role":
+				command.role, err = parseRoleCommand(args)
+			default:
+				err = errInvalidCommand
+			}
+		default:
+			err = errInvalidCommand
+		}
+	}
+
+	if err != nil {
+		command = cliCommand{}
+	}
+
+	return command, err
+}
+
+func runLanguageCommand(ctx context.Context, command languageCommand, pool *pgxpool.Pool, stdout io.Writer) error {
 	repository, err := languagespgxgoqu.NewLanguageRepository(pool)
 	if err != nil {
 		return fmt.Errorf("configure language repository: %w", err)

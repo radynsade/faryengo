@@ -8,6 +8,7 @@ import (
 	"github.com/doug-martin/goqu/v9"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
@@ -64,7 +65,13 @@ func (r *UserRepository) Create(ctx context.Context, user *security.User) error 
 			tag, execErr := r.db.Exec(ctx, query, args...)
 
 			if execErr != nil {
-				err = fmt.Errorf("create user %s: %w", id, execErr)
+				var postgresErr *pgconn.PgError
+
+				if errors.As(execErr, &postgresErr) && postgresErr.Code == "23503" && postgresErr.ConstraintName == "user_role_id_fkey" {
+					err = fmt.Errorf("create user %s: %w: %w", id, security.ErrRoleNotFound, execErr)
+				} else {
+					err = fmt.Errorf("create user %s: %w", id, execErr)
+				}
 			} else if tag.RowsAffected() == 0 {
 				err = fmt.Errorf("create user %s: %w", id, security.ErrUserAlreadyExists)
 			}

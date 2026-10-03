@@ -16,6 +16,7 @@ var (
 	ErrInvalidRoleID     = errors.New("invalid role ID")
 	ErrRoleNotFound      = errors.New("role not found")
 	ErrRoleAlreadyExists = errors.New("role already exists")
+	ErrRoleAlreadyInUse  = errors.New("role is assigned to users")
 	ErrInvalidRoleName   = errors.New("invalid role name")
 )
 
@@ -33,6 +34,7 @@ type Role struct {
 	id          RoleID
 	name        languages.Text
 	permissions []Permission
+	isSuper     bool
 }
 
 func NewRole(id RoleID, name languages.Text, permissions []Permission) (*Role, error) {
@@ -85,6 +87,14 @@ func (r *Role) Permissions() []Permission {
 	return slices.Clone(r.permissions)
 }
 
+func (r *Role) IsSuper() bool {
+	return r.isSuper
+}
+
+func (r *Role) SetIsSuper(isSuper bool) {
+	r.isSuper = isSuper
+}
+
 func (r *Role) SetPermissions(permissions []Permission) error {
 	if err := validatePermissions(permissions); err != nil {
 		return fmt.Errorf("set role permissions: %w", err)
@@ -120,5 +130,6 @@ func validatePermissions(permissions []Permission) error {
 type RoleRepository interface {
 	Create(ctx context.Context, role *Role) error
 	Update(ctx context.Context, role *Role) error
+	Delete(ctx context.Context, id RoleID) error
 	FindByID(ctx context.Context, id RoleID) (*Role, error)
 }

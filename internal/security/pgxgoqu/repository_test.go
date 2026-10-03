@@ -71,6 +71,8 @@ func (r fakeSecurityRow) Scan(destinations ...any) error {
 			*destination = value.([]string)
 		case *string:
 			*destination = value.(string)
+		case *bool:
+			*destination = value.(bool)
 		}
 	}
 
@@ -191,6 +193,10 @@ func mustRole(t *testing.T, permissions []security.Permission) *security.Role {
 
 func TestRoleRepositoryCreate(t *testing.T) {
 	ctx := context.Background()
+	super := mustRole(t, nil)
+	super.SetIsSuper(true)
+	missingLanguage := &pgconn.PgError{Code: "23503", ConstraintName: "translation_language_code_fkey"}
+
 	for _, tt := range []struct {
 		name       string
 		role       *security.Role
@@ -202,11 +208,13 @@ func TestRoleRepositoryCreate(t *testing.T) {
 	}{
 		{name: "created", role: testRole(t), wantCommit: true},
 		{name: "empty permissions", role: mustRole(t, nil), wantCommit: true},
+		{name: "super", role: super, wantCommit: true},
 		{name: "duplicate", role: testRole(t), insertErr: pgx.ErrNoRows, wantErr: security.ErrRoleAlreadyExists},
 		{name: "nil role", wantErr: ErrNilRole},
 		{name: "invalid role", role: &security.Role{}, wantErr: security.ErrInvalidRoleID},
 		{name: "begin error", role: testRole(t), beginErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
 		{name: "translation error", role: testRole(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
+		{name: "missing language", role: testRole(t), execErr: missingLanguage, wantErr: languages.ErrLanguageNotFound},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			tx := &fakeRoleTx{rows: []pgx.Row{
@@ -218,6 +226,10 @@ func TestRoleRepositoryCreate(t *testing.T) {
 			err := repository.Create(ctx, tt.role)
 			if !errors.Is(err, tt.wantErr) || tx.committed != tt.wantCommit {
 				t.Fatalf("Create() error = %v, committed = %v; want %v and %v", err, tx.committed, tt.wantErr, tt.wantCommit)
+			}
+
+			if tt.execErr != nil && !errors.Is(err, tt.execErr) {
+				t.Fatal("translation error lost its original cause")
 			}
 
 			if len(tx.queries) > 0 && tx.rolledBack == tt.wantCommit {
@@ -234,11 +246,15 @@ func TestRoleRepositoryCreate(t *testing.T) {
 				}
 
 				if len(tt.role.Permissions()) == 0 {
-					if !strings.Contains(tx.queries[1], "ARRAY[]::permission[]") || len(tx.args[1]) != 2 {
+					if !strings.Contains(tx.queries[1], "ARRAY[]::permission[]") || len(tx.args[1]) != 3 {
 						t.Fatalf("Create() role args = %v, want empty permissions", tx.args[1])
 					}
-				} else if len(tx.args[1]) != 4 || tx.args[1][2] != "view_user" || tx.args[1][3] != "manage_user" {
+				} else if len(tx.args[1]) != 5 || tx.args[1][2] != "view_user" || tx.args[1][3] != "manage_user" {
 					t.Fatalf("Create() role args = %v, want bound permissions", tx.args[1])
+				}
+
+				if !strings.Contains(tx.queries[1], `"is_super"`) || tx.args[1][len(tx.args[1])-1] != tt.role.IsSuper() {
+					t.Fatalf("Create() lost the super flag: %v", tx.args[1])
 				}
 
 				if tx.args[2][1] != "en" || tx.args[2][2] != "Administrator" || tx.args[3][1] != "lv" {
@@ -251,6 +267,10 @@ func TestRoleRepositoryCreate(t *testing.T) {
 
 func TestRoleRepositoryUpdate(t *testing.T) {
 	ctx := context.Background()
+	super := mustRole(t, nil)
+	super.SetIsSuper(true)
+	missingLanguage := &pgconn.PgError{Code: "23503", ConstraintName: "translation_language_code_fkey"}
+
 	for _, tt := range []struct {
 		name       string
 		role       *security.Role
@@ -262,11 +282,13 @@ func TestRoleRepositoryUpdate(t *testing.T) {
 	}{
 		{name: "updated", role: testRole(t), wantCommit: true},
 		{name: "clear permissions", role: mustRole(t, nil), wantCommit: true},
+		{name: "super", role: super, wantCommit: true},
 		{name: "not found", role: testRole(t), updateErr: pgx.ErrNoRows, wantErr: security.ErrRoleNotFound},
 		{name: "nil role", wantErr: ErrNilRole},
 		{name: "invalid role", role: &security.Role{}, wantErr: security.ErrInvalidRoleID},
 		{name: "begin error", role: testRole(t), beginErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
 		{name: "translation error", role: testRole(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
+		{name: "missing language", role: testRole(t), execErr: missingLanguage, wantErr: languages.ErrLanguageNotFound},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			tx := &fakeRoleTx{rows: []pgx.Row{fakeSecurityRow{values: []any{int64(9)}, err: tt.updateErr}}, execErr: tt.execErr, execFailOn: `INSERT INTO "translation"`}
@@ -289,8 +311,60 @@ func TestRoleRepositoryUpdate(t *testing.T) {
 				if tx.args[0][len(tx.args[0])-1] != (pgtype.UUID{Bytes: [16]byte{1}, Valid: true}) || tx.args[2][0] != int64(9) || tx.args[3][0] != int64(9) {
 					t.Fatalf("Update() args = %v, want existing role and name ID", tx.args)
 				}
+
+				if !strings.Contains(tx.queries[0], `"is_super"`) || tx.args[0][0] != tt.role.IsSuper() {
+					t.Fatalf("Update() lost the super flag: %v", tx.args[0])
+				}
 			}
 		})
+	}
+}
+
+func TestRoleRepositoryDelete(t *testing.T) {
+	ctx := context.Background()
+	assigned := &pgconn.PgError{Code: "23503", ConstraintName: "user_role_id_fkey"}
+	other := &pgconn.PgError{Code: "23503", ConstraintName: "other_fkey"}
+
+	for _, tt := range []struct {
+		name           string
+		id             security.RoleID
+		tag            pgconn.CommandTag
+		storeErr, want error
+	}{
+		{name: "deleted", id: security.RoleID{1}, tag: pgconn.NewCommandTag("DELETE 1")},
+		{name: "missing", id: security.RoleID{1}, tag: pgconn.NewCommandTag("DELETE 0"), want: security.ErrRoleNotFound},
+		{name: "assigned", id: security.RoleID{1}, storeErr: assigned, want: security.ErrRoleAlreadyInUse},
+		{name: "unrelated constraint", id: security.RoleID{1}, storeErr: other, want: other},
+		{name: "canceled", id: security.RoleID{1}, storeErr: context.Canceled, want: context.Canceled},
+		{name: "invalid ID", want: security.ErrInvalidRoleID},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			db := &fakeSecurityDB{execTag: tt.tag, execErr: tt.storeErr}
+			repository := &RoleRepository{db: db}
+			err := repository.Delete(ctx, tt.id)
+
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("Delete() = %v, want %v", err, tt.want)
+			}
+
+			if tt.storeErr != nil && !errors.Is(err, tt.storeErr) {
+				t.Fatal("original database error lost")
+			}
+
+			if tt.id == (security.RoleID{}) {
+				if db.execQuery != "" {
+					t.Fatal("invalid ID accessed database")
+				}
+			} else if db.execContext != ctx || !strings.Contains(db.execQuery, `DELETE FROM "role"`) || len(db.execArgs) != 1 || db.execArgs[0] != (pgtype.UUID{Bytes: [16]byte{1}, Valid: true}) {
+				t.Fatalf("incorrect delete query: %+v", db)
+			}
+		})
+	}
+
+	for _, repository := range []*RoleRepository{nil, {}} {
+		if err := repository.Delete(ctx, security.RoleID{1}); !errors.Is(err, ErrNilPool) {
+			t.Fatalf("nil repository error = %v", err)
+		}
 	}
 }
 
@@ -304,13 +378,15 @@ func TestRoleRepositoryFindByID(t *testing.T) {
 		wantErr         error
 		wantQuery       bool
 		wantPermissions []security.Permission
+		wantSuper       bool
 	}{
-		{name: "found", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"view_user", "manage_user"}, []string{"en", "lv"}, []string{"Administrator", "Administrators"}}}, wantQuery: true, wantPermissions: []security.Permission{security.PermissionViewUser, security.PermissionManageUser}},
+		{name: "found", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"view_user", "manage_user"}, []string{"en", "lv"}, []string{"Administrator", "Administrators"}, false}}, wantQuery: true, wantPermissions: []security.Permission{security.PermissionViewUser, security.PermissionManageUser}},
+		{name: "super", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{}, []string{"en", "lv"}, []string{"Administrator", "Administrators"}, true}}, wantQuery: true, wantSuper: true},
 		{name: "not found", id: security.RoleID{1}, row: fakeSecurityRow{err: pgx.ErrNoRows}, wantErr: security.ErrRoleNotFound, wantQuery: true},
 		{name: "invalid ID", wantErr: security.ErrInvalidRoleID},
 		{name: "scan error", id: security.RoleID{1}, row: fakeSecurityRow{err: context.DeadlineExceeded}, wantErr: context.DeadlineExceeded, wantQuery: true},
-		{name: "invalid stored permission", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"unknown"}, []string{"en"}, []string{"Administrator"}}}, wantErr: security.ErrInvalidPermission, wantQuery: true},
-		{name: "missing translation", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{}, []string{}, []string{}}}, wantErr: security.ErrInvalidRoleName, wantQuery: true},
+		{name: "invalid stored permission", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"unknown"}, []string{"en"}, []string{"Administrator"}, false}}, wantErr: security.ErrInvalidPermission, wantQuery: true},
+		{name: "missing translation", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{}, []string{}, []string{}, false}}, wantErr: security.ErrInvalidRoleName, wantQuery: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			db := &fakeSecurityDB{row: tt.row}
@@ -329,7 +405,7 @@ func TestRoleRepositoryFindByID(t *testing.T) {
 			}
 
 			if tt.wantErr == nil {
-				if role == nil || role.ID() != (security.RoleID{1}) || !slices.Equal(role.Permissions(), tt.wantPermissions) || len(role.Name()) != 2 || role.Name()["en"].Content() != "Administrator" || role.Name()["lv"].Content() != "Administrators" {
+				if role == nil || role.ID() != (security.RoleID{1}) || role.IsSuper() != tt.wantSuper || !slices.Equal(role.Permissions(), tt.wantPermissions) || len(role.Name()) != 2 || role.Name()["en"].Content() != "Administrator" || role.Name()["lv"].Content() != "Administrators" {
 					t.Fatalf("FindByID() role = %v, want stored role", role)
 				}
 			} else if role != nil {
@@ -341,6 +417,8 @@ func TestRoleRepositoryFindByID(t *testing.T) {
 
 func TestUserRepositoryCreate(t *testing.T) {
 	ctx := context.Background()
+	otherForeignKey := &pgconn.PgError{Code: "23503", ConstraintName: "other_fkey"}
+
 	for _, tt := range []struct {
 		name     string
 		user     *security.User
@@ -351,6 +429,8 @@ func TestUserRepositoryCreate(t *testing.T) {
 	}{
 		{name: "created", user: testUser(t), tag: pgconn.NewCommandTag("INSERT 0 1"), wantExec: true},
 		{name: "duplicate", user: testUser(t), tag: pgconn.NewCommandTag("INSERT 0 0"), wantErr: security.ErrUserAlreadyExists, wantExec: true},
+		{name: "missing role", user: testUser(t), execErr: &pgconn.PgError{Code: "23503", ConstraintName: "user_role_id_fkey"}, wantErr: security.ErrRoleNotFound, wantExec: true},
+		{name: "unrelated foreign key", user: testUser(t), execErr: otherForeignKey, wantErr: otherForeignKey, wantExec: true},
 		{name: "nil user", wantErr: ErrNilUser},
 		{name: "invalid user", user: &security.User{}, wantErr: security.ErrInvalidRoleID},
 		{name: "database error", user: testUser(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantExec: true},
@@ -359,6 +439,11 @@ func TestUserRepositoryCreate(t *testing.T) {
 			db := &fakeSecurityDB{execTag: tt.tag, execErr: tt.execErr}
 			repository := &UserRepository{db: db}
 			err := repository.Create(ctx, tt.user)
+
+			if tt.execErr != nil && !errors.Is(err, tt.execErr) {
+				t.Fatalf("Create() lost the database error: %v", err)
+			}
+
 			if !errors.Is(err, tt.wantErr) || (db.execQuery != "") != tt.wantExec {
 				t.Fatalf("Create() error = %v, query = %q; want %v and exec %v", err, db.execQuery, tt.wantErr, tt.wantExec)
 			}

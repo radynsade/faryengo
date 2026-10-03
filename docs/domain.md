@@ -8,12 +8,25 @@ The Security domain describes a person recognized by the system and the informat
 
 A user has an identity, a role ID, an email address, a phone number, a password credential, a first name, and a last name. The identity distinguishes one user from another. The role ID identifies the user's role. Contact details and names may change without changing that identity.
 
-The application `UserService` creates users with a generated UUID and a hashed password. Updates replace the role, contact details, and names; omitting a new password preserves the current hash. Deletion uses the user ID. The service validates inputs before accessing the repository.
+The application `UserService` creates users with a generated UUID and a hashed password. Creation requires a nonblank password of at least eight characters, bounded at 4096 bytes. Updates replace the role, contact details, and names; omitting a new password preserves the current hash. Deletion uses the user ID. The service validates inputs before accessing the repository.
 
 ### Role
 
-A role has an ID, a translated name, and a list of permissions. The name contains at least one translation. A role may have no permissions.
+A role has an ID, a translated name, a list of permissions, and an `IsSuper` flag that defaults to false. The name contains at least one translation. A role may have no permissions.
 Each permission in the list must be one of the defined permissions.
+
+The application `RoleService` creates roles with generated UUIDs, finds roles
+by ID, updates them, and deletes unused roles. Inputs use a map of language codes
+to names and validate before accessing the repository. Updates preserve nil
+fields; a supplied name replaces all translations and an empty non-nil
+permission list clears permissions. A supplied `IsSuper` pointer can set or
+clear the flag. Failed updates leave the loaded role object unchanged.
+
+Super roles authorize every defined permission. Authentication reads the current
+role on every request, so changes to permissions or the super flag take effect
+for existing sessions. A role assigned to any user cannot be deleted. PostgreSQL
+enforces this restriction and removes an unused role's name and translations
+atomically when the role is deleted.
 
 ### Permission
 

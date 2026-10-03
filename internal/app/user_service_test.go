@@ -69,7 +69,7 @@ func (f *fakePasswordHasher) Verify(context.Context, string, security.PasswordHa
 }
 
 func validCreateUserInput() input.CreateUserInput {
-	return input.CreateUserInput{RoleID: security.RoleID{1}, Email: "person@example.com", Phone: "+37123456789", Password: "secret", FirstName: "First", LastName: "Last"}
+	return input.CreateUserInput{RoleID: security.RoleID{1}, Email: "person@example.com", Phone: "+37123456789", Password: "secret-password", FirstName: "First", LastName: "Last"}
 }
 
 func validUpdateUserInput() input.UpdateUserInput {
@@ -105,7 +105,7 @@ func TestUserServiceCreate(t *testing.T) {
 			}
 
 			if tt.wantErr == nil {
-				if user == nil || user != store.user || uuid.UUID(user.ID()) == uuid.Nil || user.PasswordHash() != "encoded" || user.Email() != security.Email(tt.request.Email) || hasher.ctx != ctx || hasher.password != "secret" || store.ctx != ctx {
+				if user == nil || user != store.user || uuid.UUID(user.ID()) == uuid.Nil || user.PasswordHash() != "encoded" || user.Email() != security.Email(tt.request.Email) || hasher.ctx != ctx || hasher.password != "secret-password" || store.ctx != ctx {
 					t.Fatalf("Create() user = %v, hasher = %+v, store = %+v", user, hasher, store)
 				}
 			} else if user != nil {
