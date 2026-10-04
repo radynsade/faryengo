@@ -87,9 +87,64 @@ describes English page content.
 Authenticated pages use `Panel`, with a sidebar containing Users and Roles links,
 the current user's first and last name, and a native POST sign-out form. The
 sidebar becomes a compact header on narrow screens. The links retain the
-language path and mark the active section. `/admin/{language}/users` and
-`/admin/{language}/roles` require `view_user` and `view_role` respectively; these
-section pages currently contain placeholders for future management screens.
+language path and mark the active section. `/admin/{language}/users` requires
+`view_user`; `/admin/{language}/roles` requires authentication. Users
+currently contains a placeholder; Roles provides the management table described
+below.
+
+`Panel` renders page content directly into the full-width main area, without a
+shared title block, padding, or width limit. Pages can fill that area with tables
+and toolbars; use the `panel-page` class when a page needs an inset. The main
+area retains its accessible page label, skip link, and navigation focus target.
+
+## Roles management
+
+The Roles table fills the main area's width. Its toolbar contains Create,
+the filtered total, a collapsible filter form, and pagination. Column links sort
+by UUID, translated name, or super status. Filters match UUID and name substrings,
+all selected permissions, and an optional super status; super roles satisfy all
+permission selections. Sorting and pagination retain filters in the URL.
+
+The list accepts `uuid`, `name`, repeated `permissions`, `super=true|false`,
+`sort=uuid|name|super`, `order=asc|desc`, `page`, and `size` query parameters.
+The default page size is 25; the maximum is 100. Invalid filters return a readable
+400 response. Filters live in `internal/security/role_filters.go`, and PostgreSQL
+applies them through `RoleRepository.Find` and `Count`.
+
+Create and edit forms offer name fields for the configured languages, permissions,
+and a super-role checkbox. Blank translations are omitted; at
+least one name is required. The view page shows all translations and permissions.
+Delete opens a confirmation page and only changes data on POST. Assigned roles
+cannot be deleted. Form errors retain entered values; successful writes redirect
+to a confirmation message. Forms and links work without JavaScript; HTMX enhances
+filtering, sorting, pagination, and navigation.
+
+Permissions in filters and create/edit forms use the shared `MultiSelect`
+component. It follows Monoshop's searchable dropdown with highlighted selections,
+a count badge, and removable tags. Arrow keys move through options, Enter toggles
+the active option (or the only search result), and Escape closes the dropdown.
+The native multiple select submits repeated values and remains available without
+JavaScript. `src/multiselect.ts` initializes fields after HTMX swaps and removes
+their listeners when content is replaced.
+
+Role name translations use `TranslationsInput`, with grouped language tabs based
+on Monoshop's language switcher. Tabs show native language names and initially
+select the current admin language, falling back to the first available language.
+Switching tabs preserves all values; every translation submits with the form.
+Left/Right arrows, Home, and End move between tabs. JavaScript-free forms show
+all language fields. `src/translations-input.ts` also initializes HTMX fragments.
+
+Role management authorization is currently deferred. Signed-in users can view,
+create, update, and delete roles through the common role service methods. All
+permissions and the super flag are editable, including on your own role.
+Every request reauthenticates the user; assigned roles cannot be deleted.
+Mutation routes use the admin's same-origin protection and Strict session cookies.
+
+`make check` runs the domain, service, repository, and HTTP tests. To also run the
+PostgreSQL integration test, point `FARYEN_ROLE_TEST_DATABASE_URL` at a disposable
+PostgreSQL instance before running `make check`. The test creates only temporary
+tables and a temporary permission type on one connection; it never runs migrations
+or accesses existing application tables.
 
 `src/style.scss` loads the shared tokens and base styles from `src/styles/`,
 followed by component and layout partials. Reuse the CSS color, spacing, radius,
@@ -119,8 +174,9 @@ content without reloading assets. Responses vary on both request headers.
 HTMX manages browser history and `hx-sync="body:replace"` cancels a pending link
 request when another starts. `hx-params="none"` keeps page navigation free of
 form values. `navigation.ts` configures full-document history restoration,
-focuses the page heading after navigation, and shows the navigation error when
-a request fails. Inline evaluation and response scripts are disabled.
+focuses the panel's main area or the auth page heading after navigation, and
+shows the navigation error when a request fails. Inline evaluation and response
+scripts are disabled.
 
 `hx-history="false"` prevents admin page snapshots from entering HTMX's browser
 storage cache. Back and Forward fetch the page from the server and recheck

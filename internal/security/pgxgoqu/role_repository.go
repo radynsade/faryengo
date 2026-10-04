@@ -12,7 +12,6 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/radynsade/faryengo/internal/languages"
@@ -22,6 +21,7 @@ import (
 type roleDB interface {
 	Begin(ctx context.Context) (pgx.Tx, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 }
 
@@ -245,52 +245,12 @@ func (r *RoleRepository) FindByID(ctx context.Context, id security.RoleID) (*sec
 		} else if bindErr := bindUUIDArgs(args, [16]byte(storedID)); bindErr != nil {
 			err = fmt.Errorf("build find role %s query: %w", storedID, bindErr)
 		} else {
-			var rowID pgtype.UUID
-			var rawPermissions []string
-			var codes []string
-			var contents []string
-			var isSuper bool
-			scanErr := r.db.QueryRow(ctx, query, args...).Scan(&rowID, &rawPermissions, &codes, &contents, &isSuper)
+			role, err = scanRole(r.db.QueryRow(ctx, query, args...))
 
-			if errors.Is(scanErr, pgx.ErrNoRows) {
+			if errors.Is(err, pgx.ErrNoRows) {
 				err = fmt.Errorf("find role %s: %w", storedID, security.ErrRoleNotFound)
-			} else if scanErr != nil {
-				err = fmt.Errorf("find role %s: %w", storedID, scanErr)
-			} else {
-				permissions := make([]security.Permission, len(rawPermissions))
-				for index, permission := range rawPermissions {
-					permissions[index] = security.Permission(permission)
-				}
-
-				translations := make([]languages.Translation, 0, len(codes))
-				if len(codes) != len(contents) {
-					err = fmt.Errorf("decode role %s: mismatched name translations", storedID)
-				} else {
-					for index, code := range codes {
-						var translation languages.Translation
-						translation, err = languages.NewTranslation(languages.LanguageCode(code), contents[index])
-						if err != nil {
-							err = fmt.Errorf("decode role %s name: %w", storedID, err)
-							break
-						}
-
-						translations = append(translations, translation)
-					}
-
-					if err == nil {
-						var name languages.Text
-						name, err = languages.NewText(translations)
-						if err == nil {
-							role, err = security.NewRole(security.RoleID(rowID.Bytes), name, permissions)
-						}
-
-						if err != nil {
-							err = fmt.Errorf("decode role %s: %w", storedID, err)
-						} else {
-							role.SetIsSuper(isSuper)
-						}
-					}
-				}
+			} else if err != nil {
+				err = fmt.Errorf("find role %s: %w", storedID, err)
 			}
 		}
 	}
@@ -323,7 +283,7 @@ func (r *RoleRepository) Delete(ctx context.Context, id security.RoleID) error {
 			if deleteErr != nil {
 				var foreignKey *pgconn.PgError
 
-				if errors.As(deleteErr, &foreignKey) && foreignKey.Code == "23503" && foreignKey.ConstraintName == "user_role_id_fkey" {
+				if errors.As(deleteErr, &foreignKey) && (foreignKey.Code == "23503" || foreignKey.Code == "23001") && foreignKey.ConstraintName == "user_role_id_fkey" {
 					deleteErr = fmt.Errorf("%w: %w", security.ErrRoleAlreadyInUse, deleteErr)
 				}
 

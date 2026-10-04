@@ -29,6 +29,12 @@ func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 type httpCredentials struct {
 	credentials security.Credentials
 	role        *security.Role
+	otherRoles  []*security.Role
+	roleErr     error
+	deleteErr   error
+	lastQuery   security.RoleQuery
+	lastFilters security.RoleFilters
+	roleWrites  int
 }
 
 func (r *httpCredentials) FindByEmail(_ context.Context, email security.Email) (*security.Credentials, error) {
@@ -57,8 +63,24 @@ func (r *httpCredentials) FindByUserID(_ context.Context, id security.UserID) (*
 
 	return credentials, err
 }
-func (r *httpCredentials) FindByID(context.Context, security.RoleID) (*security.Role, error) {
-	return r.role, nil
+func (r *httpCredentials) FindByID(_ context.Context, id security.RoleID) (*security.Role, error) {
+	var role *security.Role
+	var err error
+	if r.roleErr != nil {
+		err = r.roleErr
+	} else if r.role != nil && id == r.role.ID() {
+		role = r.role
+	} else {
+		for _, candidate := range r.otherRoles {
+			if candidate.ID() == id {
+				role = candidate
+			}
+		}
+		if role == nil {
+			err = security.ErrRoleNotFound
+		}
+	}
+	return role, err
 }
 
 type httpHasher struct{}
@@ -132,7 +154,19 @@ func httpFixtureWithCookies(t *testing.T, secure bool) (*http.ServeMux, *httpCre
 		t.Fatal(err)
 	}
 
-	handler, err := NewHandler(service, limiter, secure)
+	roleService, err := app.NewRoleService(repository)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	languageService, err := app.NewLanguageService(httpLanguages{})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	handler, err := NewHandler(service, roleService, languageService, limiter, secure)
 
 	if err != nil {
 		t.Fatal(err)
@@ -490,7 +524,7 @@ func TestSecurityAPIRemoved(t *testing.T) {
 }
 
 func TestAdminInvalidHandlerConfig(t *testing.T) {
-	if handler, err := NewHandler(nil, nil, true); handler != nil || !errors.Is(err, ErrInvalidHandlerConfig) {
+	if handler, err := NewHandler(nil, nil, nil, nil, true); handler != nil || !errors.Is(err, ErrInvalidHandlerConfig) {
 		t.Fatalf("invalid config = %v, %v", handler, err)
 	}
 }

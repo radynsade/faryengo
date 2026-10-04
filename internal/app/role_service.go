@@ -90,6 +90,36 @@ func (s *RoleService) FindByID(ctx context.Context, id security.RoleID) (*securi
 	return role, err
 }
 
+func (s *RoleService) List(ctx context.Context, query security.RoleQuery) (security.RolePage, error) {
+	var page security.RolePage
+	var err error
+
+	if s == nil || s.repository == nil {
+		err = ErrNilRoleRepository
+	} else if validationErr := query.Validate(); validationErr != nil {
+		err = validationErr
+	} else {
+		page.Page, page.PageSize = query.Page, query.PageSize
+		page.Total, err = s.repository.Count(ctx, query.Filters)
+
+		if err == nil {
+			if page.Page > page.Pages() {
+				page.Page = page.Pages()
+				query.Page = page.Page
+			}
+
+			page.Roles, err = s.repository.Find(ctx, query)
+		}
+
+		if err != nil {
+			err = fmt.Errorf("list roles: %w", err)
+			page = security.RolePage{}
+		}
+	}
+
+	return page, err
+}
+
 func (s *RoleService) Update(ctx context.Context, request input.UpdateRoleInput) (*security.Role, error) {
 	var role *security.Role
 	var err error

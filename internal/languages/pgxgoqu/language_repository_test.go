@@ -304,3 +304,23 @@ func TestLanguageRepositoryFindFallback(t *testing.T) {
 		t.Fatalf("FindFallback(nil receiver) = (%v, %v), want nil and ErrNilPool", language, err)
 	}
 }
+
+func (f *fakeLanguageDB) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+	f.queryContext, f.query, f.queryArgs = ctx, query, args
+	return nil, context.Canceled
+}
+
+func TestLanguageRepositoryFindAllFailure(t *testing.T) {
+	db := &fakeLanguageDB{}
+	result, err := (&LanguageRepository{db: db}).FindAll(t.Context())
+
+	if !errors.Is(err, context.Canceled) || result != nil || db.queryContext != t.Context() || !strings.Contains(db.query, `ORDER BY "code" ASC`) {
+		t.Fatalf("FindAll() = %v, %v; query = %s", result, err, db.query)
+	}
+
+	var repository *LanguageRepository
+
+	if _, err := repository.FindAll(t.Context()); !errors.Is(err, ErrNilPool) {
+		t.Fatal(err)
+	}
+}

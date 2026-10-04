@@ -28,6 +28,24 @@ for existing sessions. A role assigned to any user cannot be deleted. PostgreSQL
 enforces this restriction and removes an unused role's name and translations
 atomically when the role is deleted.
 
+`RoleFilters` belongs to the Security domain. UUID and name filters match literal,
+case-insensitive substrings, and name filtering searches every translation. All
+selected permissions must match; super roles satisfy any permission selection.
+An optional super filter distinguishes any role, super roles, and ordinary roles.
+Filters combine with AND. `RoleRepository.Find` applies a validated `RoleQuery`
+for sorting and pagination; `Count` uses the same filters without pagination.
+UUID breaks sorting ties. Name sorting uses the requested language, then the
+configured fallback, then the first language code. Pages contain up to 100 rows,
+defaulting to 25 in the admin transport. `RoleService.List` bounds out-of-range
+pages to the last available page and returns rows with their total count.
+
+Admin role management and the CLI use the common `RoleService.Create`, `Update`,
+and `Delete` methods. The service validates inputs and persists changes without
+actor-specific access checks. Admin role pages require authentication; role
+management authorization is currently deferred. Signed-in users can change their
+own role, manage super roles, and assign any defined permission. Assigned roles
+remain protected from deletion by the database constraint.
+
 ### Permission
 
 A permission names an action the system may authorize. The defined permissions
@@ -51,6 +69,9 @@ Authentication flows and sessions are outside the current Security model.
 A language has a code, English and native names, and an `IsFallback` flag. The fallback identifies the language to use when the requested translation is missing. Languages default to non-fallback, and at most one language may be the fallback.
 
 `LanguageRepository.FindFallback` returns the configured fallback or `ErrLanguageNotFound` when none exists. Creating a second fallback returns `ErrFallbackLanguageAlreadyExists`. A fallback used by existing translations cannot be deleted or unset; attempts return `ErrFallbackLanguageAlreadyInUse`. These rules are enforced in PostgreSQL as well as during application creation. The existing restriction on deleting any language with translations still applies.
+
+`LanguageRepository.FindAll` and `LanguageService.List` return the language
+catalog ordered by code. Role forms use this catalog for translated name fields.
 
 ## Finance
 

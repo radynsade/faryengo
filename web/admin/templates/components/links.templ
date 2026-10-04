@@ -1,5 +1,14 @@
 package components
 
+// ActionLink shares the ordinary page navigation behavior with styled actions.
+templ ActionLink(href string, className string, label string) {
+	<a class={ className } href={ templ.URL(href) } aria-label={ label }
+		hx-boost="true" hx-target="#page-content" hx-swap="outerHTML show:none"
+		hx-sync="body:replace" hx-params="none">
+		{ children... }
+	</a>
+}
+
 // PageLink uses HTMX for navigation and keeps native links available without JavaScript.
 templ PageLink(href string) {
 	<a

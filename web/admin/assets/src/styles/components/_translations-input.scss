@@ -1,0 +1,72 @@
+.translations-input {
+	display: grid;
+	gap: var(--space-4);
+	min-width: 0;
+
+	[hidden] {
+		display: none;
+	}
+
+	&__tabs {
+		display: flex;
+		width: fit-content;
+		max-width: 100%;
+		overflow-x: auto;
+		border-radius: var(--radius-control);
+	}
+
+	&__tab {
+		flex: none;
+		min-height: 42px;
+		padding: 9px 16px;
+		border: 1px solid var(--color-line);
+		color: var(--color-ink);
+		background: var(--color-surface);
+		font-weight: 700;
+		line-height: 1.25;
+		cursor: pointer;
+
+		+ .translations-input__tab {
+			margin-left: -1px;
+		}
+
+		&:first-child {
+			border-radius: var(--radius-control) 0 0 var(--radius-control);
+		}
+
+		&:last-child {
+			border-radius: 0 var(--radius-control) var(--radius-control) 0;
+		}
+
+		&:only-child {
+			border-radius: var(--radius-control);
+		}
+
+		&:hover {
+			background: var(--color-background);
+		}
+
+		&[aria-selected='true'] {
+			position: relative;
+			border-color: var(--color-accent);
+			color: var(--color-accent);
+			background: var(--color-accent-soft);
+		}
+
+		&:focus-visible {
+			outline: 2px solid var(--color-accent);
+			outline-offset: -3px;
+		}
+	}
+
+	&__panels {
+		display: grid;
+		gap: var(--space-4);
+		min-width: 0;
+	}
+
+	&__help {
+		color: var(--color-muted);
+		font-size: 0.875em;
+	}
+}

@@ -132,4 +132,6 @@ type RoleRepository interface {
 	Update(ctx context.Context, role *Role) error
 	Delete(ctx context.Context, id RoleID) error
 	FindByID(ctx context.Context, id RoleID) (*Role, error)
+	Find(ctx context.Context, query RoleQuery) ([]*Role, error)
+	Count(ctx context.Context, filters RoleFilters) (int, error)
 }

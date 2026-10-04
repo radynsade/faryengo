@@ -18,6 +18,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/config"
+	languagepg "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
 	"github.com/radynsade/faryengo/internal/security/argon2id"
 	securityjwt "github.com/radynsade/faryengo/internal/security/jwt"
 	"github.com/radynsade/faryengo/internal/security/pgxgoqu"
@@ -125,7 +126,25 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("configure authentication: %w", err)
 	}
 
-	adminHandler, err := admin.NewHandler(service, limiter, settings.AuthCookieSecure)
+	roleService, err := app.NewRoleService(roles)
+
+	if err != nil {
+		return fmt.Errorf("configure role management: %w", err)
+	}
+
+	languageRepository, err := languagepg.NewLanguageRepository(pool)
+
+	if err != nil {
+		return fmt.Errorf("configure language repository: %w", err)
+	}
+
+	languageService, err := app.NewLanguageService(languageRepository)
+
+	if err != nil {
+		return fmt.Errorf("configure language service: %w", err)
+	}
+
+	adminHandler, err := admin.NewHandler(service, roleService, languageService, limiter, settings.AuthCookieSecure)
 
 	if err != nil {
 		return fmt.Errorf("configure admin transport: %w", err)

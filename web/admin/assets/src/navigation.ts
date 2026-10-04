@@ -11,10 +11,10 @@ function showNavigationError(show: boolean) {
 	if (message) message.hidden = !show;
 }
 
-function focusPageHeading() {
+function focusPageContent() {
 	showNavigationError(false);
 	document
-		.querySelector<HTMLElement>('#panel-title, #auth-title')
+		.querySelector<HTMLElement>('#panel-main, #auth-title')
 		?.focus({ preventScroll: true });
 }
 
@@ -42,8 +42,8 @@ document.addEventListener('htmx:beforeRequest', () =>
 	showNavigationError(false),
 );
 
-document.addEventListener('htmx:afterSettle', focusPageHeading);
-document.addEventListener('htmx:historyRestore', focusPageHeading);
+document.addEventListener('htmx:afterSettle', focusPageContent);
+document.addEventListener('htmx:historyRestore', focusPageContent);
 
 for (const event of [
 	'htmx:responseError',

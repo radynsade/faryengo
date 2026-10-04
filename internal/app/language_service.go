@@ -15,6 +15,23 @@ type LanguageService struct {
 	repository languages.LanguageRepository
 }
 
+func (s *LanguageService) List(ctx context.Context) ([]*languages.Language, error) {
+	var result []*languages.Language
+	var err error
+
+	if s == nil || s.repository == nil {
+		err = ErrNilLanguageRepository
+	} else {
+		result, err = s.repository.FindAll(ctx)
+
+		if err != nil {
+			err = fmt.Errorf("list languages: %w", err)
+		}
+	}
+
+	return result, err
+}
+
 func NewLanguageService(repository languages.LanguageRepository) (*LanguageService, error) {
 	var service *LanguageService
 	var err error

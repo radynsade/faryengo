@@ -200,3 +200,7 @@ func TestCreateFallbackLanguageCommand(t *testing.T) {
 		t.Fatalf("executeLanguageCommand() = (%q, %v), repository = %+v", output.String(), err, repository)
 	}
 }
+
+func (f *fakeCLIRepository) FindAll(context.Context) ([]*languages.Language, error) {
+	return nil, nil
+}

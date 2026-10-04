@@ -24,18 +24,20 @@ type RateLimiter interface {
 
 type Handler struct {
 	service       *app.AuthenticationService
+	roleService   *app.RoleService
+	languages     *app.LanguageService
 	limiter       RateLimiter
 	secureCookies bool
 }
 
-func NewHandler(service *app.AuthenticationService, limiter RateLimiter, secureCookies bool) (*Handler, error) {
+func NewHandler(service *app.AuthenticationService, roles *app.RoleService, languages *app.LanguageService, limiter RateLimiter, secureCookies bool) (*Handler, error) {
 	var handler *Handler
 	var err error
 
-	if service == nil || limiter == nil {
+	if service == nil || roles == nil || languages == nil || limiter == nil {
 		err = ErrInvalidHandlerConfig
 	} else {
-		handler = &Handler{service: service, limiter: limiter, secureCookies: secureCookies}
+		handler = &Handler{service: service, roleService: roles, languages: languages, limiter: limiter, secureCookies: secureCookies}
 	}
 
 	return handler, err
@@ -61,6 +63,13 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"GET /admin/{language}", h.home},
 			{"GET /admin/{language}/users", h.users},
 			{"GET /admin/{language}/roles", h.roles},
+			{"GET /admin/{language}/roles/create", h.roleCreate},
+			{"POST /admin/{language}/roles/create", h.roleCreate},
+			{"GET /admin/{language}/roles/{role}/view", h.roleView},
+			{"GET /admin/{language}/roles/{role}/edit", h.roleEdit},
+			{"POST /admin/{language}/roles/{role}/edit", h.roleEdit},
+			{"GET /admin/{language}/roles/{role}/delete", h.roleDelete},
+			{"POST /admin/{language}/roles/{role}/delete", h.roleDelete},
 		} {
 			mux.Handle(route.pattern, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				writer.Header().Set("Cache-Control", "no-store")

@@ -45,7 +45,7 @@ func TestAdminPanel(t *testing.T) {
 				`class="panel-layout"`, `aria-label="Admin navigation"`, "First Last",
 				`href="` + root + `/users"`, `href="` + root + `/roles"`,
 				`method="post" action="` + root + `/sign-out"`, "Sign out",
-				`id="panel-title"`,
+				`id="panel-main"`, `href="#panel-main"`, `aria-label="Admin panel"`,
 			} {
 				if !strings.Contains(body, markup) {
 					t.Fatalf("panel is missing %q: %s", markup, body)
@@ -75,9 +75,10 @@ func TestAdminPanelSections(t *testing.T) {
 		{name: "users allowed", section: "users", permissions: []security.Permission{security.PermissionViewUser}, status: http.StatusOK},
 		{name: "roles allowed", section: "roles", permissions: []security.Permission{security.PermissionViewRole}, status: http.StatusOK},
 		{name: "users denied", section: "users", status: http.StatusForbidden},
-		{name: "roles denied", section: "roles", permissions: []security.Permission{security.PermissionViewUser}, status: http.StatusForbidden},
+		{name: "roles without role permissions", section: "roles", permissions: []security.Permission{security.PermissionViewUser}, status: http.StatusOK},
+		{name: "roles without any permissions", section: "roles", status: http.StatusOK},
 		{name: "manage user does not grant view", section: "users", permissions: []security.Permission{security.PermissionManageUser}, status: http.StatusForbidden},
-		{name: "manage role does not grant view", section: "roles", permissions: []security.Permission{security.PermissionManageRole}, status: http.StatusForbidden},
+		{name: "roles with manage only", section: "roles", permissions: []security.Permission{security.PermissionManageRole}, status: http.StatusOK},
 		{name: "super users", section: "users", isSuper: true, status: http.StatusOK},
 		{name: "super roles", section: "roles", isSuper: true, status: http.StatusOK},
 		{name: "anonymous users", section: "users", anonymous: true, status: http.StatusSeeOther},

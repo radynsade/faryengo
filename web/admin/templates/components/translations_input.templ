@@ -1,0 +1,66 @@
+package components
+
+import "strconv"
+
+type TranslationInputValue struct {
+	Code string
+	Language string
+	Value string
+}
+
+type TranslationsInputProps struct {
+	ID string
+	Name string
+	Label string
+	Language string
+	Help string
+	MaxLength int
+	Values []TranslationInputValue
+}
+
+// TranslationsInput progressively enhances independent language inputs with tabs.
+templ TranslationsInput(props TranslationsInputProps) {
+	<div class="translations-input" data-translations-input data-language={ props.Language }>
+		<div class="translations-input__tabs" role="tablist" aria-label={ props.Label + " languages" } hidden>
+			for _, field := range props.Values {
+				<button
+					class="translations-input__tab"
+					type="button"
+					id={ props.ID + "-tab-" + field.Code }
+					role="tab"
+					aria-selected="false"
+					aria-controls={ props.ID + "-panel-" + field.Code }
+					data-language={ field.Code }
+					lang={ field.Code }
+				>
+					{ field.Language }
+				</button>
+			}
+		</div>
+		<div class="translations-input__panels">
+			for _, field := range props.Values {
+				<div class="translations-input__panel" id={ props.ID + "-panel-" + field.Code } data-language={ field.Code }>
+					<label class="form-field" for={ props.ID + "-" + field.Code }>
+						<span class="form-field__label">{ props.Label } (<span lang={ field.Code }>{ field.Language }</span>)</span>
+						<input
+							class="form-field__input"
+							id={ props.ID + "-" + field.Code }
+							name={ props.Name + "[" + field.Code + "]" }
+							value={ field.Value }
+							lang={ field.Code }
+							if props.Help != "" {
+								aria-describedby={ props.ID + "-help" }
+							}
+							if props.MaxLength > 0 {
+								maxlength={ strconv.Itoa(props.MaxLength) }
+							}
+						/>
+					</label>
+				</div>
+			}
+		</div>
+		if props.Help != "" {
+			<p class="translations-input__help" id={ props.ID + "-help" }>{ props.Help }</p>
+		}
+	</div>
+}

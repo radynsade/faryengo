@@ -131,4 +131,5 @@ type LanguageRepository interface {
 	Delete(ctx context.Context, code LanguageCode) error
 	FindByCode(ctx context.Context, code LanguageCode) (*Language, error)
 	FindFallback(ctx context.Context) (*Language, error)
+	FindAll(ctx context.Context) ([]*Language, error)
 }

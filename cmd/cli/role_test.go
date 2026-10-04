@@ -173,3 +173,11 @@ func TestExecuteRoleCommand(t *testing.T) {
 		})
 	}
 }
+
+func (f *fakeCLIRoleRepository) Find(context.Context, security.RoleQuery) ([]*security.Role, error) {
+	return nil, nil
+}
+
+func (f *fakeCLIRoleRepository) Count(context.Context, security.RoleFilters) (int, error) {
+	return 0, nil
+}

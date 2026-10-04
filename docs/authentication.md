@@ -158,6 +158,10 @@ No permission is inferred from a role name. `RevokeUserSessions` accepts a user
 ID for trusted application callers; endpoints targeting another user must first
 check the appropriate permission.
 
+Admin role management currently requires authentication only. Role-specific
+authorization checks are deferred, and its handlers use the common role service
+methods. The role permissions remain defined for later authorization work.
+
 ## Verification
 
 `make check` builds assets/templates and runs formatting, vet, lint, and the

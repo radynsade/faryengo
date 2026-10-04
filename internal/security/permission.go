@@ -13,6 +13,10 @@ const (
 	PermissionViewRole   Permission = "view_role"
 )
 
+func AllPermissions() []Permission {
+	return []Permission{PermissionManageUser, PermissionViewUser, PermissionManageRole, PermissionViewRole}
+}
+
 func (p Permission) Validate() error {
 	switch p {
 	case PermissionManageUser, PermissionViewUser, PermissionManageRole, PermissionViewRole:

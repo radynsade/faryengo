@@ -19,6 +19,11 @@ type fakeRoleStore struct {
 	stored, written                          *security.Role
 	createErr, updateErr, findErr, deleteErr error
 	creates, updates, finds, deletes         int
+	query                                    security.RoleQuery
+	filters                                  security.RoleFilters
+	roles                                    []*security.Role
+	total                                    int
+	listErr, countErr                        error
 }
 
 func (f *fakeRoleStore) Create(ctx context.Context, role *security.Role) error {
@@ -257,5 +262,50 @@ func TestRoleServiceMissingDependencies(t *testing.T) {
 
 	if role, err := service.FindByID(context.Background(), security.RoleID{1}); role != nil || !errors.Is(err, security.ErrRoleNotFound) {
 		t.Fatalf("nil lookup = %v, %v", role, err)
+	}
+}
+
+func (f *fakeRoleStore) Find(ctx context.Context, query security.RoleQuery) ([]*security.Role, error) {
+	f.ctx, f.query = ctx, query
+	return f.roles, f.listErr
+}
+
+func (f *fakeRoleStore) Count(ctx context.Context, filters security.RoleFilters) (int, error) {
+	f.ctx, f.filters = ctx, filters
+	return f.total, f.countErr
+}
+
+func TestRoleServiceList(t *testing.T) {
+	for _, tt := range []struct {
+		name                       string
+		total, requested, wantPage int
+		countErr, listErr, want    error
+	}{
+		{name: "first", total: 30, requested: 1, wantPage: 1},
+		{name: "last", total: 30, requested: 999, wantPage: 2},
+		{name: "empty", requested: 999, wantPage: 1},
+		{name: "count failure", requested: 1, countErr: context.Canceled, want: context.Canceled},
+		{name: "list failure", requested: 1, listErr: context.Canceled, want: context.Canceled},
+		{name: "bad query", requested: 0, want: security.ErrInvalidRoleQuery},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			store := &fakeRoleStore{total: tt.total, countErr: tt.countErr, listErr: tt.listErr}
+			service, err := NewRoleService(store)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			query := security.RoleQuery{Filters: security.RoleFilters{NameLike: "Test"}, Sort: security.RoleSortName, Language: "en", Page: tt.requested, PageSize: 25}
+			page, err := service.List(t.Context(), query)
+
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("List() = %v, want %v", err, tt.want)
+			}
+
+			if err == nil && (page.Page != tt.wantPage || page.Total != tt.total || store.query.Page != tt.wantPage || store.filters.NameLike != "Test" || store.ctx != t.Context()) {
+				t.Fatalf("page = %+v, query = %+v", page, store.query)
+			}
+		})
 	}
 }

@@ -8,27 +8,31 @@ import (
 // Home is the authenticated workspace landing page.
 templ Home(props layouts.PanelProps) {
 	@layouts.Panel(props) {
-		<section class="panel-card" aria-labelledby="welcome-title">
-			<p class="panel-card__eyebrow">Your workspace</p>
-			<h2 id="welcome-title">Welcome, { props.FirstName }.</h2>
-			<p>You are signed in. Use the navigation menu to access users and roles.</p>
-			<div class="panel-card__links">
-				@components.PageLink(props.BasePath + "/users") {
-					Users
-				}
-				@components.PageLink(props.BasePath + "/roles") {
-					Roles
-				}
-			</div>
-		</section>
+		<div class="panel-page">
+			<section class="panel-card" aria-labelledby="welcome-title">
+				<p class="panel-card__eyebrow">Your workspace</p>
+				<h1 id="welcome-title">Welcome, { props.FirstName }.</h1>
+				<p>You are signed in. Use the navigation menu to access users and roles.</p>
+				<div class="panel-card__links">
+					@components.PageLink(props.BasePath + "/users") {
+						Users
+					}
+					@components.PageLink(props.BasePath + "/roles") {
+						Roles
+					}
+				</div>
+			</section>
+		</div>
 	}
 }
 
 // PanelSection provides a destination for the sidebar until management screens exist.
 templ PanelSection(props layouts.PanelProps, message string) {
 	@layouts.Panel(props) {
-		<section class="panel-card">
-			<p>{ message }</p>
-		</section>
+		<div class="panel-page">
+			<section class="panel-card">
+				<p>{ message }</p>
+			</section>
+		</div>
 	}
 }

@@ -208,3 +208,7 @@ func TestLanguageServiceCreateFallback(t *testing.T) {
 		})
 	}
 }
+
+func (f *fakeLanguageRepository) FindAll(context.Context) ([]*languages.Language, error) {
+	return nil, nil
+}

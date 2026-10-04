@@ -65,6 +65,8 @@ func (r fakeSecurityRow) Scan(destinations ...any) error {
 		switch destination := destinations[index].(type) {
 		case *int64:
 			*destination = value.(int64)
+		case *int:
+			*destination = int(value.(int64))
 		case *pgtype.UUID:
 			*destination = value.(pgtype.UUID)
 		case *[]string:
@@ -358,6 +360,7 @@ func TestRoleRepositoryDelete(t *testing.T) {
 		{name: "deleted", id: security.RoleID{1}, tag: pgconn.NewCommandTag("DELETE 1")},
 		{name: "missing", id: security.RoleID{1}, tag: pgconn.NewCommandTag("DELETE 0"), want: security.ErrRoleNotFound},
 		{name: "assigned", id: security.RoleID{1}, storeErr: assigned, want: security.ErrRoleAlreadyInUse},
+		{name: "assigned restrict violation", id: security.RoleID{1}, storeErr: &pgconn.PgError{Code: "23001", ConstraintName: "user_role_id_fkey"}, want: security.ErrRoleAlreadyInUse},
 		{name: "unrelated constraint", id: security.RoleID{1}, storeErr: other, want: other},
 		{name: "canceled", id: security.RoleID{1}, storeErr: context.Canceled, want: context.Canceled},
 		{name: "invalid ID", want: security.ErrInvalidRoleID},
@@ -632,4 +635,9 @@ func TestBindUUIDArgsRejectsMissingArguments(t *testing.T) {
 	if err := bindUUIDArgsAt([]any{"value"}, 1, [16]byte{1}); err == nil {
 		t.Fatal("bindUUIDArgsAt(out of range) = nil, want an error")
 	}
+}
+
+func (f *fakeSecurityDB) Query(ctx context.Context, query string, args ...any) (pgx.Rows, error) {
+	f.queryContext, f.query, f.queryArgs = ctx, query, args
+	return nil, context.Canceled
 }
