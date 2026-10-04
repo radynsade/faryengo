@@ -1,34 +1,56 @@
-import htmx from 'htmx.org'
+import htmx from 'htmx.org';
 
 // History restoration needs full documents; ordinary HTMX requests use fragments.
-htmx.config.historyRestoreAsHxRequest = false
-htmx.config.allowEval = false
-htmx.config.allowScriptTags = false
+htmx.config.historyRestoreAsHxRequest = false;
+htmx.config.allowEval = false;
+htmx.config.allowScriptTags = false;
 
 function showNavigationError(show: boolean) {
-  const message = document.getElementById('navigation-error')
-  if (message) message.hidden = !show
+	const message = document.getElementById('navigation-error');
+
+	if (message) message.hidden = !show;
 }
 
 function focusPageHeading() {
-  showNavigationError(false)
-  document.getElementById('auth-title')?.focus({ preventScroll: true })
+	showNavigationError(false);
+	document
+		.querySelector<HTMLElement>('#panel-title, #auth-title')
+		?.focus({ preventScroll: true });
 }
 
 // Let the browser handle modified clicks before HTMX cancels the link event.
-document.addEventListener('click', (event) => {
-  if ((event.defaultPrevented || event.button !== 0 || event.ctrlKey ||
-       event.metaKey || event.shiftKey || event.altKey) &&
-      event.target instanceof Element && event.target.closest('a[hx-boost="true"]')) {
-    event.stopImmediatePropagation()
-  }
-}, true)
+document.addEventListener(
+	'click',
+	(event) => {
+		if (
+			(event.defaultPrevented
+				|| event.button !== 0
+				|| event.ctrlKey
+				|| event.metaKey
+				|| event.shiftKey
+				|| event.altKey)
+			&& event.target instanceof Element
+			&& event.target.closest('a[hx-boost="true"]')
+		) {
+			event.stopImmediatePropagation();
+		}
+	},
+	true,
+);
 
-document.addEventListener('htmx:beforeRequest', () => showNavigationError(false))
-document.addEventListener('htmx:afterSettle', focusPageHeading)
-document.addEventListener('htmx:historyRestore', focusPageHeading)
+document.addEventListener('htmx:beforeRequest', () =>
+	showNavigationError(false),
+);
 
-for (const event of ['htmx:responseError', 'htmx:sendError', 'htmx:timeout',
-                     'htmx:swapError', 'htmx:historyCacheMissLoadError']) {
-  document.addEventListener(event, () => showNavigationError(true))
+document.addEventListener('htmx:afterSettle', focusPageHeading);
+document.addEventListener('htmx:historyRestore', focusPageHeading);
+
+for (const event of [
+	'htmx:responseError',
+	'htmx:sendError',
+	'htmx:timeout',
+	'htmx:swapError',
+	'htmx:historyCacheMissLoadError',
+]) {
+	document.addEventListener(event, () => showNavigationError(true));
 }

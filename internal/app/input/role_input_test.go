@@ -16,6 +16,7 @@ func TestCreateRoleInputValidate(t *testing.T) {
 	}{
 		{name: "translated role", request: CreateRoleInput{Name: map[string]string{"en": "Administrator", "lv": "Administrators"}, Permissions: []security.Permission{security.PermissionViewUser}}},
 		{name: "empty permissions", request: CreateRoleInput{Name: map[string]string{"en": "Guest"}}},
+		{name: "role permissions", request: CreateRoleInput{Name: map[string]string{"en": "Role manager"}, Permissions: []security.Permission{security.PermissionManageRole, security.PermissionViewRole}}},
 		{name: "super", request: CreateRoleInput{Name: map[string]string{"en": "Super"}, IsSuper: true}},
 		{name: "missing name", want: []error{security.ErrInvalidRoleName}},
 		{name: "invalid translation", request: CreateRoleInput{Name: map[string]string{"EN": "Name", "lv": " "}, Permissions: []security.Permission{"unknown"}}, want: []error{languages.ErrInvalidLanguageCode, languages.ErrInvalidTranslationContent, security.ErrInvalidPermission}},
@@ -45,6 +46,7 @@ func TestUpdateRoleInputValidate(t *testing.T) {
 	}{
 		{name: "unchanged fields", request: UpdateRoleInput{ID: security.RoleID{1}}},
 		{name: "clear permissions", request: UpdateRoleInput{ID: security.RoleID{1}, Permissions: []security.Permission{}}},
+		{name: "role permissions", request: UpdateRoleInput{ID: security.RoleID{1}, Permissions: []security.Permission{security.PermissionManageRole, security.PermissionViewRole}}},
 		{name: "replace name", request: UpdateRoleInput{ID: security.RoleID{1}, Name: map[string]string{"lv": "Loma"}}},
 		{name: "invalid ID", want: security.ErrInvalidRoleID},
 		{name: "empty replacement", request: UpdateRoleInput{ID: security.RoleID{1}, Name: map[string]string{}}, want: security.ErrInvalidRoleName},

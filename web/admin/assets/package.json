@@ -6,14 +6,18 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "format": "prettier --write \"**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,css,scss,json}\"",
+    "format:check": "prettier --check \"**/*.{js,jsx,mjs,cjs,ts,tsx,mts,cts,css,scss,json}\""
   },
   "devDependencies": {
+    "prettier": "3.9.9",
     "sass-embedded": "^1.105.1",
     "typescript": "~6.0.2",
     "vite": "^8.3.0"
   },
   "dependencies": {
+    "@tabler/icons-webfont": "^3.48.0",
     "htmx.org": "^2.0.11"
   }
 }

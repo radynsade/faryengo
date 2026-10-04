@@ -32,9 +32,11 @@ const manifestPath = ".vite/manifest.json"
 // Load can replace the snapshot while requests and template renders are running.
 // Use New to initialize the function fields.
 type Vite struct {
+	// BuiltAsset resolves a path relative to src/ to its compiled asset URL.
 	BuiltAsset func(source string) (string, error)
-	BuiltCSS   func(source string) (string, error)
-	build      atomic.Pointer[build]
+	// BuiltCSS resolves a path relative to src/ to its compiled CSS URL.
+	BuiltCSS func(source string) (string, error)
+	build    atomic.Pointer[build]
 }
 
 type build struct {
@@ -270,7 +272,7 @@ func (v *Vite) assetURL(source string, cssOnly bool) (string, error) {
 
 	if snapshot == nil {
 		err = ErrNotLoaded
-	} else if file, exists := snapshot.assets[source]; !exists {
+	} else if file, exists := snapshot.assets["src/"+source]; !exists {
 		err = ErrAssetNotFound
 	} else if cssOnly && !strings.EqualFold(path.Ext(file), ".css") {
 		err = ErrNotCSS

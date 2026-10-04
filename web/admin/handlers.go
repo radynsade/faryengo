@@ -59,6 +59,8 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"POST /admin/{language}/sign-out", h.signOut},
 			{"GET /admin/{language}/restore-password", handleRestorePassword},
 			{"GET /admin/{language}", h.home},
+			{"GET /admin/{language}/users", h.users},
+			{"GET /admin/{language}/roles", h.roles},
 		} {
 			mux.Handle(route.pattern, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				writer.Header().Set("Cache-Control", "no-store")

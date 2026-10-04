@@ -151,7 +151,9 @@ have no public transport routes. Future admin handlers must call
 `AuthenticationService.Authenticate` or `Authorize` before accessing protected
 content or performing actions.
 
-`PermissionManageUser` and `PermissionViewUser` are independent permissions.
+`PermissionManageUser`, `PermissionViewUser`, `PermissionManageRole`, and
+`PermissionViewRole` are independent permissions. Managing users does not grant
+role permissions, and managing roles does not imply permission to view roles.
 No permission is inferred from a role name. `RevokeUserSessions` accepts a user
 ID for trusted application callers; endpoints targeting another user must first
 check the appropriate permission.

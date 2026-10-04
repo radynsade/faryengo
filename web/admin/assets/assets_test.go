@@ -32,11 +32,11 @@ func TestEmbeddedAssets(t *testing.T) {
 		source string
 		lookup func(string) (string, error)
 	}{
-		{name: "script", source: "src/main.ts", lookup: BuiltAsset},
-		{name: "CSS", source: "src/style.scss", lookup: BuiltCSS},
+		{name: "script", source: "main.ts", lookup: BuiltAsset},
+		{name: "CSS", source: "style.scss", lookup: BuiltCSS},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			file := manifest[tt.source].File
+			file := manifest["src/"+tt.source].File
 			if file == "" {
 				t.Fatalf("manifest is missing %q", tt.source)
 			}

@@ -24,6 +24,10 @@ func TestSuperRolePermissions(t *testing.T) {
 		{name: "regular role", permission: PermissionManageUser},
 		{name: "super manage", isSuper: true, permission: PermissionManageUser, want: true},
 		{name: "super view", isSuper: true, permission: PermissionViewUser, want: true},
+		{name: "regular manage role denied", permission: PermissionManageRole},
+		{name: "regular view role denied", permission: PermissionViewRole},
+		{name: "super manage role", isSuper: true, permission: PermissionManageRole, want: true},
+		{name: "super view role", isSuper: true, permission: PermissionViewRole, want: true},
 		{name: "super rejects unknown", isSuper: true, permission: "unknown"},
 		{name: "super cleared", permission: PermissionManageUser},
 	} {

@@ -249,27 +249,42 @@ func TestAuthenticationRotationAndReplay(t *testing.T) {
 }
 
 func TestAuthenticationCurrentPermissions(t *testing.T) {
-	service, repository, _, _ := authFixture(t)
-	pair := signIn(t, service)
+	for _, tt := range []struct {
+		name         string
+		view, manage security.Permission
+	}{
+		{name: "users", view: security.PermissionViewUser, manage: security.PermissionManageUser},
+		{name: "roles", view: security.PermissionViewRole, manage: security.PermissionManageRole},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			service, repository, _, _ := authFixture(t)
 
-	if _, err := service.Authorize(context.Background(), pair.AccessToken, security.PermissionViewUser); err != nil {
-		t.Fatal(err)
-	}
+			if err := repository.role.SetPermissions([]security.Permission{tt.view}); err != nil {
+				t.Fatal(err)
+			}
 
-	if _, err := service.Authorize(context.Background(), pair.AccessToken, security.PermissionManageUser); !errors.Is(err, security.ErrPermissionDenied) {
-		t.Fatal(err)
-	}
+			pair := signIn(t, service)
 
-	if err := repository.role.SetPermissions([]security.Permission{security.PermissionManageUser}); err != nil {
-		t.Fatal(err)
-	}
+			if _, err := service.Authorize(context.Background(), pair.AccessToken, tt.view); err != nil {
+				t.Fatal(err)
+			}
 
-	if _, err := service.Authorize(context.Background(), pair.AccessToken, security.PermissionViewUser); !errors.Is(err, security.ErrPermissionDenied) {
-		t.Fatal(err)
-	}
+			if _, err := service.Authorize(context.Background(), pair.AccessToken, tt.manage); !errors.Is(err, security.ErrPermissionDenied) {
+				t.Fatal(err)
+			}
 
-	if _, err := service.Authorize(context.Background(), pair.AccessToken, security.PermissionManageUser); err != nil {
-		t.Fatal(err)
+			if err := repository.role.SetPermissions([]security.Permission{tt.manage}); err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err := service.Authorize(context.Background(), pair.AccessToken, tt.view); !errors.Is(err, security.ErrPermissionDenied) {
+				t.Fatal(err)
+			}
+
+			if _, err := service.Authorize(context.Background(), pair.AccessToken, tt.manage); err != nil {
+				t.Fatal(err)
+			}
+		})
 	}
 }
 

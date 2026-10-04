@@ -14,3 +14,21 @@ templ PageLink(href string) {
 		{ children... }
 	</a>
 }
+
+// PanelLink marks the active sidebar section and supports HTMX navigation.
+templ PanelLink(href string, active bool) {
+	<a
+		class="panel-menu__link"
+		href={ templ.URL(href) }
+		if active {
+			aria-current="page"
+		}
+		hx-boost="true"
+		hx-target="#page-content"
+		hx-swap="outerHTML show:none"
+		hx-sync="body:replace"
+		hx-params="none"
+	>
+		{ children... }
+	</a>
+}

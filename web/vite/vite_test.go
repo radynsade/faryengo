@@ -20,6 +20,8 @@ func testBuild() fstest.MapFS {
 		manifestPath: {Data: []byte(`{
 			"src/main.ts": {"file":"main-123.js", "src":"src/main.ts", "css":["style-123.css"], "imports":["_shared.js"], "dynamicImports":["src/lazy.ts"], "assets":["logo image.svg"]},
 			"src/style.scss": {"file":"style-123.css", "src":"src/style.scss"},
+			"src/scripts/page.ts": {"file":"main-123.js"},
+			"src/styles/page.scss": {"file":"style-123.css"},
 			"_shared.js": {"file":"shared-123.js"},
 			"src/lazy.ts": {"file":"lazy-123.js"},
 			"src/logo.svg": {"file":"logo image.svg"}
@@ -42,13 +44,17 @@ func TestBuiltURLs(t *testing.T) {
 		want    string
 		wantErr error
 	}{
-		{name: "script", baseURL: "/admin/assets/", source: "src/main.ts", want: "/admin/assets/main-123.js"},
-		{name: "stylesheet", baseURL: "/admin/assets/", source: "src/style.scss", css: true, want: "/admin/assets/style-123.css"},
-		{name: "absolute URL", baseURL: "https://cdn.example.com/admin", source: "src/main.ts", want: "https://cdn.example.com/admin/main-123.js"},
-		{name: "root URL", baseURL: "/", source: "src/main.ts", want: "/main-123.js"},
-		{name: "escaped output", baseURL: "/admin/assets/", source: "src/logo.svg", want: "/admin/assets/logo%20image.svg"},
-		{name: "missing source", baseURL: "/admin/assets/", source: "src/missing.js", wantErr: ErrAssetNotFound},
-		{name: "non-CSS entry", baseURL: "/admin/assets/", source: "src/main.ts", css: true, wantErr: ErrNotCSS},
+		{name: "script", baseURL: "/admin/assets/", source: "main.ts", want: "/admin/assets/main-123.js"},
+		{name: "stylesheet", baseURL: "/admin/assets/", source: "style.scss", css: true, want: "/admin/assets/style-123.css"},
+		{name: "nested script", baseURL: "/admin/assets/", source: "scripts/page.ts", want: "/admin/assets/main-123.js"},
+		{name: "nested stylesheet", baseURL: "/admin/assets/", source: "styles/page.scss", css: true, want: "/admin/assets/style-123.css"},
+		{name: "absolute URL", baseURL: "https://cdn.example.com/admin", source: "main.ts", want: "https://cdn.example.com/admin/main-123.js"},
+		{name: "root URL", baseURL: "/", source: "main.ts", want: "/main-123.js"},
+		{name: "escaped output", baseURL: "/admin/assets/", source: "logo.svg", want: "/admin/assets/logo%20image.svg"},
+		{name: "missing source", baseURL: "/admin/assets/", source: "missing.js", wantErr: ErrAssetNotFound},
+		{name: "missing stylesheet", baseURL: "/admin/assets/", source: "missing.scss", css: true, wantErr: ErrAssetNotFound},
+		{name: "chunk outside src", baseURL: "/admin/assets/", source: "_shared.js", wantErr: ErrAssetNotFound},
+		{name: "non-CSS entry", baseURL: "/admin/assets/", source: "main.ts", css: true, wantErr: ErrNotCSS},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			server := New()
@@ -177,7 +183,7 @@ func TestAliasesSurviveReload(t *testing.T) {
 	asset, css := server.BuiltAsset, server.BuiltCSS
 
 	for _, lookup := range []func(string) (string, error){asset, css} {
-		if got, err := lookup("src/main.ts"); got != "" || !errors.Is(err, ErrNotLoaded) {
+		if got, err := lookup("main.ts"); got != "" || !errors.Is(err, ErrNotLoaded) {
 			t.Fatalf("lookup before Load() = (%q, %v), want ErrNotLoaded", got, err)
 		}
 	}
@@ -187,7 +193,7 @@ func TestAliasesSurviveReload(t *testing.T) {
 			t.Fatal(err)
 		}
 
-		got, err := asset("src/main.ts")
+		got, err := asset("main.ts")
 		if err != nil || got != base+"main-123.js" {
 			t.Fatalf("captured alias after Load() = (%q, %v)", got, err)
 		}
@@ -197,7 +203,7 @@ func TestAliasesSurviveReload(t *testing.T) {
 		t.Fatal("Load(missing manifest) succeeded")
 	}
 
-	got, err := asset("src/main.ts")
+	got, err := asset("main.ts")
 	if err != nil || got != "/second/main-123.js" {
 		t.Fatalf("failed Load changed active build: (%q, %v)", got, err)
 	}
@@ -228,7 +234,7 @@ func TestConcurrentLookupAndReload(t *testing.T) {
 
 		for range 100 {
 			var got string
-			got, err = server.BuiltAsset("src/main.ts")
+			got, err = server.BuiltAsset("main.ts")
 
 			if err != nil {
 				break

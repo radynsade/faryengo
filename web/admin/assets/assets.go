@@ -16,15 +16,15 @@ const URLPrefix = "/assets/admin/"
 
 var ErrNilServeMux = errors.New("nil admin asset ServeMux")
 
-//go:embed all:dist
+//go:embed all:dist static
 var embeddedFiles embed.FS
 
 var server = vite.New()
 
-// BuiltAsset resolves a source path to its compiled asset URL.
+// BuiltAsset resolves a path relative to src/ to its compiled asset URL.
 var BuiltAsset = server.BuiltAsset
 
-// BuiltCSS resolves a stylesheet entry path to its compiled CSS URL.
+// BuiltCSS resolves a stylesheet entry relative to src/ to its compiled CSS URL.
 var BuiltCSS = server.BuiltCSS
 
 func init() {
@@ -39,7 +39,7 @@ func init() {
 	}
 }
 
-// RegisterHandlers mounts the embedded admin build.
+// RegisterHandlers mounts the embedded admin build and static assets.
 func RegisterHandlers(mux *http.ServeMux) error {
 	var err error
 
@@ -47,6 +47,7 @@ func RegisterHandlers(mux *http.ServeMux) error {
 		err = ErrNilServeMux
 	} else {
 		mux.Handle(URLPrefix, server)
+		mux.Handle(staticURLPrefix, http.HandlerFunc(serveStaticAssets))
 	}
 
 	return err

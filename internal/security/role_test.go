@@ -23,6 +23,7 @@ func TestNewRole(t *testing.T) {
 	}{
 		{name: "empty permissions", id: id, roleName: name},
 		{name: "valid permissions", id: id, roleName: name, permissions: []Permission{PermissionViewUser, PermissionManageUser}},
+		{name: "role permissions", id: id, roleName: name, permissions: []Permission{PermissionManageRole, PermissionViewRole}},
 		{name: "missing ID", roleName: name, permissions: []Permission{PermissionViewUser}, wantErr: ErrInvalidRoleID},
 		{name: "invalid permission", id: id, roleName: name, permissions: []Permission{"unknown"}, wantErr: ErrInvalidPermission},
 		{name: "missing name", id: id, wantErr: ErrInvalidRoleName},

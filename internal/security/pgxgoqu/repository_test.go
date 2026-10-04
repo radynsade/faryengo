@@ -207,6 +207,7 @@ func TestRoleRepositoryCreate(t *testing.T) {
 		wantCommit bool
 	}{
 		{name: "created", role: testRole(t), wantCommit: true},
+		{name: "role permissions", role: mustRole(t, []security.Permission{security.PermissionManageRole, security.PermissionViewRole}), wantCommit: true},
 		{name: "empty permissions", role: mustRole(t, nil), wantCommit: true},
 		{name: "super", role: super, wantCommit: true},
 		{name: "duplicate", role: testRole(t), insertErr: pgx.ErrNoRows, wantErr: security.ErrRoleAlreadyExists},
@@ -249,8 +250,18 @@ func TestRoleRepositoryCreate(t *testing.T) {
 					if !strings.Contains(tx.queries[1], "ARRAY[]::permission[]") || len(tx.args[1]) != 3 {
 						t.Fatalf("Create() role args = %v, want empty permissions", tx.args[1])
 					}
-				} else if len(tx.args[1]) != 5 || tx.args[1][2] != "view_user" || tx.args[1][3] != "manage_user" {
-					t.Fatalf("Create() role args = %v, want bound permissions", tx.args[1])
+				} else {
+					permissions := tt.role.Permissions()
+
+					if len(tx.args[1]) != len(permissions)+3 {
+						t.Fatalf("Create() role args = %v, want bound permissions", tx.args[1])
+					}
+
+					for index, permission := range permissions {
+						if tx.args[1][index+2] != string(permission) || strings.Contains(tx.queries[1], string(permission)) {
+							t.Fatalf("Create() role args = %v, want bound permission %q", tx.args[1], permission)
+						}
+					}
 				}
 
 				if !strings.Contains(tx.queries[1], `"is_super"`) || tx.args[1][len(tx.args[1])-1] != tt.role.IsSuper() {
@@ -281,6 +292,7 @@ func TestRoleRepositoryUpdate(t *testing.T) {
 		wantCommit bool
 	}{
 		{name: "updated", role: testRole(t), wantCommit: true},
+		{name: "role permissions", role: mustRole(t, []security.Permission{security.PermissionManageRole, security.PermissionViewRole}), wantCommit: true},
 		{name: "clear permissions", role: mustRole(t, nil), wantCommit: true},
 		{name: "super", role: super, wantCommit: true},
 		{name: "not found", role: testRole(t), updateErr: pgx.ErrNoRows, wantErr: security.ErrRoleNotFound},
@@ -314,6 +326,18 @@ func TestRoleRepositoryUpdate(t *testing.T) {
 
 				if !strings.Contains(tx.queries[0], `"is_super"`) || tx.args[0][0] != tt.role.IsSuper() {
 					t.Fatalf("Update() lost the super flag: %v", tx.args[0])
+				}
+
+				permissions := tt.role.Permissions()
+
+				if len(tx.args[0]) != len(permissions)+2 {
+					t.Fatalf("Update() role args = %v, want bound permissions", tx.args[0])
+				}
+
+				for index, permission := range permissions {
+					if tx.args[0][index+1] != string(permission) || strings.Contains(tx.queries[0], string(permission)) {
+						t.Fatalf("Update() role args = %v, want bound permission %q", tx.args[0], permission)
+					}
 				}
 			}
 		})
@@ -381,6 +405,7 @@ func TestRoleRepositoryFindByID(t *testing.T) {
 		wantSuper       bool
 	}{
 		{name: "found", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"view_user", "manage_user"}, []string{"en", "lv"}, []string{"Administrator", "Administrators"}, false}}, wantQuery: true, wantPermissions: []security.Permission{security.PermissionViewUser, security.PermissionManageUser}},
+		{name: "role permissions", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"manage_role", "view_role"}, []string{"en", "lv"}, []string{"Administrator", "Administrators"}, false}}, wantQuery: true, wantPermissions: []security.Permission{security.PermissionManageRole, security.PermissionViewRole}},
 		{name: "super", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{}, []string{"en", "lv"}, []string{"Administrator", "Administrators"}, true}}, wantQuery: true, wantSuper: true},
 		{name: "not found", id: security.RoleID{1}, row: fakeSecurityRow{err: pgx.ErrNoRows}, wantErr: security.ErrRoleNotFound, wantQuery: true},
 		{name: "invalid ID", wantErr: security.ErrInvalidRoleID},

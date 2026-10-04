@@ -31,6 +31,8 @@ func TestParseCreateRole(t *testing.T) {
 		{name: "super shorthand", args: []string{"security", "create-role", "en:Administrator|lv:Administrators", "-s"}, wantSuper: true},
 		{name: "permission flags", args: []string{"security", "create-role", "-p", "view_user", "en:Administrator|lv:Administrators", "--permission", "manage_user"}, permissions: []security.Permission{security.PermissionViewUser, security.PermissionManageUser}},
 		{name: "permission equals", args: []string{"security", "create-role", "en:Administrator|lv:Administrators", "--permission=view_user"}, permissions: []security.Permission{security.PermissionViewUser}},
+		{name: "role permission flags", args: []string{"security", "create-role", "-p", "view_role", "en:Administrator|lv:Administrators", "--permission", "manage_role"}, permissions: []security.Permission{security.PermissionViewRole, security.PermissionManageRole}},
+		{name: "role permission equals", args: []string{"security", "create-role", "en:Administrator|lv:Administrators", "--permission=manage_role", "--permission=view_role"}, permissions: []security.Permission{security.PermissionManageRole, security.PermissionViewRole}},
 		{name: "separator", args: []string{"security", "create-role", "--", "en:Administrator|lv:Administrators"}},
 		{name: "malformed translations", args: []string{"security", "create-role", "en:Name|broken"}, want: appinput.ErrInvalidStringTranslations},
 		{name: "invalid code", args: []string{"security", "create-role", "EN:Name"}, want: languages.ErrInvalidLanguageCode},

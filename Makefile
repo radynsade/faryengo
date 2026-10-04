@@ -18,6 +18,7 @@ vet: fmt
 	go vet ./...
 
 lint: vet
+	npm run format:check --prefix web/admin/assets
 	golangci-lint run ./...
 
 build: lint

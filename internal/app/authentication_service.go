@@ -246,6 +246,7 @@ func (s *AuthenticationService) Authenticate(ctx context.Context, raw string) (s
 				err = fmt.Errorf("load current authorization role: %w", roleErr)
 			} else {
 				principal = security.Principal{UserID: claims.UserID, SessionID: claims.SessionID,
+					FirstName: credentials.User.FirstName(), LastName: credentials.User.LastName(),
 					RoleID: role.ID(), Permissions: role.Permissions(), IsSuper: role.IsSuper()}
 			}
 		}

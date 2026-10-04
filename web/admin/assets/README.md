@@ -15,7 +15,54 @@ Run `npm run build` to type-check and compile JavaScript, CSS, and imported asse
 
 The Go assets package exposes `BuiltAsset` and `BuiltCSS` as package-level aliases. The manifest and compiled files are embedded into the Go binary and initialized automatically. `adminHandler.RegisterHandlers(mux)` serves them at `/assets/admin/`. Run `make build` or `make check` from the project root to build assets before the Go compilation; rebuild the binary after changing assets. See [the asset integration documentation](../../../docs/assets.md) for wiring and template usage.
 
+The helpers accept paths relative to `src/`: use `BuiltAsset("main.ts")` and
+`BuiltCSS("style.scss")`. Include any subdirectories within `src/` in the path.
+
+Place fonts, images, and other files that should retain their names in `static/`.
+`StaticAsset("images/logo.svg")` returns the embedded file's URL and an error,
+using a path relative to that directory. Files are served at
+`/assets/admin/static/` and embedded directly into the Go binary. Rebuild the
+binary after changing them. The helper reports missing files and rejects
+directories and invalid paths.
+
 Use `npm run preview` to serve the compiled assets locally.
+
+## Code style
+
+Prettier is installed locally at an exact version. Its configuration in
+`.prettierrc.json` applies to JavaScript, TypeScript, CSS, and SCSS, including
+the Vite configuration. Run these commands from `web/admin/assets`:
+
+```sh
+npm run format
+npm run format:check
+```
+
+`format` rewrites files; `format:check` reports differences without changing
+them and runs as part of the root `make check` command. Dependencies, compiled
+assets, coverage output, and the npm lockfile are excluded by `.prettierignore`.
+JSON configuration files use two spaces to match npm's package metadata.
+
+The style follows the formatting conventions in the Symfony project's
+`.php-cs-fixer.dist.php` where JavaScript and stylesheets have equivalents:
+
+- Tabs for indentation, displayed at two columns, and LF line endings.
+- Semicolons in JavaScript and TypeScript; single quotes where possible.
+- Trailing commas in multiline JavaScript and TypeScript lists, including
+  function arguments and parameters.
+- Opening braces on the same line, consistent operator/comma spacing, and
+  parentheses around arrow-function parameters.
+- An 80-column wrapping target. Wrapped binary operators start the next line,
+  using Prettier's `experimentalOperatorPosition` option.
+- Standard Prettier formatting for stylesheet rules, declarations, and nesting.
+  Declaration order is preserved because it can affect the cascade.
+
+Use Sass's **SCSS syntax** (`.scss`), which Prettier supports directly. Indented
+Sass (`.sass`) is not supported by Prettier and is outside these commands.
+Prettier handles layout rather than semantic PHP-CS-Fixer equivalents such as
+unused imports, member ordering, required braces, or author headers. It preserves
+existing blank lines but does not insert blank lines around control flow.
+See the [Prettier options](https://prettier.io/docs/options) for formatter behavior.
 
 ## Admin UI components
 
@@ -29,17 +76,33 @@ errors for failed attempts. Password recovery remains presentation only.
 Templates in `../templates` are organized into three packages:
 
 - `pages/`: sign-in, password restoration, and the authenticated home page.
-- `layouts/`: the `Root` document, full-page and HTMX fragment wrappers, and `AuthLayout`.
+- `layouts/`: the `Root` document, full-page and HTMX fragment wrappers,
+  `AuthLayout`, and the authenticated `Panel` layout.
 - `components/`: reusable `Brand`, `TextInput`, `PrimaryButton`, and `PageLink` components.
 
 Pages compose layouts and components using templ's children blocks. Layouts may
 use components; components do not depend on pages or layouts. `Root` currently
 describes English page content.
 
+Authenticated pages use `Panel`, with a sidebar containing Users and Roles links,
+the current user's first and last name, and a native POST sign-out form. The
+sidebar becomes a compact header on narrow screens. The links retain the
+language path and mark the active section. `/admin/{language}/users` and
+`/admin/{language}/roles` require `view_user` and `view_role` respectively; these
+section pages currently contain placeholders for future management screens.
+
 `src/style.scss` loads the shared tokens and base styles from `src/styles/`,
 followed by component and layout partials. Reuse the CSS color, spacing, radius,
 and shadow variables when adding screens to keep data-heavy admin views compact
-and consistent. There are no external font or image requests.
+and consistent. Nunito is the default font throughout the admin interface,
+including form controls and code text. Its normal and italic weights are loaded
+from the bundled files in `static/`. There are no external font or image requests.
+
+Icons use the installed `@tabler/icons-webfont` package's thin outline (300)
+webfont. `src/style.scss` imports its stylesheet, so Vite bundles the icon fonts
+into the embedded build. Use `<i class="ti ti-users" aria-hidden="true"></i>`
+with the appropriate icon name and a visible text label for navigation and
+buttons. Component styles set icon sizes independently of the text size.
 
 ## Navigation
 

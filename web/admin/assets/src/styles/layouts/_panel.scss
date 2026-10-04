@@ -1,0 +1,243 @@
+.panel-layout {
+	display: grid;
+	grid-template-columns: 232px minmax(0, 1fr);
+	min-height: 100vh;
+	min-height: 100svh;
+}
+
+.panel-skip-link {
+	position: fixed;
+	top: var(--space-3);
+	left: var(--space-3);
+	z-index: 2;
+	padding: var(--space-2) var(--space-3);
+	border-radius: var(--radius-control);
+	color: var(--color-surface);
+	background: var(--color-accent);
+	transform: translateY(-200%);
+
+	&:focus {
+		transform: translateY(0);
+	}
+}
+
+.panel-sidebar {
+	position: sticky;
+	top: 0;
+	display: flex;
+	flex-direction: column;
+	gap: var(--space-6);
+	height: 100vh;
+	height: 100svh;
+	padding: var(--space-6);
+	border-right: 1px solid var(--color-line);
+	background: var(--color-surface);
+	overflow-y: auto;
+
+	&__brand {
+		align-self: flex-start;
+		color: var(--color-ink);
+		text-decoration: none;
+	}
+
+	&__navigation {
+		padding-top: var(--space-5);
+		border-top: 1px solid var(--color-line);
+	}
+
+	&__label {
+		color: var(--color-muted);
+		font-size: 0.8125em;
+		font-weight: 600;
+	}
+
+	&__account {
+		margin-top: auto;
+		padding-top: var(--space-5);
+		border-top: 1px solid var(--color-line);
+	}
+
+	&__name {
+		margin-top: var(--space-1);
+		font-weight: 700;
+		overflow-wrap: anywhere;
+	}
+
+	&__sign-out {
+		display: inline-flex;
+		align-items: center;
+		gap: var(--space-2);
+		min-height: 38px;
+		margin-top: var(--space-3);
+		padding: var(--space-2) var(--space-3);
+		border: 1px solid var(--color-line);
+		border-radius: var(--radius-control);
+		color: var(--color-muted);
+		background: var(--color-surface);
+		font-size: 0.9375em;
+		font-weight: 600;
+		cursor: pointer;
+
+		.ti {
+			flex: none;
+			font-size: 18px;
+		}
+
+		&:hover {
+			color: var(--color-ink);
+			background: var(--color-background);
+		}
+	}
+}
+
+.panel-menu {
+	display: grid;
+	gap: var(--space-1);
+	margin-top: var(--space-3);
+
+	&__link {
+		display: flex;
+		align-items: center;
+		gap: var(--space-3);
+		min-height: 42px;
+		padding: var(--space-2) var(--space-3);
+		border-radius: var(--radius-control);
+		color: var(--color-muted);
+		font-weight: 600;
+		text-decoration: none;
+
+		&:hover {
+			color: var(--color-ink);
+			background: var(--color-background);
+		}
+
+		&[aria-current='page'] {
+			color: var(--color-accent);
+			background: var(--color-accent-soft);
+		}
+
+		.ti {
+			flex: none;
+			font-size: 20px;
+		}
+	}
+}
+
+.panel-sidebar__brand,
+.panel-sidebar__sign-out,
+.panel-menu__link {
+	&:focus-visible {
+		outline: 2px solid var(--color-accent);
+		outline-offset: 3px;
+	}
+}
+
+.panel-main {
+	min-width: 0;
+
+	&__header {
+		padding: var(--space-6) 2rem;
+		border-bottom: 1px solid var(--color-line);
+		background: var(--color-surface);
+
+		h1 {
+			font-size: 1.625em;
+			font-weight: 700;
+			line-height: 1.25;
+			letter-spacing: -0.03em;
+		}
+
+		p {
+			margin-top: var(--space-2);
+			color: var(--color-muted);
+		}
+	}
+
+	&__content {
+		max-width: 1100px;
+		padding: 2rem;
+	}
+}
+
+.panel-card {
+	padding: var(--space-6);
+	border: 1px solid var(--color-line);
+	border-radius: var(--radius-panel);
+	background: var(--color-surface);
+	box-shadow: var(--shadow-panel);
+	overflow-wrap: anywhere;
+
+	&__eyebrow {
+		color: var(--color-muted);
+		font-size: 0.8125em;
+		font-weight: 600;
+	}
+
+	h2 {
+		margin: var(--space-2) 0 var(--space-3);
+		font-size: 1.25em;
+		font-weight: 700;
+		line-height: 1.3;
+	}
+
+	p:not(.panel-card__eyebrow) {
+		color: var(--color-muted);
+	}
+
+	&__links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-5);
+		margin-top: var(--space-5);
+	}
+}
+
+@media (max-width: 720px) {
+	.panel-layout {
+		grid-template-columns: minmax(0, 1fr);
+		align-content: start;
+	}
+
+	.panel-sidebar {
+		position: static;
+		height: auto;
+		gap: var(--space-4);
+		border-right: 0;
+		border-bottom: 1px solid var(--color-line);
+
+		&__navigation {
+			padding-top: var(--space-4);
+		}
+
+		&__account {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			column-gap: var(--space-3);
+			margin-top: 0;
+			padding-top: var(--space-4);
+
+			form {
+				grid-column: 2;
+				grid-row: 1 / span 2;
+				align-self: center;
+			}
+		}
+
+		&__name {
+			grid-column: 1;
+		}
+
+		&__sign-out {
+			margin-top: 0;
+		}
+	}
+
+	.panel-menu {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+
+	.panel-main__header,
+	.panel-main__content {
+		padding: var(--space-6);
+	}
+}

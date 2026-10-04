@@ -1,6 +1,9 @@
+@use '@tabler/icons-webfont/dist/tabler-icons-300.css';
+@use 'styles/fonts/nunito';
 @use 'styles/tokens';
 @use 'styles/base';
 @use 'styles/components/brand';
 @use 'styles/components/forms';
 @use 'styles/components/links';
 @use 'styles/layouts/auth';
+@use 'styles/layouts/panel';

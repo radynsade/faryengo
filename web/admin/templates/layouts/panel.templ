@@ -1,0 +1,56 @@
+package layouts
+
+import "github.com/radynsade/faryengo/web/admin/templates/components"
+
+type PanelProps struct {
+	Title string
+	Description string
+	BasePath string
+	ActiveSection string
+	FirstName string
+	LastName string
+}
+
+// Panel wraps authenticated pages with navigation and the current user's identity.
+templ Panel(props PanelProps) {
+	<div id="page-content" class="panel-layout">
+		<a class="panel-skip-link" href="#panel-title">Skip to content</a>
+		<aside class="panel-sidebar" aria-label="Admin sidebar">
+			<a class="panel-sidebar__brand" href={ templ.URL(props.BasePath) }>
+				@components.Brand()
+			</a>
+			<div class="panel-sidebar__navigation">
+				<p class="panel-sidebar__label">Workspace</p>
+				<nav class="panel-menu" aria-label="Admin navigation">
+					@components.PanelLink(props.BasePath + "/users", props.ActiveSection == "users") {
+						<i class="ti ti-users" aria-hidden="true"></i>
+						Users
+					}
+					@components.PanelLink(props.BasePath + "/roles", props.ActiveSection == "roles") {
+						<i class="ti ti-shield-check" aria-hidden="true"></i>
+						Roles
+					}
+				</nav>
+			</div>
+			<div class="panel-sidebar__account">
+				<p class="panel-sidebar__label">Signed in as</p>
+				<p class="panel-sidebar__name">{ props.FirstName + " " + props.LastName }</p>
+				<form method="post" action={ templ.URL(props.BasePath + "/sign-out") }>
+					<button class="panel-sidebar__sign-out" type="submit">
+						<i class="ti ti-logout" aria-hidden="true"></i>
+						Sign out
+					</button>
+				</form>
+			</div>
+		</aside>
+		<main class="panel-main" aria-labelledby="panel-title">
+			<header class="panel-main__header">
+				<h1 id="panel-title" tabindex="-1">{ props.Title }</h1>
+				<p>{ props.Description }</p>
+			</header>
+			<div class="panel-main__content">
+				{ children... }
+			</div>
+		</main>
+	</div>
+}

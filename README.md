@@ -2,5 +2,4 @@
 
 ## To do
 
-- .editorconfig, go and npm projects formatting.
-- describe cli command naming convention.
+- create a separate package to serve static assets like vite.

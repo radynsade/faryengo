@@ -29,6 +29,7 @@ to display the command syntax.
 ```sh
 bin/cli security create-role 'en:Administrator|lv:Administrators' --super
 bin/cli security create-role 'en:User manager|lv:Lietotāju pārvaldnieks' --permission manage_user --permission view_user
+bin/cli security create-role 'en:Role manager|lv:Lomu pārvaldnieks' --permission manage_role --permission view_role
 bin/cli security create-role 'en:Guest|lv:Viesis'
 bin/cli security delete-role <roleUUID>
 ```
@@ -42,8 +43,9 @@ language in PostgreSQL.
 
 `--super` (or `-s`) grants every defined permission, including permissions added
 later. Regular roles default to an empty permission list. Repeat `--permission`
-(or `-p`) to grant `manage_user` and/or `view_user`; `--permission=view_user` is
-also accepted. Unknown permissions are rejected even for super roles. Options
+(or `-p`) to grant any of `manage_user`, `view_user`, `manage_role`, and
+`view_role`; `--permission=view_role` is also accepted. Unknown permissions are
+rejected even for super roles. Options
 may appear before or after the name; `--` ends option parsing.
 
 Creation generates the role UUID and prints `created role <UUID>`. Deletion
@@ -55,6 +57,8 @@ connection.
 
 Apply migration `000005_add_role_super` manually before using the updated role
 repository or running the server. Existing roles default to non-super.
+Apply migration `000006_add_role_permissions` manually before storing roles
+with `manage_role` or `view_role` permissions.
 
 ## Users
 

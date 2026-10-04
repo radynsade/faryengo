@@ -30,8 +30,10 @@ atomically when the role is deleted.
 
 ### Permission
 
-A permission names an action the system may authorize. The initial permissions
-are `PermissionManageUser` and `PermissionViewUser`.
+A permission names an action the system may authorize. The defined permissions
+are `PermissionManageUser`, `PermissionViewUser`, `PermissionManageRole`, and
+`PermissionViewRole`. Each permission is independent; managing users or roles
+does not implicitly grant the corresponding view permission.
 
 ### Rules
 

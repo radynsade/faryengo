@@ -12,12 +12,12 @@ import (
 func TestAdminAssetURLs(t *testing.T) {
 	mux, _, _ := httpFixture(t)
 
-	scriptURL, err := assets.BuiltAsset("src/main.ts")
+	scriptURL, err := assets.BuiltAsset("main.ts")
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	cssURL, err := assets.BuiltCSS("src/style.scss")
+	cssURL, err := assets.BuiltCSS("style.scss")
 	if err != nil {
 		t.Fatal(err)
 	}

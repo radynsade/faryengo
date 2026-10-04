@@ -54,6 +54,8 @@ type TokenPair struct {
 
 type Principal struct {
 	UserID      UserID
+	FirstName   FirstName
+	LastName    LastName
 	SessionID   uuid.UUID
 	RoleID      RoleID
 	Permissions []Permission

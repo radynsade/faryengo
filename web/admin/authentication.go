@@ -12,7 +12,6 @@ import (
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/security"
-	"github.com/radynsade/faryengo/web/admin/templates/pages"
 )
 
 var errSignInThrottled = errors.New("too many sign-in attempts")
@@ -78,22 +77,6 @@ func (h *Handler) allowSignIn(request *http.Request, email string) error {
 	}
 
 	return err
-}
-
-func (h *Handler) home(writer http.ResponseWriter, request *http.Request) {
-	_, err := h.service.Authenticate(request.Context(), h.cookie(request, "access"))
-
-	if errors.Is(err, security.ErrInvalidToken) || errors.Is(err, security.ErrSessionRevoked) || errors.Is(err, security.ErrInvalidSession) {
-		if !errors.Is(err, security.ErrInvalidToken) {
-			h.clearTokens(writer)
-		}
-
-		http.Redirect(writer, request, adminPath(request)+"/sign-in", http.StatusSeeOther)
-	} else if err != nil {
-		h.signInError(writer, request, "", err)
-	} else {
-		renderPage(writer, request, "Admin panel · Faryen Admin", pages.Home(adminPath(request)+"/sign-out"))
-	}
 }
 
 func (h *Handler) refresh(writer http.ResponseWriter, request *http.Request) {

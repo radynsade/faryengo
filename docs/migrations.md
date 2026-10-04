@@ -35,3 +35,16 @@ Migration `000003_add_language_fallback` adds the language fallback flag, defaul
 Migration `000005_add_role_super` adds the role's `is_super` flag, defaulting
 existing roles to `false`. Apply it before deploying the updated server or using
 the role commands. Its down migration removes the flag.
+
+Migration `000006_add_role_permissions` adds `manage_role` and `view_role` to the
+PostgreSQL `permission` enum. Apply it before assigning either permission to a
+role. Existing grants are preserved, and regular roles receive no new grants
+automatically. New enum values become available after the migration commits.
+
+Its down migration recreates the enum with only `manage_user` and `view_user`,
+preserving the permissions column's default and validation constraint. Remove
+`manage_role` and `view_role` from all role permission lists before rollback;
+otherwise the conversion fails and the migration transaction leaves the schema,
+grants, and migration history unchanged. The rollback takes an exclusive lock
+on the role table while converting its permissions column. See
+[PostgreSQL enum limitations](https://www.postgresql.org/docs/current/datatype-enum.html).

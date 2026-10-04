@@ -11,8 +11,8 @@ templ Root(title string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="color-scheme" content="light"/>
 			<title id="page-title">{ title }</title>
-			<link rel="stylesheet" href={ assets.BuiltCSS("src/style.scss") }/>
-			<script type="module" src={ assets.BuiltAsset("src/main.ts") }></script>
+			<link rel="stylesheet" href={ assets.BuiltCSS("style.scss") }/>
+			<script type="module" src={ assets.BuiltAsset("main.ts") }></script>
 		</head>
 		<body hx-history="false">
 			{ children... }

@@ -13,6 +13,8 @@ func TestPermissionValidate(t *testing.T) {
 	}{
 		{name: "manage user", permission: PermissionManageUser},
 		{name: "view user", permission: PermissionViewUser},
+		{name: "manage role", permission: PermissionManageRole},
+		{name: "view role", permission: PermissionViewRole},
 		{name: "empty", wantErr: ErrInvalidPermission},
 		{name: "unknown", permission: Permission("delete_user"), wantErr: ErrInvalidPermission},
 	} {
