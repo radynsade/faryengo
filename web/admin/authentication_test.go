@@ -97,6 +97,11 @@ func httpFixture(t *testing.T) (*http.ServeMux, *httpCredentials, *miniredis.Min
 
 func httpFixtureWithCookies(t *testing.T, secure bool) (*http.ServeMux, *httpCredentials, *miniredis.Miniredis) {
 	t.Helper()
+	return httpFixtureWithFlashStorage(t, secure, nil)
+}
+
+func httpFixtureWithFlashStorage(t *testing.T, secure bool, flashStorage FlashSessionStorage) (*http.ServeMux, *httpCredentials, *miniredis.Miniredis) {
+	t.Helper()
 	roleID := security.RoleID(uuid.New())
 	user, err := security.NewUser(security.UserID(uuid.New()), roleID, "person@example.com", "+37123456789", "stored", "First", "Last")
 
@@ -166,7 +171,11 @@ func httpFixtureWithCookies(t *testing.T, secure bool) (*http.ServeMux, *httpCre
 		t.Fatal(err)
 	}
 
-	handler, err := NewHandler(service, roleService, languageService, limiter, secure)
+	if flashStorage == nil {
+		flashStorage = client
+	}
+
+	handler, err := NewHandler(service, roleService, languageService, limiter, flashStorage, secure)
 
 	if err != nil {
 		t.Fatal(err)
@@ -298,8 +307,20 @@ func TestAdminInvalidSignIn(t *testing.T) {
 			mux.ServeHTTP(response, request)
 
 			if response.Code != tt.status || !strings.HasPrefix(response.Header().Get("Content-Type"), "text/html") ||
-				!strings.Contains(response.Body.String(), `role="alert"`) || len(response.Result().Cookies()) != 0 {
+				!strings.Contains(response.Body.String(), `class="form-error" role="alert"`) || len(response.Result().Cookies()) != 1 {
 				t.Fatalf("invalid sign-in = %d: %s", response.Code, response.Body.String())
+			}
+
+			flashCookie := response.Result().Cookies()[0]
+
+			if flashCookie.Name != "__Host-faryen_flash" || !flashCookie.HttpOnly || !flashCookie.Secure || flashCookie.SameSite != http.SameSiteStrictMode {
+				t.Fatalf("unsafe anonymous flash cookie: %s", flashCookie)
+			}
+
+			reloaded := httpRequest(mux, http.MethodGet, "/admin/en/sign-in", "", []*http.Cookie{flashCookie})
+
+			if reloaded.Code != http.StatusOK || strings.Contains(reloaded.Body.String(), `class="form-error"`) {
+				t.Fatal("sign-in error was replayed after rendering")
 			}
 
 			if strings.Contains(response.Body.String(), "wrong-secret") {
@@ -438,13 +459,19 @@ func TestAdminSessionRenewalAndSignOut(t *testing.T) {
 				}
 			}
 
+			cleared := 0
+
 			for _, cookie := range response.Result().Cookies() {
-				if cookie.MaxAge != -1 || !cookie.HttpOnly || !cookie.Secure || cookie.Path != "/" {
-					t.Fatal("session cookies not cleared safely")
+				if cookie.Name == "__Host-faryen_access" || cookie.Name == "__Host-faryen_refresh" {
+					if cookie.MaxAge != -1 || !cookie.HttpOnly || !cookie.Secure || cookie.Path != "/" {
+						t.Fatal("session cookies not cleared safely")
+					}
+
+					cleared++
 				}
 			}
 
-			if len(response.Result().Cookies()) != 2 {
+			if cleared != 2 {
 				t.Fatal("both session cookies must be cleared")
 			}
 
@@ -524,7 +551,7 @@ func TestSecurityAPIRemoved(t *testing.T) {
 }
 
 func TestAdminInvalidHandlerConfig(t *testing.T) {
-	if handler, err := NewHandler(nil, nil, nil, nil, true); handler != nil || !errors.Is(err, ErrInvalidHandlerConfig) {
+	if handler, err := NewHandler(nil, nil, nil, nil, nil, true); handler != nil || !errors.Is(err, ErrInvalidHandlerConfig) {
 		t.Fatalf("invalid config = %v, %v", handler, err)
 	}
 }

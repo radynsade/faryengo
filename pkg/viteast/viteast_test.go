@@ -1,4 +1,4 @@
-package vite
+package viteast
 
 import (
 	"context"

@@ -1,0 +1,124 @@
+@use 'sass:list';
+@use 'sass:map';
+@use 'functions' as fn;
+@use 'settings';
+
+@mixin respond-to($name) {
+	@media (max-width: fn.breakpoint($name)) {
+		@content;
+	}
+}
+
+@mixin focus-ring($offset: null) {
+	outline: fn.token(focus-width) solid fn.token(color-accent);
+	@if $offset == null {
+		outline-offset: fn.token(focus-offset);
+	} @else {
+		outline-offset: $offset;
+	}
+}
+
+@mixin motion($properties...) {
+	$transitions: ();
+
+	@each $property in $properties {
+		$transitions: list.append(
+			$transitions,
+			$property fn.token(duration-fast) fn.token(ease-standard),
+			comma
+		);
+	}
+
+	transition: $transitions;
+
+	@media (prefers-reduced-motion: reduce) {
+		transition: none;
+	}
+}
+
+@mixin surface($radius: panel, $background: surface, $shadow: null) {
+	border: fn.token(border-width) solid fn.token(color-line);
+	border-radius: fn.token('radius-#{$radius}');
+	background: fn.token('color-#{$background}');
+
+	@if $shadow != null {
+		box-shadow: fn.token('shadow-#{$shadow}');
+	}
+}
+
+@mixin row($gap: 2, $wrap: nowrap, $justify: null) {
+	display: flex;
+	align-items: center;
+	gap: fn.space($gap);
+
+	@if $wrap != nowrap {
+		flex-wrap: $wrap;
+	}
+
+	@if $justify != null {
+		justify-content: $justify;
+	}
+}
+
+@mixin heading($size: title, $line-height: title) {
+	font-size: fn.token('font-size-#{$size}');
+	font-weight: fn.token(font-weight-bold);
+	line-height: fn.token('line-height-#{$line-height}');
+}
+
+@mixin button-base {
+	display: inline-flex;
+	align-items: center;
+	justify-content: center;
+	gap: fn.space(2);
+	border: fn.token(border-width) solid transparent;
+	border-radius: fn.token(radius-control);
+	text-decoration: none;
+	cursor: pointer;
+
+	&:focus-visible {
+		@include focus-ring;
+	}
+}
+
+@mixin button-variant($name) {
+	@if not map.has-key(settings.$button-variants, $name) {
+		@error 'Unknown admin button variant: #{$name}';
+	}
+
+	$variant: map.get(settings.$button-variants, $name);
+	color: fn.token('color-#{map.get($variant, text)}');
+	background: fn.token('color-#{map.get($variant, background)}');
+
+	@if map.has-key($variant, border) {
+		border-color: fn.token('color-#{map.get($variant, border)}');
+	}
+
+	&:hover {
+		color: fn.token('color-#{map.get($variant, hover-text)}');
+		background: fn.token('color-#{map.get($variant, hover-background)}');
+	}
+
+	@if map.has-key($variant, active-background) {
+		&:active {
+			background: fn.token('color-#{map.get($variant, active-background)}');
+		}
+	}
+}
+
+@mixin badge($tone: accent, $solid: false) {
+	display: inline-block;
+	padding: fn.token(badge-padding-block) fn.token(badge-padding-inline);
+	border-radius: fn.token(radius-badge);
+	font-size: fn.token(font-size-caption);
+	font-weight: fn.token(font-weight-semibold);
+	white-space: nowrap;
+
+	@if $solid {
+		color: fn.token(color-surface);
+		background: fn.token('color-#{$tone}');
+	} @else {
+		color: fn.token('color-#{$tone}');
+		background: fn.token('color-#{$tone}-soft');
+	}
+}

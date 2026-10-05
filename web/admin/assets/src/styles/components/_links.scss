@@ -1,6 +1,8 @@
+@use '../abstracts' as ui;
+
 .text-link {
 	color: var(--color-accent);
-	font-weight: 600;
+	font-weight: var(--font-weight-semibold);
 	text-decoration: none;
 	text-underline-offset: 3px;
 
@@ -10,8 +12,7 @@
 	}
 
 	&:focus-visible {
-		border-radius: 2px;
-		outline: 2px solid var(--color-accent);
-		outline-offset: 3px;
+		border-radius: var(--radius-small);
+		@include ui.focus-ring;
 	}
 }

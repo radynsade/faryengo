@@ -24,13 +24,12 @@ type RoleRow struct {
 }
 
 type RoleListProps struct {
-	Panel       layouts.PanelProps
-	Rows        []RoleRow
-	Query       security.RoleQuery
-	Page        security.RolePage
-	Permissions []PermissionOption
-	Error       string
-	Message     string
+	Panel        layouts.PanelProps
+	Rows         []RoleRow
+	Query        security.RoleQuery
+	Page         security.RolePage
+	Permissions  []PermissionOption
+	InvalidQuery bool
 }
 
 func (p RoleListProps) URL(page int, sort security.RoleSort, descending bool) string {
@@ -91,14 +90,18 @@ type RoleFormProps struct {
 	NameTranslations components.TranslationsInputProps
 	Permissions      []PermissionOption
 	IsSuper          bool
-	Error            string
 }
 
 type RoleViewProps struct {
-	Panel   layouts.PanelProps
-	Role    RoleRow
-	Names   []RoleNameField
-	Delete  bool
-	Error   string
-	Message string
+	Panel        layouts.PanelProps
+	Role         RoleRow
+	Names        []RoleNameField
+	DeleteErrors []string
+}
+
+func roleDeleteDialog(action, name string, errors []string) components.ConfirmDeleteProps {
+	return components.ConfirmDeleteProps{
+		ID: "confirm-delete", Title: "Delete role", Name: name, Action: action, Errors: errors,
+		Message: "Are you sure you want to delete the role? You will not be able to restore it.",
+	}
 }

@@ -54,13 +54,13 @@ func TestRolesCRUD(t *testing.T) {
 	role := repository.otherRoles[0]
 	path := root + "/" + uuid.UUID(role.ID()).String()
 
-	if response.Header().Get("Location") != path+"/view?notice=created" || role.Name()["lv"].Content() != "Redaktori" {
+	if response.Header().Get("Location") != path+"/view" || role.Name()["lv"].Content() != "Redaktori" {
 		t.Fatal("creation did not persist translations or retain the language path")
 	}
 
 	view := httpRequest(mux, http.MethodGet, response.Header().Get("Location"), "", cookies)
 
-	if view.Code != http.StatusOK || !strings.Contains(view.Body.String(), "Role created.") || !strings.Contains(view.Body.String(), "Redaktori") {
+	if view.Code != http.StatusOK || !strings.Contains(view.Body.String(), "created successfully.") || !strings.Contains(view.Body.String(), "Redaktori") {
 		t.Fatalf("view = %d %s", view.Code, view.Body.String())
 	}
 
@@ -80,8 +80,8 @@ func TestRolesCRUD(t *testing.T) {
 
 	confirm := httpRequest(mux, http.MethodGet, path+"/delete", "", cookies)
 
-	if confirm.Code != http.StatusOK || repository.roleWrites != 2 || !strings.Contains(confirm.Body.String(), "Delete role?") {
-		t.Fatal("GET deletion must only show a confirmation")
+	if confirm.Code != http.StatusMethodNotAllowed || repository.roleWrites != 2 {
+		t.Fatal("GET deletion must be unavailable and must not change roles")
 	}
 
 	repository.deleteErr = security.ErrRoleAlreadyInUse
@@ -94,7 +94,7 @@ func TestRolesCRUD(t *testing.T) {
 	repository.deleteErr = nil
 	response = httpRequest(mux, http.MethodPost, path+"/delete", "confirm=delete", cookies)
 
-	if response.Code != http.StatusSeeOther || len(repository.otherRoles) != 0 || response.Header().Get("Location") != root+"?notice=deleted" {
+	if response.Code != http.StatusSeeOther || len(repository.otherRoles) != 0 || response.Header().Get("Location") != root {
 		t.Fatalf("delete = %d %s", response.Code, response.Body.String())
 	}
 
@@ -102,6 +102,87 @@ func TestRolesCRUD(t *testing.T) {
 
 	if missing.Code != http.StatusNotFound {
 		t.Fatalf("deleted role status = %d", missing.Code)
+	}
+}
+
+func TestRoleSuccessDialog(t *testing.T) {
+	name := `Review "Pārskatītāji" & <script>alert(1)</script>`
+
+	for _, tt := range []struct {
+		name, action, query string
+		view                bool
+	}{
+		{name: "created", action: "created", view: true},
+		{name: "updated", action: "updated", view: true},
+		{name: "deleted", action: "deleted"},
+		{name: "ordinary list"},
+		{name: "ordinary view", view: true},
+		{name: "forged success", view: true, query: "?notice=created"},
+		{name: "forged deletion", query: "?notice=deleted&notice_name=Forged"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, mode := range []string{"document", "fragment"} {
+				t.Run(mode, func(t *testing.T) {
+					mux, repository, _ := httpFixture(t)
+					role := addHTTPRole(t, repository, name, nil, false)
+					path := "/admin/en/roles"
+					rolePath := path + "/" + uuid.UUID(role.ID()).String()
+					cookies := login(t, mux)
+					message := ""
+
+					if tt.action != "" {
+						postPath := rolePath + "/edit"
+						body := url.Values{"name[en]": {name}}.Encode()
+
+						switch tt.action {
+						case "created":
+							postPath = path + "/create"
+						case "deleted":
+							postPath, body = rolePath+"/delete", "confirm=delete"
+						}
+
+						posted := httpRequest(mux, http.MethodPost, postPath, body, cookies)
+						path = posted.Header().Get("Location")
+
+						if posted.Code != http.StatusSeeOther || strings.Contains(path, "?") {
+							t.Fatalf("flash redirect = %d %q", posted.Code, path)
+						}
+
+						message = `Role "` + name + `" ` + tt.action + " successfully."
+					} else if tt.view {
+						path = rolePath + "/view"
+					}
+
+					for render := range 2 {
+						request := httptest.NewRequest(http.MethodGet, path+tt.query, nil)
+
+						if mode == "fragment" {
+							request.Header.Set("HX-Request", "true")
+						}
+
+						for _, cookie := range cookies {
+							request.AddCookie(cookie)
+						}
+
+						response := httptest.NewRecorder()
+						mux.ServeHTTP(response, request)
+						body := response.Body.String()
+
+						if response.Code != http.StatusOK || strings.Contains(body, "<script>alert(1)</script>") {
+							t.Fatalf("success page = %d %s", response.Code, body)
+						}
+
+						if render > 0 || message == "" {
+							if strings.Contains(body, `id="success-dialog"`) {
+								t.Fatal("navigation replayed or forged a success dialog")
+							}
+						} else if !strings.Contains(body, `id="success-dialog"`) || !strings.Contains(body, "data-dialog-open data-success-dialog") || !strings.Contains(body, html.EscapeString(message)) {
+							t.Fatalf("success dialog missing or message not escaped: %s", body)
+						}
+					}
+				})
+			}
+		})
 	}
 }
 
@@ -146,7 +227,7 @@ func TestRolesAuthenticatedAccess(t *testing.T) {
 			root := "/admin/en/roles"
 			path := root + "/" + uuid.UUID(role.ID()).String()
 
-			for _, route := range []string{root, root + "/create", path + "/view", path + "/edit", path + "/delete"} {
+			for _, route := range []string{root, root + "/create", path + "/view", path + "/edit"} {
 				response := httpRequest(mux, http.MethodGet, route, "", cookies)
 
 				if response.Code != status {
@@ -160,10 +241,8 @@ func TestRolesAuthenticatedAccess(t *testing.T) {
 				}
 
 				if !tt.anonymous && (route == root || route == path+"/view") {
-					for _, action := range []string{"edit", "delete"} {
-						if !strings.Contains(response.Body.String(), `href="`+path+"/"+action+`"`) {
-							t.Fatalf("role page hid the %s action", action)
-						}
+					if !strings.Contains(response.Body.String(), `href="`+path+`/edit"`) || !strings.Contains(response.Body.String(), `data-confirm-action="`+path+`/delete"`) {
+						t.Fatal("role page hid the edit or delete action")
 					}
 				}
 			}
@@ -175,6 +254,84 @@ func TestRolesAuthenticatedAccess(t *testing.T) {
 					if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/admin/en/sign-in" || repository.roleWrites != 0 {
 						t.Fatalf("anonymous POST %s = %d, writes = %d", route, response.Code, repository.roleWrites)
 					}
+				}
+			}
+		})
+	}
+}
+
+func TestRoleDeleteModal(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		body        string
+		roleMissing bool
+		deleteErr   error
+		status      int
+		message     string
+	}{
+		{name: "confirmed", body: "confirm=delete", status: http.StatusOK},
+		{name: "missing confirmation", body: "", status: http.StatusBadRequest, message: "Submit a valid role form"},
+		{name: "wrong confirmation", body: "confirm=other", status: http.StatusBadRequest, message: "Submit a valid role form"},
+		{name: "duplicate confirmation", body: "confirm=delete&confirm=delete", status: http.StatusBadRequest, message: "Submit a valid role form"},
+		{name: "assigned role", body: "confirm=delete", deleteErr: security.ErrRoleAlreadyInUse, status: http.StatusConflict, message: "Reassign those users"},
+		{name: "missing role", body: "confirm=delete", roleMissing: true, status: http.StatusNotFound, message: "Role not found"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mux, repository, _ := httpFixture(t)
+			role := addHTTPRole(t, repository, "Review <script>alert(1)</script>", nil, false)
+			path := "/admin/en/roles/" + uuid.UUID(role.ID()).String()
+			cookies := login(t, mux)
+
+			for _, route := range []string{"/admin/en/roles", path + "/view"} {
+				response := httpRequest(mux, http.MethodGet, route, "", cookies)
+				body := response.Body.String()
+
+				if response.Code != http.StatusOK || !strings.Contains(body, `<dialog id="confirm-delete"`) || !strings.Contains(body, `data-confirm-action="`+path+`/delete"`) || !strings.Contains(body, html.EscapeString(role.Name()["en"].Content())) || strings.Contains(body, `href="`+path+`/delete"`) {
+					t.Fatalf("modal page %s = %d %s", route, response.Code, body)
+				}
+			}
+
+			if tt.roleMissing {
+				repository.otherRoles = nil
+			}
+
+			repository.deleteErr = tt.deleteErr
+			request := httptest.NewRequest(http.MethodPost, "https://admin.example.com"+path+"/delete", strings.NewReader(tt.body))
+			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+			request.Header.Set("HX-Request", "true")
+
+			for _, cookie := range cookies {
+				request.AddCookie(cookie)
+			}
+
+			response := httptest.NewRecorder()
+			mux.ServeHTTP(response, request)
+
+			if response.Code != tt.status {
+				t.Fatalf("delete = %d %s", response.Code, response.Body.String())
+			}
+
+			if tt.status == http.StatusOK {
+				location := "/admin/en/roles"
+
+				if response.Header().Get("HX-Redirect") != location || len(repository.otherRoles) != 0 || repository.roleWrites != 1 {
+					t.Fatal("confirmed deletion did not delete the role and return to the list")
+				}
+
+				response = httpRequest(mux, http.MethodGet, location, "", cookies)
+
+				if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `id="success-dialog"`) || !strings.Contains(response.Body.String(), html.EscapeString(role.Name()["en"].Content())) {
+					t.Fatal("deleted role name did not reach the success dialog")
+				}
+			} else {
+				body := response.Body.String()
+
+				if response.Header().Get("HX-Retarget") != "#confirm-delete" || !strings.Contains(body, "data-dialog-open") || !strings.Contains(body, tt.message) || strings.Contains(body, `id="page-content"`) || strings.Contains(body, "<script>alert(1)</script>") {
+					t.Fatalf("delete error did not stay in the modal: %s", body)
+				}
+
+				if !tt.roleMissing && len(repository.otherRoles) != 1 {
+					t.Fatal("failed deletion removed the role")
 				}
 			}
 		})
@@ -278,6 +435,7 @@ func TestRoleFormValidation(t *testing.T) {
 
 func TestRolesFiltersAndFragments(t *testing.T) {
 	mux, repository, _ := httpFixture(t)
+	cookies := login(t, mux)
 	role := addHTTPRole(t, repository, "Review <script>alert(1)</script>", []security.Permission{security.PermissionViewRole}, false)
 	name := role.Name()
 	translation, err := languages.NewTranslation("lv", "Pārskatītāji")
@@ -296,7 +454,7 @@ func TestRolesFiltersAndFragments(t *testing.T) {
 	request := httptest.NewRequest(http.MethodGet, "https://admin.example.com/admin/lv/roles?"+query.Encode(), nil)
 	request.Header.Set("HX-Request", "true")
 
-	for _, cookie := range login(t, mux) {
+	for _, cookie := range cookies {
 		request.AddCookie(cookie)
 	}
 
@@ -312,14 +470,14 @@ func TestRolesFiltersAndFragments(t *testing.T) {
 		t.Fatalf("filters did not reach repository: %+v", repository.lastQuery)
 	}
 
-	view := httpRequest(mux, http.MethodGet, "/admin/en/roles", "", login(t, mux))
+	view := httpRequest(mux, http.MethodGet, "/admin/en/roles", "", cookies)
 
 	if !strings.Contains(view.Body.String(), html.EscapeString("Review <script>alert(1)</script>")) || strings.Contains(view.Body.String(), "<script>alert(1)</script>") {
 		t.Fatal("role name was not escaped")
 	}
 
 	for _, invalid := range []string{"page=0", "size=101", "sort=permissions", "super=maybe", "permissions=unknown", "page=1&page=2", "order=ascending", "name=%ZZ"} {
-		bad := httpRequest(mux, http.MethodGet, "/admin/en/roles?"+invalid, "", login(t, mux))
+		bad := httpRequest(mux, http.MethodGet, "/admin/en/roles?"+invalid, "", cookies)
 
 		if bad.Code != http.StatusBadRequest {
 			t.Fatalf("invalid query %s = %d", invalid, bad.Code)

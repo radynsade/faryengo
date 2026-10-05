@@ -2,8 +2,7 @@
 
 ## To do
 
-- create a separate package to serve static assets like vite.
-- make a common query domain and web parsing. Maybe /pkg?
-- make delete confirmation popup instead of separate page
-- styling issues
-- close filters block on outside click
+- [x] create a separate package to serve Vite assets (`pkg/viteast`).
+- [ ] make a common query domain and web parsing. Maybe /pkg?
+- [x] make delete confirmation popup instead of separate page
+- [x] close filters block on outside click

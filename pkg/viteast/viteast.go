@@ -1,5 +1,5 @@
-// Package vite resolves Vite manifest entries and serves the compiled assets.
-package vite
+// Package viteast resolves Vite manifest entries and serves the compiled assets.
+package viteast
 
 import (
 	"context"

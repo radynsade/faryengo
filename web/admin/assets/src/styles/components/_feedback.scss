@@ -1,0 +1,21 @@
+@use '../abstracts' as ui;
+
+.badge {
+	@include ui.badge;
+}
+
+.badge--negative {
+	color: var(--color-danger);
+	background: var(--color-danger-soft);
+}
+
+.notice {
+	padding: var(--space-3) var(--space-4);
+	color: var(--color-accent);
+	background: var(--color-accent-soft);
+
+	&--error {
+		color: var(--color-danger-hover);
+		background: var(--color-danger-soft);
+	}
+}

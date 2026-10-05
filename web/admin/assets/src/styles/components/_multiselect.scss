@@ -1,3 +1,5 @@
+@use '../abstracts' as ui;
+
 .multiselect {
 	position: relative;
 	min-width: 0;
@@ -7,22 +9,22 @@
 	}
 
 	&__input {
-		padding-right: 54px;
+		padding-right: var(--multiselect-input-inset);
 		text-overflow: ellipsis;
 	}
 
 	&__count {
 		position: absolute;
 		top: 50%;
-		right: 12px;
-		min-width: 24px;
-		padding: 0 6px;
+		right: var(--control-padding-inline);
+		min-width: var(--count-min-width);
+		padding: 0 var(--badge-padding-inline);
 		transform: translateY(-50%);
-		border-radius: 5px;
+		border-radius: var(--radius-count);
 		color: var(--color-surface);
 		background: var(--color-accent);
-		font-size: 0.875em;
-		font-weight: 700;
+		font-size: var(--font-size-small);
+		font-weight: var(--font-weight-bold);
 		text-align: center;
 		pointer-events: none;
 	}
@@ -31,15 +33,12 @@
 		position: absolute;
 		top: calc(100% + var(--space-2));
 		left: 0;
-		z-index: 4;
+		z-index: var(--z-dropdown);
 		width: 100%;
-		max-height: 180px;
+		max-height: var(--dropdown-max-height);
 		overflow-y: auto;
 		overscroll-behavior: contain;
-		border: 1px solid var(--color-line);
-		border-radius: var(--radius-control);
-		background: var(--color-surface);
-		box-shadow: 0 4px 12px #172b3a14;
+		@include ui.surface(control, surface, dropdown);
 	}
 
 	&__options {
@@ -48,7 +47,7 @@
 		list-style: none;
 
 		li {
-			padding: 8px 12px;
+			padding: var(--option-padding-block) var(--control-padding-inline);
 			cursor: pointer;
 
 			&:hover {
@@ -65,8 +64,7 @@
 			}
 
 			&.multiselect__option--active {
-				outline: 2px solid var(--color-accent);
-				outline-offset: -2px;
+				@include ui.focus-ring(-2px);
 				background: var(--color-accent-soft);
 
 				&[aria-selected='true'] {
@@ -82,7 +80,7 @@
 	}
 
 	&__empty {
-		padding: 8px 12px;
+		padding: var(--option-padding-block) var(--control-padding-inline);
 		color: var(--color-muted);
 	}
 
@@ -102,12 +100,12 @@
 		align-items: center;
 		gap: var(--space-1);
 		max-width: 100%;
-		padding: 2px 6px;
+		padding: var(--badge-padding-block) var(--badge-padding-inline);
 		border: 0;
-		border-radius: 4px;
+		border-radius: var(--radius-badge);
 		color: var(--color-surface);
 		background: var(--color-accent);
-		font-size: 0.8125em;
+		font-size: var(--font-size-caption);
 		cursor: pointer;
 
 		&:hover {
@@ -115,8 +113,7 @@
 		}
 
 		&:focus-visible {
-			outline: 2px solid var(--color-accent);
-			outline-offset: 2px;
+			@include ui.focus-ring(2px);
 		}
 
 		&:disabled {

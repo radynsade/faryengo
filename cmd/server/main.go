@@ -144,7 +144,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("configure language service: %w", err)
 	}
 
-	adminHandler, err := admin.NewHandler(service, roleService, languageService, limiter, settings.AuthCookieSecure)
+	adminHandler, err := admin.NewHandler(service, roleService, languageService, limiter, client, settings.AuthCookieSecure)
 
 	if err != nil {
 		return fmt.Errorf("configure admin transport: %w", err)

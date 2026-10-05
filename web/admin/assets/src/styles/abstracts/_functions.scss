@@ -1,0 +1,24 @@
+@use 'sass:map';
+@use 'sass:string';
+@use 'settings';
+
+// Keep parameterized mixins tied to the token registry; typos fail the build.
+@function token($name) {
+	@if not map.has-key(settings.$tokens, $name) {
+		@error 'Unknown admin design token: #{$name}';
+	}
+
+	@return string.unquote('var(--#{$name})');
+}
+
+@function space($step) {
+	@return token('space-#{$step}');
+}
+
+@function breakpoint($name) {
+	@if not map.has-key(settings.$breakpoints, $name) {
+		@error 'Unknown admin breakpoint: #{$name}';
+	}
+
+	@return map.get(settings.$breakpoints, $name);
+}

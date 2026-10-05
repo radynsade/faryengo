@@ -1,0 +1,28 @@
+.role-list {
+	min-width: 0;
+	background: var(--color-surface);
+}
+
+.role-total,
+.role-muted {
+	color: var(--color-muted);
+	font-size: var(--font-size-small);
+}
+
+.role-editor {
+	max-width: var(--editor-width);
+
+	.form-stack {
+		margin-top: var(--space-5);
+	}
+
+	.action-group {
+		margin-top: var(--space-4);
+	}
+}
+
+.role-table__uuid {
+	width: 25%;
+	white-space: nowrap;
+	font-size: var(--font-size-small);
+}

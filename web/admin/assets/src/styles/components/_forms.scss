@@ -1,3 +1,5 @@
+@use '../abstracts' as ui;
+
 .form-stack {
 	display: grid;
 	gap: var(--space-4);
@@ -17,24 +19,22 @@
 	min-width: 0;
 
 	&__label {
-		font-size: 0.9375em;
-		font-weight: 600;
-		line-height: 1.25;
+		font-size: var(--font-size-control);
+		font-weight: var(--font-weight-semibold);
+		line-height: var(--line-height-control);
 	}
 
 	&__input {
 		width: 100%;
-		min-height: 42px;
-		padding: 9px 12px;
-		line-height: 1.25;
-		border: 1px solid var(--color-line);
+		min-height: var(--control-height);
+		padding: var(--control-padding-block) var(--control-padding-inline);
+		line-height: var(--line-height-control);
+		border: var(--border-width) solid var(--color-line);
 		border-radius: var(--radius-control);
 		color: var(--color-ink);
 		background: var(--color-surface);
 		outline: none;
-		transition:
-			border-color 120ms ease,
-			box-shadow 120ms ease;
+		@include ui.motion(border-color, box-shadow);
 
 		&::placeholder {
 			color: var(--color-placeholder);
@@ -42,61 +42,46 @@
 		}
 
 		&:hover {
-			border-color: #afc2cd;
+			border-color: var(--color-line-hover);
 		}
 
 		&:focus {
 			border-color: var(--color-accent);
-			box-shadow: 0 0 0 3px var(--color-focus);
+			box-shadow: 0 0 0 var(--focus-halo) var(--color-focus);
 		}
 	}
 }
 
-.button {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: var(--space-2);
-	min-height: 42px;
-	padding: 9px 16px;
-	border: 1px solid transparent;
-	border-radius: var(--radius-control);
-	font-weight: 600;
-	line-height: 1.25;
-	cursor: pointer;
-	transition:
-		background-color 120ms ease,
-		box-shadow 120ms ease;
-
-	&:focus-visible {
-		outline: 2px solid var(--color-accent);
-		outline-offset: 3px;
-	}
-
-	&--primary {
-		color: var(--color-surface);
-		background: var(--color-accent);
-
-		&:hover {
-			background: var(--color-accent-hover);
-		}
-
-		&:active {
-			background: #174c47;
-		}
-	}
-}
-
-@media (max-width: 480px) {
+@include ui.respond-to(phone) {
 	.form-field__input {
 		// Avoid zooming the page when focusing a field on iOS.
-		font-size: 16px;
+		font-size: var(--font-size-base);
 	}
 }
 
-@media (prefers-reduced-motion: reduce) {
-	.form-field__input,
-	.button {
-		transition: none;
+.form-fieldset {
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+
+	legend {
+		margin-bottom: var(--space-2);
+		padding: 0;
+		font-weight: var(--font-weight-bold);
+		font-size: var(--font-size-control);
+	}
+}
+
+.form-checkbox {
+	@include ui.row;
+	font-size: var(--font-size-control);
+
+	input {
+		flex: none;
+		width: var(--checkbox-size);
+		height: var(--checkbox-size);
+		margin: 0;
+		accent-color: var(--color-accent);
 	}
 }

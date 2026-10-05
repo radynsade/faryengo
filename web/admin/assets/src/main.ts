@@ -1,5 +1,8 @@
 import 'vite/modulepreload-polyfill';
 import './style.scss';
 import './navigation';
+import './dialogs';
+import './confirm-delete';
 import './multiselect';
+import './role-filters';
 import './translations-input';

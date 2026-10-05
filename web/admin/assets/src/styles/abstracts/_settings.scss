@@ -1,0 +1,150 @@
+@use 'sass:map';
+
+// Compile-time decisions. Visual values are emitted as CSS variables by tokens.
+$breakpoints: (
+	compact: 360px,
+	phone: 480px,
+	panel: 720px,
+);
+
+$colors: (
+	background: #f2f5f7,
+	surface: #fff,
+	ink: #172b3a,
+	muted: #617382,
+	placeholder: #738390,
+	line: #dce5eb,
+	line-hover: #afc2cd,
+	accent: #246b64,
+	accent-hover: #1d5953,
+	accent-active: #174c47,
+	accent-soft: #eef6f4,
+	brand: #15946c,
+	focus: #246b6430,
+	danger: #b63840,
+	danger-hover: #972e35,
+	danger-soft: #fff1f2,
+	success: #15946c,
+	selection: #cdece0,
+	stripe: #f8fafb,
+	backdrop: #172b3a40,
+);
+
+$space-unit: 0.25rem;
+$space-steps: (1, 2, 3, 4, 5, 6, 8, 12);
+
+$type-sizes: (
+	caption: 0.8125em,
+	small: 0.875em,
+	control: 0.9375em,
+	body: 1em,
+	title: 1.25em,
+	heading: 1.625em,
+	root: 14px,
+	base: 16px,
+);
+
+$tokens: (
+	font-family: (
+		'Nunito',
+		sans-serif,
+	),
+	font-weight-semibold: 600,
+	font-weight-bold: 700,
+	line-height-body: 1.5,
+	line-height-control: 1.25,
+	line-height-title: 1.3,
+	line-height-name: 1.35,
+	radius-small: 2px,
+	radius-badge: 4px,
+	radius-count: 5px,
+	radius-label: 6px,
+	radius-control: 0.5rem,
+	radius-panel: 0.75rem,
+	border-width: 1px,
+	focus-width: 2px,
+	focus-offset: 3px,
+	focus-halo: 3px,
+	shadow-panel: 0 4px 16px #172b3a05,
+	shadow-dropdown: 0 4px 12px #172b3a14,
+	shadow-popover: 0 8px 24px #172b3a14,
+	shadow-dialog: 0 8px 32px #172b3a14,
+	duration-fast: 120ms,
+	ease-standard: ease,
+	control-height: 42px,
+	control-height-compact: 34px,
+	control-height-account: 38px,
+	control-padding-block: 9px,
+	control-padding-inline: 12px,
+	button-padding-inline: 16px,
+	control-padding-compact: 6px,
+	option-padding-block: 8px,
+	checkbox-size: 16px,
+	icon-action-size: 30px,
+	icon-close-size: 32px,
+	icon-small: 15px,
+	icon-control: 18px,
+	icon-navigation: 20px,
+	icon-status: 24px,
+	icon-success: 48px,
+	brand-mark-size: 28px,
+	brand-mark-font: 22px,
+	badge-padding-block: 2px,
+	badge-padding-inline: 6px,
+	sidebar-width: 232px,
+	auth-width: 384px,
+	editor-width: 800px,
+	filter-width: 380px,
+	dialog-width: 420px,
+	table-min-width: 760px,
+	dropdown-max-height: 180px,
+	multiselect-input-inset: 54px,
+	count-min-width: 24px,
+	confirmation-icon-size: 40px,
+	z-skip-link: 2,
+	z-popover: 3,
+	z-dropdown: 4,
+);
+
+@each $name, $value in $colors {
+	$tokens: map.set($tokens, 'color-#{$name}', $value);
+}
+
+@each $step in $space-steps {
+	$tokens: map.set($tokens, 'space-#{$step}', $step * $space-unit);
+}
+
+@each $name, $value in $type-sizes {
+	$tokens: map.set($tokens, 'font-size-#{$name}', $value);
+}
+
+// Shared button state recipes. Each value names a runtime color token.
+$button-variants: (
+	primary: (
+		text: surface,
+		background: accent,
+		hover-text: surface,
+		hover-background: accent-hover,
+		active-background: accent-active,
+	),
+	secondary: (
+		text: muted,
+		background: surface,
+		border: line,
+		hover-text: accent,
+		hover-background: accent-soft,
+	),
+	danger: (
+		text: surface,
+		background: danger,
+		hover-text: surface,
+		hover-background: danger-hover,
+	),
+	danger-outline: (
+		text: danger,
+		background: surface,
+		border: line,
+		hover-text: danger-hover,
+		hover-background: danger-soft,
+	),
+);

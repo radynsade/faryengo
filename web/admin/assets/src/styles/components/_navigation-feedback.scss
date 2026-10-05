@@ -1,0 +1,16 @@
+@use '../abstracts' as ui;
+
+.navigation-error {
+	position: fixed;
+	bottom: var(--space-4);
+	left: 50%;
+	width: max-content;
+	max-width: calc(100% - 2 * var(--space-4));
+	padding: var(--space-3) var(--space-4);
+	transform: translateX(-50%);
+	border: var(--border-width) solid var(--color-line);
+	border-radius: var(--radius-control);
+	color: var(--color-ink);
+	background: var(--color-surface);
+	box-shadow: var(--shadow-panel);
+}

@@ -11,6 +11,13 @@ templ Root(title string) {
 			<meta name="viewport" content="width=device-width, initial-scale=1"/>
 			<meta name="color-scheme" content="light"/>
 			<title id="page-title">{ title }</title>
+			for _, asset := range assets.Preloads() {
+				if asset.As == "font" {
+					<link rel="preload" href={ templ.URL(asset.URL) } as="font" type={ asset.Type } crossorigin="anonymous"/>
+				} else {
+					<link rel="preload" href={ templ.URL(asset.URL) } as="style" type={ asset.Type }/>
+				}
+			}
 			<link rel="stylesheet" href={ assets.BuiltCSS("style.scss") }/>
 			<script type="module" src={ assets.BuiltAsset("main.ts") }></script>
 		</head>

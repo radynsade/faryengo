@@ -18,6 +18,7 @@ import (
 	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/pkg/flashmsg"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
@@ -48,19 +49,24 @@ func (h *Handler) roles(writer http.ResponseWriter, request *http.Request) {
 			}
 		}
 
+		var flashErr error
+
 		if err != nil {
-			status, props.Error = roleError(request, err)
+			var message string
+			status, message = roleError(request, err)
+			flashErr = h.addFlash(request.Context(), writer, request, flashmsg.Error, message)
+			props.InvalidQuery = true
 			props.Page = security.RolePage{Page: 1, PageSize: security.DefaultRolePageSize}
 			props.Rows = nil
 		}
 
 		props.Permissions = permissionOptions(query.Filters.Permissions)
 
-		if request.URL.Query().Get("notice") == "deleted" {
-			props.Message = "Role deleted."
+		if flashErr != nil {
+			h.flashUnavailable(writer, request, flashErr)
+		} else {
+			h.renderPage(writer, request, "Roles · Faryen Admin", pages.Roles(props), templ.WithStatus(status))
 		}
-
-		renderPage(writer, request, "Roles · Faryen Admin", pages.Roles(props), templ.WithStatus(status))
 	})
 }
 
@@ -76,7 +82,7 @@ func parseRoleQuery(request *http.Request) (security.RoleQuery, error) {
 			query.Filters.Permissions = append(query.Filters.Permissions, security.Permission(permission))
 		}
 
-		for _, key := range []string{"uuid", "name", "super", "sort", "order", "page", "size", "notice"} {
+		for _, key := range []string{"uuid", "name", "super", "sort", "order", "page", "size"} {
 			if len(values[key]) > 1 {
 				err = security.ErrInvalidRoleQuery
 			}
@@ -139,7 +145,7 @@ func (h *Handler) roleEdit(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, edit bool) {
-	h.withPanel(writer, request, "roles", "", func(_ security.Principal, panel layouts.PanelProps) {
+	h.withPanel(writer, request, "roles", "", func(actor security.Principal, panel layouts.PanelProps) {
 		catalog, err := h.languages.List(request.Context())
 		var role *security.Role
 		var id security.RoleID
@@ -169,7 +175,7 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 			}
 
 			status := http.StatusOK
-			saved := false
+			responded := false
 
 			if request.Method == http.MethodPost {
 				values, err = parseRoleForm(writer, request, catalog)
@@ -183,24 +189,38 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 				}
 
 				if err == nil {
-					notice := "created"
+					operation := "created"
 
 					if edit {
-						notice = "updated"
+						operation = "updated"
 					}
 
-					http.Redirect(writer, request, panel.BasePath+"/roles/"+uuid.UUID(role.ID()).String()+"/view?notice="+notice, http.StatusSeeOther)
-					saved = true
+					row := roleRow(role, actor, languages.LanguageCode(request.PathValue("language")), catalog)
+					message := fmt.Sprintf(`Role "%s" %s successfully.`, row.Name, operation)
+
+					if flashErr := h.addFlash(request.Context(), writer, request, flashmsg.Success, message); flashErr != nil {
+						h.flashUnavailable(writer, request, flashErr)
+					} else {
+						http.Redirect(writer, request, panel.BasePath+"/roles/"+uuid.UUID(role.ID()).String()+"/view", http.StatusSeeOther)
+					}
+
+					responded = true
 				} else {
-					status, props.Error = roleError(request, err)
+					var message string
+					status, message = roleError(request, err)
+
+					if flashErr := h.addFlash(request.Context(), writer, request, flashmsg.Error, message); flashErr != nil {
+						h.flashUnavailable(writer, request, flashErr)
+						responded = true
+					}
 				}
 			}
 
-			if !saved {
+			if !responded {
 				props.NameTranslations = roleNameTranslations(catalog, values.Name, request.PathValue("language"))
 				props.Permissions = permissionOptions(values.Permissions)
 				props.IsSuper = values.IsSuper
-				renderPage(writer, request, props.Title+" · Faryen Admin", pages.RoleForm(props), templ.WithStatus(status))
+				h.renderPage(writer, request, props.Title+" · Faryen Admin", pages.RoleForm(props), templ.WithStatus(status))
 			}
 		}
 	})
@@ -288,9 +308,14 @@ func (h *Handler) roleDetails(writer http.ResponseWriter, request *http.Request,
 		}
 
 		if err != nil {
-			h.renderRoleError(writer, request, panel, err)
+			if deleteRole && request.Header.Get("HX-Request") == "true" {
+				status, message := roleError(request, err)
+				h.renderRoleDeleteError(writer, request, "", status, message)
+			} else {
+				h.renderRoleError(writer, request, panel, err)
+			}
 		} else {
-			props := pages.RoleViewProps{Panel: panel, Role: roleRow(role, actor, languages.LanguageCode(request.PathValue("language")), catalog), Delete: deleteRole}
+			props := pages.RoleViewProps{Panel: panel, Role: roleRow(role, actor, languages.LanguageCode(request.PathValue("language")), catalog)}
 			names := make(map[string]string)
 
 			for _, translation := range role.Name().Translations() {
@@ -303,14 +328,8 @@ func (h *Handler) roleDetails(writer http.ResponseWriter, request *http.Request,
 				}
 			}
 
-			switch request.URL.Query().Get("notice") {
-			case "created":
-				props.Message = "Role created."
-			case "updated":
-				props.Message = "Role updated."
-			}
-
-			status, deleted := http.StatusOK, false
+			status, responded := http.StatusOK, false
+			var deleteMessage string
 
 			if deleteRole && request.Method == http.MethodPost {
 				err = parseRolePost(writer, request)
@@ -324,18 +343,69 @@ func (h *Handler) roleDetails(writer http.ResponseWriter, request *http.Request,
 				}
 
 				if err == nil {
-					http.Redirect(writer, request, panel.BasePath+"/roles?notice=deleted", http.StatusSeeOther)
-					deleted = true
+					message := fmt.Sprintf(`Role "%s" deleted successfully.`, props.Role.Name)
+
+					if flashErr := h.addFlash(request.Context(), writer, request, flashmsg.Success, message); flashErr != nil {
+						h.flashUnavailable(writer, request, flashErr)
+					} else if request.Header.Get("HX-Request") == "true" {
+						writer.Header().Set("HX-Redirect", panel.BasePath+"/roles")
+					} else {
+						http.Redirect(writer, request, panel.BasePath+"/roles", http.StatusSeeOther)
+					}
+
+					responded = true
 				} else {
-					status, props.Error = roleError(request, err)
+					status, deleteMessage = roleError(request, err)
 				}
 			}
 
-			if !deleted {
-				renderPage(writer, request, props.Role.Name+" · Faryen Admin", pages.RoleView(props), templ.WithStatus(status))
+			if !responded {
+				if deleteRole && request.Header.Get("HX-Request") == "true" {
+					h.renderRoleDeleteError(writer, request, props.Role.Name, status, deleteMessage)
+				} else {
+					if deleteMessage != "" {
+						err = h.addFlash(request.Context(), writer, request, flashmsg.Error, deleteMessage)
+
+						if err == nil {
+							var bag *flashmsg.Bag
+							bag, err = h.readFlashes(request.Context(), request, flashmsg.Error)
+
+							if err == nil {
+								props.DeleteErrors = bag.Get(flashmsg.Error)
+							}
+						}
+					}
+
+					if err != nil {
+						h.flashUnavailable(writer, request, err)
+					} else {
+						h.renderPage(writer, request, props.Role.Name+" · Faryen Admin", pages.RoleView(props), templ.WithStatus(status))
+					}
+				}
 			}
 		}
 	})
+}
+
+func (h *Handler) renderRoleDeleteError(writer http.ResponseWriter, request *http.Request, name string, status int, message string) {
+	err := h.addFlash(request.Context(), writer, request, flashmsg.Error, message)
+	var bag *flashmsg.Bag
+
+	if err == nil {
+		bag, err = h.readFlashes(request.Context(), request, flashmsg.Error)
+	}
+
+	if err != nil {
+		h.flashUnavailable(writer, request, err)
+	} else {
+		writer.Header().Add("Vary", "HX-Request")
+		writer.Header().Set("HX-Retarget", "#confirm-delete")
+		writer.Header().Set("HX-Reswap", "outerHTML")
+		templ.Handler(components.ConfirmDelete(components.ConfirmDeleteProps{
+			ID: "confirm-delete", Title: "Delete role", Name: name, Action: request.URL.Path, Errors: bag.Get(flashmsg.Error),
+			Message: "Are you sure you want to delete the role? You will not be able to restore it.",
+		}), templ.WithStatus(status)).ServeHTTP(writer, request)
+	}
 }
 
 func roleID(request *http.Request) (security.RoleID, error) {
@@ -418,7 +488,12 @@ func roleRow(role *security.Role, actor security.Principal, code languages.Langu
 
 func (h *Handler) renderRoleError(writer http.ResponseWriter, request *http.Request, panel layouts.PanelProps, err error) {
 	status, message := roleError(request, err)
-	renderPage(writer, request, "Roles · Faryen Admin", pages.PanelSection(panel, message), templ.WithStatus(status))
+
+	if flashErr := h.addFlash(request.Context(), writer, request, flashmsg.Error, message); flashErr != nil {
+		h.flashUnavailable(writer, request, flashErr)
+	} else {
+		h.renderPage(writer, request, "Roles · Faryen Admin", pages.PanelSection(panel, ""), templ.WithStatus(status))
+	}
 }
 
 func roleError(request *http.Request, err error) (int, string) {

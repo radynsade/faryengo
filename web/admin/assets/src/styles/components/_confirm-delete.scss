@@ -1,0 +1,73 @@
+@use '../abstracts' as ui;
+
+.confirm-delete {
+	&__body {
+		padding: var(--space-6);
+	}
+
+	&__header {
+		display: flex;
+		align-items: flex-start;
+		gap: var(--space-3);
+		margin-bottom: var(--space-4);
+		padding-right: calc(var(--icon-close-size) + var(--space-2));
+	}
+
+	&__icon {
+		display: grid;
+		place-items: center;
+		flex: none;
+		width: var(--confirmation-icon-size);
+		height: var(--confirmation-icon-size);
+		border-radius: var(--radius-control);
+		color: var(--color-danger);
+		background: var(--color-danger-soft);
+		font-size: var(--icon-status);
+		line-height: 1;
+	}
+
+	&__title {
+		min-width: 0;
+		margin: 0;
+		@include ui.heading;
+		overflow-wrap: anywhere;
+	}
+
+	&__name {
+		display: block;
+		margin-top: var(--space-1);
+		font-size: 0.8em;
+		font-weight: var(--font-weight-semibold);
+		line-height: var(--line-height-body);
+	}
+
+	&__message {
+		margin: 0;
+		color: var(--color-muted);
+		line-height: var(--line-height-body);
+	}
+
+	&__error {
+		margin: var(--space-3) 0 0;
+		padding: var(--space-3) var(--space-4);
+		border-radius: var(--radius-control);
+		color: var(--color-danger-hover);
+		background: var(--color-danger-soft);
+		overflow-wrap: anywhere;
+	}
+
+	&__footer {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: flex-end;
+		gap: var(--space-2);
+		padding: var(--space-4) var(--space-6);
+		border-top: var(--border-width) solid var(--color-line);
+		background: var(--color-background);
+
+		button:disabled {
+			opacity: 0.6;
+			cursor: wait;
+		}
+	}
+}

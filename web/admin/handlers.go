@@ -11,6 +11,7 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/radynsade/faryengo/internal/app"
+	"github.com/radynsade/faryengo/pkg/flashmsg"
 	"github.com/radynsade/faryengo/web/admin/assets"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
@@ -27,17 +28,18 @@ type Handler struct {
 	roleService   *app.RoleService
 	languages     *app.LanguageService
 	limiter       RateLimiter
+	flashStorage  FlashSessionStorage
 	secureCookies bool
 }
 
-func NewHandler(service *app.AuthenticationService, roles *app.RoleService, languages *app.LanguageService, limiter RateLimiter, secureCookies bool) (*Handler, error) {
+func NewHandler(service *app.AuthenticationService, roles *app.RoleService, languages *app.LanguageService, limiter RateLimiter, flashStorage FlashSessionStorage, secureCookies bool) (*Handler, error) {
 	var handler *Handler
 	var err error
 
-	if service == nil || roles == nil || languages == nil || limiter == nil {
+	if service == nil || roles == nil || languages == nil || limiter == nil || flashStorage == nil {
 		err = ErrInvalidHandlerConfig
 	} else {
-		handler = &Handler{service: service, roleService: roles, languages: languages, limiter: limiter, secureCookies: secureCookies}
+		handler = &Handler{service: service, roleService: roles, languages: languages, limiter: limiter, flashStorage: flashStorage, secureCookies: secureCookies}
 	}
 
 	return handler, err
@@ -59,7 +61,7 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"POST /admin/{language}/sign-in", h.signIn},
 			{"POST /admin/{language}/refresh", h.refresh},
 			{"POST /admin/{language}/sign-out", h.signOut},
-			{"GET /admin/{language}/restore-password", handleRestorePassword},
+			{"GET /admin/{language}/restore-password", h.handleRestorePassword},
 			{"GET /admin/{language}", h.home},
 			{"GET /admin/{language}/users", h.users},
 			{"GET /admin/{language}/roles", h.roles},
@@ -68,12 +70,12 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"GET /admin/{language}/roles/{role}/view", h.roleView},
 			{"GET /admin/{language}/roles/{role}/edit", h.roleEdit},
 			{"POST /admin/{language}/roles/{role}/edit", h.roleEdit},
-			{"GET /admin/{language}/roles/{role}/delete", h.roleDelete},
 			{"POST /admin/{language}/roles/{role}/delete", h.roleDelete},
 		} {
 			mux.Handle(route.pattern, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				writer.Header().Set("Cache-Control", "no-store")
 				writer.Header().Set("X-Content-Type-Options", "nosniff")
+				request = request.WithContext(context.WithValue(request.Context(), flashRequestKey{}, &flashRequest{}))
 				protection.Handler(route.handler).ServeHTTP(writer, request)
 			}))
 		}
@@ -91,28 +93,44 @@ func (h *Handler) handleSignIn(writer http.ResponseWriter, request *http.Request
 }
 
 func (h *Handler) renderSignIn(writer http.ResponseWriter, request *http.Request, status int, email, message string) {
-	renderPage(writer, request, "Sign in · Faryen Admin", pages.SignIn(pages.SignInProps{
-		Action:             adminPath(request) + "/sign-in",
-		RefreshAction:      adminPath(request) + "/refresh",
-		RestorePasswordURL: adminPath(request) + "/restore-password",
-		Email:              email,
-		Error:              message,
-		CanContinue:        status == http.StatusOK && h.cookie(request, "refresh") != "",
-	}), templ.WithStatus(status))
-}
+	var err error
 
-func handleRestorePassword(writer http.ResponseWriter, request *http.Request) {
-	renderPage(writer, request, "Restore password · Faryen Admin", pages.RestorePassword())
-}
-
-func renderPage(writer http.ResponseWriter, request *http.Request, title string, content templ.Component, options ...func(*templ.ComponentHandler)) {
-	writer.Header().Add("Vary", "HX-Request")
-	writer.Header().Add("Vary", "HX-History-Restore-Request")
-	page := layouts.Page(title, content)
-
-	if request.Header.Get("HX-Request") == "true" && request.Header.Get("HX-History-Restore-Request") != "true" {
-		page = layouts.PageFragment(title, content)
+	if message != "" {
+		err = h.addFlash(request.Context(), writer, request, flashmsg.Error, message)
 	}
 
-	templ.Handler(page, options...).ServeHTTP(writer, request)
+	if err != nil {
+		h.flashUnavailable(writer, request, err)
+	} else {
+		h.renderPage(writer, request, "Sign in · Faryen Admin", pages.SignIn(pages.SignInProps{
+			Action:             adminPath(request) + "/sign-in",
+			RefreshAction:      adminPath(request) + "/refresh",
+			RestorePasswordURL: adminPath(request) + "/restore-password",
+			Email:              email,
+			CanContinue:        status == http.StatusOK && h.cookie(request, "refresh") != "",
+		}), templ.WithStatus(status))
+	}
+}
+
+func (h *Handler) handleRestorePassword(writer http.ResponseWriter, request *http.Request) {
+	h.renderPage(writer, request, "Restore password · Faryen Admin", pages.RestorePassword())
+}
+
+func (h *Handler) renderPage(writer http.ResponseWriter, request *http.Request, title string, content templ.Component, options ...func(*templ.ComponentHandler)) {
+	bag, err := h.readFlashes(request.Context(), request, "")
+
+	if err != nil {
+		h.flashUnavailable(writer, request, err)
+	} else {
+		writer.Header().Add("Vary", "HX-Request")
+		writer.Header().Add("Vary", "HX-History-Restore-Request")
+		page := layouts.Page(title, content)
+
+		if request.Header.Get("HX-Request") == "true" && request.Header.Get("HX-History-Restore-Request") != "true" {
+			page = layouts.PageFragment(title, content)
+		}
+
+		request = request.WithContext(flashmsg.WithBag(request.Context(), bag))
+		templ.Handler(page, options...).ServeHTTP(writer, request)
+	}
 }

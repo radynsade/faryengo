@@ -56,6 +56,7 @@ type Principal struct {
 	UserID      UserID
 	FirstName   FirstName
 	LastName    LastName
+	Email       Email
 	SessionID   uuid.UUID
 	RoleID      RoleID
 	Permissions []Permission

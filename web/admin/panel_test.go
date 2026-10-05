@@ -42,7 +42,7 @@ func TestAdminPanel(t *testing.T) {
 			}
 
 			for _, markup := range []string{
-				`class="panel-layout"`, `aria-label="Admin navigation"`, "First Last",
+				`class="panel-layout"`, `aria-label="Admin navigation"`, "First Last", "person@example.com",
 				`href="` + root + `/users"`, `href="` + root + `/roles"`,
 				`method="post" action="` + root + `/sign-out"`, "Sign out",
 				`id="panel-main"`, `href="#panel-main"`, `aria-label="Admin panel"`,
@@ -122,15 +122,15 @@ func TestAdminPanelSections(t *testing.T) {
 	}
 }
 
-func TestAdminPanelCurrentName(t *testing.T) {
+func TestAdminPanelCurrentIdentity(t *testing.T) {
 	mux, repository, _ := httpFixture(t)
 	cookies := login(t, mux)
 
 	for _, tt := range []struct {
-		name, first, last string
+		name, first, last, email string
 	}{
-		{name: "updated", first: "New", last: "Name"},
-		{name: "escaped", first: "<script>alert(1)</script>", last: "O'Connor & Co"},
+		{name: "updated", first: "New", last: "Name", email: "updated@example.com"},
+		{name: "escaped", first: "<script>alert(1)</script>", last: "O'Connor & Co", email: "o'connor&co@example.com"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := repository.credentials.User.SetFirstName(security.FirstName(tt.first)); err != nil {
@@ -141,12 +141,17 @@ func TestAdminPanelCurrentName(t *testing.T) {
 				t.Fatal(err)
 			}
 
+			if err := repository.credentials.User.SetEmail(security.Email(tt.email)); err != nil {
+				t.Fatal(err)
+			}
+
 			response := httpRequest(mux, http.MethodGet, "/admin/en", "", cookies)
 			body := response.Body.String()
 
 			if response.Code != http.StatusOK || !strings.Contains(body, html.EscapeString(tt.first+" "+tt.last)) ||
+				!strings.Contains(body, html.EscapeString(tt.email)) || strings.Contains(body, "person@example.com") ||
 				strings.Contains(body, "First Last") || strings.Contains(body, "<script>alert(1)</script>") {
-				t.Fatalf("panel did not render the escaped current name: %s", body)
+				t.Fatalf("panel did not render the escaped current identity: %s", body)
 			}
 		})
 	}

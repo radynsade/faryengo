@@ -1,0 +1,230 @@
+# Admin design system
+
+The admin interface uses server-rendered templ components, SCSS compiled by
+Vite, Nunito typography, and Tabler icons. This document describes the visual
+system and stylesheet ownership. [Architecture](architecture.md) governs the
+application boundaries; [assets](assets.md) describes build and delivery.
+
+The system preserves the current admin appearance: white surfaces over a pale
+background, muted supporting text, green ordinary actions, and red destructive
+actions. The authenticated shell supports full-width collection pages and inset
+cards. Authentication pages use a centered, narrow panel.
+
+## Stylesheet structure and dependencies
+
+`web/admin/assets/src/style.scss` is the sole CSS entry point. It loads vendor
+icons and fonts, foundations, components, layouts, pages, and utilities in that
+order. Each emitting stylesheet has one owner and is registered there once.
+
+```text
+styles/
+  abstracts/
+    _settings.scss          Sass maps: tokens, breakpoints, button recipes
+    _functions.scss         token(), space(), breakpoint()
+    _mixins.scss            Shared visual and responsive recipes
+    _index.scss             Public Sass API; emits no CSS
+  foundations/
+    _tokens.scss            Emits the token registry as :root CSS variables
+    _base.scss              Reset, document typography, selection
+  fonts/
+    _nunito.scss            Local font-face registrations
+  components/
+    _brand.scss             Brand mark and name
+    _buttons.scss           Text buttons and icon buttons
+    _forms.scss             Fields, stacks, fieldsets, checkboxes
+    _cards.scss             Inset content cards
+    _collection.scss        Toolbars, action groups, tag lists, pagination
+    _tables.scss            Scroll regions, tables, sort links
+    _filter-menu.scss       Collapsible filter popover
+    _details.scss           Responsive definition lists
+    _feedback.scss          Badges and inline notices
+    _navigation-feedback.scss  Navigation failure toast
+    _links.scss             Inline text links
+    _multiselect.scss       Searchable multiple selection
+    _translations-input.scss  Language tabs and translation fields
+    _dialog.scss            Native dialog surface and close control
+    _confirm-delete.scss    Destructive confirmation content
+    _success-dialog.scss    Successful-operation content
+  layouts/
+    _auth.scss              Authentication shell
+    _panel.scss             Sidebar, account, navigation, main area
+  pages/
+    _roles.scss             Role-page composition and UUID column width
+  utilities/
+    _accessibility.scss     Visually hidden accessible text
+```
+
+Components and layouts may import the CSS-free `abstracts` API. They do not
+import other emitting component files. Pages compose shared classes and add
+domain-specific rules. Foundations do not depend on components or pages.
+Utilities have a narrow purpose and must not become a home for unrelated styles.
+
+Use `@use` and namespaced mixins instead of global Sass imports or `@extend`.
+Keep selector ownership explicit; a page stylesheet must not redefine `.button`
+or another shared component.
+
+## Tokens: Sass configuration and runtime CSS variables
+
+`abstracts/_settings.scss` is the source of visual values. Sass maps organize
+colors, type sizes, and a combined token registry. A spacing unit and step list
+generate the spacing scale. `foundations/_tokens.scss` emits that registry as
+CSS custom properties. Sass variables hold compile-time decisions; CSS variables
+hold values used by rendered elements and allow scoped overrides.
+
+| Category | Token examples | Purpose |
+| --- | --- | --- |
+| Surfaces and text | `--color-background`, `--color-surface`, `--color-ink`, `--color-muted` | Page background, surfaces, primary and supporting text |
+| States | `--color-accent`, `--color-accent-hover`, `--color-accent-soft`, `--color-danger`, `--color-danger-soft` | Ordinary interactions and destructive feedback |
+| Brand and success | `--color-brand`, `--color-success` | Branding and successful-operation icons |
+| Spacing | `--space-1` through `--space-6`, `--space-8`, `--space-12` | Layout gaps, insets, larger empty states |
+| Typography | `--font-family`, `--font-size-control`, `--font-size-title`, `--font-weight-semibold`, `--line-height-body` | Shared type roles |
+| Geometry | `--radius-control`, `--radius-panel`, `--border-width`, `--control-height`, `--icon-action-size` | Controls, cards, borders, icon actions |
+| Width limits | `--sidebar-width`, `--auth-width`, `--editor-width`, `--table-min-width` | Layout and component constraints |
+| Elevation | `--shadow-panel`, `--shadow-dropdown`, `--shadow-popover`, `--shadow-dialog` | Surface hierarchy |
+| Focus and motion | `--focus-width`, `--focus-offset`, `--focus-halo`, `--duration-fast`, `--ease-standard` | Keyboard indication and transitions |
+| Stacking | `--z-skip-link`, `--z-popover`, `--z-dropdown` | In-page overlays; native modal dialogs use the top layer |
+
+The root font size remains 14px, with 16px body text. Spacing uses rem units;
+relative type roles use em units. Caption, small, control, title, and heading
+sizes are 0.8125em, 0.875em, 0.9375em, 1.25em, and 1.625em respectively. Table
+text inherits its own control-size context, so nested captions scale with it.
+Control geometry and icon sizes use pixel tokens to preserve their current
+dimensions independently of the rem spacing scale.
+
+Breakpoints are named Sass values: `compact` (360px), `phone` (480px), and
+`panel` (720px). Media query thresholds are resolved at compile time through
+`respond-to`; changing a CSS variable cannot change these thresholds.
+
+Use existing tokens before adding a value. Add a token for a shared visual
+decision, not every structural number: `0`, `100%`, grid fractions, column
+proportions, and component-specific relative typography can remain local.
+Keep raw color values in the registry. Name new tokens by their role rather than
+their color or the page that first used them.
+
+## Sass API
+
+Import the public API relative to the stylesheet:
+
+```scss
+@use '../abstracts' as ui;
+
+.example-panel {
+  @include ui.surface(panel, surface, panel);
+  padding: ui.space(6);
+
+  &:focus-visible {
+    @include ui.focus-ring;
+  }
+
+  @include ui.respond-to(panel) {
+    padding: ui.space(4);
+  }
+}
+```
+
+| Helper | Contract |
+| --- | --- |
+| `token($name)` | Returns `var(--name)`; rejects names absent from the registry |
+| `space($step)` | Returns a registered spacing variable; rejects unsupported steps |
+| `breakpoint($name)` | Returns a named compile-time breakpoint; rejects unknown names |
+| `respond-to($name)` | Wraps content in the named maximum-width media query |
+| `focus-ring($offset: null)` | Shared accent outline; defaults to the focus-offset token, accepts inset offsets |
+| `motion($properties...)` | Applies the shared duration and easing to listed properties; disables the transition for reduced motion |
+| `surface($radius: panel, $background: surface, $shadow: null)` | Shared border, corners, background, and optional named shadow |
+| `row($gap: 2, $wrap: nowrap, $justify: null)` | Aligned flex row with a spacing token and optional wrapping/alignment |
+| `heading($size: title, $line-height: title)` | Shared heading size, bold weight, and line height |
+| `button-base` | Shared button alignment, border, corners, cursor, and focus behavior |
+| `button-variant($name)` | Applies a registered button color/state recipe |
+| `badge($tone: accent, $solid: false)` | Compact status typography, spacing, corners, and tone |
+
+CSS-free helpers allow reuse without depending on stylesheet import order or
+emitting another component's selectors. Simple component declarations may use
+`var(--token)` directly. Use `token()` when constructing token names in Sass;
+unknown tokens, breakpoints, and button variants fail compilation.
+
+## Component contracts
+
+Use block, element, and modifier classes (`block`, `block__element`,
+`block--modifier`). A class describes visual ownership; `data-*` attributes,
+IDs, ARIA state, and form attributes describe behavior. Keep HTMX targets and
+JavaScript hooks stable during styling changes. The `role-filters` class remains
+an existing JavaScript hook alongside the generic `filter-menu` class.
+
+| Pattern | Shared classes and usage |
+| --- | --- |
+| Text buttons | `.button` with `--primary`, `--secondary`, or `--danger`; optional `--compact` |
+| Icon actions | `.icon-button`; use `--danger` for destructive row actions and accessible labels for icon-only controls |
+| Forms | `.form-stack`, `.form-field`, `__label`, `__input`, `.form-checkbox`, `.form-fieldset` |
+| Cards | `.card`, `__eyebrow`, `__links`; page content owns its heading and paragraphs |
+| Collection layout | `.list-toolbar`, `__controls`, `.action-group`, `.tag-list`, `.pagination`, `__current` |
+| Tables | `.data-table-scroll`, `.data-table`, `__actions`, `__empty`, `.table-sort`; page rules own domain-specific column widths |
+| Filters | `.filter-menu`, `__form`; native `details` and `summary` remain usable without JavaScript |
+| Details | `.details-list`, `__permissions`; semantic `dl`, `dt`, and `dd` elements |
+| Status | `.badge`, `--negative`; `.notice`, `--error` for inline feedback |
+| Dialogs | `.admin-dialog` is the shell; `.confirm-delete` and `.success-dialog` own their content |
+
+The primary variant is a filled accent button for actions such as Create and
+Save. The secondary variant has muted text, a white surface, and a line border;
+hover uses accent text and a soft accent background without changing the border.
+Filter, Sign out, and ordinary row actions use this same recipe. Sign out keeps
+the account block's full-width geometry. The filled danger variant is used in
+confirmation and detail actions; the danger-outline recipe gives row Delete its
+red text and pale red hover. Button dimensions and color variants are separate
+decisions.
+
+Toolbars wrap their controls at the panel breakpoint. Tables retain a minimum
+width inside a horizontal scroll region; their action column stays compact and
+does not wrap its button group. Badges distinguish positive and negative values
+with text as well as color. Detail lists become a single column on narrow screens.
+
+Cards and authentication panels share a surface recipe. Filter popovers,
+multiselect dropdowns, and modal dialogs use their respective elevation tokens.
+Dialog content owns its spacing and typography; the dialog shell owns positioning,
+backdrop, overflow, and its close control.
+
+## Layout and page responsibilities
+
+`layouts/_panel.scss` owns the authenticated shell: a sticky, scrollable sidebar,
+the account card, navigation, skip link, main area, and optional `.panel-page`
+inset. At 720px and below it becomes a header with a two-column menu. The main
+area has no shared padding or width limit, allowing collection tables to fill it.
+
+`layouts/_auth.scss` owns centering, panel width, auth heading, brand divider,
+footer, and full-width form submission buttons. Compact screens reduce its inset.
+
+`pages/_roles.scss` owns the full-width role list, total/supporting text, editor
+width and composition, and UUID column proportion. Shared component rules belong
+in `components/`, even when Roles is currently their only consumer. Future Users
+pages should compose these components without importing Roles styles.
+
+## Accessibility and interaction rules
+
+- Preserve native forms, links, `details`, and dialogs; JavaScript enhances them.
+- Use the common focus ring for interactive components, with inset offsets where
+  scrolling or grouped tabs could clip an outer ring.
+- Apply transitions through `motion()` so reduced-motion preferences are honored.
+- Keep form inputs at least 16px on phone screens to avoid focus zoom on iOS.
+- Preserve semantic labels, icon `aria-hidden`, active navigation state, table
+  captions, and the skip-to-content target.
+- Keep unbounded identity and message text wrapping inside its component.
+- Keep the `.visually-hidden` utility available independently of any page.
+
+## Extending and verifying the system
+
+1. Reuse existing component classes and tokens; compose page-specific spacing in
+   a page stylesheet.
+2. Put a new repeated pattern in its own component partial. Import only the
+   abstract API, and register the partial in `style.scss`.
+3. Add state recipes or semantic tokens centrally when existing ones do not
+   express the design. Document additions here.
+4. Check ordinary, hover, keyboard focus, selected, disabled, error, and success
+   states relevant to the changed component.
+5. Compare desktop and narrow-screen rendering, including long content,
+   popovers, dialog overflow, and pages with JavaScript disabled.
+6. Run `make check`: it builds assets, generates templ code, checks formatting,
+   runs Go vet and lint, and runs the race-enabled uncached test suite.
+
+Generated CSS in `dist/` and generated `*_templ.go` files are build output.
+Edit SCSS and `.templ` sources, then rebuild. Runtime CSS variable overrides can
+be scoped to a component or layout; keep the documented component contracts
+intact when doing so.

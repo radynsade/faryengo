@@ -1,0 +1,9 @@
+@use '../abstracts/settings';
+
+:root {
+	color-scheme: light;
+
+	@each $name, $value in settings.$tokens {
+		--#{$name}: #{$value};
+	}
+}

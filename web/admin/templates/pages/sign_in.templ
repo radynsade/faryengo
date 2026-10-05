@@ -10,16 +10,12 @@ type SignInProps struct {
 	RefreshAction string
 	RestorePasswordURL string
 	Email string
-	Error string
 	CanContinue bool
 }
 
 // SignIn submits credentials using a native form, including without JavaScript.
 templ SignIn(props SignInProps) {
 	@layouts.AuthLayout("Sign in", "Enter your details to access the admin panel.") {
-		if props.Error != "" {
-			<p class="form-error" role="alert">{ props.Error }</p>
-		}
 		if props.CanContinue {
 			<form class="form-stack" method="post" action={ templ.URL(props.RefreshAction) }>
 				@components.PrimaryButton("submit") {

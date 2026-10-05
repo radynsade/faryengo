@@ -1,0 +1,44 @@
+@use '../abstracts' as ui;
+
+.list-toolbar {
+	@include ui.row(3, wrap, space-between);
+	padding: var(--space-2) var(--space-4);
+	border-bottom: var(--border-width) solid var(--color-line);
+
+	&__controls {
+		@include ui.row(3, wrap, flex-end);
+		margin-left: auto;
+	}
+}
+
+.action-group,
+.tag-list,
+.pagination {
+	@include ui.row;
+}
+
+.action-group,
+.tag-list {
+	flex-wrap: wrap;
+}
+
+.pagination {
+	gap: var(--space-1);
+
+	&__current {
+		padding: 0 var(--space-1);
+		font-size: var(--font-size-small);
+		white-space: nowrap;
+	}
+}
+
+@include ui.respond-to(panel) {
+	.list-toolbar__controls {
+		flex: 1 1 100%;
+		justify-content: space-between;
+	}
+
+	.list-toolbar {
+		position: relative;
+	}
+}

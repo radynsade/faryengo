@@ -1,0 +1,56 @@
+@use '../abstracts' as ui;
+
+.button {
+	@include ui.button-base;
+	min-height: var(--control-height);
+	padding: var(--control-padding-block) var(--button-padding-inline);
+	font-weight: var(--font-weight-semibold);
+	line-height: var(--line-height-control);
+	@include ui.motion(background-color, box-shadow);
+
+	&--primary {
+		@include ui.button-variant(primary);
+	}
+
+	&--secondary {
+		@include ui.button-variant(secondary);
+		@include ui.motion(color, background-color);
+	}
+
+	&--danger {
+		@include ui.button-variant(danger);
+	}
+
+	&--compact {
+		min-height: var(--control-height-compact);
+		padding: var(--control-padding-compact) var(--control-padding-inline);
+		font-size: var(--font-size-control);
+	}
+
+	.ti {
+		font-size: var(--icon-control);
+	}
+}
+
+.icon-button {
+	@include ui.button-base;
+	@include ui.button-variant(secondary);
+	@include ui.motion(color, background-color);
+
+	flex: none;
+	width: var(--icon-action-size);
+	height: var(--icon-action-size);
+	padding: 0;
+
+	.ti {
+		font-size: var(--icon-control);
+	}
+
+	&--danger {
+		@include ui.button-variant(danger-outline);
+	}
+
+	&[aria-disabled='true'] {
+		opacity: 0.4;
+	}
+}

@@ -1,0 +1,45 @@
+@use '../abstracts' as ui;
+
+.admin-dialog {
+	position: fixed;
+	width: min(var(--dialog-width), calc(100vw - 2 * var(--space-4)));
+	max-height: calc(100dvh - 2 * var(--space-4));
+	margin: auto;
+	padding: 0;
+	overflow: auto;
+	border: var(--border-width) solid var(--color-line);
+	border-radius: var(--radius-panel);
+	color: var(--color-ink);
+	background: var(--color-surface);
+	box-shadow: var(--shadow-dialog);
+
+	&::backdrop {
+		background: var(--color-backdrop);
+	}
+
+	&__close {
+		position: absolute;
+		top: var(--space-4);
+		right: var(--space-4);
+		display: grid;
+		place-items: center;
+		width: var(--icon-close-size);
+		height: var(--icon-close-size);
+		padding: 0;
+		border: 0;
+		border-radius: var(--radius-control);
+		color: var(--color-muted);
+		background: transparent;
+		font-size: var(--icon-navigation);
+		cursor: pointer;
+
+		&:hover {
+			color: var(--color-ink);
+			background: var(--color-background);
+		}
+
+		&:focus-visible {
+			@include ui.focus-ring;
+		}
+	}
+}

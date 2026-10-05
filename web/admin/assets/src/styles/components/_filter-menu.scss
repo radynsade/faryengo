@@ -1,0 +1,34 @@
+@use '../abstracts' as ui;
+
+.filter-menu {
+	position: relative;
+
+	summary {
+		list-style: none;
+
+		&::-webkit-details-marker {
+			display: none;
+		}
+	}
+
+	&__form {
+		position: absolute;
+		top: calc(100% + var(--space-2));
+		right: 0;
+		z-index: var(--z-popover);
+		width: min(var(--filter-width), calc(100vw - 2 * var(--space-4)));
+		padding: var(--space-5);
+		@include ui.surface(panel, surface, popover);
+	}
+}
+
+@include ui.respond-to(panel) {
+	.filter-menu {
+		position: static;
+
+		&__form {
+			top: 100%;
+			right: var(--space-4);
+		}
+	}
+}

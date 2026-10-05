@@ -9,30 +9,25 @@ import (
 
 templ Roles(props RoleListProps) {
 	@layouts.Panel(props.Panel) {
+		@components.ConfirmDelete(roleDeleteDialog("", "", nil))
 		<div class="role-list">
-			if props.Message != "" {
-				<p class="role-notice" role="status">{ props.Message }</p>
-			}
-			if props.Error != "" {
-				<p class="role-notice role-notice--error" role="alert">{ props.Error }</p>
-			}
-			<div class="role-toolbar">
+			<div class="list-toolbar">
 				@components.ActionLink(props.Panel.BasePath+"/roles/create", "button button--primary button--compact", "Create role") {
 					<i class="ti ti-plus" aria-hidden="true"></i>
 					Create
 				}
-				<div class="role-toolbar__controls">
+				<div class="list-toolbar__controls">
 					<span class="role-total">Total found: { strconv.Itoa(props.Page.Total) }</span>
-					<details class="role-filters" open?={ props.Error != "" }>
+					<details class="filter-menu role-filters" open?={ props.InvalidQuery }>
 						<summary class="button button--secondary button--compact">
 							<i class="ti ti-filter" aria-hidden="true"></i>
 							Filter
 							if props.Query.Filters.Count() > 0 {
-								<span class="role-badge">{ strconv.Itoa(props.Query.Filters.Count()) }</span>
+								<span class="badge">{ strconv.Itoa(props.Query.Filters.Count()) }</span>
 							}
 						</summary>
 						<form
-							class="role-filters__form form-stack"
+							class="filter-menu__form form-stack"
 							method="get"
 							action={ templ.URL(props.Panel.BasePath + "/roles") }
 							hx-get={ props.Panel.BasePath + "/roles" }
@@ -61,7 +56,7 @@ templ Roles(props RoleListProps) {
 									<option value="false" selected?={ props.Query.Filters.IsSuper != nil && !*props.Query.Filters.IsSuper }>No</option>
 								</select>
 							</label>
-							<div class="role-actions">
+							<div class="action-group">
 								<button class="button button--primary button--compact" type="submit">Apply filters</button>
 								@components.ActionLink(props.Panel.BasePath+"/roles", "button button--secondary button--compact", "Reset filters") {
 									Reset
@@ -69,35 +64,35 @@ templ Roles(props RoleListProps) {
 							</div>
 						</form>
 					</details>
-					<nav class="role-pagination" aria-label="Roles pages">
+					<nav class="pagination" aria-label="Roles pages">
 						if props.Page.Page > 1 {
-							@components.ActionLink(props.URL(1, props.Query.Sort, props.Query.Descending), "role-icon-action", "First page") {
+							@components.ActionLink(props.URL(1, props.Query.Sort, props.Query.Descending), "icon-button", "First page") {
 								<i class="ti ti-chevrons-left" aria-hidden="true"></i>
 							}
-							@components.ActionLink(props.URL(props.Page.Page-1, props.Query.Sort, props.Query.Descending), "role-icon-action", "Previous page") {
+							@components.ActionLink(props.URL(props.Page.Page-1, props.Query.Sort, props.Query.Descending), "icon-button", "Previous page") {
 								<i class="ti ti-chevron-left" aria-hidden="true"></i>
 							}
 						} else {
-							<span class="role-icon-action" aria-disabled="true"><i class="ti ti-chevrons-left" aria-hidden="true"></i></span>
-							<span class="role-icon-action" aria-disabled="true"><i class="ti ti-chevron-left" aria-hidden="true"></i></span>
+							<span class="icon-button" aria-disabled="true"><i class="ti ti-chevrons-left" aria-hidden="true"></i></span>
+							<span class="icon-button" aria-disabled="true"><i class="ti ti-chevron-left" aria-hidden="true"></i></span>
 						}
-						<span class="role-pagination__current">{ strconv.Itoa(props.Page.Page) } / { strconv.Itoa(props.Page.Pages()) }</span>
+						<span class="pagination__current">{ strconv.Itoa(props.Page.Page) } / { strconv.Itoa(props.Page.Pages()) }</span>
 						if props.Page.Page < props.Page.Pages() {
-							@components.ActionLink(props.URL(props.Page.Page+1, props.Query.Sort, props.Query.Descending), "role-icon-action", "Next page") {
+							@components.ActionLink(props.URL(props.Page.Page+1, props.Query.Sort, props.Query.Descending), "icon-button", "Next page") {
 								<i class="ti ti-chevron-right" aria-hidden="true"></i>
 							}
-							@components.ActionLink(props.URL(props.Page.Pages(), props.Query.Sort, props.Query.Descending), "role-icon-action", "Last page") {
+							@components.ActionLink(props.URL(props.Page.Pages(), props.Query.Sort, props.Query.Descending), "icon-button", "Last page") {
 								<i class="ti ti-chevrons-right" aria-hidden="true"></i>
 							}
 						} else {
-							<span class="role-icon-action" aria-disabled="true"><i class="ti ti-chevron-right" aria-hidden="true"></i></span>
-							<span class="role-icon-action" aria-disabled="true"><i class="ti ti-chevrons-right" aria-hidden="true"></i></span>
+							<span class="icon-button" aria-disabled="true"><i class="ti ti-chevron-right" aria-hidden="true"></i></span>
+							<span class="icon-button" aria-disabled="true"><i class="ti ti-chevrons-right" aria-hidden="true"></i></span>
 						}
 					</nav>
 				</div>
 			</div>
-			<div class="role-table-scroll" tabindex="0" role="region" aria-label="Roles table">
-				<table class="role-table">
+			<div class="data-table-scroll" tabindex="0" role="region" aria-label="Roles table">
+				<table class="data-table">
 					<caption class="visually-hidden">Roles and their permissions</caption>
 					<thead>
 						<tr>
@@ -111,7 +106,7 @@ templ Roles(props RoleListProps) {
 								@RoleSortLink(props, security.RoleSortSuper, "Super")
 							</th>
 							<th scope="col">Permissions</th>
-							<th scope="col"><span class="visually-hidden">Actions</span></th>
+							<th scope="col" class="data-table__actions"><span class="visually-hidden">Actions</span></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -123,19 +118,19 @@ templ Roles(props RoleListProps) {
 										{ row.Name }
 									}
 									if row.Current {
-										<span class="role-badge">Your role</span>
+										<span class="badge">Your role</span>
 									}
 								</td>
 								<td>
 									@RoleSuper(row.IsSuper)
 								</td>
 								<td>
-									<div class="role-permission-tags">
+									<div class="tag-list">
 										if row.IsSuper {
-											<span class="role-tag">All permissions</span>
+											<span class="badge">All permissions</span>
 										} else {
 											for _, permission := range row.Permissions {
-												<span class="role-tag">{ permission }</span>
+												<span class="badge">{ permission }</span>
 											}
 											if len(row.Permissions) == 0 {
 												<span class="role-muted">None</span>
@@ -143,15 +138,15 @@ templ Roles(props RoleListProps) {
 										}
 									</div>
 								</td>
-								<td>
-									<div class="role-actions">
-										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "role-icon-action", "View "+row.Name) {
+								<td class="data-table__actions">
+									<div class="action-group">
+										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "icon-button", "View "+row.Name) {
 											<i class="ti ti-eye" aria-hidden="true"></i>
 										}
-										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/edit", "role-icon-action", "Edit "+row.Name) {
+										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/edit", "icon-button", "Edit "+row.Name) {
 											<i class="ti ti-pencil" aria-hidden="true"></i>
 										}
-										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/delete", "role-icon-action role-icon-action--danger", "Delete "+row.Name) {
+										@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+row.ID+"/delete", row.Name, "icon-button icon-button--danger", "Delete "+row.Name) {
 											<i class="ti ti-trash" aria-hidden="true"></i>
 										}
 									</div>
@@ -159,7 +154,7 @@ templ Roles(props RoleListProps) {
 							</tr>
 						}
 						if len(props.Rows) == 0 {
-							<tr><td colspan="5" class="role-table__empty">No roles found. Try changing or resetting your filters.</td></tr>
+							<tr><td colspan="5" class="data-table__empty">No roles found. Try changing or resetting your filters.</td></tr>
 						}
 					</tbody>
 				</table>
@@ -169,7 +164,7 @@ templ Roles(props RoleListProps) {
 }
 
 templ RoleSortLink(props RoleListProps, sort security.RoleSort, label string) {
-	@components.ActionLink(props.SortURL(sort), "role-sort", "Sort by "+label) {
+	@components.ActionLink(props.SortURL(sort), "table-sort", "Sort by "+label) {
 		{ label }
 		if props.Query.Sort == sort {
 			if props.Query.Descending {
@@ -191,29 +186,26 @@ templ RolePermissions(id, label string, options []PermissionOption) {
 
 templ RoleSuper(isSuper bool) {
 	if isSuper {
-		<span class="role-badge">Yes</span>
+		<span class="badge">Yes</span>
 	} else {
-		<span class="role-muted">No</span>
+		<span class="badge badge--negative">No</span>
 	}
 }
 
 templ RoleForm(props RoleFormProps) {
 	@layouts.Panel(props.Panel) {
 		<div class="panel-page">
-			<div class="role-editor panel-card">
+			<div class="role-editor card">
 				@components.PageLink(props.Panel.BasePath + "/roles") {
 					<i class="ti ti-arrow-left" aria-hidden="true"></i>
 					Roles
 				}
 				<h1>{ props.Title }</h1>
-				if props.Error != "" {
-					<p class="role-notice role-notice--error" role="alert">{ props.Error }</p>
-				}
 				<form class="form-stack" method="post" action={ templ.URL(props.Action) }>
 					@components.TranslationsInput(props.NameTranslations)
-					<label class="role-checkbox"><input type="checkbox" name="is_super" value="1" checked?={ props.IsSuper }/>Super role (grants all permissions)</label>
+					<label class="form-checkbox"><input type="checkbox" name="is_super" value="1" checked?={ props.IsSuper }/>Super role (grants all permissions)</label>
 					@RolePermissions("role-permissions", "Permissions", props.Permissions)
-					<div class="role-actions">
+					<div class="action-group">
 						<button class="button button--primary" type="submit">
 							<i class="ti ti-device-floppy" aria-hidden="true"></i>
 							if props.ID == "" {
@@ -234,26 +226,17 @@ templ RoleForm(props RoleFormProps) {
 
 templ RoleView(props RoleViewProps) {
 	@layouts.Panel(props.Panel) {
+		@components.ConfirmDelete(roleDeleteDialog(props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", props.Role.Name, props.DeleteErrors))
 		<div class="panel-page">
-			<section class="role-editor panel-card">
+			<section class="role-editor card">
 				@components.PageLink(props.Panel.BasePath + "/roles") {
 					<i class="ti ti-arrow-left" aria-hidden="true"></i>
 					Roles
 				}
-				if props.Delete {
-					<h1>Delete role?</h1>
-				} else {
-					<h1>{ props.Role.Name }</h1>
-				}
-				if props.Message != "" {
-					<p class="role-notice" role="status">{ props.Message }</p>
-				}
-				if props.Error != "" {
-					<p class="role-notice role-notice--error" role="alert">{ props.Error }</p>
-				}
-				<dl class="role-details">
+				<h1>{ props.Role.Name }</h1>
+				<dl class="details-list">
 					<dt>UUID</dt>
-					<dd class="role-details__uuid">{ props.Role.ID }</dd>
+					<dd class="details-list__uuid">{ props.Role.ID }</dd>
 					for _, name := range props.Names {
 						<dt>Name ({ name.Label })</dt>
 						<dd>{ name.Value }</dd>
@@ -269,7 +252,7 @@ templ RoleView(props RoleViewProps) {
 						} else if len(props.Role.Permissions) == 0 {
 							None
 						} else {
-							<ul class="role-details__permissions">
+							<ul class="details-list__permissions">
 								for _, permission := range props.Role.Permissions {
 									<li>{ permission }</li>
 								}
@@ -277,29 +260,16 @@ templ RoleView(props RoleViewProps) {
 						}
 					</dd>
 				</dl>
-				if props.Delete {
-					<p>Delete this role permanently? Roles assigned to users cannot be deleted.</p>
-					<form class="role-actions" method="post" action={ templ.URL(props.Panel.BasePath + "/roles/" + props.Role.ID + "/delete") }>
-						<button class="button button--danger" type="submit" name="confirm" value="delete">
-							<i class="ti ti-trash" aria-hidden="true"></i>
-							Delete role
-						</button>
-						@components.ActionLink(props.Panel.BasePath+"/roles", "button button--secondary", "Cancel") {
-							Cancel
-						}
-					</form>
-				} else {
-					<div class="role-actions">
-						@components.ActionLink(props.Panel.BasePath+"/roles/"+props.Role.ID+"/edit", "button button--primary", "Edit role") {
-							<i class="ti ti-pencil" aria-hidden="true"></i>
-							Edit role
-						}
-						@components.ActionLink(props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", "button button--secondary", "Delete role") {
-							<i class="ti ti-trash" aria-hidden="true"></i>
-							Delete role
-						}
-					</div>
-				}
+				<div class="action-group">
+					@components.ActionLink(props.Panel.BasePath+"/roles/"+props.Role.ID+"/edit", "button button--primary", "Edit role") {
+						<i class="ti ti-pencil" aria-hidden="true"></i>
+						Edit role
+					}
+					@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", props.Role.Name, "button button--danger", "Delete role") {
+						<i class="ti ti-trash" aria-hidden="true"></i>
+						Delete role
+					}
+				</div>
 			</section>
 		</div>
 	}

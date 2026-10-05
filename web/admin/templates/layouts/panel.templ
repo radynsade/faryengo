@@ -1,6 +1,9 @@
 package layouts
 
-import "github.com/radynsade/faryengo/web/admin/templates/components"
+import (
+	"github.com/radynsade/faryengo/pkg/flashmsg"
+	"github.com/radynsade/faryengo/web/admin/templates/components"
+)
 
 type PanelProps struct {
 	Title string
@@ -8,6 +11,7 @@ type PanelProps struct {
 	ActiveSection string
 	FirstName string
 	LastName string
+	Email string
 }
 
 // Panel wraps authenticated pages with navigation and the current user's identity.
@@ -18,16 +22,18 @@ templ Panel(props PanelProps) {
 			<a class="panel-sidebar__brand" href={ templ.URL(props.BasePath) }>
 				@components.Brand()
 			</a>
-			<div class="panel-sidebar__account">
-				<p class="panel-sidebar__label">Signed in as</p>
-				<p class="panel-sidebar__name">{ props.FirstName + " " + props.LastName }</p>
+			<section class="panel-sidebar__account" aria-label="Your account">
+				<div class="panel-sidebar__identity">
+					<p class="panel-sidebar__name">{ props.FirstName + " " + props.LastName }</p>
+					<p class="panel-sidebar__email">{ props.Email }</p>
+				</div>
 				<form method="post" action={ templ.URL(props.BasePath + "/sign-out") }>
 					<button class="panel-sidebar__sign-out" type="submit">
 						<i class="ti ti-logout" aria-hidden="true"></i>
 						Sign out
 					</button>
 				</form>
-			</div>
+			</section>
 			<div class="panel-sidebar__navigation">
 				<p class="panel-sidebar__label">Workspace</p>
 				<nav class="panel-menu" aria-label="Admin navigation">
@@ -43,6 +49,7 @@ templ Panel(props PanelProps) {
 			</div>
 		</aside>
 		<main id="panel-main" class="panel-main" tabindex="-1" aria-label={ props.Title }>
+			@components.FlashMessages(flashmsg.FromContext(ctx), "notice")
 			{ children... }
 		</main>
 	</div>

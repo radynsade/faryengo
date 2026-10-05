@@ -126,6 +126,15 @@ retain the email, never the password. Authentication failures return 401,
 permission failures 403, throttling 429, and storage failures 503. Responses
 never disclose token validation details or account existence.
 
+Web notifications use `pkg/flashmsg`, with persistence owned by `web/admin`.
+Authenticated flashes occupy an `admin:flashes` field in the existing device
+session hash, sharing its expiration and revocation. Sign-in errors are stored
+in a separate anonymous admin session with a 15-minute TTL and an opaque
+`faryen_flash` cookie (`__Host-faryen_flash` with secure cookies). This cookie is
+HttpOnly, SameSite Strict, and carries only an identifier. Reading an empty guest
+page does not create a session. Messages are atomically consumed on rendering;
+see [flash messages](flash-messages.md).
+
 The admin page calls `AuthenticationService.Authenticate` on every request,
 checking session state, credential version, and current role. Missing or invalid
 access cookies redirect to the sign-in page. If a refresh cookie is present,

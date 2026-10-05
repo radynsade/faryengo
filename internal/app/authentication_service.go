@@ -247,6 +247,7 @@ func (s *AuthenticationService) Authenticate(ctx context.Context, raw string) (s
 			} else {
 				principal = security.Principal{UserID: claims.UserID, SessionID: claims.SessionID,
 					FirstName: credentials.User.FirstName(), LastName: credentials.User.LastName(),
+					Email:  credentials.User.Email(),
 					RoleID: role.ID(), Permissions: role.Permissions(), IsSuper: role.IsSuper()}
 			}
 		}

@@ -7,6 +7,7 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/pkg/flashmsg"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
 )
@@ -27,7 +28,7 @@ func (h *Handler) panel(writer http.ResponseWriter, request *http.Request, secti
 			content = pages.PanelSection(props, props.Title+" management is coming soon.")
 		}
 
-		renderPage(writer, request, props.Title+" · Faryen Admin", content)
+		h.renderPage(writer, request, props.Title+" · Faryen Admin", content)
 	})
 }
 
@@ -43,10 +44,13 @@ func (h *Handler) withPanel(writer http.ResponseWriter, request *http.Request, s
 	} else if err != nil {
 		h.signInError(writer, request, "", err)
 	} else {
+		flashState(request).principal = &principal
+
 		props := layouts.PanelProps{
 			Title:    "Admin panel",
 			BasePath: adminPath(request), ActiveSection: section,
 			FirstName: string(principal.FirstName), LastName: string(principal.LastName),
+			Email: string(principal.Email),
 		}
 
 		switch section {
@@ -61,7 +65,11 @@ func (h *Handler) withPanel(writer http.ResponseWriter, request *http.Request, s
 		if allowed {
 			handle(principal, props)
 		} else {
-			renderPage(writer, request, props.Title+" · Faryen Admin", pages.PanelSection(props, "You do not have permission to view this section."), templ.WithStatus(http.StatusForbidden))
+			if err := h.addFlash(request.Context(), writer, request, flashmsg.Error, "You do not have permission to view this section."); err != nil {
+				h.flashUnavailable(writer, request, err)
+			} else {
+				h.renderPage(writer, request, props.Title+" · Faryen Admin", pages.PanelSection(props, ""), templ.WithStatus(http.StatusForbidden))
+			}
 		}
 	}
 }

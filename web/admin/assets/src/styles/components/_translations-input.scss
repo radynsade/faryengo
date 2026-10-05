@@ -1,3 +1,5 @@
+@use '../abstracts' as ui;
+
 .translations-input {
 	display: grid;
 	gap: var(--space-4);
@@ -17,17 +19,17 @@
 
 	&__tab {
 		flex: none;
-		min-height: 42px;
-		padding: 9px 16px;
-		border: 1px solid var(--color-line);
+		min-height: var(--control-height);
+		padding: var(--control-padding-block) var(--button-padding-inline);
+		border: var(--border-width) solid var(--color-line);
 		color: var(--color-ink);
 		background: var(--color-surface);
-		font-weight: 700;
-		line-height: 1.25;
+		font-weight: var(--font-weight-bold);
+		line-height: var(--line-height-control);
 		cursor: pointer;
 
 		+ .translations-input__tab {
-			margin-left: -1px;
+			margin-left: calc(-1 * var(--border-width));
 		}
 
 		&:first-child {
@@ -54,8 +56,7 @@
 		}
 
 		&:focus-visible {
-			outline: 2px solid var(--color-accent);
-			outline-offset: -3px;
+			@include ui.focus-ring(-3px);
 		}
 	}
 
@@ -67,6 +68,6 @@
 
 	&__help {
 		color: var(--color-muted);
-		font-size: 0.875em;
+		font-size: var(--font-size-small);
 	}
 }

@@ -25,6 +25,11 @@ using a path relative to that directory. Files are served at
 binary after changing them. The helper reports missing files and rejects
 directories and invalid paths.
 
+Static asset resolution and serving use `pkg/staticast`, which can also serve
+another frontend's embedded static directory. It follows the same `New`, `Load`,
+URL helper alias, and HTTP handler pattern as `pkg/viteast`. See the
+[reusable static asset documentation](../../../docs/assets.md#reusable-static-assets).
+
 Use `npm run preview` to serve the compiled assets locally.
 
 ## Code style
@@ -114,10 +119,26 @@ applies them through `RoleRepository.Find` and `Count`.
 Create and edit forms offer name fields for the configured languages, permissions,
 and a super-role checkbox. Blank translations are omitted; at
 least one name is required. The view page shows all translations and permissions.
-Delete opens a confirmation page and only changes data on POST. Assigned roles
-cannot be deleted. Form errors retain entered values; successful writes redirect
-to a confirmation message. Forms and links work without JavaScript; HTMX enhances
-filtering, sorting, pagination, and navigation.
+Delete opens a shared confirmation dialog on the list and detail pages, with the
+role name, a warning, and Cancel/Delete actions. Cancel, Escape, the close button,
+and the backdrop dismiss it. Only confirmation submits a POST; assigned roles
+cannot be deleted, and deletion errors stay in the dialog. The JavaScript dialog
+uses the browser's focus management and works after HTMX swaps. Successful writes
+redirect to a shared success dialog with a green check, a Done! heading, and the
+role name, following Monoshop's flash modal. Creation and updates use the same
+dialog. The close button, Escape, and backdrop dismiss it. Success notice query
+parameters have been replaced by session-backed messages through `pkg/flashmsg`.
+The admin consumes messages while rendering, so reload and Back do not repeat
+them, including without JavaScript. Both dialog variants share panel colors, spacing, borders,
+and corners. Other forms and links work without JavaScript;
+HTMX enhances filtering, sorting, pagination, and navigation.
+
+Admin success and error notifications are stored and read in `web/admin` using
+the existing Redis/Dragonfly session storage. Errors still retain submitted form
+values and their HTTP status; deletion errors stay in the confirmation dialog.
+Sign-in errors use a short-lived anonymous flash session. See
+[flash messages](../../../docs/flash-messages.md) for the generic bag API, storage
+scope, and consumption behavior.
 
 Permissions in filters and create/edit forms use the shared `MultiSelect`
 component. It follows Monoshop's searchable dropdown with highlighted selections,
@@ -146,10 +167,12 @@ PostgreSQL instance before running `make check`. The test creates only temporary
 tables and a temporary permission type on one connection; it never runs migrations
 or accesses existing application tables.
 
-`src/style.scss` loads the shared tokens and base styles from `src/styles/`,
-followed by component and layout partials. Reuse the CSS color, spacing, radius,
-and shadow variables when adding screens to keep data-heavy admin views compact
-and consistent. Nunito is the default font throughout the admin interface,
+`src/style.scss` loads vendor assets, foundations, reusable components, layouts,
+page-specific styles, and accessibility utilities. CSS variables come from the
+central Sass token registry; CSS-free functions and mixins live in `styles/abstracts/`.
+See [the admin design system](../../../docs/admin-design.md) for ownership,
+tokens, component contracts, responsive behavior, and extension examples.
+Nunito is the default font throughout the admin interface,
 including form controls and code text. Its normal and italic weights are loaded
 from the bundled files in `static/`. There are no external font or image requests.
 
@@ -158,6 +181,13 @@ webfont. `src/style.scss` imports its stylesheet, so Vite bundles the icon fonts
 into the embedded build. Use `<i class="ti ti-users" aria-hidden="true"></i>`
 with the appropriate icon name and a visible text label for navigation and
 buttons. Component styles set icon sizes independently of the text size.
+
+The shared document head preloads every compiled stylesheet and all WOFF2 fonts
+referenced by those stylesheets, including every normal and italic Nunito weight
+and the Tabler icon font. The preload list is derived from the embedded build,
+retains font URL query strings, and uses anonymous CORS for font requests.
+Stylesheets still load through ordinary stylesheet links. HTMX fragments omit
+the head, so navigation reuses the assets already loaded by the full document.
 
 ## Navigation
 
