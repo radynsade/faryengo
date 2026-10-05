@@ -78,12 +78,6 @@ func (p RoleListProps) SortDirection(sort security.RoleSort) string {
 	return direction
 }
 
-type RoleNameField struct {
-	Code  string
-	Label string
-	Value string
-}
-
 type RoleFormProps struct {
 	Panel            layouts.PanelProps
 	ID               string
@@ -98,7 +92,6 @@ type RoleFormProps struct {
 type RoleViewProps struct {
 	Panel        layouts.PanelProps
 	Role         RoleRow
-	Names        []RoleNameField
 	DeleteErrors []string
 }
 

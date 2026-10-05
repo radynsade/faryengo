@@ -199,27 +199,36 @@ The shared document head preloads every compiled stylesheet and all WOFF2 fonts
 referenced by those stylesheets, including every normal and italic Nunito weight
 and the Tabler icon font. The preload list is derived from the embedded build,
 retains font URL query strings, and uses anonymous CORS for font requests.
-Stylesheets still load through ordinary stylesheet links. HTMX fragments omit
-the head, so navigation reuses the assets already loaded by the full document.
+Stylesheets still load through ordinary stylesheet links. HTMX fragments include
+the same shared head as full documents, so head merging preserves existing assets.
 
 ## Navigation
 
-The installed `htmx.org` NPM package is bundled by Vite into the embedded build,
-with no runtime CDN request or additional extensions. `PageLink` uses
-`hx-boost="true"` to enhance ordinary links. Native forms, modified clicks, and
+The installed `htmx.org`, `htmx-ext-head-support`, and `idiomorph` NPM packages are
+bundled by Vite into the embedded build, with no runtime CDN request. `navigation.ts`
+imports Idiomorph's HTMX integration from `idiomorph/htmx`. The root body enables
+`head-support, morph`, and the shared `Head` component uses `hx-head="merge"` so navigation
+adds new head tags, retains matching tags, and removes tags absent from the response.
+`PageLink`, `ActionLink`, and `PanelLink` use `hx-boost="true"` to enhance ordinary
+links and `hx-swap="morph:outerHTML show:none"` to morph `#page-content`. Role filters
+use the same morph swap. Idiomorph reuses matching DOM nodes while updating their
+attributes and children. Multiselects release cached controls before their roots
+are morphed or removed, then hydrate the server markup on `htmx:load`. Dialog-only
+deletion errors retain their `outerHTML` swap. Native forms, modified clicks, and
 JavaScript-free navigation retain standard browser behavior.
 
 Handlers return HTML fragments for `HX-Request: true` and full documents for
 ordinary navigation and `HX-History-Restore-Request: true`. Fragments include a
-`<title>` and `#page-content`; HTMX updates the document title and swaps the page
-content without reloading assets. Responses vary on both request headers.
+shared `<head>` and `#page-content`; HTMX updates the document title, merges head
+tags, and swaps the page content without reloading matching assets. Responses vary
+on both request headers.
 
 HTMX manages browser history and `hx-sync="body:replace"` cancels a pending link
 request when another starts. `hx-params="none"` keeps page navigation free of
 form values. `navigation.ts` configures full-document history restoration,
 focuses the panel's main area or the auth page heading after navigation, and
-shows the navigation error when a request fails. Inline evaluation and response
-scripts are disabled.
+shows the navigation error when a request fails. Inline evaluation and body response
+scripts are disabled; head-support can load scripts newly introduced in the head.
 
 `hx-history="false"` prevents admin page snapshots from entering HTMX's browser
 storage cache. Back and Forward fetch the page from the server and recheck

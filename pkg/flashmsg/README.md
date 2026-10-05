@@ -1,9 +1,11 @@
 # Flash messages
 
-`flashmsg` is a generic, serializable message bag. It imports only the standard
-library and does not know about HTTP, Redis, authentication, or an application's
-session keys. Applications own storage, atomic updates, and consumption timing.
-The admin integration lives in [`web/admin`](../../web/admin/flash_messages.go).
+`flashmsg` provides a generic, serializable message bag and session storage
+contract. It imports only the standard library and does not depend on HTTP,
+Redis, or an application's domain. Applications supply session keys and select
+storage and consumption timing. The
+[`redis` subpackage](redis/README.md) provides atomic Redis persistence; the admin
+integration lives in [`web/admin`](../../web/admin/flash_messages.go).
 
 ```go
 bag := flashmsg.New()
@@ -29,3 +31,9 @@ or show them twice under concurrent requests.
 `WithBag(ctx, bag)` and `FromContext(ctx)` let applications pass a request's bag
 to rendering code. A missing bag produces an empty bag. Each bag belongs to one
 request; it is not designed for shared access by concurrent goroutines.
+
+`FlashSessionStorage` defines `Add(ctx, session, kind, message)` and
+`Take(ctx, session, kind)`. `Take` atomically consumes one type, or all types when
+`kind` is empty. Both methods use `flashmsg.Session`, whose `Key` identifies the
+message session and optional `GenerationKey` identifies its authenticated
+generation. The Redis implementation satisfies this interface.

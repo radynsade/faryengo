@@ -106,6 +106,76 @@ func TestRolesCRUD(t *testing.T) {
 	}
 }
 
+func TestRoleViewSelectedLanguage(t *testing.T) {
+	for _, tt := range []struct {
+		name, code, label, value string
+		missingTranslation       bool
+	}{
+		{name: "English", code: "en", label: "Name", value: "Editors"},
+		{name: "Latvian", code: "lv", label: "Nosaukums", value: "Redaktori"},
+		{name: "Russian", code: "ru", label: "Название", value: "Редакторы"},
+		{name: "fallback", code: "ru", label: "Название", value: "Editors", missingTranslation: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			mux, repository, _ := httpFixture(t)
+			role := addHTTPRole(t, repository, "Editors", nil, false)
+			name := role.Name()
+
+			for _, item := range []struct{ code, value string }{{"lv", "Redaktori"}, {"ru", "Редакторы"}} {
+				translation, err := languages.NewTranslation(languages.LanguageCode(item.code), item.value)
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				name[languages.LanguageCode(item.code)] = translation
+			}
+
+			if tt.missingTranslation {
+				delete(name, languages.LanguageCode(tt.code))
+			}
+
+			if err := role.SetName(name); err != nil {
+				t.Fatal(err)
+			}
+
+			cookies := login(t, mux)
+
+			for _, mode := range []string{"document", "fragment"} {
+				t.Run(mode, func(t *testing.T) {
+					request := httptest.NewRequest(http.MethodGet, "/admin/"+tt.code+"/roles/"+uuid.UUID(role.ID()).String()+"/view", nil)
+
+					if mode == "fragment" {
+						request.Header.Set("HX-Request", "true")
+					}
+
+					for _, cookie := range cookies {
+						request.AddCookie(cookie)
+					}
+
+					response := httptest.NewRecorder()
+					mux.ServeHTTP(response, request)
+					body := response.Body.String()
+
+					if response.Code != http.StatusOK || strings.Count(body, "<dt>"+tt.label+"</dt>") != 1 || !strings.Contains(body, `data-copy-text="`+html.EscapeString(tt.value)+`"`) || !strings.Contains(body, `<span class="copy-value__text">`+html.EscapeString(tt.value)+`</span>`) {
+						t.Fatalf("localized role details = %d %s", response.Code, body)
+					}
+
+					if strings.Count(body, `data-copy-text=`) != 2 || !strings.Contains(body, `data-copy-text="`+uuid.UUID(role.ID()).String()+`"`) || strings.Count(body, `class="ti ti-copy"`) != 2 || strings.Count(body, `class="ti ti-copy-check"`) != 2 {
+						t.Fatalf("copyable role details = %s", body)
+					}
+
+					for _, value := range []string{"Editors", "Redaktori", "Редакторы"} {
+						if value != tt.value && strings.Contains(body, value) {
+							t.Fatalf("role details included another translation: %s", value)
+						}
+					}
+				})
+			}
+		})
+	}
+}
+
 func TestRoleSuccessDialog(t *testing.T) {
 	name := `Review "Pārskatītāji" & <script>alert(1)</script>`
 

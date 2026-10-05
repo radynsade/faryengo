@@ -3,4 +3,5 @@
 ## To do
 
 - [ ] make a common query domain and web parsing. Maybe /pkg?
-- [ ] translations i18n language change
+- [ ] styles and scripts loaded only when needed ?
+- [ ] form error handling and errors display

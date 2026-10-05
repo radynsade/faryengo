@@ -89,6 +89,12 @@
   "actions.save": {
     "other": "Сохранить изменения"
   },
+  "actions.view": {
+    "other": "Просмотреть"
+  },
+  "actions.list": {
+    "other": "Список"
+  },
   "actions.view_named": {
     "other": "Просмотреть {{.Name}}"
   },
@@ -103,6 +109,15 @@
   },
   "actions.sort_by": {
     "other": "Сортировать по: {{.Label}}"
+  },
+  "actions.copy_named": {
+    "other": "Копировать: {{.Label}}"
+  },
+  "clipboard.copied": {
+    "other": "Скопировано в буфер обмена."
+  },
+  "clipboard.error": {
+    "other": "Не удалось скопировать. Выделите значение и скопируйте его вручную."
   },
   "pagination.first": {
     "other": "Первая страница"

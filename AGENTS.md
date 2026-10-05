@@ -2,10 +2,22 @@
 
 Go 1.26.
 
-## Architecture
+## Documentation guides
 
-Follow [docs/architecture.md](docs/architecture.md) for architectural decisions.
-If guidance here conflicts with it, the architecture document takes precedence.
+The guides describe the project's functional areas and conventions. The
+architecture guide takes precedence over conflicting guidance in this file.
+
+| Guide | Description |
+| --- | --- |
+| [docs/architecture.md](docs/architecture.md) | Project organization, component responsibilities, dependency boundaries, and architectural conventions. |
+| [docs/domain.md](docs/domain.md) | Domain concepts, relationships, business rules, and invariants. |
+| [docs/authentication.md](docs/authentication.md) | Identity verification, access control, session lifecycles, and security policies. |
+| [docs/admin-design.md](docs/admin-design.md) | The admin panel's visual system, reusable components, styling conventions, layouts, accessibility, and rendering behavior. |
+| [docs/admin-i18n.md](docs/admin-i18n.md) | Admin interface translation catalogs, locale handling, language switching, pluralization, and localized messages. |
+| [docs/assets.md](docs/assets.md) | Application asset building, packaging, resolution, and delivery. |
+| [docs/flash-messages.md](docs/flash-messages.md) | Temporary user notifications and their lifecycle, persistence, and presentation. |
+| [docs/migrations.md](docs/migrations.md) | Database schema evolution, migration workflows, and rollback procedures. |
+| [docs/cli.md](docs/cli.md) | Command-line interface conventions, argument handling, and output behavior. |
 
 ## Commands
 

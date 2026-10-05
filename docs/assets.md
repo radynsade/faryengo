@@ -15,7 +15,13 @@ npm run build
 Wire the admin routes in the Go server:
 
 ```go
-adminHandler, err := admin.NewHandler(authenticationService, roleService, languageService, signInLimiter, redisClient, secureCookies)
+// Import flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis".
+flashes, err := flashredis.NewStore(redisClient, "admin", 15*time.Minute)
+if err != nil {
+    return fmt.Errorf("configure admin flash store: %w", err)
+}
+
+adminHandler, err := admin.NewHandler(authenticationService, roleService, languageService, signInLimiter, flashes, secureCookies)
 if err != nil {
     return fmt.Errorf("configure admin: %w", err)
 }

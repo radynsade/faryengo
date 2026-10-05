@@ -1,10 +1,15 @@
 # Admin flash messages
 
-`pkg/flashmsg` contains only the generic message bag, JSON serialization, and
-context helpers. `web/admin/flash_messages.go` owns every session read and write.
-`cmd/server` passes the existing Redis client to `admin.NewHandler` through the
-admin's small `FlashSessionStorage` consumer interface. Domain and application
-services do not depend on flash messages.
+`pkg/flashmsg` contains the generic message bag, JSON serialization, context
+helpers, and the `FlashSessionStorage` interface with its `Session` reference type.
+`pkg/flashmsg/redis` owns atomic session persistence through its `Store`,
+configured with an application name and anonymous-session lifetime.
+`web/admin/flash_messages.go` selects session keys from the request's identity,
+manages anonymous cookies, and maps storage errors to transport responses.
+`cmd/server` constructs the store with the existing Redis client and passes it to
+`admin.NewHandler` through `flashmsg.FlashSessionStorage` (`Add` and `Take`).
+Domain and application services do not depend on
+flash messages.
 
 The bag follows the consumption behavior of [Symfony's flash
 messages](https://symfony.com/doc/current/session.html#flash-messages): append

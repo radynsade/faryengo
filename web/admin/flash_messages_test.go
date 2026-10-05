@@ -8,18 +8,17 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strings"
-	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/alicebob/miniredis/v2"
 	"github.com/google/uuid"
 	redislib "github.com/redis/go-redis/v9"
-	"golang.org/x/sync/errgroup"
 
 	"github.com/radynsade/faryengo/internal/security"
 	securityredis "github.com/radynsade/faryengo/internal/security/redis"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
+	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
 )
 
 func flashFixture(t *testing.T) (*Handler, *miniredis.Miniredis, *securityredis.SessionStore, security.Principal) {
@@ -44,145 +43,18 @@ func flashFixture(t *testing.T) (*Handler, *miniredis.Miniredis, *securityredis.
 		t.Fatal(err)
 	}
 
-	return &Handler{flashStorage: client, secureCookies: true}, mini, store, principal
-}
-
-func requestWithFlashState(ctx context.Context, principal *security.Principal) *http.Request {
-	request := httptest.NewRequest(http.MethodGet, "/admin/en", nil)
-	return request.WithContext(context.WithValue(ctx, flashRequestKey{}, &flashRequest{principal: principal}))
-}
-
-func TestFlashSessionStorage(t *testing.T) {
-	handler, mini, store, principal := flashFixture(t)
-	request := requestWithFlashState(t.Context(), &principal)
-	keys, _, err := handler.flashKeys(request, false)
+	flashes, err := flashredis.NewStore(client, "admin", anonymousFlashTTL)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	originalTTL := mini.TTL(keys[1])
-	mini.HSet(keys[1], "another-app:flashes", `{"info":["Keep this"]}`)
-
-	for _, message := range []struct{ kind, text string }{
-		{flashmsg.Success, "First"}, {flashmsg.Error, "Invalid"}, {flashmsg.Success, "Second"},
-	} {
-		if err := handler.addFlash(t.Context(), httptest.NewRecorder(), request, message.kind, message.text); err != nil {
-			t.Fatal(err)
-		}
-	}
-
-	bag, err := handler.readFlashes(t.Context(), request, flashmsg.Error)
-
-	if err != nil || !slices.Equal(bag.Get(flashmsg.Error), []string{"Invalid"}) || len(bag.Peek(flashmsg.Success)) != 0 {
-		t.Fatalf("typed consumption = %v, %v", bag, err)
-	}
-
-	bag, err = handler.readFlashes(t.Context(), request, "")
-
-	if err != nil || !slices.Equal(bag.Get(flashmsg.Success), []string{"First", "Second"}) {
-		t.Fatalf("remaining successes = %v, %v", bag, err)
-	}
-
-	bag, err = handler.readFlashes(t.Context(), request, "")
-
-	if err != nil || len(bag.All()) != 0 {
-		t.Fatalf("messages replayed: %v, %v", bag, err)
-	}
-
-	if mini.TTL(keys[1]) != originalTTL || mini.HGet(keys[1], "another-app:flashes") != `{"info":["Keep this"]}` {
-		t.Fatal("flashes changed session expiration or another application's data")
-	}
-
-	if _, err := store.FindByID(t.Context(), principal.UserID, principal.SessionID); err != nil {
-		t.Fatalf("flash consumption damaged the authentication session: %v", err)
-	}
+	return &Handler{flashStorage: flashes, secureCookies: true}, mini, store, principal
 }
 
-func TestFlashSessionIsolation(t *testing.T) {
-	handler, _, store, principal := flashFixture(t)
-	first := requestWithFlashState(t.Context(), &principal)
-	other := principal
-	other.SessionID = uuid.New()
-	session := security.Session{ID: other.SessionID, UserID: other.UserID, CredentialVersion: uuid.New(), RefreshHash: strings.Repeat("b", 64), ExpiresAt: time.Now().Add(time.Hour)}
-
-	if err := store.Create(t.Context(), session); err != nil {
-		t.Fatal(err)
-	}
-
-	if err := handler.addFlash(t.Context(), httptest.NewRecorder(), first, flashmsg.Success, "First session only"); err != nil {
-		t.Fatal(err)
-	}
-
-	second := requestWithFlashState(t.Context(), &other)
-	bag, err := handler.readFlashes(t.Context(), second, "")
-
-	if err != nil || len(bag.All()) != 0 {
-		t.Fatal("one device read another device's flashes")
-	}
-
-	bag, err = handler.readFlashes(t.Context(), first, "")
-
-	if err != nil || !slices.Equal(bag.Get(flashmsg.Success), []string{"First session only"}) {
-		t.Fatal("the other device consumed the first device's flashes")
-	}
-}
-
-func TestFlashSessionRevocation(t *testing.T) {
-	for _, tt := range []struct {
-		name   string
-		revoke func(*testing.T, *miniredis.Miniredis, *securityredis.SessionStore, security.Principal, []string)
-	}{
-		{name: "sign-out", revoke: func(t *testing.T, _ *miniredis.Miniredis, store *securityredis.SessionStore, principal security.Principal, _ []string) {
-			if err := store.Revoke(t.Context(), principal.UserID, principal.SessionID); err != nil {
-				t.Fatal(err)
-			}
-		}},
-		{name: "all devices", revoke: func(t *testing.T, _ *miniredis.Miniredis, store *securityredis.SessionStore, principal security.Principal, _ []string) {
-			if err := store.RevokeAll(t.Context(), principal.UserID); err != nil {
-				t.Fatal(err)
-			}
-		}},
-		{name: "expired key", revoke: func(_ *testing.T, mini *miniredis.Miniredis, _ *securityredis.SessionStore, _ security.Principal, _ []string) {
-			mini.FastForward(time.Hour)
-		}},
-		{name: "absolute expiry", revoke: func(_ *testing.T, mini *miniredis.Miniredis, _ *securityredis.SessionStore, _ security.Principal, keys []string) {
-			mini.HSet(keys[1], "expires", "1")
-		}},
-		{name: "missing generation", revoke: func(_ *testing.T, mini *miniredis.Miniredis, _ *securityredis.SessionStore, _ security.Principal, keys []string) {
-			mini.Del(keys[0])
-		}},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			handler, mini, store, principal := flashFixture(t)
-			request := requestWithFlashState(t.Context(), &principal)
-			keys, _, err := handler.flashKeys(request, false)
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			if err := handler.addFlash(t.Context(), httptest.NewRecorder(), request, flashmsg.Success, "Queued"); err != nil {
-				t.Fatal(err)
-			}
-
-			tt.revoke(t, mini, store, principal, keys)
-			existed := mini.Exists(keys[1])
-			ttl := mini.TTL(keys[1])
-
-			if err := handler.addFlash(t.Context(), httptest.NewRecorder(), request, flashmsg.Error, "Do not resurrect"); !errors.Is(err, security.ErrSessionRevoked) {
-				t.Fatalf("add to revoked session = %v", err)
-			}
-
-			if _, err := handler.readFlashes(t.Context(), request, ""); !errors.Is(err, security.ErrSessionRevoked) {
-				t.Fatalf("read revoked session = %v", err)
-			}
-
-			if mini.Exists(keys[1]) != existed || mini.TTL(keys[1]) != ttl {
-				t.Fatal("flash access resurrected or prolonged a revoked session")
-			}
-		})
-	}
+func requestWithFlashState(ctx context.Context, principal *security.Principal) *http.Request {
+	request := httptest.NewRequest(http.MethodGet, "/admin/en", nil)
+	return request.WithContext(context.WithValue(ctx, flashRequestKey{}, &flashRequest{principal: principal}))
 }
 
 func TestAnonymousFlashSession(t *testing.T) {
@@ -210,10 +82,10 @@ func TestAnonymousFlashSession(t *testing.T) {
 				t.Fatalf("anonymous flash cookie = %v", cookies)
 			}
 
-			keys, _, err := handler.flashKeys(request, false)
+			session, err := handler.flashSession(request, false)
 
-			if err != nil || mini.TTL(keys[1]) != anonymousFlashTTL {
-				t.Fatalf("anonymous session lifetime = %v, %v", mini.TTL(keys[1]), err)
+			if err != nil || mini.TTL(session.Key) != anonymousFlashTTL {
+				t.Fatalf("anonymous session lifetime = %v, %v", mini.TTL(session.Key), err)
 			}
 
 			next := requestWithFlashState(t.Context(), nil)
@@ -227,95 +99,10 @@ func TestAnonymousFlashSession(t *testing.T) {
 			mini.FastForward(anonymousFlashTTL)
 			bag, err = handler.readFlashes(t.Context(), next, "")
 
-			if err != nil || len(bag.All()) != 0 || mini.Exists(keys[1]) {
+			if err != nil || len(bag.All()) != 0 || mini.Exists(session.Key) {
 				t.Fatal("reading an expired guest session recreated it")
 			}
 		})
-	}
-}
-
-func TestConcurrentFlashStorage(t *testing.T) {
-	handler, _, _, principal := flashFixture(t)
-	group, ctx := errgroup.WithContext(t.Context())
-
-	for writer := range 10 {
-		group.Go(func() error {
-			request := requestWithFlashState(ctx, &principal)
-			var err error
-
-			for message := range 10 {
-				err = handler.addFlash(ctx, httptest.NewRecorder(), request, flashmsg.Success, fmt.Sprintf("%d:%d", writer, message))
-
-				if err != nil {
-					break
-				}
-			}
-
-			return err
-		})
-	}
-
-	if err := group.Wait(); err != nil {
-		t.Fatal(err)
-	}
-
-	var consumed atomic.Int64
-	group, ctx = errgroup.WithContext(t.Context())
-
-	for range 10 {
-		group.Go(func() error {
-			request := requestWithFlashState(ctx, &principal)
-			bag, err := handler.readFlashes(ctx, request, "")
-
-			if err == nil {
-				messages := bag.Get(flashmsg.Success)
-				consumed.Add(int64(len(messages)))
-
-				if len(messages) != 0 && len(messages) != 100 {
-					err = fmt.Errorf("non-atomic consumption returned %d messages", len(messages))
-				}
-
-				slices.Sort(messages)
-
-				for i := 1; i < len(messages); i++ {
-					if messages[i] == messages[i-1] {
-						err = fmt.Errorf("duplicate flash %q", messages[i])
-						break
-					}
-				}
-			}
-
-			return err
-		})
-	}
-
-	if err := group.Wait(); err != nil {
-		t.Fatal(err)
-	}
-
-	if consumed.Load() != 100 {
-		t.Fatalf("concurrent requests consumed %d flashes, want 100", consumed.Load())
-	}
-}
-
-func TestFlashStorageCancellation(t *testing.T) {
-	handler, _, _, principal := flashFixture(t)
-	request := requestWithFlashState(t.Context(), &principal)
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
-
-	if err := handler.addFlash(ctx, httptest.NewRecorder(), request, flashmsg.Success, "Cancelled"); !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancelled add = %v", err)
-	}
-
-	if _, err := handler.readFlashes(ctx, request, ""); !errors.Is(err, context.Canceled) {
-		t.Fatalf("cancelled read = %v", err)
-	}
-
-	bag, err := handler.readFlashes(t.Context(), request, "")
-
-	if err != nil || len(bag.All()) != 0 {
-		t.Fatal("cancelled write left a flash")
 	}
 }
 
@@ -371,8 +158,27 @@ func TestFlashSurvivesSessionRefresh(t *testing.T) {
 
 type failedFlashStorage struct{ err error }
 
-func (s failedFlashStorage) Eval(ctx context.Context, _ string, _ []string, _ ...any) *redislib.Cmd {
-	command := redislib.NewCmd(ctx)
-	command.SetErr(s.err)
-	return command
+func (s failedFlashStorage) Add(context.Context, flashmsg.Session, string, string) error {
+	return s.err
+}
+
+func (s failedFlashStorage) Take(context.Context, flashmsg.Session, string) (*flashmsg.Bag, error) {
+	return nil, s.err
+}
+
+func TestFlashRevokedSessionTransport(t *testing.T) {
+	handler, _, store, principal := flashFixture(t)
+	request := requestWithFlashState(t.Context(), &principal)
+
+	if err := store.Revoke(t.Context(), principal.UserID, principal.SessionID); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := handler.addFlash(t.Context(), httptest.NewRecorder(), request, flashmsg.Error, "Revoked"); !errors.Is(err, security.ErrSessionRevoked) {
+		t.Fatalf("revoked flash add = %v", err)
+	}
+
+	if _, err := handler.readFlashes(t.Context(), request, ""); !errors.Is(err, security.ErrSessionRevoked) {
+		t.Fatalf("revoked flash read = %v", err)
+	}
 }

@@ -1,0 +1,23 @@
+package components
+
+import admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+
+// CopyValue keeps scalar details readable while offering inline clipboard copying.
+templ CopyValue(value, label string) {
+	<button
+		type="button"
+		class="copy-value"
+		data-copy-text={ value }
+		data-copy-success={ admini18n.T(ctx, "clipboard.copied") }
+		data-copy-error={ admini18n.T(ctx, "clipboard.error") }
+		aria-label={ admini18n.T(ctx, "actions.copy_named", map[string]any{"Label": label}) }
+		title={ admini18n.T(ctx, "actions.copy_named", map[string]any{"Label": label}) }
+	>
+		<span class="copy-value__text">{ value }</span>
+		<span class="copy-value__icon" aria-hidden="true">
+			<i class="ti ti-copy"></i>
+			<i class="ti ti-copy-check"></i>
+		</span>
+		<span class="visually-hidden" role="status" data-copy-status></span>
+	</button>
+}

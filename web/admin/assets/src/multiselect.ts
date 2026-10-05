@@ -1,3 +1,5 @@
+import { Idiomorph } from 'idiomorph/htmx';
+
 // The server renders the complete initial layout; hydration only attaches listeners.
 const instances = new WeakMap<HTMLElement, MultiSelect>();
 const openWidgets = new Set<MultiSelect>();
@@ -266,10 +268,24 @@ for (const type of ['pointerdown', 'focusin']) {
 	});
 }
 
+function cleanup(element: Node) {
+	if (element instanceof Element) {
+		for (const root of rootsWithin(element)) instances.get(root)?.destroy();
+	}
+	return true;
+}
+
 document.addEventListener('htmx:beforeCleanupElement', (event) => {
-	const element = (event as CustomEvent<{ elt: Element }>).detail.elt;
-	for (const root of rootsWithin(element)) instances.get(root)?.destroy();
+	cleanup((event as CustomEvent<{ elt: Element }>).detail.elt);
 });
+
+// Morphs can retain a widget root while replacing its controls and option rows.
+// Rehydrate from the morphed server markup on htmx:load without stale references.
+Idiomorph.defaults.callbacks.beforeNodeMorphed = (node) => {
+	if (node instanceof HTMLElement) instances.get(node)?.destroy();
+	return true;
+};
+Idiomorph.defaults.callbacks.beforeNodeRemoved = cleanup;
 
 document.addEventListener('htmx:load', initialize);
 document.addEventListener('htmx:historyRestore', initialize);

@@ -1,6 +1,8 @@
 import htmx from 'htmx.org';
+import 'htmx-ext-head-support';
+import 'idiomorph/htmx';
 
-// History restoration needs full documents; ordinary HTMX requests use fragments.
+// History restoration needs full documents; ordinary requests use head/content fragments.
 htmx.config.historyRestoreAsHxRequest = false;
 htmx.config.allowEval = false;
 htmx.config.allowScriptTags = false;

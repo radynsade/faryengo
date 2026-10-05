@@ -96,12 +96,29 @@ func TestAdminPageResponses(t *testing.T) {
 				}
 			}
 
-			if tt.fragment && (strings.Contains(body, "<script") || strings.Contains(body, "<link")) {
-				t.Fatalf("fragment reloads assets: %s", body)
+			if !strings.Contains(body, `<head hx-head="merge">`) {
+				t.Fatal("page response is missing the head merge policy")
+			}
+
+			if tt.fragment {
+				document := httptest.NewRecorder()
+				mux.ServeHTTP(document, httptest.NewRequest(http.MethodGet, tt.path, nil))
+				documentHead, _, found := strings.Cut(document.Body.String(), "</head>")
+				_, documentHead, hasHead := strings.Cut(documentHead, `<head hx-head="merge">`)
+				fragmentHead, _, _ := strings.Cut(body, "</head>")
+				fragmentHead = strings.TrimPrefix(fragmentHead, `<head hx-head="merge">`)
+
+				if !found || !hasHead || fragmentHead != documentHead {
+					t.Fatal("fragment head differs from the document head and would replace shared assets")
+				}
 			}
 
 			if !tt.fragment && !strings.Contains(body, `hx-history="false"`) {
 				t.Fatal("admin document allows history snapshots")
+			}
+
+			if !tt.fragment && !strings.Contains(body, `hx-ext="head-support, morph"`) {
+				t.Fatal("admin document does not enable head support and DOM morphing")
 			}
 		})
 	}

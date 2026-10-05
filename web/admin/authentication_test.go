@@ -22,6 +22,8 @@ import (
 	"github.com/radynsade/faryengo/internal/security"
 	securityjwt "github.com/radynsade/faryengo/internal/security/jwt"
 	securityredis "github.com/radynsade/faryengo/internal/security/redis"
+	"github.com/radynsade/faryengo/pkg/flashmsg"
+	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
 )
 
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
@@ -100,7 +102,7 @@ func httpFixtureWithCookies(t *testing.T, secure bool) (*http.ServeMux, *httpCre
 	return httpFixtureWithFlashStorage(t, secure, nil)
 }
 
-func httpFixtureWithFlashStorage(t *testing.T, secure bool, flashStorage FlashSessionStorage) (*http.ServeMux, *httpCredentials, *miniredis.Miniredis) {
+func httpFixtureWithFlashStorage(t *testing.T, secure bool, flashStorage flashmsg.FlashSessionStorage) (*http.ServeMux, *httpCredentials, *miniredis.Miniredis) {
 	t.Helper()
 	roleID := security.RoleID(uuid.New())
 	user, err := security.NewUser(security.UserID(uuid.New()), roleID, "person@example.com", "+37123456789", "stored", "First", "Last")
@@ -172,7 +174,11 @@ func httpFixtureWithFlashStorage(t *testing.T, secure bool, flashStorage FlashSe
 	}
 
 	if flashStorage == nil {
-		flashStorage = client
+		flashStorage, err = flashredis.NewStore(client, "admin", anonymousFlashTTL)
+
+		if err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	handler, err := NewHandler(service, roleService, languageService, limiter, flashStorage, secure)

@@ -48,3 +48,8 @@ Domain translations in `internal/languages` and the database are separate from
 interface catalogs. They determine which editable role-name translations exist
 and which translated role name to display; adding an interface locale does not
 create a domain language or run a migration.
+
+Role details display one Name field using the selected route language, matching
+the heading and role list. When that translation is missing, the domain fallback
+language is used, then the first available translation. Creation and editing keep
+language tabs for entering all translations.

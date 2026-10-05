@@ -29,11 +29,11 @@ type Handler struct {
 	roleService   *app.RoleService
 	languages     *app.LanguageService
 	limiter       RateLimiter
-	flashStorage  FlashSessionStorage
+	flashStorage  flashmsg.FlashSessionStorage
 	secureCookies bool
 }
 
-func NewHandler(service *app.AuthenticationService, roles *app.RoleService, languages *app.LanguageService, limiter RateLimiter, flashStorage FlashSessionStorage, secureCookies bool) (*Handler, error) {
+func NewHandler(service *app.AuthenticationService, roles *app.RoleService, languages *app.LanguageService, limiter RateLimiter, flashStorage flashmsg.FlashSessionStorage, secureCookies bool) (*Handler, error) {
 	var handler *Handler
 	var err error
 

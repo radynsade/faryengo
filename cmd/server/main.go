@@ -24,6 +24,7 @@ import (
 	"github.com/radynsade/faryengo/internal/security/pgxgoqu"
 	securityredis "github.com/radynsade/faryengo/internal/security/redis"
 	"github.com/radynsade/faryengo/middleware"
+	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
 	"github.com/radynsade/faryengo/web/admin"
 )
 
@@ -144,7 +145,13 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("configure language service: %w", err)
 	}
 
-	adminHandler, err := admin.NewHandler(service, roleService, languageService, limiter, client, settings.AuthCookieSecure)
+	flashes, err := flashredis.NewStore(client, "admin", 15*time.Minute)
+
+	if err != nil {
+		return fmt.Errorf("configure admin flash store: %w", err)
+	}
+
+	adminHandler, err := admin.NewHandler(service, roleService, languageService, limiter, flashes, settings.AuthCookieSecure)
 
 	if err != nil {
 		return fmt.Errorf("configure admin transport: %w", err)

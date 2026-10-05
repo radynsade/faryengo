@@ -89,6 +89,12 @@
   "actions.save": {
     "other": "Saglabāt izmaiņas"
   },
+  "actions.view": {
+    "other": "Skatīt"
+  },
+  "actions.list": {
+    "other": "Saraksts"
+  },
   "actions.view_named": {
     "other": "Skatīt {{.Name}}"
   },
@@ -103,6 +109,15 @@
   },
   "actions.sort_by": {
     "other": "Kārtot pēc: {{.Label}}"
+  },
+  "actions.copy_named": {
+    "other": "Kopēt: {{.Label}}"
+  },
+  "clipboard.copied": {
+    "other": "Nokopēts starpliktuvē."
+  },
+  "clipboard.error": {
+    "other": "Neizdevās nokopēt. Atlasiet vērtību un nokopējiet to manuāli."
   },
   "pagination.first": {
     "other": "Pirmā lapa"

@@ -6,3 +6,4 @@ import './confirm-delete';
 import './multiselect';
 import './role-filters';
 import './translations-input';
+import './copy-value';

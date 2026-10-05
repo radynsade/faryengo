@@ -3,7 +3,7 @@ package components
 // ActionLink shares the ordinary page navigation behavior with styled actions.
 templ ActionLink(href string, className string, label string) {
 	<a class={ className } href={ templ.URL(href) } aria-label={ label }
-		hx-boost="true" hx-target="#page-content" hx-swap="outerHTML show:none"
+		hx-boost="true" hx-target="#page-content" hx-swap="morph:outerHTML show:none"
 		hx-sync="body:replace" hx-params="none">
 		{ children... }
 	</a>
@@ -16,7 +16,7 @@ templ PageLink(href string) {
 		href={ templ.URL(href) }
 		hx-boost="true"
 		hx-target="#page-content"
-		hx-swap="outerHTML show:none"
+		hx-swap="morph:outerHTML show:none"
 		hx-sync="body:replace"
 		hx-params="none"
 	>
@@ -34,7 +34,7 @@ templ PanelLink(href string, active bool) {
 		}
 		hx-boost="true"
 		hx-target="#page-content"
-		hx-swap="outerHTML show:none"
+		hx-swap="morph:outerHTML show:none"
 		hx-sync="body:replace"
 		hx-params="none"
 	>

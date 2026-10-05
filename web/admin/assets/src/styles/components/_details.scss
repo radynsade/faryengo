@@ -14,11 +14,6 @@
 		margin: 0;
 		overflow-wrap: anywhere;
 	}
-
-	&__permissions {
-		margin: 0;
-		padding-left: 1.25em;
-	}
 }
 
 @include ui.respond-to(panel) {

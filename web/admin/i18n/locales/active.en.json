@@ -89,6 +89,12 @@
   "actions.save": {
     "other": "Save changes"
   },
+  "actions.view": {
+    "other": "View"
+  },
+  "actions.list": {
+    "other": "List"
+  },
   "actions.view_named": {
     "other": "View {{.Name}}"
   },
@@ -103,6 +109,15 @@
   },
   "actions.sort_by": {
     "other": "Sort by {{.Label}}"
+  },
+  "actions.copy_named": {
+    "other": "Copy {{.Label}}"
+  },
+  "clipboard.copied": {
+    "other": "Copied to clipboard."
+  },
+  "clipboard.error": {
+    "other": "Unable to copy. Select the value and copy it manually."
   },
   "pagination.first": {
     "other": "First page"

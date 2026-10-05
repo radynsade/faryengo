@@ -319,18 +319,6 @@ func (h *Handler) roleDetails(writer http.ResponseWriter, request *http.Request,
 			}
 		} else {
 			props := pages.RoleViewProps{Panel: panel, Role: roleRow(request.Context(), role, actor, languages.LanguageCode(request.PathValue("language")), catalog)}
-			names := make(map[string]string)
-
-			for _, translation := range role.Name().Translations() {
-				names[string(translation.LanguageCode())] = translation.Content()
-			}
-
-			for _, field := range roleNameFields(catalog, names) {
-				if field.Value != "" {
-					props.Names = append(props.Names, field)
-				}
-			}
-
 			status, responded := http.StatusOK, false
 			var deleteMessage string
 
@@ -419,17 +407,6 @@ func roleID(request *http.Request) (security.RoleID, error) {
 	}
 
 	return security.RoleID(id), err
-}
-
-func roleNameFields(catalog []*languages.Language, names map[string]string) []pages.RoleNameField {
-	fields := make([]pages.RoleNameField, 0, len(catalog))
-
-	for _, language := range catalog {
-		code := string(language.Code())
-		fields = append(fields, pages.RoleNameField{Code: code, Label: string(language.NativeName()) + " (" + code + ")", Value: names[code]})
-	}
-
-	return fields
 }
 
 func roleNameTranslations(ctx context.Context, catalog []*languages.Language, names map[string]string, language string) components.TranslationsInputProps {

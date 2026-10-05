@@ -57,7 +57,7 @@ func TestAdminPanel(t *testing.T) {
 			}
 
 			if strings.Contains(body, "<!doctype html>") == tt.fragment ||
-				(tt.fragment && (strings.Contains(body, "<script") || strings.Contains(body, "<link"))) {
+				!strings.Contains(body, `<head hx-head="merge">`) {
 				t.Fatal("incorrect full-document or fragment response")
 			}
 		})

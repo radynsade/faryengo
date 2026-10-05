@@ -33,7 +33,7 @@ templ Roles(props RoleListProps) {
 							action={ templ.URL(props.Panel.BasePath + "/roles") }
 							hx-get={ props.Panel.BasePath + "/roles" }
 							hx-target="#page-content"
-							hx-swap="outerHTML show:none"
+							hx-swap="morph:outerHTML show:none"
 							hx-push-url="true"
 							hx-sync="body:replace"
 						>
@@ -115,12 +115,14 @@ templ Roles(props RoleListProps) {
 							<tr>
 								<td class="role-table__uuid">{ row.ID }</td>
 								<td>
-									@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "text-link", admini18n.T(ctx, "actions.view_named", map[string]any{"Name": row.Name})) {
-										{ row.Name }
-									}
-									if row.Current {
-										<span class="badge">{ admini18n.T(ctx, "roles.your_role") }</span>
-									}
+									<div class="tag-list">
+										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "text-link", admini18n.T(ctx, "actions.view_named", map[string]any{"Name": row.Name})) {
+											{ row.Name }
+										}
+										if row.Current {
+											<span class="badge">{ admini18n.T(ctx, "roles.your_role") }</span>
+										}
+									</div>
 								</td>
 								<td>
 									@RoleSuper(row.IsSuper)
@@ -201,35 +203,62 @@ templ RoleForm(props RoleFormProps) {
 					{Label: admini18n.T(ctx, "navigation.roles"), Href: props.Panel.BasePath + "/roles"},
 					{Label: props.Title},
 				})
-				<section class="role-editor card" aria-labelledby="page-heading">
-					<form class="form-stack" method="post" action={ templ.URL(props.Action) }>
-						@components.TranslationsInput(props.NameTranslations)
-						<label class="form-checkbox"><input type="checkbox" name="is_super" value="1" checked?={ props.IsSuper }/>{ admini18n.T(ctx, "roles.super_help") }</label>
-						@RolePermissions("role-permissions", admini18n.T(ctx, "fields.permissions"), props.Permissions)
-						<div class="action-group">
-							<button class="button button--primary" type="submit">
-								<i class="ti ti-device-floppy" aria-hidden="true"></i>
-								if props.ID == "" {
-									{ admini18n.T(ctx, "roles.create") }
-								} else {
-									{ admini18n.T(ctx, "actions.save") }
-								}
-							</button>
-							@components.ActionLink(props.Panel.BasePath+"/roles", "button button--secondary", admini18n.T(ctx, "actions.cancel")) {
-								{ admini18n.T(ctx, "actions.cancel") }
-							}
-							if props.ID != "" {
-								@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+props.ID+"/delete", props.Name, "button button--danger role-editor__delete", admini18n.T(ctx, "roles.delete")) {
-									<i class="ti ti-trash" aria-hidden="true"></i>
-									{ admini18n.T(ctx, "roles.delete") }
-								}
-							}
-						</div>
-					</form>
-				</section>
+				@RoleFieldsForm(props)
 			</div>
 		</div>
 	}
+}
+
+// RoleFieldsForm shares the compact field layout between creation and editing.
+templ RoleFieldsForm(props RoleFormProps) {
+	<section class="role-form" aria-labelledby="page-heading">
+		<form method="post" action={ templ.URL(props.Action) }>
+			<header class="list-toolbar">
+				<div class="action-group">
+					<button class="button button--primary button--compact" type="submit">
+						<i class="ti ti-device-floppy" aria-hidden="true"></i>
+						if props.ID == "" {
+							{ admini18n.T(ctx, "roles.create") }
+						} else {
+							{ admini18n.T(ctx, "actions.save") }
+						}
+					</button>
+					if props.ID != "" {
+						@components.ActionLink(props.Panel.BasePath+"/roles/"+props.ID+"/view", "button button--secondary button--compact", admini18n.T(ctx, "actions.view")) {
+							<i class="ti ti-eye" aria-hidden="true"></i>
+							{ admini18n.T(ctx, "actions.view") }
+						}
+					}
+					@components.ActionLink(props.Panel.BasePath+"/roles", "button button--secondary button--compact", admini18n.T(ctx, "actions.list")) {
+						<i class="ti ti-list" aria-hidden="true"></i>
+						{ admini18n.T(ctx, "actions.list") }
+					}
+				</div>
+				if props.ID != "" {
+					@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+props.ID+"/delete", props.Name, "icon-button icon-button--danger", admini18n.T(ctx, "roles.delete")) {
+						<i class="ti ti-trash" aria-hidden="true"></i>
+					}
+				}
+			</header>
+			<div class="role-form__fields">
+				<div class="role-form__row">
+					<div class="role-form__field">
+						@components.TranslationsInput(props.NameTranslations)
+					</div>
+				</div>
+				<div class="role-form__row">
+					<div class="role-form__field">
+						<label class="form-checkbox"><input type="checkbox" name="is_super" value="1" checked?={ props.IsSuper }/>{ admini18n.T(ctx, "roles.super_help") }</label>
+					</div>
+				</div>
+				<div class="role-form__row">
+					<div class="role-form__field">
+						@RolePermissions("role-permissions", admini18n.T(ctx, "fields.permissions"), props.Permissions)
+					</div>
+				</div>
+			</div>
+		</form>
+	</section>
 }
 
 templ RoleView(props RoleViewProps) {
@@ -242,43 +271,57 @@ templ RoleView(props RoleViewProps) {
 					{Label: admini18n.T(ctx, "navigation.roles"), Href: props.Panel.BasePath + "/roles"},
 					{Label: props.Role.Name},
 				})
-				<section class="role-editor card" aria-labelledby="page-heading">
-					<dl class="details-list">
-						<dt>{ admini18n.T(ctx, "fields.uuid") }</dt>
-						<dd class="details-list__uuid">{ props.Role.ID }</dd>
-						for _, name := range props.Names {
-							<dt>{ admini18n.T(ctx, "fields.name_language", map[string]any{"Language": name.Label}) }</dt>
-							<dd>{ name.Value }</dd>
-						}
-						<dt>{ admini18n.T(ctx, "fields.super_role") }</dt>
-						<dd>
-							@RoleSuper(props.Role.IsSuper)
-						</dd>
-						<dt>{ admini18n.T(ctx, "fields.permissions") }</dt>
-						<dd>
-							if props.Role.IsSuper {
-								{ admini18n.T(ctx, "roles.all_permissions") }
-							} else if len(props.Role.Permissions) == 0 {
-								{ admini18n.T(ctx, "common.none") }
-							} else {
-								<ul class="details-list__permissions">
-									for _, permission := range props.Role.Permissions {
-										<li>{ permission }</li>
-									}
-								</ul>
-							}
-						</dd>
-					</dl>
-					<div class="action-group">
-						@components.ActionLink(props.Panel.BasePath+"/roles/"+props.Role.ID+"/edit", "button button--primary", admini18n.T(ctx, "roles.edit")) {
+				<section class="role-view" aria-labelledby="page-heading">
+					<header class="list-toolbar">
+						@components.ActionLink(props.Panel.BasePath+"/roles/"+props.Role.ID+"/edit", "button button--primary button--compact", admini18n.T(ctx, "roles.edit")) {
 							<i class="ti ti-pencil" aria-hidden="true"></i>
 							{ admini18n.T(ctx, "roles.edit") }
 						}
-						@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", props.Role.Name, "button button--danger", admini18n.T(ctx, "roles.delete")) {
+						@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", props.Role.Name, "icon-button icon-button--danger", admini18n.T(ctx, "roles.delete")) {
 							<i class="ti ti-trash" aria-hidden="true"></i>
-							{ admini18n.T(ctx, "roles.delete") }
 						}
-					</div>
+					</header>
+					<dl class="role-view__details">
+						<div class="role-view__row">
+							<dt>{ admini18n.T(ctx, "fields.name") }</dt>
+							<dd>
+								<div class="tag-list">
+									@components.CopyValue(props.Role.Name, admini18n.T(ctx, "fields.name"))
+									if props.Role.Current {
+										<span class="badge">{ admini18n.T(ctx, "roles.your_role") }</span>
+									}
+								</div>
+							</dd>
+						</div>
+						<div class="role-view__row">
+							<dt>{ admini18n.T(ctx, "fields.uuid") }</dt>
+							<dd>
+								@components.CopyValue(props.Role.ID, admini18n.T(ctx, "fields.uuid"))
+							</dd>
+						</div>
+						<div class="role-view__row">
+							<dt>{ admini18n.T(ctx, "fields.super_role") }</dt>
+							<dd>
+								@RoleSuper(props.Role.IsSuper)
+							</dd>
+						</div>
+						<div class="role-view__row">
+							<dt>{ admini18n.T(ctx, "fields.permissions") }</dt>
+							<dd>
+								<div class="tag-list">
+									if props.Role.IsSuper {
+										<span class="badge">{ admini18n.T(ctx, "roles.all_permissions") }</span>
+									} else if len(props.Role.Permissions) == 0 {
+										<span class="role-muted">{ admini18n.T(ctx, "common.none") }</span>
+									} else {
+										for _, permission := range props.Role.Permissions {
+											<span class="badge">{ permission }</span>
+										}
+									}
+								</div>
+							</dd>
+						</div>
+					</dl>
 				</section>
 			</div>
 		</div>

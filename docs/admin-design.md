@@ -38,6 +38,7 @@ styles/
     _tables.scss            Scroll regions, tables, sort links
     _filter-menu.scss       Collapsible filter popover
     _details.scss           Responsive definition lists
+    _copy-value.scss        Inline clipboard controls for scalar values
     _feedback.scss          Badges and inline notices
     _navigation-feedback.scss  Navigation failure toast
     _links.scss             Inline text links
@@ -162,7 +163,8 @@ an existing JavaScript hook alongside the generic `filter-menu` class.
 | Collection layout | `.list-toolbar`, `__controls`, `.action-group`, `.tag-list`, `.pagination`, `__current` |
 | Tables | `.data-table-scroll`, `.data-table`, `__actions`, `__empty`, `.table-sort`; page rules own domain-specific column widths |
 | Filters | `.filter-menu`, `__form`; native `details` and `summary` remain usable without JavaScript |
-| Details | `.details-list`, `__permissions`; semantic `dl`, `dt`, and `dd` elements |
+| Details | `.details-list`; semantic `dl`, `dt`, and `dd` elements; role-view permissions use the same badges as the role list |
+| Copyable values | `CopyValue` and `.copy-value`; inline scalar values with Tabler `copy` on hover/focus and `copy-check` after successful copying; localized clipboard status and keyboard activation |
 | Status | `.badge`, `--negative`; `.notice`, `--error` for inline feedback |
 | Dialogs | `.admin-dialog` is the shell; `.confirm-delete` and `.success-dialog` own their content |
 
@@ -234,12 +236,24 @@ footer, and full-width form submission buttons. Compact screens reduce its inset
 `pages/_roles.scss` owns the full-width role list, total/supporting text, editor
 composition, and UUID column proportion. View, create, and edit pages use the
 centered content column with Admin → Roles → current-page breadcrumbs.
-The edit form places its Delete action at the end of the action row, separated
-from Save and Cancel. It opens the shared confirmation dialog outside the edit
-form; deletion submits only the confirmation form and uses the persisted,
-localized role name. The create form has no Delete action.
-Shared component rules belong
-in `components/`, even when Roles is currently their only consumer. Future Users
+The role view uses a compact collection-style toolbar above bordered detail
+rows, with muted label cells and permission badges matching the list. It retains
+copyable Name and UUID values, the shared super-role badge, and the delete
+confirmation dialog. These styles are scoped to `.role-view`; the role list,
+sidebar, typography, and color tokens are unchanged.
+Create and edit pages share `.role-form` with the same compact toolbar as the
+role view and full-width fields using their existing labels. The edit toolbar
+starts with Save, View, and List, with an outlined Delete icon at the end.
+View links to the current role's details and List links to the roles collection.
+Name translations, the super-role checkbox, and permission selection occupy
+separate bordered rows; their existing
+labels, help, submission names, and server-rendered widget states are preserved.
+Compact control tokens and widget spacing are scoped to `.role-form`. The shared
+confirmation dialog stays outside the edit form; deletion submits only the
+confirmation form and uses the persisted, localized role name. The create page
+uses Create and List in its toolbar, with no View or Delete action until a role
+exists. Shared component rules belong in `components/`, even when Roles is
+currently their only consumer. Future Users
 pages should compose these components without importing Roles styles.
 
 ## Accessibility and interaction rules

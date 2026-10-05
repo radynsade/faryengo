@@ -7,29 +7,34 @@ import "github.com/radynsade/faryengo/web/admin/assets"
 templ Root(title string) {
 	<!DOCTYPE html>
 	<html lang={ admini18n.Language(ctx) }>
-		<head>
-			<meta charset="UTF-8"/>
-			<meta name="robots" content="noindex, nofollow"/>
-			<meta name="viewport" content="width=device-width, initial-scale=1"/>
-			<meta name="color-scheme" content="light"/>
-			<title id="page-title">{ title }</title>
-			for _, asset := range assets.Preloads() {
-				if asset.As == "font" {
-					<link rel="preload" href={ templ.URL(asset.URL) } as="font" type={ asset.Type } crossorigin="anonymous"/>
-				} else {
-					<link rel="preload" href={ templ.URL(asset.URL) } as="style" type={ asset.Type }/>
-				}
-			}
-			<link rel="stylesheet" href={ assets.BuiltCSS("style.scss") }/>
-			<script type="module" src={ assets.BuiltAsset("main.ts") }></script>
-		</head>
-		<body hx-history="false">
+		@Head(title)
+		<body hx-ext="head-support, morph" hx-history="false">
 			{ children... }
 			<p id="navigation-error" class="navigation-error" role="alert" hidden>
 				{ admini18n.T(ctx, "navigation.error") }
 			</p>
 		</body>
 	</html>
+}
+
+// Head is shared by full documents and fragments so navigation preserves common assets.
+templ Head(title string) {
+	<head hx-head="merge">
+		<meta charset="UTF-8"/>
+		<meta name="robots" content="noindex, nofollow"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<meta name="color-scheme" content="light"/>
+		<title id="page-title">{ title }</title>
+		for _, asset := range assets.Preloads() {
+			if asset.As == "font" {
+				<link rel="preload" href={ templ.URL(asset.URL) } as="font" type={ asset.Type } crossorigin="anonymous"/>
+			} else {
+				<link rel="preload" href={ templ.URL(asset.URL) } as="style" type={ asset.Type }/>
+			}
+		}
+		<link rel="stylesheet" href={ assets.BuiltCSS("style.scss") }/>
+		<script type="module" src={ assets.BuiltAsset("main.ts") }></script>
+	</head>
 }
 
 // Page renders a full document for direct browser navigation.
@@ -39,8 +44,8 @@ templ Page(title string, content templ.Component) {
 	}
 }
 
-// PageFragment supplies the title and page content for an HTMX navigation swap.
+// PageFragment supplies the head and page content for an HTMX navigation swap.
 templ PageFragment(title string, content templ.Component) {
-	<title id="page-title">{ title }</title>
+	@Head(title)
 	@content
 }
