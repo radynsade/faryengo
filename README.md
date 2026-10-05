@@ -8,3 +8,4 @@
 - [ ] no manual continue session
 - [ ] fix design delete confirmation modal
 - [ ] list button on the view page
+- [ ] use uuid v7
