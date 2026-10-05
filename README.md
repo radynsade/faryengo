@@ -7,3 +7,4 @@
 - [ ] form error handling and errors display
 - [ ] no manual continue session
 - [ ] fix design delete confirmation modal
+- [ ] list button on the view page
