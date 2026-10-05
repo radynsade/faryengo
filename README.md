@@ -9,3 +9,4 @@
 - [ ] fix design delete confirmation modal
 - [ ] list button on the view page
 - [ ] use uuid v7
+- [ ] table loaders
