@@ -1,0 +1,24 @@
+package components
+
+import admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+
+// LanguageSwitcher preserves the current route and filters using native navigation.
+templ LanguageSwitcher() {
+	<nav class="language-switcher" aria-label={ admini18n.T(ctx, "common.language") }>
+		<p class="language-switcher__label"><i class="ti ti-language" aria-hidden="true"></i>{ admini18n.T(ctx, "common.language") }</p>
+		<div class="language-switcher__links">
+			for _, item := range admini18n.LanguageLinks(ctx) {
+				<a
+					class="language-switcher__link"
+					href={ templ.URL(item.Href) }
+					lang={ item.Code }
+					hreflang={ item.Code }
+					hx-boost="false"
+					if item.Active {
+						aria-current="true"
+					}
+				>{ item.Name }</a>
+			}
+		</div>
+	</nav>
+}

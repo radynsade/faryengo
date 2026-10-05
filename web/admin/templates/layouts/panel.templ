@@ -2,27 +2,28 @@ package layouts
 
 import (
 	"github.com/radynsade/faryengo/pkg/flashmsg"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 )
 
 type PanelProps struct {
-	Title string
-	BasePath string
+	Title         string
+	BasePath      string
 	ActiveSection string
-	FirstName string
-	LastName string
-	Email string
+	FirstName     string
+	LastName      string
+	Email         string
 }
 
 // Panel wraps authenticated pages with navigation and the current user's identity.
 templ Panel(props PanelProps) {
-	<div id="page-content" class="panel-layout">
-		<a class="panel-skip-link" href="#panel-main">Skip to content</a>
-		<aside class="panel-sidebar" aria-label="Admin sidebar">
+	<div id="page-content" class="panel-layout" data-ui-language={ admini18n.Language(ctx) } data-navigation-error={ admini18n.T(ctx, "navigation.error") }>
+		<a class="panel-skip-link" href="#panel-main">{ admini18n.T(ctx, "navigation.skip") }</a>
+		<aside class="panel-sidebar" aria-label={ admini18n.T(ctx, "navigation.sidebar") }>
 			<a class="panel-sidebar__brand" href={ templ.URL(props.BasePath) }>
 				@components.Brand()
 			</a>
-			<section class="panel-sidebar__account" aria-label="Your account">
+			<section class="panel-sidebar__account" aria-label={ admini18n.T(ctx, "navigation.account") }>
 				<div class="panel-sidebar__identity">
 					<p class="panel-sidebar__name">{ props.FirstName + " " + props.LastName }</p>
 					<p class="panel-sidebar__email">{ props.Email }</p>
@@ -30,22 +31,25 @@ templ Panel(props PanelProps) {
 				<form method="post" action={ templ.URL(props.BasePath + "/sign-out") }>
 					<button class="panel-sidebar__sign-out" type="submit">
 						<i class="ti ti-logout" aria-hidden="true"></i>
-						Sign out
+						{ admini18n.T(ctx, "actions.sign_out") }
 					</button>
 				</form>
 			</section>
 			<div class="panel-sidebar__navigation">
-				<p class="panel-sidebar__label">Workspace</p>
-				<nav class="panel-menu" aria-label="Admin navigation">
-					@components.PanelLink(props.BasePath + "/users", props.ActiveSection == "users") {
+				<p class="panel-sidebar__label">{ admini18n.T(ctx, "common.workspace") }</p>
+				<nav class="panel-menu" aria-label={ admini18n.T(ctx, "navigation.menu") }>
+					@components.PanelLink(props.BasePath+"/users", props.ActiveSection == "users") {
 						<i class="ti ti-users" aria-hidden="true"></i>
-						Users
+						{ admini18n.T(ctx, "navigation.users") }
 					}
-					@components.PanelLink(props.BasePath + "/roles", props.ActiveSection == "roles") {
+					@components.PanelLink(props.BasePath+"/roles", props.ActiveSection == "roles") {
 						<i class="ti ti-shield-check" aria-hidden="true"></i>
-						Roles
+						{ admini18n.T(ctx, "navigation.roles") }
 					}
 				</nav>
+			</div>
+			<div class="panel-sidebar__languages">
+				@components.LanguageSwitcher()
 			</div>
 		</aside>
 		<main id="panel-main" class="panel-main" tabindex="-1" aria-label={ props.Title }>

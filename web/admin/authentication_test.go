@@ -260,7 +260,7 @@ func TestAdminSignIn(t *testing.T) {
 
 			home := httpRequest(mux, http.MethodGet, root, "", cookies)
 
-			if home.Code != http.StatusOK || !strings.Contains(home.Body.String(), "You are signed in.") ||
+			if home.Code != http.StatusOK || !strings.Contains(home.Body.String(), map[string]string{"en": "You are signed in.", "lv": "Jūs esat pieslēdzies."}[tt.language]) ||
 				!strings.Contains(home.Body.String(), `action="`+root+`/sign-out"`) {
 				t.Fatalf("admin home = %d: %s", home.Code, home.Body.String())
 			}

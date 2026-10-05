@@ -1,3 +1,4 @@
+// The server renders the complete initial layout; hydration only attaches listeners.
 const instances = new WeakMap<HTMLElement, MultiSelect>();
 const openWidgets = new Set<MultiSelect>();
 
@@ -20,6 +21,7 @@ class MultiSelect {
 	private readonly status: HTMLElement;
 	private readonly empty: HTMLElement;
 	private readonly placeholder: string;
+	private readonly selectedStatus: string[];
 	private readonly options: HTMLOptionElement[];
 	private readonly rows: HTMLElement[];
 	private readonly events = new AbortController();
@@ -36,23 +38,15 @@ class MultiSelect {
 		this.count = root.querySelector('.multiselect__count')!;
 		this.status = root.querySelector('.multiselect__status')!;
 		this.empty = root.querySelector('.multiselect__empty')!;
-		this.placeholder = this.input.getAttribute('placeholder') ?? '';
+		this.placeholder = this.input.dataset.placeholder ?? '';
+		this.selectedStatus = JSON.parse(root.dataset.selectedStatus!);
 		this.options = Array.from(this.select.options);
-		this.rows = this.options.map((option, index) => {
-			const row = document.createElement('li');
-			row.id = `${this.select.id}-option-${index}`;
-			row.dataset.index = String(index);
-			row.setAttribute('role', 'option');
-			row.textContent = option.label;
-			return row;
-		});
-		this.list.replaceChildren(...this.rows);
-		this.input.value = '';
-		this.input.disabled = this.select.disabled;
+		this.rows = Array.from(
+			this.list.querySelectorAll<HTMLElement>('[role="option"]'),
+		);
 		const signal = this.events.signal;
-		const label = root.querySelector<HTMLLabelElement>('label')!;
+		const label = root.querySelector<HTMLLabelElement>('.multiselect__label')!;
 
-		label.htmlFor = this.input.id;
 		label.addEventListener(
 			'click',
 			(event) => {
@@ -118,11 +112,6 @@ class MultiSelect {
 			},
 			{ signal },
 		);
-
-		this.render();
-		this.close();
-		root.querySelector<HTMLElement>('.multiselect__widget')!.hidden = false;
-		this.select.hidden = true;
 	}
 
 	private render() {
@@ -132,7 +121,7 @@ class MultiSelect {
 			: this.placeholder;
 		this.count.textContent = String(selected.length);
 		this.count.hidden = !selected.length;
-		this.status.textContent = `${selected.length} selected`;
+		this.status.textContent = this.selectedStatus[selected.length]!;
 		this.values.replaceChildren();
 		this.options.forEach((option, index) => {
 			const row = this.rows[index]!;
@@ -144,7 +133,7 @@ class MultiSelect {
 				badge.className = 'multiselect__value';
 				badge.dataset.index = String(index);
 				badge.disabled = option.disabled || this.select.disabled;
-				badge.setAttribute('aria-label', `Remove ${option.label}`);
+				badge.setAttribute('aria-label', row.dataset.removeLabel!);
 				badge.append(document.createTextNode(option.label));
 				const icon = document.createElement('i');
 				icon.className = 'ti ti-x';

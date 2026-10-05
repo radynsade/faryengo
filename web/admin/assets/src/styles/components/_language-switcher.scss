@@ -1,0 +1,38 @@
+@use '../abstracts' as ui;
+
+.language-switcher {
+	display: grid;
+	gap: var(--space-2);
+
+	&__label {
+		@include ui.row;
+		gap: var(--space-2);
+		color: var(--color-muted);
+		font-size: var(--font-size-caption);
+		font-weight: var(--font-weight-semibold);
+	}
+
+	&__links {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--space-1);
+	}
+
+	&__link {
+		@include ui.button-base;
+		@include ui.button-variant(secondary);
+		@include ui.motion(color, background-color);
+		padding: var(--space-2);
+		font-size: var(--font-size-caption);
+
+		&[aria-current='true'] {
+			color: var(--color-accent);
+			border-color: var(--color-accent);
+			background: var(--color-accent-soft);
+		}
+
+		&:focus-visible {
+			@include ui.focus-ring;
+		}
+	}
+}

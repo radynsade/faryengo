@@ -8,6 +8,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
 )
@@ -25,10 +26,10 @@ func (h *Handler) panel(writer http.ResponseWriter, request *http.Request, secti
 		content := pages.Home(props)
 
 		if section != "" {
-			content = pages.PanelSection(props, props.Title+" management is coming soon.")
+			content = pages.PanelSection(props, admini18n.T(request.Context(), "home.users_soon"))
 		}
 
-		h.renderPage(writer, request, props.Title+" · Faryen Admin", content)
+		h.renderPage(writer, request, props.Title+" · Faryen "+admini18n.T(request.Context(), "common.admin"), content)
 	})
 }
 
@@ -47,7 +48,7 @@ func (h *Handler) withPanel(writer http.ResponseWriter, request *http.Request, s
 		flashState(request).principal = &principal
 
 		props := layouts.PanelProps{
-			Title:    "Admin panel",
+			Title:    admini18n.T(request.Context(), "common.panel"),
 			BasePath: adminPath(request), ActiveSection: section,
 			FirstName: string(principal.FirstName), LastName: string(principal.LastName),
 			Email: string(principal.Email),
@@ -55,9 +56,9 @@ func (h *Handler) withPanel(writer http.ResponseWriter, request *http.Request, s
 
 		switch section {
 		case "users":
-			props.Title = "Users"
+			props.Title = admini18n.T(request.Context(), "navigation.users")
 		case "roles":
-			props.Title = "Roles"
+			props.Title = admini18n.T(request.Context(), "navigation.roles")
 		}
 
 		allowed := permission == "" || principal.HasPermission(permission)
@@ -65,10 +66,10 @@ func (h *Handler) withPanel(writer http.ResponseWriter, request *http.Request, s
 		if allowed {
 			handle(principal, props)
 		} else {
-			if err := h.addFlash(request.Context(), writer, request, flashmsg.Error, "You do not have permission to view this section."); err != nil {
+			if err := h.addFlash(request.Context(), writer, request, flashmsg.Error, admini18n.T(request.Context(), "errors.section")); err != nil {
 				h.flashUnavailable(writer, request, err)
 			} else {
-				h.renderPage(writer, request, props.Title+" · Faryen Admin", pages.PanelSection(props, ""), templ.WithStatus(http.StatusForbidden))
+				h.renderPage(writer, request, props.Title+" · Faryen "+admini18n.T(request.Context(), "common.admin"), pages.PanelSection(props, ""), templ.WithStatus(http.StatusForbidden))
 			}
 		}
 	}

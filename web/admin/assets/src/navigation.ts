@@ -12,6 +12,13 @@ function showNavigationError(show: boolean) {
 }
 
 function focusPageContent() {
+	const content = document.querySelector<HTMLElement>('[data-ui-language]');
+	if (content) {
+		document.documentElement.lang = content.dataset.uiLanguage!;
+		const error = document.getElementById('navigation-error');
+		if (error) error.textContent = content.dataset.navigationError!;
+	}
+
 	showNavigationError(false);
 	document
 		.querySelector<HTMLElement>('#panel-main, #auth-title')

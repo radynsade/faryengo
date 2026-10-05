@@ -12,12 +12,12 @@ import (
 
 func TestAdminPanel(t *testing.T) {
 	for _, tt := range []struct {
-		name, language string
-		fragment       bool
+		name, language, navigation, panel, signOut string
+		fragment                                   bool
 	}{
-		{name: "document", language: "en"},
-		{name: "fragment", language: "en", fragment: true},
-		{name: "language path", language: "lv"},
+		{name: "document", language: "en", navigation: "Admin navigation", panel: "Admin panel", signOut: "Sign out"},
+		{name: "fragment", language: "en", navigation: "Admin navigation", panel: "Admin panel", signOut: "Sign out", fragment: true},
+		{name: "language path", language: "lv", navigation: "Administrācijas navigācija", panel: "Administrācijas panelis", signOut: "Iziet"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			mux, _, _ := httpFixture(t)
@@ -42,10 +42,10 @@ func TestAdminPanel(t *testing.T) {
 			}
 
 			for _, markup := range []string{
-				`class="panel-layout"`, `aria-label="Admin navigation"`, "First Last", "person@example.com",
+				`class="panel-layout"`, `aria-label="` + tt.navigation + `"`, "First Last", "person@example.com",
 				`href="` + root + `/users"`, `href="` + root + `/roles"`,
-				`method="post" action="` + root + `/sign-out"`, "Sign out",
-				`id="panel-main"`, `href="#panel-main"`, `aria-label="Admin panel"`,
+				`method="post" action="` + root + `/sign-out"`, tt.signOut,
+				`id="panel-main"`, `href="#panel-main"`, `aria-label="` + tt.panel + `"`,
 			} {
 				if !strings.Contains(body, markup) {
 					t.Fatalf("panel is missing %q: %s", markup, body)

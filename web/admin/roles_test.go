@@ -40,7 +40,7 @@ func TestRolesCRUD(t *testing.T) {
 	root := "/admin/lv/roles"
 	create := httpRequest(mux, http.MethodGet, root+"/create", "", cookies)
 
-	if create.Code != http.StatusOK || !strings.Contains(create.Body.String(), `name="name[en]"`) || !strings.Contains(create.Body.String(), `name="name[lv]"`) {
+	if create.Code != http.StatusOK || !strings.Contains(create.Body.String(), `name="name[en]"`) || !strings.Contains(create.Body.String(), `name="name[lv]"`) || strings.Contains(create.Body.String(), "data-confirm-delete") {
 		t.Fatalf("create form = %d %s", create.Code, create.Body.String())
 	}
 
@@ -60,13 +60,14 @@ func TestRolesCRUD(t *testing.T) {
 
 	view := httpRequest(mux, http.MethodGet, response.Header().Get("Location"), "", cookies)
 
-	if view.Code != http.StatusOK || !strings.Contains(view.Body.String(), "created successfully.") || !strings.Contains(view.Body.String(), "Redaktori") {
+	if view.Code != http.StatusOK || !strings.Contains(view.Body.String(), "veiksmīgi izveidota.") || !strings.Contains(view.Body.String(), "Redaktori") {
 		t.Fatalf("view = %d %s", view.Code, view.Body.String())
 	}
 
 	edit := httpRequest(mux, http.MethodGet, path+"/edit", "", cookies)
 
-	if edit.Code != http.StatusOK || !strings.Contains(edit.Body.String(), `value="Editors"`) || !strings.Contains(edit.Body.String(), `value="Redaktori"`) {
+	if edit.Code != http.StatusOK || !strings.Contains(edit.Body.String(), `value="Editors"`) || !strings.Contains(edit.Body.String(), `value="Redaktori"`) ||
+		!strings.Contains(edit.Body.String(), `data-confirm-action="`+path+`/delete"`) || !strings.Contains(edit.Body.String(), `data-confirm-name="Redaktori"`) {
 		t.Fatalf("edit = %d %s", edit.Code, edit.Body.String())
 	}
 
@@ -87,7 +88,7 @@ func TestRolesCRUD(t *testing.T) {
 	repository.deleteErr = security.ErrRoleAlreadyInUse
 	response = httpRequest(mux, http.MethodPost, path+"/delete", "confirm=delete", cookies)
 
-	if response.Code != http.StatusConflict || len(repository.otherRoles) != 1 || !strings.Contains(response.Body.String(), "Reassign those users") {
+	if response.Code != http.StatusConflict || len(repository.otherRoles) != 1 || !strings.Contains(response.Body.String(), "piešķiriet šiem lietotājiem citu lomu") {
 		t.Fatalf("assigned delete = %d %s", response.Code, response.Body.String())
 	}
 
@@ -235,7 +236,7 @@ func TestRolesAuthenticatedAccess(t *testing.T) {
 				}
 
 				if !tt.anonymous && (route == root+"/create" || route == path+"/edit") {
-					if !strings.Contains(response.Body.String(), `name="is_super"`) || strings.Contains(response.Body.String(), "disabled") {
+					if !strings.Contains(response.Body.String(), `name="is_super"`) || strings.Contains(response.Body.String(), " disabled") {
 						t.Fatal("role form restricted the super flag or permissions")
 					}
 				}
@@ -282,7 +283,7 @@ func TestRoleDeleteModal(t *testing.T) {
 			path := "/admin/en/roles/" + uuid.UUID(role.ID()).String()
 			cookies := login(t, mux)
 
-			for _, route := range []string{"/admin/en/roles", path + "/view"} {
+			for _, route := range []string{"/admin/en/roles", path + "/view", path + "/edit"} {
 				response := httpRequest(mux, http.MethodGet, route, "", cookies)
 				body := response.Body.String()
 
@@ -462,7 +463,7 @@ func TestRolesFiltersAndFragments(t *testing.T) {
 	mux.ServeHTTP(response, request)
 	body := response.Body.String()
 
-	if response.Code != http.StatusOK || strings.Contains(body, "<!doctype") || !strings.Contains(body, "Pārskatītāji") || !strings.Contains(body, "Total found: 1") || !strings.Contains(body, `aria-sort="descending"`) {
+	if response.Code != http.StatusOK || strings.Contains(body, "<!doctype") || !strings.Contains(body, "Pārskatītāji") || !strings.Contains(body, "Kopā atrasts: 1") || !strings.Contains(body, `aria-sort="descending"`) {
 		t.Fatalf("filter fragment = %d %s", response.Code, body)
 	}
 

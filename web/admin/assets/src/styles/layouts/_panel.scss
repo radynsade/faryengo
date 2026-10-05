@@ -136,6 +136,13 @@
 
 .panel-page {
 	padding: var(--space-8);
+
+	&__content {
+		width: 100%;
+		max-width: var(--page-content-width);
+		min-width: 0;
+		margin-inline: auto;
+	}
 }
 
 @include ui.respond-to(panel) {
@@ -159,4 +166,8 @@
 	.panel-page {
 		padding: var(--space-6);
 	}
+}
+
+.panel-sidebar__languages {
+	margin-top: auto;
 }

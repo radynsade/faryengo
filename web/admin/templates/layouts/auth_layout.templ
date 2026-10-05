@@ -2,16 +2,17 @@ package layouts
 
 import (
 	"github.com/radynsade/faryengo/pkg/flashmsg"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 )
 
 // AuthLayout centers a compact panel and allows its contents to grow on small screens.
 templ AuthLayout(title string, description string) {
-	<main id="page-content" class="auth-layout">
+	<main id="page-content" class="auth-layout" data-ui-language={ admini18n.Language(ctx) } data-navigation-error={ admini18n.T(ctx, "navigation.error") }>
 		<section class="auth-panel" aria-labelledby="auth-title">
 			<div class="auth-panel__brand">
 				@components.Brand()
-				<span class="auth-panel__badge">Admin</span>
+				<span class="auth-panel__badge">{ admini18n.T(ctx, "common.admin") }</span>
 			</div>
 			<header class="auth-panel__heading">
 				<h1 id="auth-title" tabindex="-1">{ title }</h1>
@@ -19,6 +20,9 @@ templ AuthLayout(title string, description string) {
 			</header>
 			@components.FlashMessages(flashmsg.FromContext(ctx), "form-error")
 			{ children... }
+			<div class="auth-panel__languages">
+				@components.LanguageSwitcher()
+			</div>
 		</section>
 	</main>
 }

@@ -1,4 +1,5 @@
-const initialized = new WeakSet<HTMLElement>();
+// The server renders initial selection, ARIA, focus order, and panel visibility.
+// Delegated handlers hydrate interactions without rewriting that initial state.
 
 function tabs(root: HTMLElement) {
 	return Array.from(root.querySelectorAll<HTMLButtonElement>('[role="tab"]'));
@@ -22,32 +23,7 @@ function activate(root: HTMLElement, tab: HTMLButtonElement, focus = false) {
 
 function initialTab(root: HTMLElement) {
 	const buttons = tabs(root);
-	return (
-		buttons.find((tab) => tab.dataset.language === root.dataset.language)
-		?? buttons[0]
-	);
-}
-
-function initialize() {
-	for (const root of Array.from(
-		document.querySelectorAll<HTMLElement>('[data-translations-input]'),
-	)) {
-		if (!initialized.has(root)) {
-			const tab = initialTab(root);
-			if (tab) {
-				for (const button of tabs(root)) {
-					const panel = Array.from(
-						root.querySelectorAll<HTMLElement>('.translations-input__panel'),
-					).find((item) => item.id === button.getAttribute('aria-controls'));
-					panel?.setAttribute('role', 'tabpanel');
-					panel?.setAttribute('aria-labelledby', button.id);
-				}
-				activate(root, tab);
-				root.querySelector<HTMLElement>('[role="tablist"]')!.hidden = false;
-			}
-			initialized.add(root);
-		}
-	}
+	return buttons.find((tab) => tab.dataset.language === root.dataset.language);
 }
 
 // Delegation keeps tabs working after HTMX swaps without per-field document listeners.
@@ -118,7 +94,3 @@ document.addEventListener(
 	},
 	true,
 );
-
-document.addEventListener('htmx:load', initialize);
-document.addEventListener('htmx:historyRestore', initialize);
-initialize();

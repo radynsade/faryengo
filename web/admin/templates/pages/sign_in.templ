@@ -1,55 +1,56 @@
 package pages
 
 import (
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 )
 
 type SignInProps struct {
-	Action string
-	RefreshAction string
+	Action             string
+	RefreshAction      string
 	RestorePasswordURL string
-	Email string
-	CanContinue bool
+	Email              string
+	CanContinue        bool
 }
 
 // SignIn submits credentials using a native form, including without JavaScript.
 templ SignIn(props SignInProps) {
-	@layouts.AuthLayout("Sign in", "Enter your details to access the admin panel.") {
+	@layouts.AuthLayout(admini18n.T(ctx, "actions.sign_in"), admini18n.T(ctx, "auth.description")) {
 		if props.CanContinue {
 			<form class="form-stack" method="post" action={ templ.URL(props.RefreshAction) }>
 				@components.PrimaryButton("submit") {
-					Continue your session
+					{ admini18n.T(ctx, "auth.continue") }
 				}
 			</form>
 		}
 		<form class="form-stack" method="post" action={ templ.URL(props.Action) }>
 			@components.TextInput(components.TextInputProps{
-				ID: "email",
-				Name: "email",
-				Type: "email",
-				Label: "Email address",
-				Placeholder: "you@example.com",
+				ID:           "email",
+				Name:         "email",
+				Type:         "email",
+				Label:        admini18n.T(ctx, "fields.email"),
+				Placeholder:  admini18n.T(ctx, "fields.email_placeholder"),
 				Autocomplete: "username",
-				Value: props.Email,
-				Required: true,
+				Value:        props.Email,
+				Required:     true,
 			})
 			@components.TextInput(components.TextInputProps{
-				ID: "password",
-				Name: "password",
-				Type: "password",
-				Label: "Password",
-				Placeholder: "Enter your password",
+				ID:           "password",
+				Name:         "password",
+				Type:         "password",
+				Label:        admini18n.T(ctx, "fields.password"),
+				Placeholder:  admini18n.T(ctx, "fields.password_placeholder"),
 				Autocomplete: "current-password",
-				Required: true,
+				Required:     true,
 			})
 			@components.PrimaryButton("submit") {
-				Sign in
+				{ admini18n.T(ctx, "actions.sign_in") }
 			}
 		</form>
 		<p class="auth-panel__footer">
 			@components.PageLink(props.RestorePasswordURL) {
-				Forgot your password?
+				{ admini18n.T(ctx, "auth.forgot") }
 			}
 		</p>
 	}

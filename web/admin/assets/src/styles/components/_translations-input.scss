@@ -71,3 +71,16 @@
 		font-size: var(--font-size-small);
 	}
 }
+
+// Only the no-JavaScript fallback overrides the server-rendered hidden state.
+@media (scripting: none) {
+	.translations-input {
+		.translations-input__tabs {
+			display: none;
+		}
+
+		.translations-input__panel[hidden] {
+			display: block;
+		}
+	}
+}

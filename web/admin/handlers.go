@@ -13,6 +13,7 @@ import (
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	"github.com/radynsade/faryengo/web/admin/assets"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
 )
@@ -52,6 +53,9 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 		err = fmt.Errorf("register admin assets: %w", registerErr)
 	} else {
 		protection := http.NewCrossOriginProtection()
+		protection.SetDenyHandler(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+			http.Error(writer, admini18n.T(request.Context(), "errors.cross_origin"), http.StatusForbidden)
+		}))
 
 		for _, route := range []struct {
 			pattern string
@@ -75,6 +79,8 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			mux.Handle(route.pattern, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 				writer.Header().Set("Cache-Control", "no-store")
 				writer.Header().Set("X-Content-Type-Options", "nosniff")
+				request = request.WithContext(admini18n.WithRequest(request))
+				writer.Header().Set("Content-Language", admini18n.Language(request.Context()))
 				request = request.WithContext(context.WithValue(request.Context(), flashRequestKey{}, &flashRequest{}))
 				protection.Handler(route.handler).ServeHTTP(writer, request)
 			}))
@@ -102,7 +108,7 @@ func (h *Handler) renderSignIn(writer http.ResponseWriter, request *http.Request
 	if err != nil {
 		h.flashUnavailable(writer, request, err)
 	} else {
-		h.renderPage(writer, request, "Sign in · Faryen Admin", pages.SignIn(pages.SignInProps{
+		h.renderPage(writer, request, admini18n.T(request.Context(), "actions.sign_in")+" · Faryen "+admini18n.T(request.Context(), "common.admin"), pages.SignIn(pages.SignInProps{
 			Action:             adminPath(request) + "/sign-in",
 			RefreshAction:      adminPath(request) + "/refresh",
 			RestorePasswordURL: adminPath(request) + "/restore-password",
@@ -113,7 +119,7 @@ func (h *Handler) renderSignIn(writer http.ResponseWriter, request *http.Request
 }
 
 func (h *Handler) handleRestorePassword(writer http.ResponseWriter, request *http.Request) {
-	h.renderPage(writer, request, "Restore password · Faryen Admin", pages.RestorePassword())
+	h.renderPage(writer, request, admini18n.T(request.Context(), "auth.restore")+" · Faryen "+admini18n.T(request.Context(), "common.admin"), pages.RestorePassword())
 }
 
 func (h *Handler) renderPage(writer http.ResponseWriter, request *http.Request, title string, content templ.Component, options ...func(*templ.ComponentHandler)) {

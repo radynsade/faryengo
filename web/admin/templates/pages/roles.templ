@@ -2,6 +2,7 @@ package pages
 
 import (
 	"github.com/radynsade/faryengo/internal/security"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 	"strconv"
@@ -9,19 +10,19 @@ import (
 
 templ Roles(props RoleListProps) {
 	@layouts.Panel(props.Panel) {
-		@components.ConfirmDelete(roleDeleteDialog("", "", nil))
+		@components.ConfirmDelete(roleDeleteDialog(ctx, "", "", nil))
 		<div class="role-list">
 			<div class="list-toolbar">
-				@components.ActionLink(props.Panel.BasePath+"/roles/create", "button button--primary button--compact", "Create role") {
+				@components.ActionLink(props.Panel.BasePath+"/roles/create", "button button--primary button--compact", admini18n.T(ctx, "roles.create")) {
 					<i class="ti ti-plus" aria-hidden="true"></i>
-					Create
+					{ admini18n.T(ctx, "actions.create") }
 				}
 				<div class="list-toolbar__controls">
-					<span class="role-total">Total found: { strconv.Itoa(props.Page.Total) }</span>
+					<span class="role-total">{ admini18n.T(ctx, "common.total_found", map[string]any{"Count": props.Page.Total}) }</span>
 					<details class="filter-menu role-filters" open?={ props.InvalidQuery }>
 						<summary class="button button--secondary button--compact">
 							<i class="ti ti-filter" aria-hidden="true"></i>
-							Filter
+							{ admini18n.T(ctx, "actions.filter") }
 							if props.Query.Filters.Count() > 0 {
 								<span class="badge">{ strconv.Itoa(props.Query.Filters.Count()) }</span>
 							}
@@ -40,36 +41,36 @@ templ Roles(props RoleListProps) {
 							<input type="hidden" name="order" value={ map[bool]string{false: "asc", true: "desc"}[props.Query.Descending] }/>
 							<input type="hidden" name="size" value={ strconv.Itoa(props.Query.PageSize) }/>
 							<label class="form-field">
-								<span class="form-field__label">UUID contains</span>
+								<span class="form-field__label">{ admini18n.T(ctx, "fields.uuid_contains") }</span>
 								<input class="form-field__input" name="uuid" value={ props.Query.Filters.IDLike } maxlength="100"/>
 							</label>
 							<label class="form-field">
-								<span class="form-field__label">Name contains</span>
+								<span class="form-field__label">{ admini18n.T(ctx, "fields.name_contains") }</span>
 								<input class="form-field__input" name="name" value={ props.Query.Filters.NameLike } maxlength="500"/>
 							</label>
-							@RolePermissions("role-filter-permissions", "Permissions (all selected)", props.Permissions)
+							@RolePermissions("role-filter-permissions", admini18n.T(ctx, "fields.permissions_all"), props.Permissions)
 							<label class="form-field">
-								<span class="form-field__label">Super role</span>
+								<span class="form-field__label">{ admini18n.T(ctx, "fields.super_role") }</span>
 								<select class="form-field__input" name="super">
-									<option value="" selected?={ props.Query.Filters.IsSuper == nil }>Any</option>
-									<option value="true" selected?={ props.Query.Filters.IsSuper != nil && *props.Query.Filters.IsSuper }>Yes</option>
-									<option value="false" selected?={ props.Query.Filters.IsSuper != nil && !*props.Query.Filters.IsSuper }>No</option>
+									<option value="" selected?={ props.Query.Filters.IsSuper == nil }>{ admini18n.T(ctx, "common.any") }</option>
+									<option value="true" selected?={ props.Query.Filters.IsSuper != nil && *props.Query.Filters.IsSuper }>{ admini18n.T(ctx, "common.yes") }</option>
+									<option value="false" selected?={ props.Query.Filters.IsSuper != nil && !*props.Query.Filters.IsSuper }>{ admini18n.T(ctx, "common.no") }</option>
 								</select>
 							</label>
 							<div class="action-group">
-								<button class="button button--primary button--compact" type="submit">Apply filters</button>
-								@components.ActionLink(props.Panel.BasePath+"/roles", "button button--secondary button--compact", "Reset filters") {
-									Reset
+								<button class="button button--primary button--compact" type="submit">{ admini18n.T(ctx, "actions.apply_filters") }</button>
+								@components.ActionLink(props.Panel.BasePath+"/roles", "button button--secondary button--compact", admini18n.T(ctx, "actions.reset_filters")) {
+									{ admini18n.T(ctx, "actions.reset") }
 								}
 							</div>
 						</form>
 					</details>
-					<nav class="pagination" aria-label="Roles pages">
+					<nav class="pagination" aria-label={ admini18n.T(ctx, "pagination.roles") }>
 						if props.Page.Page > 1 {
-							@components.ActionLink(props.URL(1, props.Query.Sort, props.Query.Descending), "icon-button", "First page") {
+							@components.ActionLink(props.URL(1, props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.first")) {
 								<i class="ti ti-chevrons-left" aria-hidden="true"></i>
 							}
-							@components.ActionLink(props.URL(props.Page.Page-1, props.Query.Sort, props.Query.Descending), "icon-button", "Previous page") {
+							@components.ActionLink(props.URL(props.Page.Page-1, props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.previous")) {
 								<i class="ti ti-chevron-left" aria-hidden="true"></i>
 							}
 						} else {
@@ -78,10 +79,10 @@ templ Roles(props RoleListProps) {
 						}
 						<span class="pagination__current">{ strconv.Itoa(props.Page.Page) } / { strconv.Itoa(props.Page.Pages()) }</span>
 						if props.Page.Page < props.Page.Pages() {
-							@components.ActionLink(props.URL(props.Page.Page+1, props.Query.Sort, props.Query.Descending), "icon-button", "Next page") {
+							@components.ActionLink(props.URL(props.Page.Page+1, props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.next")) {
 								<i class="ti ti-chevron-right" aria-hidden="true"></i>
 							}
-							@components.ActionLink(props.URL(props.Page.Pages(), props.Query.Sort, props.Query.Descending), "icon-button", "Last page") {
+							@components.ActionLink(props.URL(props.Page.Pages(), props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.last")) {
 								<i class="ti ti-chevrons-right" aria-hidden="true"></i>
 							}
 						} else {
@@ -91,22 +92,22 @@ templ Roles(props RoleListProps) {
 					</nav>
 				</div>
 			</div>
-			<div class="data-table-scroll" tabindex="0" role="region" aria-label="Roles table">
+			<div class="data-table-scroll" tabindex="0" role="region" aria-label={ admini18n.T(ctx, "roles.table") }>
 				<table class="data-table">
-					<caption class="visually-hidden">Roles and their permissions</caption>
+					<caption class="visually-hidden">{ admini18n.T(ctx, "roles.caption") }</caption>
 					<thead>
 						<tr>
 							<th scope="col" aria-sort={ props.SortDirection(security.RoleSortID) }>
-								@RoleSortLink(props, security.RoleSortID, "UUID")
+								@RoleSortLink(props, security.RoleSortID, admini18n.T(ctx, "fields.uuid"))
 							</th>
 							<th scope="col" aria-sort={ props.SortDirection(security.RoleSortName) }>
-								@RoleSortLink(props, security.RoleSortName, "Name")
+								@RoleSortLink(props, security.RoleSortName, admini18n.T(ctx, "fields.name"))
 							</th>
 							<th scope="col" aria-sort={ props.SortDirection(security.RoleSortSuper) }>
-								@RoleSortLink(props, security.RoleSortSuper, "Super")
+								@RoleSortLink(props, security.RoleSortSuper, admini18n.T(ctx, "fields.super"))
 							</th>
-							<th scope="col">Permissions</th>
-							<th scope="col" class="data-table__actions"><span class="visually-hidden">Actions</span></th>
+							<th scope="col">{ admini18n.T(ctx, "fields.permissions") }</th>
+							<th scope="col" class="data-table__actions"><span class="visually-hidden">{ admini18n.T(ctx, "fields.actions") }</span></th>
 						</tr>
 					</thead>
 					<tbody>
@@ -114,11 +115,11 @@ templ Roles(props RoleListProps) {
 							<tr>
 								<td class="role-table__uuid">{ row.ID }</td>
 								<td>
-									@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "text-link", "View "+row.Name) {
+									@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "text-link", admini18n.T(ctx, "actions.view_named", map[string]any{"Name": row.Name})) {
 										{ row.Name }
 									}
 									if row.Current {
-										<span class="badge">Your role</span>
+										<span class="badge">{ admini18n.T(ctx, "roles.your_role") }</span>
 									}
 								</td>
 								<td>
@@ -127,26 +128,26 @@ templ Roles(props RoleListProps) {
 								<td>
 									<div class="tag-list">
 										if row.IsSuper {
-											<span class="badge">All permissions</span>
+											<span class="badge">{ admini18n.T(ctx, "roles.all_permissions") }</span>
 										} else {
 											for _, permission := range row.Permissions {
 												<span class="badge">{ permission }</span>
 											}
 											if len(row.Permissions) == 0 {
-												<span class="role-muted">None</span>
+												<span class="role-muted">{ admini18n.T(ctx, "common.none") }</span>
 											}
 										}
 									</div>
 								</td>
 								<td class="data-table__actions">
 									<div class="action-group">
-										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "icon-button", "View "+row.Name) {
+										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "icon-button", admini18n.T(ctx, "actions.view_named", map[string]any{"Name": row.Name})) {
 											<i class="ti ti-eye" aria-hidden="true"></i>
 										}
-										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/edit", "icon-button", "Edit "+row.Name) {
+										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/edit", "icon-button", admini18n.T(ctx, "actions.edit_named", map[string]any{"Name": row.Name})) {
 											<i class="ti ti-pencil" aria-hidden="true"></i>
 										}
-										@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+row.ID+"/delete", row.Name, "icon-button icon-button--danger", "Delete "+row.Name) {
+										@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+row.ID+"/delete", row.Name, "icon-button icon-button--danger", admini18n.T(ctx, "actions.delete_named", map[string]any{"Name": row.Name})) {
 											<i class="ti ti-trash" aria-hidden="true"></i>
 										}
 									</div>
@@ -154,7 +155,7 @@ templ Roles(props RoleListProps) {
 							</tr>
 						}
 						if len(props.Rows) == 0 {
-							<tr><td colspan="5" class="data-table__empty">No roles found. Try changing or resetting your filters.</td></tr>
+							<tr><td colspan="5" class="data-table__empty">{ admini18n.T(ctx, "roles.empty") }</td></tr>
 						}
 					</tbody>
 				</table>
@@ -164,7 +165,7 @@ templ Roles(props RoleListProps) {
 }
 
 templ RoleSortLink(props RoleListProps, sort security.RoleSort, label string) {
-	@components.ActionLink(props.SortURL(sort), "table-sort", "Sort by "+label) {
+	@components.ActionLink(props.SortURL(sort), "table-sort", admini18n.T(ctx, "actions.sort_by", map[string]any{"Label": label})) {
 		{ label }
 		if props.Query.Sort == sort {
 			if props.Query.Descending {
@@ -177,48 +178,55 @@ templ RoleSortLink(props RoleListProps, sort security.RoleSort, label string) {
 }
 
 templ RolePermissions(id, label string, options []PermissionOption) {
-	@components.MultiSelect(id, "permissions", label, "Select permissions") {
-		for _, option := range options {
-			<option value={ string(option.Value) } selected?={ option.Selected }>{ option.Label }</option>
-		}
-	}
+	@components.MultiSelect(permissionSelectProps(ctx, id, label, options))
 }
 
 templ RoleSuper(isSuper bool) {
 	if isSuper {
-		<span class="badge">Yes</span>
+		<span class="badge">{ admini18n.T(ctx, "common.yes") }</span>
 	} else {
-		<span class="badge badge--negative">No</span>
+		<span class="badge badge--negative">{ admini18n.T(ctx, "common.no") }</span>
 	}
 }
 
 templ RoleForm(props RoleFormProps) {
 	@layouts.Panel(props.Panel) {
+		if props.ID != "" {
+			@components.ConfirmDelete(roleDeleteDialog(ctx, props.Panel.BasePath+"/roles/"+props.ID+"/delete", props.Name, nil))
+		}
 		<div class="panel-page">
-			<div class="role-editor card">
-				@components.PageLink(props.Panel.BasePath + "/roles") {
-					<i class="ti ti-arrow-left" aria-hidden="true"></i>
-					Roles
-				}
-				<h1>{ props.Title }</h1>
-				<form class="form-stack" method="post" action={ templ.URL(props.Action) }>
-					@components.TranslationsInput(props.NameTranslations)
-					<label class="form-checkbox"><input type="checkbox" name="is_super" value="1" checked?={ props.IsSuper }/>Super role (grants all permissions)</label>
-					@RolePermissions("role-permissions", "Permissions", props.Permissions)
-					<div class="action-group">
-						<button class="button button--primary" type="submit">
-							<i class="ti ti-device-floppy" aria-hidden="true"></i>
-							if props.ID == "" {
-								Create role
-							} else {
-								Save changes
+			<div class="panel-page__content">
+				@components.PageTitle(props.Title, []components.BreadcrumbItem{
+					{Label: admini18n.T(ctx, "common.admin"), Href: props.Panel.BasePath},
+					{Label: admini18n.T(ctx, "navigation.roles"), Href: props.Panel.BasePath + "/roles"},
+					{Label: props.Title},
+				})
+				<section class="role-editor card" aria-labelledby="page-heading">
+					<form class="form-stack" method="post" action={ templ.URL(props.Action) }>
+						@components.TranslationsInput(props.NameTranslations)
+						<label class="form-checkbox"><input type="checkbox" name="is_super" value="1" checked?={ props.IsSuper }/>{ admini18n.T(ctx, "roles.super_help") }</label>
+						@RolePermissions("role-permissions", admini18n.T(ctx, "fields.permissions"), props.Permissions)
+						<div class="action-group">
+							<button class="button button--primary" type="submit">
+								<i class="ti ti-device-floppy" aria-hidden="true"></i>
+								if props.ID == "" {
+									{ admini18n.T(ctx, "roles.create") }
+								} else {
+									{ admini18n.T(ctx, "actions.save") }
+								}
+							</button>
+							@components.ActionLink(props.Panel.BasePath+"/roles", "button button--secondary", admini18n.T(ctx, "actions.cancel")) {
+								{ admini18n.T(ctx, "actions.cancel") }
 							}
-						</button>
-						@components.ActionLink(props.Panel.BasePath+"/roles", "button button--secondary", "Cancel") {
-							Cancel
-						}
-					</div>
-				</form>
+							if props.ID != "" {
+								@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+props.ID+"/delete", props.Name, "button button--danger role-editor__delete", admini18n.T(ctx, "roles.delete")) {
+									<i class="ti ti-trash" aria-hidden="true"></i>
+									{ admini18n.T(ctx, "roles.delete") }
+								}
+							}
+						</div>
+					</form>
+				</section>
 			</div>
 		</div>
 	}
@@ -226,51 +234,53 @@ templ RoleForm(props RoleFormProps) {
 
 templ RoleView(props RoleViewProps) {
 	@layouts.Panel(props.Panel) {
-		@components.ConfirmDelete(roleDeleteDialog(props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", props.Role.Name, props.DeleteErrors))
+		@components.ConfirmDelete(roleDeleteDialog(ctx, props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", props.Role.Name, props.DeleteErrors))
 		<div class="panel-page">
-			<section class="role-editor card">
-				@components.PageLink(props.Panel.BasePath + "/roles") {
-					<i class="ti ti-arrow-left" aria-hidden="true"></i>
-					Roles
-				}
-				<h1>{ props.Role.Name }</h1>
-				<dl class="details-list">
-					<dt>UUID</dt>
-					<dd class="details-list__uuid">{ props.Role.ID }</dd>
-					for _, name := range props.Names {
-						<dt>Name ({ name.Label })</dt>
-						<dd>{ name.Value }</dd>
-					}
-					<dt>Super role</dt>
-					<dd>
-						@RoleSuper(props.Role.IsSuper)
-					</dd>
-					<dt>Permissions</dt>
-					<dd>
-						if props.Role.IsSuper {
-							All permissions
-						} else if len(props.Role.Permissions) == 0 {
-							None
-						} else {
-							<ul class="details-list__permissions">
-								for _, permission := range props.Role.Permissions {
-									<li>{ permission }</li>
-								}
-							</ul>
+			<div class="panel-page__content">
+				@components.PageTitle(props.Role.Name, []components.BreadcrumbItem{
+					{Label: admini18n.T(ctx, "common.admin"), Href: props.Panel.BasePath},
+					{Label: admini18n.T(ctx, "navigation.roles"), Href: props.Panel.BasePath + "/roles"},
+					{Label: props.Role.Name},
+				})
+				<section class="role-editor card" aria-labelledby="page-heading">
+					<dl class="details-list">
+						<dt>{ admini18n.T(ctx, "fields.uuid") }</dt>
+						<dd class="details-list__uuid">{ props.Role.ID }</dd>
+						for _, name := range props.Names {
+							<dt>{ admini18n.T(ctx, "fields.name_language", map[string]any{"Language": name.Label}) }</dt>
+							<dd>{ name.Value }</dd>
 						}
-					</dd>
-				</dl>
-				<div class="action-group">
-					@components.ActionLink(props.Panel.BasePath+"/roles/"+props.Role.ID+"/edit", "button button--primary", "Edit role") {
-						<i class="ti ti-pencil" aria-hidden="true"></i>
-						Edit role
-					}
-					@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", props.Role.Name, "button button--danger", "Delete role") {
-						<i class="ti ti-trash" aria-hidden="true"></i>
-						Delete role
-					}
-				</div>
-			</section>
+						<dt>{ admini18n.T(ctx, "fields.super_role") }</dt>
+						<dd>
+							@RoleSuper(props.Role.IsSuper)
+						</dd>
+						<dt>{ admini18n.T(ctx, "fields.permissions") }</dt>
+						<dd>
+							if props.Role.IsSuper {
+								{ admini18n.T(ctx, "roles.all_permissions") }
+							} else if len(props.Role.Permissions) == 0 {
+								{ admini18n.T(ctx, "common.none") }
+							} else {
+								<ul class="details-list__permissions">
+									for _, permission := range props.Role.Permissions {
+										<li>{ permission }</li>
+									}
+								</ul>
+							}
+						</dd>
+					</dl>
+					<div class="action-group">
+						@components.ActionLink(props.Panel.BasePath+"/roles/"+props.Role.ID+"/edit", "button button--primary", admini18n.T(ctx, "roles.edit")) {
+							<i class="ti ti-pencil" aria-hidden="true"></i>
+							{ admini18n.T(ctx, "roles.edit") }
+						}
+						@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", props.Role.Name, "button button--danger", admini18n.T(ctx, "roles.delete")) {
+							<i class="ti ti-trash" aria-hidden="true"></i>
+							{ admini18n.T(ctx, "roles.delete") }
+						}
+					</div>
+				</section>
+			</div>
 		</div>
 	}
 }

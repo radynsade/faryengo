@@ -10,10 +10,12 @@
 }
 
 .role-editor {
-	max-width: var(--editor-width);
+	&__delete {
+		margin-inline-start: auto;
+	}
 
-	.form-stack {
-		margin-top: var(--space-5);
+	> .details-list {
+		margin-top: 0;
 	}
 
 	.action-group {

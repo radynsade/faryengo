@@ -1,0 +1,36 @@
+package components
+
+import admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+
+type BreadcrumbItem struct {
+	Label string
+	Href  string
+}
+
+// PageTitle separates page identity and navigation from the content card.
+// The last breadcrumb represents the current page and has no link.
+templ PageTitle(title string, breadcrumbs []BreadcrumbItem) {
+	<header class="page-title">
+		if len(breadcrumbs) > 0 {
+			<nav class="breadcrumbs" aria-label={ admini18n.T(ctx, "common.breadcrumbs") }>
+				<ol class="breadcrumbs__list">
+					for index, item := range breadcrumbs {
+						<li class="breadcrumbs__item">
+							if index > 0 {
+								<i class="ti ti-chevron-right breadcrumbs__separator" aria-hidden="true"></i>
+							}
+							if index == len(breadcrumbs) - 1 {
+								<span aria-current="page">{ item.Label }</span>
+							} else {
+								@ActionLink(item.Href, "breadcrumbs__link", item.Label) {
+									{ item.Label }
+								}
+							}
+						</li>
+					}
+				</ol>
+			</nav>
+		}
+		<h1 id="page-heading" class="page-title__heading">{ title }</h1>
+	</header>
+}

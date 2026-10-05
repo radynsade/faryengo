@@ -1,6 +1,7 @@
 package pages
 
 import (
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 )
@@ -10,15 +11,15 @@ templ Home(props layouts.PanelProps) {
 	@layouts.Panel(props) {
 		<div class="panel-page">
 			<section class="card" aria-labelledby="welcome-title">
-				<p class="card__eyebrow">Your workspace</p>
-				<h1 id="welcome-title">Welcome, { props.FirstName }.</h1>
-				<p>You are signed in. Use the navigation menu to access users and roles.</p>
+				<p class="card__eyebrow">{ admini18n.T(ctx, "common.your_workspace") }</p>
+				<h1 id="welcome-title">{ admini18n.T(ctx, "home.welcome", map[string]any{"Name": props.FirstName}) }</h1>
+				<p>{ admini18n.T(ctx, "home.description") }</p>
 				<div class="card__links">
 					@components.PageLink(props.BasePath + "/users") {
-						Users
+						{ admini18n.T(ctx, "navigation.users") }
 					}
 					@components.PageLink(props.BasePath + "/roles") {
-						Roles
+						{ admini18n.T(ctx, "navigation.roles") }
 					}
 				</div>
 			</section>

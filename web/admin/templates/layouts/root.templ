@@ -1,10 +1,12 @@
 package layouts
 
+import admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+
 import "github.com/radynsade/faryengo/web/admin/assets"
 
 templ Root(title string) {
 	<!DOCTYPE html>
-	<html lang="en">
+	<html lang={ admini18n.Language(ctx) }>
 		<head>
 			<meta charset="UTF-8"/>
 			<meta name="robots" content="noindex, nofollow"/>
@@ -24,7 +26,7 @@ templ Root(title string) {
 		<body hx-history="false">
 			{ children... }
 			<p id="navigation-error" class="navigation-error" role="alert" hidden>
-				Unable to load this page. Please try again.
+				{ admini18n.T(ctx, "navigation.error") }
 			</p>
 		</body>
 	</html>

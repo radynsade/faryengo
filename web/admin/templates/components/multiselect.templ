@@ -1,36 +1,104 @@
 package components
 
-// MultiSelect keeps a native select as the form value and no-JavaScript fallback.
-templ MultiSelect(id, name, label, placeholder string) {
-	<div class="form-field multiselect" data-multiselect>
-		<label class="form-field__label" id={ id + "-label" } for={ id }>{ label }</label>
-		<select class="form-field__input multiselect__native" id={ id } name={ name } multiple>
-			{ children... }
+import (
+	"context"
+	"encoding/json"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+	"strconv"
+	"strings"
+)
+
+type MultiSelectOption struct {
+	Value    string
+	Label    string
+	Selected bool
+	Disabled bool
+}
+
+type MultiSelectProps struct {
+	ID          string
+	Name        string
+	Label       string
+	Placeholder string
+	Disabled    bool
+	Options     []MultiSelectOption
+}
+
+func (props MultiSelectProps) selectedLabels() []string {
+	labels := make([]string, 0, len(props.Options))
+
+	for _, option := range props.Options {
+		if option.Selected {
+			labels = append(labels, option.Label)
+		}
+	}
+
+	return labels
+}
+
+// Selection statuses use go-i18n's plural rules for every possible selection count.
+func selectedStatusMessages(ctx context.Context, optionCount int) string {
+	messages := make([]string, optionCount+1)
+
+	for count := range messages {
+		messages[count] = admini18n.Count(ctx, "multiselect.selected", count)
+	}
+
+	data, _ := json.Marshal(messages)
+	return string(data)
+}
+
+// MultiSelect renders the initial widget state and keeps a native select for submission.
+templ MultiSelect(props MultiSelectProps) {
+	{{ selected := props.selectedLabels() }}
+	<div class="form-field multiselect" data-multiselect data-selected-status={ selectedStatusMessages(ctx, len(props.Options)) }>
+		<label class="form-field__label multiselect__label" id={ props.ID + "-label" } for={ props.ID + "-input" }>{ props.Label }</label>
+		<label class="form-field__label multiselect__native-label" for={ props.ID } hidden>{ props.Label }</label>
+		<select class="form-field__input multiselect__native" id={ props.ID } name={ props.Name } multiple hidden disabled?={ props.Disabled } aria-labelledby={ props.ID + "-label" }>
+			for _, option := range props.Options {
+				<option value={ option.Value } selected?={ option.Selected } disabled?={ option.Disabled }>{ option.Label }</option>
+			}
 		</select>
-		<div class="multiselect__widget" hidden>
+		<div class="multiselect__widget">
 			<div class="multiselect__control">
 				<input
 					class="form-field__input multiselect__input"
-					id={ id + "-input" }
+					id={ props.ID + "-input" }
 					type="text"
-					placeholder={ placeholder }
+					if len(selected) > 0 {
+						placeholder={ strings.Join(selected, ", ") }
+					} else {
+						placeholder={ props.Placeholder }
+					}
+					data-placeholder={ props.Placeholder }
+					disabled?={ props.Disabled }
 					autocomplete="off"
 					spellcheck="false"
 					role="combobox"
 					aria-autocomplete="list"
 					aria-haspopup="listbox"
 					aria-expanded="false"
-					aria-labelledby={ id + "-label" }
-					aria-controls={ id + "-options" }
+					aria-labelledby={ props.ID + "-label" }
+					aria-controls={ props.ID + "-options" }
 				/>
-				<span class="multiselect__count" hidden aria-hidden="true"></span>
+				<span class="multiselect__count" hidden?={ len(selected) == 0 } aria-hidden="true">{ strconv.Itoa(len(selected)) }</span>
 				<div class="multiselect__dropdown" hidden>
-					<ul class="multiselect__options" id={ id + "-options" } role="listbox" aria-multiselectable="true" aria-labelledby={ id + "-label" }></ul>
-					<p class="multiselect__empty" hidden>No matching options.</p>
+					<ul class="multiselect__options" id={ props.ID + "-options" } role="listbox" aria-multiselectable="true" aria-labelledby={ props.ID + "-label" }>
+						for index, option := range props.Options {
+							<li id={ props.ID + "-option-" + strconv.Itoa(index) } data-index={ strconv.Itoa(index) } role="option" aria-selected={ strconv.FormatBool(option.Selected) } aria-disabled={ strconv.FormatBool(option.Disabled) } data-remove-label={ admini18n.T(ctx, "actions.remove_named", map[string]any{"Name": option.Label}) }>{ option.Label }</li>
+						}
+					</ul>
+					<p class="multiselect__empty" hidden?={ len(props.Options) > 0 }>{ admini18n.T(ctx, "multiselect.empty") }</p>
 				</div>
 			</div>
-			<div class="multiselect__values"></div>
-			<span class="visually-hidden multiselect__status" role="status" aria-live="polite"></span>
+			<div class="multiselect__values">
+				for index, option := range props.Options {
+					if option.Selected {
+						<button class="multiselect__value" type="button" data-index={ strconv.Itoa(index) } disabled?={ option.Disabled || props.Disabled } aria-label={ admini18n.T(ctx, "actions.remove_named", map[string]any{"Name": option.Label}) }>{ option.Label }<i class="ti ti-x" aria-hidden="true"></i></button>
+					}
+				}
+			</div>
+			<span class="visually-hidden multiselect__status" role="status" aria-live="polite">{ admini18n.Count(ctx, "multiselect.selected", len(selected)) }</span>
 		</div>
 	</div>
 }

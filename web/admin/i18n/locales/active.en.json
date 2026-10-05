@@ -1,0 +1,312 @@
+{
+  "common.admin": {
+    "other": "Admin"
+  },
+  "common.panel": {
+    "other": "Admin panel"
+  },
+  "common.workspace": {
+    "other": "Workspace"
+  },
+  "common.your_workspace": {
+    "other": "Your workspace"
+  },
+  "common.yes": {
+    "other": "Yes"
+  },
+  "common.no": {
+    "other": "No"
+  },
+  "common.any": {
+    "other": "Any"
+  },
+  "common.none": {
+    "other": "None"
+  },
+  "common.done": {
+    "other": "Done!"
+  },
+  "common.language": {
+    "other": "Language"
+  },
+  "common.breadcrumbs": {
+    "other": "Breadcrumbs"
+  },
+  "common.total_found": {
+    "other": "Total found: {{.Count}}"
+  },
+  "navigation.users": {
+    "other": "Users"
+  },
+  "navigation.roles": {
+    "other": "Roles"
+  },
+  "navigation.skip": {
+    "other": "Skip to content"
+  },
+  "navigation.sidebar": {
+    "other": "Admin sidebar"
+  },
+  "navigation.menu": {
+    "other": "Admin navigation"
+  },
+  "navigation.account": {
+    "other": "Your account"
+  },
+  "navigation.error": {
+    "other": "Unable to load this page. Please try again."
+  },
+  "actions.sign_in": {
+    "other": "Sign in"
+  },
+  "actions.sign_out": {
+    "other": "Sign out"
+  },
+  "actions.create": {
+    "other": "Create"
+  },
+  "actions.filter": {
+    "other": "Filter"
+  },
+  "actions.apply_filters": {
+    "other": "Apply filters"
+  },
+  "actions.reset_filters": {
+    "other": "Reset filters"
+  },
+  "actions.reset": {
+    "other": "Reset"
+  },
+  "actions.cancel": {
+    "other": "Cancel"
+  },
+  "actions.delete": {
+    "other": "Delete"
+  },
+  "actions.close": {
+    "other": "Close"
+  },
+  "actions.save": {
+    "other": "Save changes"
+  },
+  "actions.view_named": {
+    "other": "View {{.Name}}"
+  },
+  "actions.edit_named": {
+    "other": "Edit {{.Name}}"
+  },
+  "actions.delete_named": {
+    "other": "Delete {{.Name}}"
+  },
+  "actions.remove_named": {
+    "other": "Remove {{.Name}}"
+  },
+  "actions.sort_by": {
+    "other": "Sort by {{.Label}}"
+  },
+  "pagination.first": {
+    "other": "First page"
+  },
+  "pagination.previous": {
+    "other": "Previous page"
+  },
+  "pagination.next": {
+    "other": "Next page"
+  },
+  "pagination.last": {
+    "other": "Last page"
+  },
+  "pagination.roles": {
+    "other": "Roles pages"
+  },
+  "fields.email": {
+    "other": "Email address"
+  },
+  "fields.password": {
+    "other": "Password"
+  },
+  "fields.password_placeholder": {
+    "other": "Enter your password"
+  },
+  "fields.name": {
+    "other": "Name"
+  },
+  "fields.uuid": {
+    "other": "UUID"
+  },
+  "fields.super": {
+    "other": "Super"
+  },
+  "fields.permissions": {
+    "other": "Permissions"
+  },
+  "fields.super_role": {
+    "other": "Super role"
+  },
+  "fields.uuid_contains": {
+    "other": "UUID contains"
+  },
+  "fields.name_contains": {
+    "other": "Name contains"
+  },
+  "fields.permissions_all": {
+    "other": "Permissions (all selected)"
+  },
+  "fields.select_permissions": {
+    "other": "Select permissions"
+  },
+  "fields.actions": {
+    "other": "Actions"
+  },
+  "fields.languages": {
+    "other": "{{.Label}} languages"
+  },
+  "fields.name_language": {
+    "other": "Name ({{.Language}})"
+  },
+  "multiselect.empty": {
+    "other": "No matching options."
+  },
+  "auth.description": {
+    "other": "Enter your details to access the admin panel."
+  },
+  "auth.continue": {
+    "other": "Continue your session"
+  },
+  "auth.forgot": {
+    "other": "Forgot your password?"
+  },
+  "auth.restore": {
+    "other": "Restore password"
+  },
+  "auth.restore_description": {
+    "other": "Enter your email address to reset your password."
+  },
+  "auth.send_reset": {
+    "other": "Send reset link"
+  },
+  "auth.back": {
+    "other": "Back to sign in"
+  },
+  "home.welcome": {
+    "other": "Welcome, {{.Name}}."
+  },
+  "home.description": {
+    "other": "You are signed in. Use the navigation menu to access users and roles."
+  },
+  "home.users_soon": {
+    "other": "Users management is coming soon."
+  },
+  "roles.create": {
+    "other": "Create role"
+  },
+  "roles.edit": {
+    "other": "Edit role"
+  },
+  "roles.delete": {
+    "other": "Delete role"
+  },
+  "roles.delete_message": {
+    "other": "Are you sure you want to delete the role? You will not be able to restore it."
+  },
+  "roles.table": {
+    "other": "Roles table"
+  },
+  "roles.caption": {
+    "other": "Roles and their permissions"
+  },
+  "roles.your_role": {
+    "other": "Your role"
+  },
+  "roles.all_permissions": {
+    "other": "All permissions"
+  },
+  "roles.super_help": {
+    "other": "Super role (grants all permissions)"
+  },
+  "roles.name_help": {
+    "other": "Enter a name in at least one language. Leave a translation blank to omit it."
+  },
+  "roles.empty": {
+    "other": "No roles found. Try changing or resetting your filters."
+  },
+  "roles.created": {
+    "other": "Role \"{{.Name}}\" created successfully."
+  },
+  "roles.updated": {
+    "other": "Role \"{{.Name}}\" updated successfully."
+  },
+  "roles.deleted": {
+    "other": "Role \"{{.Name}}\" deleted successfully."
+  },
+  "permissions.manage_user": {
+    "other": "Manage users"
+  },
+  "permissions.view_user": {
+    "other": "View users"
+  },
+  "permissions.manage_role": {
+    "other": "Manage roles"
+  },
+  "permissions.view_role": {
+    "other": "View roles"
+  },
+  "errors.sign_in_form": {
+    "other": "Submit the sign-in form to continue."
+  },
+  "errors.credentials_form": {
+    "other": "Enter a valid email address and password."
+  },
+  "errors.sign_in_unavailable": {
+    "other": "Sign-in is temporarily unavailable. Please try again."
+  },
+  "errors.invalid_session": {
+    "other": "The email, password, or session is invalid. Please sign in again."
+  },
+  "errors.access": {
+    "other": "You do not have permission to access this page."
+  },
+  "errors.section": {
+    "other": "You do not have permission to view this section."
+  },
+  "errors.throttled": {
+    "other": "Too many sign-in attempts. Please try again in 15 minutes."
+  },
+  "errors.notifications": {
+    "other": "Notifications are temporarily unavailable. Please reload before submitting again."
+  },
+  "errors.roles": {
+    "other": "Roles are temporarily unavailable. Please try again."
+  },
+  "errors.role_not_found": {
+    "other": "Role not found."
+  },
+  "errors.role_used": {
+    "other": "This role is assigned to users. Reassign those users before deleting it."
+  },
+  "errors.role_exists": {
+    "other": "This role already exists."
+  },
+  "errors.role_form": {
+    "other": "Submit a valid role form."
+  },
+  "errors.role_query": {
+    "other": "Check the filters, sort order, and page number."
+  },
+  "errors.role_values": {
+    "other": "Enter a name in at least one language and select valid permissions."
+  },
+  "errors.language_missing": {
+    "other": "A selected language is no longer available. Reload the form and try again."
+  },
+  "multiselect.selected": {
+    "one": "{{.Count}} selected",
+    "other": "{{.Count}} selected"
+  },
+  "fields.email_placeholder": {
+    "other": "you@example.com"
+  },
+  "errors.cross_origin": {
+    "other": "This request was blocked. Reload the page and try again."
+  }
+}

@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -19,6 +20,7 @@ import (
 	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
@@ -44,7 +46,7 @@ func (h *Handler) roles(writer http.ResponseWriter, request *http.Request) {
 
 			if err == nil {
 				for _, role := range props.Page.Roles {
-					props.Rows = append(props.Rows, roleRow(role, actor, query.Language, catalog))
+					props.Rows = append(props.Rows, roleRow(request.Context(), role, actor, query.Language, catalog))
 				}
 			}
 		}
@@ -60,12 +62,12 @@ func (h *Handler) roles(writer http.ResponseWriter, request *http.Request) {
 			props.Rows = nil
 		}
 
-		props.Permissions = permissionOptions(query.Filters.Permissions)
+		props.Permissions = permissionOptions(request.Context(), query.Filters.Permissions)
 
 		if flashErr != nil {
 			h.flashUnavailable(writer, request, flashErr)
 		} else {
-			h.renderPage(writer, request, "Roles · Faryen Admin", pages.Roles(props), templ.WithStatus(status))
+			h.renderPage(writer, request, admini18n.T(request.Context(), "navigation.roles")+" · Faryen "+admini18n.T(request.Context(), "common.admin"), pages.Roles(props), templ.WithStatus(status))
 		}
 	})
 }
@@ -161,12 +163,13 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 		if err != nil {
 			h.renderRoleError(writer, request, panel, err)
 		} else {
-			props := pages.RoleFormProps{Panel: panel, Title: "Create role", Action: panel.BasePath + "/roles/create"}
+			props := pages.RoleFormProps{Panel: panel, Title: admini18n.T(request.Context(), "roles.create"), Action: panel.BasePath + "/roles/create"}
 			values := input.CreateRoleInput{Name: make(map[string]string), Permissions: []security.Permission{}}
 
 			if edit {
 				props.ID = uuid.UUID(id).String()
-				props.Title, props.Action = "Edit role", panel.BasePath+"/roles/"+props.ID+"/edit"
+				props.Name = roleRow(request.Context(), role, actor, languages.LanguageCode(request.PathValue("language")), catalog).Name
+				props.Title, props.Action = admini18n.T(request.Context(), "roles.edit"), panel.BasePath+"/roles/"+props.ID+"/edit"
 				values.IsSuper, values.Permissions = role.IsSuper(), role.Permissions()
 
 				for _, translation := range role.Name().Translations() {
@@ -189,14 +192,14 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 				}
 
 				if err == nil {
-					operation := "created"
+					operation := "roles.created"
 
 					if edit {
-						operation = "updated"
+						operation = "roles.updated"
 					}
 
-					row := roleRow(role, actor, languages.LanguageCode(request.PathValue("language")), catalog)
-					message := fmt.Sprintf(`Role "%s" %s successfully.`, row.Name, operation)
+					row := roleRow(request.Context(), role, actor, languages.LanguageCode(request.PathValue("language")), catalog)
+					message := admini18n.T(request.Context(), operation, map[string]any{"Name": row.Name})
 
 					if flashErr := h.addFlash(request.Context(), writer, request, flashmsg.Success, message); flashErr != nil {
 						h.flashUnavailable(writer, request, flashErr)
@@ -217,10 +220,10 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 			}
 
 			if !responded {
-				props.NameTranslations = roleNameTranslations(catalog, values.Name, request.PathValue("language"))
-				props.Permissions = permissionOptions(values.Permissions)
+				props.NameTranslations = roleNameTranslations(request.Context(), catalog, values.Name, request.PathValue("language"))
+				props.Permissions = permissionOptions(request.Context(), values.Permissions)
 				props.IsSuper = values.IsSuper
-				h.renderPage(writer, request, props.Title+" · Faryen Admin", pages.RoleForm(props), templ.WithStatus(status))
+				h.renderPage(writer, request, props.Title+" · Faryen "+admini18n.T(request.Context(), "common.admin"), pages.RoleForm(props), templ.WithStatus(status))
 			}
 		}
 	})
@@ -315,7 +318,7 @@ func (h *Handler) roleDetails(writer http.ResponseWriter, request *http.Request,
 				h.renderRoleError(writer, request, panel, err)
 			}
 		} else {
-			props := pages.RoleViewProps{Panel: panel, Role: roleRow(role, actor, languages.LanguageCode(request.PathValue("language")), catalog)}
+			props := pages.RoleViewProps{Panel: panel, Role: roleRow(request.Context(), role, actor, languages.LanguageCode(request.PathValue("language")), catalog)}
 			names := make(map[string]string)
 
 			for _, translation := range role.Name().Translations() {
@@ -343,7 +346,7 @@ func (h *Handler) roleDetails(writer http.ResponseWriter, request *http.Request,
 				}
 
 				if err == nil {
-					message := fmt.Sprintf(`Role "%s" deleted successfully.`, props.Role.Name)
+					message := admini18n.T(request.Context(), "roles.deleted", map[string]any{"Name": props.Role.Name})
 
 					if flashErr := h.addFlash(request.Context(), writer, request, flashmsg.Success, message); flashErr != nil {
 						h.flashUnavailable(writer, request, flashErr)
@@ -379,7 +382,7 @@ func (h *Handler) roleDetails(writer http.ResponseWriter, request *http.Request,
 					if err != nil {
 						h.flashUnavailable(writer, request, err)
 					} else {
-						h.renderPage(writer, request, props.Role.Name+" · Faryen Admin", pages.RoleView(props), templ.WithStatus(status))
+						h.renderPage(writer, request, props.Role.Name+" · Faryen "+admini18n.T(request.Context(), "common.admin"), pages.RoleView(props), templ.WithStatus(status))
 					}
 				}
 			}
@@ -402,8 +405,8 @@ func (h *Handler) renderRoleDeleteError(writer http.ResponseWriter, request *htt
 		writer.Header().Set("HX-Retarget", "#confirm-delete")
 		writer.Header().Set("HX-Reswap", "outerHTML")
 		templ.Handler(components.ConfirmDelete(components.ConfirmDeleteProps{
-			ID: "confirm-delete", Title: "Delete role", Name: name, Action: request.URL.Path, Errors: bag.Get(flashmsg.Error),
-			Message: "Are you sure you want to delete the role? You will not be able to restore it.",
+			ID: "confirm-delete", Title: admini18n.T(request.Context(), "roles.delete"), Name: name, Action: request.URL.Path, Errors: bag.Get(flashmsg.Error),
+			Message: admini18n.T(request.Context(), "roles.delete_message"),
 		}), templ.WithStatus(status)).ServeHTTP(writer, request)
 	}
 }
@@ -423,16 +426,16 @@ func roleNameFields(catalog []*languages.Language, names map[string]string) []pa
 
 	for _, language := range catalog {
 		code := string(language.Code())
-		fields = append(fields, pages.RoleNameField{Code: code, Label: string(language.EnglishName()) + " (" + code + ")", Value: names[code]})
+		fields = append(fields, pages.RoleNameField{Code: code, Label: string(language.NativeName()) + " (" + code + ")", Value: names[code]})
 	}
 
 	return fields
 }
 
-func roleNameTranslations(catalog []*languages.Language, names map[string]string, language string) components.TranslationsInputProps {
+func roleNameTranslations(ctx context.Context, catalog []*languages.Language, names map[string]string, language string) components.TranslationsInputProps {
 	props := components.TranslationsInputProps{
-		ID: "role-name", Name: "name", Label: "Name", Language: language, MaxLength: 500,
-		Help:   "Enter a name in at least one language. Leave a translation blank to omit it.",
+		ID: "role-name", Name: "name", Label: admini18n.T(ctx, "fields.name"), Language: language, MaxLength: 500,
+		Help:   admini18n.T(ctx, "roles.name_help"),
 		Values: make([]components.TranslationInputValue, 0, len(catalog)),
 	}
 
@@ -444,22 +447,21 @@ func roleNameTranslations(catalog []*languages.Language, names map[string]string
 	return props
 }
 
-func permissionLabel(permission security.Permission) string {
-	labels := map[security.Permission]string{security.PermissionManageUser: "Manage users", security.PermissionViewUser: "View users", security.PermissionManageRole: "Manage roles", security.PermissionViewRole: "View roles"}
-	return labels[permission]
+func permissionLabel(ctx context.Context, permission security.Permission) string {
+	return admini18n.T(ctx, "permissions."+string(permission))
 }
 
-func permissionOptions(selected []security.Permission) []pages.PermissionOption {
+func permissionOptions(ctx context.Context, selected []security.Permission) []pages.PermissionOption {
 	options := make([]pages.PermissionOption, 0, len(security.AllPermissions()))
 
 	for _, permission := range security.AllPermissions() {
-		options = append(options, pages.PermissionOption{Value: permission, Label: permissionLabel(permission), Selected: slices.Contains(selected, permission)})
+		options = append(options, pages.PermissionOption{Value: permission, Label: permissionLabel(ctx, permission), Selected: slices.Contains(selected, permission)})
 	}
 
 	return options
 }
 
-func roleRow(role *security.Role, actor security.Principal, code languages.LanguageCode, catalog []*languages.Language) pages.RoleRow {
+func roleRow(ctx context.Context, role *security.Role, actor security.Principal, code languages.LanguageCode, catalog []*languages.Language) pages.RoleRow {
 	name := role.Name()
 	translation, found := name.Translation(code)
 
@@ -479,7 +481,7 @@ func roleRow(role *security.Role, actor security.Principal, code languages.Langu
 
 	for _, permission := range security.AllPermissions() {
 		if slices.Contains(role.Permissions(), permission) {
-			row.Permissions = append(row.Permissions, permissionLabel(permission))
+			row.Permissions = append(row.Permissions, permissionLabel(ctx, permission))
 		}
 	}
 
@@ -492,28 +494,28 @@ func (h *Handler) renderRoleError(writer http.ResponseWriter, request *http.Requ
 	if flashErr := h.addFlash(request.Context(), writer, request, flashmsg.Error, message); flashErr != nil {
 		h.flashUnavailable(writer, request, flashErr)
 	} else {
-		h.renderPage(writer, request, "Roles · Faryen Admin", pages.PanelSection(panel, ""), templ.WithStatus(status))
+		h.renderPage(writer, request, admini18n.T(request.Context(), "navigation.roles")+" · Faryen "+admini18n.T(request.Context(), "common.admin"), pages.PanelSection(panel, ""), templ.WithStatus(status))
 	}
 }
 
 func roleError(request *http.Request, err error) (int, string) {
-	status, message := http.StatusInternalServerError, "Roles are temporarily unavailable. Please try again."
+	status, message := http.StatusInternalServerError, admini18n.T(request.Context(), "errors.roles")
 
 	switch {
 	case errors.Is(err, security.ErrRoleNotFound):
-		status, message = http.StatusNotFound, "Role not found."
+		status, message = http.StatusNotFound, admini18n.T(request.Context(), "errors.role_not_found")
 	case errors.Is(err, security.ErrRoleAlreadyInUse):
-		status, message = http.StatusConflict, "This role is assigned to users. Reassign those users before deleting it."
+		status, message = http.StatusConflict, admini18n.T(request.Context(), "errors.role_used")
 	case errors.Is(err, security.ErrRoleAlreadyExists):
-		status, message = http.StatusConflict, "This role already exists."
+		status, message = http.StatusConflict, admini18n.T(request.Context(), "errors.role_exists")
 	case errors.Is(err, security.ErrInvalidRoleID), errors.Is(err, errInvalidRoleForm):
-		status, message = http.StatusBadRequest, "Submit a valid role form."
+		status, message = http.StatusBadRequest, admini18n.T(request.Context(), "errors.role_form")
 	case errors.Is(err, security.ErrInvalidRoleQuery):
-		status, message = http.StatusBadRequest, "Check the filters, sort order, and page number."
+		status, message = http.StatusBadRequest, admini18n.T(request.Context(), "errors.role_query")
 	case errors.Is(err, input.ErrInvalidCreateRoleInput), errors.Is(err, input.ErrInvalidUpdateRoleInput):
-		status, message = http.StatusUnprocessableEntity, "Enter a name in at least one language and select valid permissions."
+		status, message = http.StatusUnprocessableEntity, admini18n.T(request.Context(), "errors.role_values")
 	case errors.Is(err, languages.ErrLanguageNotFound):
-		status, message = http.StatusUnprocessableEntity, "A selected language is no longer available. Reload the form and try again."
+		status, message = http.StatusUnprocessableEntity, admini18n.T(request.Context(), "errors.language_missing")
 	}
 
 	if status == http.StatusInternalServerError {

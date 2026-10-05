@@ -33,6 +33,7 @@ styles/
     _buttons.scss           Text buttons and icon buttons
     _forms.scss             Fields, stacks, fieldsets, checkboxes
     _cards.scss             Inset content cards
+    _page-title.scss        Page heading and breadcrumb navigation
     _collection.scss        Toolbars, action groups, tag lists, pagination
     _tables.scss            Scroll regions, tables, sort links
     _filter-menu.scss       Collapsible filter popover
@@ -41,6 +42,7 @@ styles/
     _navigation-feedback.scss  Navigation failure toast
     _links.scss             Inline text links
     _multiselect.scss       Searchable multiple selection
+    _language-switcher.scss Interface language links
     _translations-input.scss  Language tabs and translation fields
     _dialog.scss            Native dialog surface and close control
     _confirm-delete.scss    Destructive confirmation content
@@ -79,7 +81,7 @@ hold values used by rendered elements and allow scoped overrides.
 | Spacing | `--space-1` through `--space-6`, `--space-8`, `--space-12` | Layout gaps, insets, larger empty states |
 | Typography | `--font-family`, `--font-size-control`, `--font-size-title`, `--font-weight-semibold`, `--line-height-body` | Shared type roles |
 | Geometry | `--radius-control`, `--radius-panel`, `--border-width`, `--control-height`, `--icon-action-size` | Controls, cards, borders, icon actions |
-| Width limits | `--sidebar-width`, `--auth-width`, `--editor-width`, `--table-min-width` | Layout and component constraints |
+| Width limits | `--sidebar-width`, `--auth-width`, `--page-content-width`, `--table-min-width` | Layout and component constraints |
 | Elevation | `--shadow-panel`, `--shadow-dropdown`, `--shadow-popover`, `--shadow-dialog` | Surface hierarchy |
 | Focus and motion | `--focus-width`, `--focus-offset`, `--focus-halo`, `--duration-fast`, `--ease-standard` | Keyboard indication and transitions |
 | Stacking | `--z-skip-link`, `--z-popover`, `--z-dropdown` | In-page overlays; native modal dialogs use the top layer |
@@ -156,6 +158,7 @@ an existing JavaScript hook alongside the generic `filter-menu` class.
 | Icon actions | `.icon-button`; use `--danger` for destructive row actions and accessible labels for icon-only controls |
 | Forms | `.form-stack`, `.form-field`, `__label`, `__input`, `.form-checkbox`, `.form-fieldset` |
 | Cards | `.card`, `__eyebrow`, `__links`; page content owns its heading and paragraphs |
+| Page titles | `.page-title`, `__heading`, `.breadcrumbs`, `__list`, `__item`, `__link`, `__separator`; `PageTitle` renders the title and an ordered breadcrumb list |
 | Collection layout | `.list-toolbar`, `__controls`, `.action-group`, `.tag-list`, `.pagination`, `__current` |
 | Tables | `.data-table-scroll`, `.data-table`, `__actions`, `__empty`, `.table-sort`; page rules own domain-specific column widths |
 | Filters | `.filter-menu`, `__form`; native `details` and `summary` remain usable without JavaScript |
@@ -168,7 +171,7 @@ Save. The secondary variant has muted text, a white surface, and a line border;
 hover uses accent text and a soft accent background without changing the border.
 Filter, Sign out, and ordinary row actions use this same recipe. Sign out keeps
 the account block's full-width geometry. The filled danger variant is used in
-confirmation and detail actions; the danger-outline recipe gives row Delete its
+confirmation, detail, and edit actions; the danger-outline recipe gives row Delete its
 red text and pale red hover. Button dimensions and color variants are separate
 decisions.
 
@@ -182,18 +185,60 @@ multiselect dropdowns, and modal dialogs use their respective elevation tokens.
 Dialog content owns its spacing and typography; the dialog shell owns positioning,
 backdrop, overflow, and its close control.
 
+Multiselects render their complete initial layout on the server from typed
+options: search placeholder, selected tags, count badge, listbox options, and
+ARIA state. The dropdown and native submission select are hidden in the initial
+HTML. JavaScript hydrates the existing elements by attaching listeners; it does
+not rebuild the layout or change visibility on load or after HTMX swaps. Later
+selection, search, and reset interactions update that state. A `scripting: none`
+CSS fallback shows the native select and its label when JavaScript is disabled.
+
+Translation fields render the initial language selection on the server, falling
+back to the first configured language when the requested language is unavailable.
+The initial HTML renders the visible tab bar, selected tab, tab focus order,
+panel ARIA attributes, and `hidden` on inactive panels. JavaScript hydrates
+delegated interactions and changes state only in response to tab navigation,
+form reset, or validation; it does not recompute or rewrite the initial state.
+HTMX fragments carry the same complete markup and need no initialization pass.
+The `scripting: none` CSS fallback hides the tab bar and reveals all native
+fields when JavaScript is disabled.
+
 ## Layout and page responsibilities
+
+The reusable `LanguageSwitcher` renders native locale links in the sidebar and
+authentication layout. It uses shared button tokens, with an accent treatment for
+the selected locale, and wraps on narrow screens. Layouts own its placement:
+the sidebar places it after navigation, and the authentication panel separates it
+from the form with a border. Its complete layout is server-rendered. All interface
+copy, including accessible labels and interactive widget messages, uses the
+embedded go-i18n catalogs; see [admin-i18n.md](admin-i18n.md).
 
 `layouts/_panel.scss` owns the authenticated shell: a sticky, scrollable sidebar,
 the account card, navigation, skip link, main area, and optional `.panel-page`
 inset. At 720px and below it becomes a header with a two-column menu. The main
 area has no shared padding or width limit, allowing collection tables to fill it.
 
+Inset detail and form pages use `.panel-page__content` inside `.panel-page` to
+center a content column, with a 960px maximum controlled by
+`--page-content-width`. The page title and card share this column so their edges
+align. `PageTitle` takes a title and `BreadcrumbItem` values (label and URL);
+the last item is the current page and renders as unlinked text with
+`aria-current="page"`. Breadcrumb links use the shared HTMX navigation behavior.
+The heading is the page's single `h1`, with ID `page-heading`; a content card can
+reference it using `aria-labelledby`. Keep the title and breadcrumbs above the
+card instead of placing a back link or a duplicate page heading inside it.
+
 `layouts/_auth.scss` owns centering, panel width, auth heading, brand divider,
 footer, and full-width form submission buttons. Compact screens reduce its inset.
 
 `pages/_roles.scss` owns the full-width role list, total/supporting text, editor
-width and composition, and UUID column proportion. Shared component rules belong
+composition, and UUID column proportion. View, create, and edit pages use the
+centered content column with Admin → Roles → current-page breadcrumbs.
+The edit form places its Delete action at the end of the action row, separated
+from Save and Cancel. It opens the shared confirmation dialog outside the edit
+form; deletion submits only the confirmation form and uses the persisted,
+localized role name. The create form has no Delete action.
+Shared component rules belong
 in `components/`, even when Roles is currently their only consumer. Future Users
 pages should compose these components without importing Roles styles.
 

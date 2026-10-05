@@ -4,6 +4,10 @@
 	position: relative;
 	min-width: 0;
 
+	[hidden] {
+		display: none;
+	}
+
 	&__control {
 		position: relative;
 	}
@@ -119,6 +123,21 @@
 		&:disabled {
 			opacity: 0.5;
 			cursor: not-allowed;
+		}
+	}
+}
+
+// Native controls are only shown when scripting is disabled.
+@media (scripting: none) {
+	.multiselect {
+		.multiselect__label,
+		.multiselect__widget {
+			display: none;
+		}
+
+		.multiselect__native[hidden],
+		.multiselect__native-label[hidden] {
+			display: block;
 		}
 	}
 }

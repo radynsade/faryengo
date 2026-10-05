@@ -1,31 +1,46 @@
 package components
 
+import admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+
 import "strings"
 
 type ConfirmDeleteProps struct {
-	ID string
-	Title string
-	Name string
+	ID      string
+	Title   string
+	Name    string
 	Message string
-	Action string
-	Errors []string
+	Action  string
+	Errors  []string
 }
 
 templ DeleteButton(dialogID, action, name, className, label string) {
-	<button type="button" class={ className } aria-label={ label } aria-haspopup="dialog" aria-controls={ dialogID }
-		data-confirm-delete={ dialogID } data-confirm-action={ action } data-confirm-name={ name }>
+	<button
+		type="button"
+		class={ className }
+		aria-label={ label }
+		aria-haspopup="dialog"
+		aria-controls={ dialogID }
+		data-confirm-delete={ dialogID }
+		data-confirm-action={ action }
+		data-confirm-name={ name }
+	>
 		{ children... }
 	</button>
 }
 
 templ ConfirmDelete(props ConfirmDeleteProps) {
-	<dialog id={ props.ID } class="admin-dialog confirm-delete" role="alertdialog" aria-labelledby={ props.ID + "-title" } aria-describedby={ props.ID + "-message" }
+	<dialog
+		id={ props.ID }
+		class="admin-dialog confirm-delete"
+		role="alertdialog"
+		aria-labelledby={ props.ID + "-title" }
+		aria-describedby={ props.ID + "-message" }
 		data-dialog
 		if len(props.Errors) > 0 {
 			data-dialog-open
 		}
 	>
-		<button class="admin-dialog__close" type="button" aria-label="Close" data-dialog-close>
+		<button class="admin-dialog__close" type="button" aria-label={ admini18n.T(ctx, "actions.close") } data-dialog-close>
 			<i class="ti ti-x" aria-hidden="true"></i>
 		</button>
 		<div class="confirm-delete__body">
@@ -39,14 +54,21 @@ templ ConfirmDelete(props ConfirmDeleteProps) {
 			<p id={ props.ID + "-message" } class="confirm-delete__message">{ props.Message }</p>
 			<p class="confirm-delete__error" role="alert" hidden?={ len(props.Errors) == 0 } data-confirm-error>{ strings.Join(props.Errors, " ") }</p>
 		</div>
-		<form class="confirm-delete__footer" method="post" action={ templ.URL(props.Action) }
+		<form
+			class="confirm-delete__footer"
+			method="post"
+			action={ templ.URL(props.Action) }
 			if props.Action != "" {
 				hx-post={ props.Action }
 			}
-			hx-target={ "#" + props.ID } hx-swap="outerHTML" hx-sync="this:drop" hx-disabled-elt="find button[type='submit']">
+			hx-target={ "#" + props.ID }
+			hx-swap="outerHTML"
+			hx-sync="this:drop"
+			hx-disabled-elt="find button[type='submit']"
+		>
 			<input type="hidden" name="confirm" value="delete"/>
-			<button class="button button--secondary" type="button" autofocus data-dialog-close>Cancel</button>
-			<button class="button button--danger" type="submit">Delete</button>
+			<button class="button button--secondary" type="button" autofocus data-dialog-close>{ admini18n.T(ctx, "actions.cancel") }</button>
+			<button class="button button--danger" type="submit">{ admini18n.T(ctx, "actions.delete") }</button>
 		</form>
 	</dialog>
 }

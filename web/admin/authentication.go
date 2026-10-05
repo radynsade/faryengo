@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"mime"
@@ -12,6 +13,7 @@ import (
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/security"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 )
 
 var errSignInThrottled = errors.New("too many sign-in attempts")
@@ -20,18 +22,18 @@ func (h *Handler) signIn(writer http.ResponseWriter, request *http.Request) {
 	mediaType, _, mediaErr := mime.ParseMediaType(request.Header.Get("Content-Type"))
 
 	if mediaErr != nil || mediaType != "application/x-www-form-urlencoded" {
-		h.renderSignIn(writer, request, http.StatusUnsupportedMediaType, "", "Submit the sign-in form to continue.")
+		h.renderSignIn(writer, request, http.StatusUnsupportedMediaType, "", admini18n.T(request.Context(), "errors.sign_in_form"))
 	} else {
 		request.Body = http.MaxBytesReader(writer, request.Body, 32768)
 		parseErr := request.ParseForm()
 
 		if parseErr != nil || len(request.PostForm) != 2 || len(request.PostForm["email"]) != 1 || len(request.PostForm["password"]) != 1 {
-			h.renderSignIn(writer, request, http.StatusBadRequest, "", "Enter a valid email address and password.")
+			h.renderSignIn(writer, request, http.StatusBadRequest, "", admini18n.T(request.Context(), "errors.credentials_form"))
 		} else {
 			credentials := input.SignInInput{Email: request.PostForm.Get("email"), Password: request.PostForm.Get("password")}
 
 			if validationErr := credentials.Validate(); validationErr != nil {
-				h.renderSignIn(writer, request, http.StatusBadRequest, credentials.Email, "Enter a valid email address and password.")
+				h.renderSignIn(writer, request, http.StatusBadRequest, credentials.Email, admini18n.T(request.Context(), "errors.credentials_form"))
 			} else if limitErr := h.allowSignIn(request, credentials.Email); limitErr != nil {
 				h.signInError(writer, request, credentials.Email, limitErr)
 			} else {
@@ -106,7 +108,7 @@ func (h *Handler) signOut(writer http.ResponseWriter, request *http.Request) {
 
 	err := h.service.SignOut(request.Context(), raw, use)
 	h.clearTokens(writer)
-	status, _ := authenticationError(err)
+	status, _ := authenticationError(request.Context(), err)
 
 	if err == nil || status == http.StatusUnauthorized {
 		http.Redirect(writer, request, adminPath(request)+"/sign-in", http.StatusSeeOther)
@@ -159,7 +161,7 @@ func (h *Handler) clearTokens(writer http.ResponseWriter) {
 }
 
 func (h *Handler) signInError(writer http.ResponseWriter, request *http.Request, email string, err error) {
-	status, message := authenticationError(err)
+	status, message := authenticationError(request.Context(), err)
 
 	if errors.Is(err, app.ErrAuthenticationBusy) {
 		writer.Header().Set("Retry-After", "1")
@@ -170,16 +172,16 @@ func (h *Handler) signInError(writer http.ResponseWriter, request *http.Request,
 	h.renderSignIn(writer, request, status, email, message)
 }
 
-func authenticationError(err error) (int, string) {
-	status, message := http.StatusServiceUnavailable, "Sign-in is temporarily unavailable. Please try again."
+func authenticationError(ctx context.Context, err error) (int, string) {
+	status, message := http.StatusServiceUnavailable, admini18n.T(ctx, "errors.sign_in_unavailable")
 
 	if errors.Is(err, security.ErrInvalidCredentials) || errors.Is(err, security.ErrInvalidToken) ||
 		errors.Is(err, security.ErrSessionRevoked) || errors.Is(err, security.ErrRefreshTokenReused) || errors.Is(err, security.ErrInvalidSession) {
-		status, message = http.StatusUnauthorized, "The email, password, or session is invalid. Please sign in again."
+		status, message = http.StatusUnauthorized, admini18n.T(ctx, "errors.invalid_session")
 	} else if errors.Is(err, security.ErrPermissionDenied) || errors.Is(err, security.ErrInvalidPermission) {
-		status, message = http.StatusForbidden, "You do not have permission to access this page."
+		status, message = http.StatusForbidden, admini18n.T(ctx, "errors.access")
 	} else if errors.Is(err, errSignInThrottled) {
-		status, message = http.StatusTooManyRequests, "Too many sign-in attempts. Please try again in 15 minutes."
+		status, message = http.StatusTooManyRequests, admini18n.T(ctx, "errors.throttled")
 	}
 
 	return status, message

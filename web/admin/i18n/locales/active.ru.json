@@ -1,0 +1,314 @@
+{
+  "common.admin": {
+    "other": "Администрирование"
+  },
+  "common.panel": {
+    "other": "Панель администратора"
+  },
+  "common.workspace": {
+    "other": "Рабочее пространство"
+  },
+  "common.your_workspace": {
+    "other": "Ваше рабочее пространство"
+  },
+  "common.yes": {
+    "other": "Да"
+  },
+  "common.no": {
+    "other": "Нет"
+  },
+  "common.any": {
+    "other": "Любая"
+  },
+  "common.none": {
+    "other": "Нет"
+  },
+  "common.done": {
+    "other": "Готово!"
+  },
+  "common.language": {
+    "other": "Язык"
+  },
+  "common.breadcrumbs": {
+    "other": "Навигационная цепочка"
+  },
+  "common.total_found": {
+    "other": "Всего найдено: {{.Count}}"
+  },
+  "navigation.users": {
+    "other": "Пользователи"
+  },
+  "navigation.roles": {
+    "other": "Роли"
+  },
+  "navigation.skip": {
+    "other": "Перейти к содержимому"
+  },
+  "navigation.sidebar": {
+    "other": "Боковая панель администратора"
+  },
+  "navigation.menu": {
+    "other": "Навигация администратора"
+  },
+  "navigation.account": {
+    "other": "Ваша учётная запись"
+  },
+  "navigation.error": {
+    "other": "Не удалось загрузить страницу. Попробуйте ещё раз."
+  },
+  "actions.sign_in": {
+    "other": "Войти"
+  },
+  "actions.sign_out": {
+    "other": "Выйти"
+  },
+  "actions.create": {
+    "other": "Создать"
+  },
+  "actions.filter": {
+    "other": "Фильтр"
+  },
+  "actions.apply_filters": {
+    "other": "Применить фильтры"
+  },
+  "actions.reset_filters": {
+    "other": "Сбросить фильтры"
+  },
+  "actions.reset": {
+    "other": "Сбросить"
+  },
+  "actions.cancel": {
+    "other": "Отмена"
+  },
+  "actions.delete": {
+    "other": "Удалить"
+  },
+  "actions.close": {
+    "other": "Закрыть"
+  },
+  "actions.save": {
+    "other": "Сохранить изменения"
+  },
+  "actions.view_named": {
+    "other": "Просмотреть {{.Name}}"
+  },
+  "actions.edit_named": {
+    "other": "Редактировать {{.Name}}"
+  },
+  "actions.delete_named": {
+    "other": "Удалить {{.Name}}"
+  },
+  "actions.remove_named": {
+    "other": "Убрать {{.Name}}"
+  },
+  "actions.sort_by": {
+    "other": "Сортировать по: {{.Label}}"
+  },
+  "pagination.first": {
+    "other": "Первая страница"
+  },
+  "pagination.previous": {
+    "other": "Предыдущая страница"
+  },
+  "pagination.next": {
+    "other": "Следующая страница"
+  },
+  "pagination.last": {
+    "other": "Последняя страница"
+  },
+  "pagination.roles": {
+    "other": "Страницы списка ролей"
+  },
+  "fields.email": {
+    "other": "Адрес электронной почты"
+  },
+  "fields.password": {
+    "other": "Пароль"
+  },
+  "fields.password_placeholder": {
+    "other": "Введите пароль"
+  },
+  "fields.name": {
+    "other": "Название"
+  },
+  "fields.uuid": {
+    "other": "UUID"
+  },
+  "fields.super": {
+    "other": "Супер"
+  },
+  "fields.permissions": {
+    "other": "Разрешения"
+  },
+  "fields.super_role": {
+    "other": "Суперроль"
+  },
+  "fields.uuid_contains": {
+    "other": "UUID содержит"
+  },
+  "fields.name_contains": {
+    "other": "Название содержит"
+  },
+  "fields.permissions_all": {
+    "other": "Разрешения (все выбранные)"
+  },
+  "fields.select_permissions": {
+    "other": "Выберите разрешения"
+  },
+  "fields.actions": {
+    "other": "Действия"
+  },
+  "fields.languages": {
+    "other": "Языки поля «{{.Label}}»"
+  },
+  "fields.name_language": {
+    "other": "Название ({{.Language}})"
+  },
+  "multiselect.empty": {
+    "other": "Нет подходящих вариантов."
+  },
+  "auth.description": {
+    "other": "Введите свои данные для доступа к панели администратора."
+  },
+  "auth.continue": {
+    "other": "Продолжить сеанс"
+  },
+  "auth.forgot": {
+    "other": "Забыли пароль?"
+  },
+  "auth.restore": {
+    "other": "Восстановить пароль"
+  },
+  "auth.restore_description": {
+    "other": "Введите адрес электронной почты для сброса пароля."
+  },
+  "auth.send_reset": {
+    "other": "Отправить ссылку для сброса"
+  },
+  "auth.back": {
+    "other": "Вернуться ко входу"
+  },
+  "home.welcome": {
+    "other": "Добро пожаловать, {{.Name}}!"
+  },
+  "home.description": {
+    "other": "Вы вошли в систему. Используйте меню навигации для доступа к пользователям и ролям."
+  },
+  "home.users_soon": {
+    "other": "Управление пользователями скоро появится."
+  },
+  "roles.create": {
+    "other": "Создать роль"
+  },
+  "roles.edit": {
+    "other": "Редактировать роль"
+  },
+  "roles.delete": {
+    "other": "Удалить роль"
+  },
+  "roles.delete_message": {
+    "other": "Вы уверены, что хотите удалить роль? Восстановить её будет невозможно."
+  },
+  "roles.table": {
+    "other": "Таблица ролей"
+  },
+  "roles.caption": {
+    "other": "Роли и их разрешения"
+  },
+  "roles.your_role": {
+    "other": "Ваша роль"
+  },
+  "roles.all_permissions": {
+    "other": "Все разрешения"
+  },
+  "roles.super_help": {
+    "other": "Суперроль (предоставляет все разрешения)"
+  },
+  "roles.name_help": {
+    "other": "Введите название хотя бы на одном языке. Оставьте перевод пустым, чтобы пропустить его."
+  },
+  "roles.empty": {
+    "other": "Роли не найдены. Попробуйте изменить или сбросить фильтры."
+  },
+  "roles.created": {
+    "other": "Роль «{{.Name}}» успешно создана."
+  },
+  "roles.updated": {
+    "other": "Роль «{{.Name}}» успешно обновлена."
+  },
+  "roles.deleted": {
+    "other": "Роль «{{.Name}}» успешно удалена."
+  },
+  "permissions.manage_user": {
+    "other": "Управлять пользователями"
+  },
+  "permissions.view_user": {
+    "other": "Просматривать пользователей"
+  },
+  "permissions.manage_role": {
+    "other": "Управлять ролями"
+  },
+  "permissions.view_role": {
+    "other": "Просматривать роли"
+  },
+  "errors.sign_in_form": {
+    "other": "Чтобы продолжить, отправьте форму входа."
+  },
+  "errors.credentials_form": {
+    "other": "Введите корректный адрес электронной почты и пароль."
+  },
+  "errors.sign_in_unavailable": {
+    "other": "Вход временно недоступен. Попробуйте ещё раз."
+  },
+  "errors.invalid_session": {
+    "other": "Электронная почта, пароль или сеанс недействительны. Войдите ещё раз."
+  },
+  "errors.access": {
+    "other": "У вас нет разрешения на доступ к этой странице."
+  },
+  "errors.section": {
+    "other": "У вас нет разрешения на просмотр этого раздела."
+  },
+  "errors.throttled": {
+    "other": "Слишком много попыток входа. Попробуйте через 15 минут."
+  },
+  "errors.notifications": {
+    "other": "Уведомления временно недоступны. Обновите страницу перед повторной отправкой."
+  },
+  "errors.roles": {
+    "other": "Роли временно недоступны. Попробуйте ещё раз."
+  },
+  "errors.role_not_found": {
+    "other": "Роль не найдена."
+  },
+  "errors.role_used": {
+    "other": "Эта роль назначена пользователям. Назначьте им другую роль перед удалением."
+  },
+  "errors.role_exists": {
+    "other": "Эта роль уже существует."
+  },
+  "errors.role_form": {
+    "other": "Отправьте корректную форму роли."
+  },
+  "errors.role_query": {
+    "other": "Проверьте фильтры, порядок сортировки и номер страницы."
+  },
+  "errors.role_values": {
+    "other": "Введите название хотя бы на одном языке и выберите допустимые разрешения."
+  },
+  "errors.language_missing": {
+    "other": "Выбранный язык больше недоступен. Обновите форму и попробуйте ещё раз."
+  },
+  "multiselect.selected": {
+    "one": "Выбран {{.Count}} пункт",
+    "few": "Выбрано {{.Count}} пункта",
+    "many": "Выбрано {{.Count}} пунктов",
+    "other": "Выбрано {{.Count}} пункта"
+  },
+  "fields.email_placeholder": {
+    "other": "vy@example.com"
+  },
+  "errors.cross_origin": {
+    "other": "Этот запрос заблокирован. Обновите страницу и попробуйте ещё раз."
+  }
+}

@@ -1,34 +1,54 @@
 package components
 
+import admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+
 import "strconv"
 
 type TranslationInputValue struct {
-	Code string
+	Code     string
 	Language string
-	Value string
+	Value    string
 }
 
 type TranslationsInputProps struct {
-	ID string
-	Name string
-	Label string
-	Language string
-	Help string
+	ID        string
+	Name      string
+	Label     string
+	Language  string
+	Help      string
 	MaxLength int
-	Values []TranslationInputValue
+	Values    []TranslationInputValue
 }
 
-// TranslationsInput progressively enhances independent language inputs with tabs.
+func (props TranslationsInputProps) initialLanguage() string {
+	var language string
+
+	if len(props.Values) > 0 {
+		language = props.Values[0].Code
+
+		for _, field := range props.Values {
+			if field.Code == props.Language {
+				language = field.Code
+			}
+		}
+	}
+
+	return language
+}
+
+// TranslationsInput renders the complete initial tab state for client hydration.
 templ TranslationsInput(props TranslationsInputProps) {
-	<div class="translations-input" data-translations-input data-language={ props.Language }>
-		<div class="translations-input__tabs" role="tablist" aria-label={ props.Label + " languages" } hidden>
+	{{ initialLanguage := props.initialLanguage() }}
+	<div class="translations-input" data-translations-input data-language={ initialLanguage }>
+		<div class="translations-input__tabs" role="tablist" aria-label={ admini18n.T(ctx, "fields.languages", map[string]any{"Label": props.Label}) } hidden?={ len(props.Values) == 0 }>
 			for _, field := range props.Values {
 				<button
 					class="translations-input__tab"
 					type="button"
 					id={ props.ID + "-tab-" + field.Code }
 					role="tab"
-					aria-selected="false"
+					aria-selected={ strconv.FormatBool(field.Code == initialLanguage) }
+					tabindex={ map[bool]string{true: "0", false: "-1"}[field.Code == initialLanguage] }
 					aria-controls={ props.ID + "-panel-" + field.Code }
 					data-language={ field.Code }
 					lang={ field.Code }
@@ -39,7 +59,14 @@ templ TranslationsInput(props TranslationsInputProps) {
 		</div>
 		<div class="translations-input__panels">
 			for _, field := range props.Values {
-				<div class="translations-input__panel" id={ props.ID + "-panel-" + field.Code } data-language={ field.Code }>
+				<div
+					class="translations-input__panel"
+					id={ props.ID + "-panel-" + field.Code }
+					data-language={ field.Code }
+					role="tabpanel"
+					aria-labelledby={ props.ID + "-tab-" + field.Code }
+					hidden?={ field.Code != initialLanguage }
+				>
 					<label class="form-field" for={ props.ID + "-" + field.Code }>
 						<span class="form-field__label">{ props.Label } (<span lang={ field.Code }>{ field.Language }</span>)</span>
 						<input

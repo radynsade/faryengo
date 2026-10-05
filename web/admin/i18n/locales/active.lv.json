@@ -1,0 +1,313 @@
+{
+  "common.admin": {
+    "other": "Administrācija"
+  },
+  "common.panel": {
+    "other": "Administrācijas panelis"
+  },
+  "common.workspace": {
+    "other": "Darba vide"
+  },
+  "common.your_workspace": {
+    "other": "Jūsu darba vide"
+  },
+  "common.yes": {
+    "other": "Jā"
+  },
+  "common.no": {
+    "other": "Nē"
+  },
+  "common.any": {
+    "other": "Jebkura"
+  },
+  "common.none": {
+    "other": "Nav"
+  },
+  "common.done": {
+    "other": "Pabeigts!"
+  },
+  "common.language": {
+    "other": "Valoda"
+  },
+  "common.breadcrumbs": {
+    "other": "Navigācijas ceļš"
+  },
+  "common.total_found": {
+    "other": "Kopā atrasts: {{.Count}}"
+  },
+  "navigation.users": {
+    "other": "Lietotāji"
+  },
+  "navigation.roles": {
+    "other": "Lomas"
+  },
+  "navigation.skip": {
+    "other": "Pāriet uz saturu"
+  },
+  "navigation.sidebar": {
+    "other": "Administrācijas sānjosla"
+  },
+  "navigation.menu": {
+    "other": "Administrācijas navigācija"
+  },
+  "navigation.account": {
+    "other": "Jūsu konts"
+  },
+  "navigation.error": {
+    "other": "Neizdevās ielādēt šo lapu. Lūdzu, mēģiniet vēlreiz."
+  },
+  "actions.sign_in": {
+    "other": "Pieslēgties"
+  },
+  "actions.sign_out": {
+    "other": "Iziet"
+  },
+  "actions.create": {
+    "other": "Izveidot"
+  },
+  "actions.filter": {
+    "other": "Filtrs"
+  },
+  "actions.apply_filters": {
+    "other": "Lietot filtrus"
+  },
+  "actions.reset_filters": {
+    "other": "Atiestatīt filtrus"
+  },
+  "actions.reset": {
+    "other": "Atiestatīt"
+  },
+  "actions.cancel": {
+    "other": "Atcelt"
+  },
+  "actions.delete": {
+    "other": "Dzēst"
+  },
+  "actions.close": {
+    "other": "Aizvērt"
+  },
+  "actions.save": {
+    "other": "Saglabāt izmaiņas"
+  },
+  "actions.view_named": {
+    "other": "Skatīt {{.Name}}"
+  },
+  "actions.edit_named": {
+    "other": "Rediģēt {{.Name}}"
+  },
+  "actions.delete_named": {
+    "other": "Dzēst {{.Name}}"
+  },
+  "actions.remove_named": {
+    "other": "Noņemt {{.Name}}"
+  },
+  "actions.sort_by": {
+    "other": "Kārtot pēc: {{.Label}}"
+  },
+  "pagination.first": {
+    "other": "Pirmā lapa"
+  },
+  "pagination.previous": {
+    "other": "Iepriekšējā lapa"
+  },
+  "pagination.next": {
+    "other": "Nākamā lapa"
+  },
+  "pagination.last": {
+    "other": "Pēdējā lapa"
+  },
+  "pagination.roles": {
+    "other": "Lomu saraksta lapas"
+  },
+  "fields.email": {
+    "other": "E-pasta adrese"
+  },
+  "fields.password": {
+    "other": "Parole"
+  },
+  "fields.password_placeholder": {
+    "other": "Ievadiet paroli"
+  },
+  "fields.name": {
+    "other": "Nosaukums"
+  },
+  "fields.uuid": {
+    "other": "UUID"
+  },
+  "fields.super": {
+    "other": "Super"
+  },
+  "fields.permissions": {
+    "other": "Atļaujas"
+  },
+  "fields.super_role": {
+    "other": "Super loma"
+  },
+  "fields.uuid_contains": {
+    "other": "UUID satur"
+  },
+  "fields.name_contains": {
+    "other": "Nosaukums satur"
+  },
+  "fields.permissions_all": {
+    "other": "Atļaujas (visas atlasītās)"
+  },
+  "fields.select_permissions": {
+    "other": "Atlasiet atļaujas"
+  },
+  "fields.actions": {
+    "other": "Darbības"
+  },
+  "fields.languages": {
+    "other": "{{.Label}} valodas"
+  },
+  "fields.name_language": {
+    "other": "Nosaukums ({{.Language}})"
+  },
+  "multiselect.empty": {
+    "other": "Nav atbilstošu opciju."
+  },
+  "auth.description": {
+    "other": "Ievadiet savus datus, lai piekļūtu administrācijas panelim."
+  },
+  "auth.continue": {
+    "other": "Turpināt sesiju"
+  },
+  "auth.forgot": {
+    "other": "Aizmirsāt paroli?"
+  },
+  "auth.restore": {
+    "other": "Atjaunot paroli"
+  },
+  "auth.restore_description": {
+    "other": "Ievadiet savu e-pasta adresi, lai atiestatītu paroli."
+  },
+  "auth.send_reset": {
+    "other": "Nosūtīt atiestatīšanas saiti"
+  },
+  "auth.back": {
+    "other": "Atpakaļ uz pieslēgšanos"
+  },
+  "home.welcome": {
+    "other": "Laipni lūdzam, {{.Name}}!"
+  },
+  "home.description": {
+    "other": "Jūs esat pieslēdzies. Izmantojiet navigācijas izvēlni, lai piekļūtu lietotājiem un lomām."
+  },
+  "home.users_soon": {
+    "other": "Lietotāju pārvaldība drīzumā būs pieejama."
+  },
+  "roles.create": {
+    "other": "Izveidot lomu"
+  },
+  "roles.edit": {
+    "other": "Rediģēt lomu"
+  },
+  "roles.delete": {
+    "other": "Dzēst lomu"
+  },
+  "roles.delete_message": {
+    "other": "Vai tiešām vēlaties dzēst lomu? To nebūs iespējams atjaunot."
+  },
+  "roles.table": {
+    "other": "Lomu tabula"
+  },
+  "roles.caption": {
+    "other": "Lomas un to atļaujas"
+  },
+  "roles.your_role": {
+    "other": "Jūsu loma"
+  },
+  "roles.all_permissions": {
+    "other": "Visas atļaujas"
+  },
+  "roles.super_help": {
+    "other": "Super loma (piešķir visas atļaujas)"
+  },
+  "roles.name_help": {
+    "other": "Ievadiet nosaukumu vismaz vienā valodā. Atstājiet tulkojumu tukšu, lai to izlaistu."
+  },
+  "roles.empty": {
+    "other": "Lomas nav atrastas. Mēģiniet mainīt vai atiestatīt filtrus."
+  },
+  "roles.created": {
+    "other": "Loma «{{.Name}}» veiksmīgi izveidota."
+  },
+  "roles.updated": {
+    "other": "Loma «{{.Name}}» veiksmīgi atjaunota."
+  },
+  "roles.deleted": {
+    "other": "Loma «{{.Name}}» veiksmīgi dzēsta."
+  },
+  "permissions.manage_user": {
+    "other": "Pārvaldīt lietotājus"
+  },
+  "permissions.view_user": {
+    "other": "Skatīt lietotājus"
+  },
+  "permissions.manage_role": {
+    "other": "Pārvaldīt lomas"
+  },
+  "permissions.view_role": {
+    "other": "Skatīt lomas"
+  },
+  "errors.sign_in_form": {
+    "other": "Lai turpinātu, iesniedziet pieslēgšanās veidlapu."
+  },
+  "errors.credentials_form": {
+    "other": "Ievadiet derīgu e-pasta adresi un paroli."
+  },
+  "errors.sign_in_unavailable": {
+    "other": "Pieslēgšanās īslaicīgi nav pieejama. Lūdzu, mēģiniet vēlreiz."
+  },
+  "errors.invalid_session": {
+    "other": "E-pasts, parole vai sesija nav derīga. Lūdzu, pieslēdzieties vēlreiz."
+  },
+  "errors.access": {
+    "other": "Jums nav atļaujas piekļūt šai lapai."
+  },
+  "errors.section": {
+    "other": "Jums nav atļaujas skatīt šo sadaļu."
+  },
+  "errors.throttled": {
+    "other": "Pārāk daudz pieslēgšanās mēģinājumu. Mēģiniet vēlreiz pēc 15 minūtēm."
+  },
+  "errors.notifications": {
+    "other": "Paziņojumi īslaicīgi nav pieejami. Pirms atkārtotas iesniegšanas pārlādējiet lapu."
+  },
+  "errors.roles": {
+    "other": "Lomas īslaicīgi nav pieejamas. Lūdzu, mēģiniet vēlreiz."
+  },
+  "errors.role_not_found": {
+    "other": "Loma nav atrasta."
+  },
+  "errors.role_used": {
+    "other": "Šī loma ir piešķirta lietotājiem. Pirms dzēšanas piešķiriet šiem lietotājiem citu lomu."
+  },
+  "errors.role_exists": {
+    "other": "Šī loma jau pastāv."
+  },
+  "errors.role_form": {
+    "other": "Iesniedziet derīgu lomas veidlapu."
+  },
+  "errors.role_query": {
+    "other": "Pārbaudiet filtrus, kārtošanas secību un lapas numuru."
+  },
+  "errors.role_values": {
+    "other": "Ievadiet nosaukumu vismaz vienā valodā un atlasiet derīgas atļaujas."
+  },
+  "errors.language_missing": {
+    "other": "Atlasītā valoda vairs nav pieejama. Pārlādējiet veidlapu un mēģiniet vēlreiz."
+  },
+  "multiselect.selected": {
+    "zero": "Atlasītas {{.Count}} opcijas",
+    "one": "Atlasīta {{.Count}} opcija",
+    "other": "Atlasītas {{.Count}} opcijas"
+  },
+  "fields.email_placeholder": {
+    "other": "jus@example.com"
+  },
+  "errors.cross_origin": {
+    "other": "Šis pieprasījums tika bloķēts. Pārlādējiet lapu un mēģiniet vēlreiz."
+  }
+}

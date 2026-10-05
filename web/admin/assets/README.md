@@ -144,16 +144,29 @@ Permissions in filters and create/edit forms use the shared `MultiSelect`
 component. It follows Monoshop's searchable dropdown with highlighted selections,
 a count badge, and removable tags. Arrow keys move through options, Enter toggles
 the active option (or the only search result), and Escape closes the dropdown.
-The native multiple select submits repeated values and remains available without
-JavaScript. `src/multiselect.ts` initializes fields after HTMX swaps and removes
-their listeners when content is replaced.
+All widget labels and selection statuses come from the server's go-i18n catalogs,
+including plural forms. JavaScript reads translated messages from the rendered
+markup when selections change. The sidebar and authentication panel include
+native language links for English, Latvian, and Russian; see
+[admin interface translations](../../../docs/admin-i18n.md).
+The server renders the complete initial widget: search input, selected tags,
+count, option rows, ARIA state, and hidden dropdown. The native multiple select is
+hidden in the initial HTML and submits repeated values. A `scripting: none` CSS
+fallback displays the native select when JavaScript is disabled.
+`src/multiselect.ts` hydrates existing markup without rebuilding it or changing
+visibility, including after HTMX swaps, and removes listeners when content is
+replaced. Only subsequent interactions update the widget state.
 
 Role name translations use `TranslationsInput`, with grouped language tabs based
 on Monoshop's language switcher. Tabs show native language names and initially
 select the current admin language, falling back to the first available language.
 Switching tabs preserves all values; every translation submits with the form.
 Left/Right arrows, Home, and End move between tabs. JavaScript-free forms show
-all language fields. `src/translations-input.ts` also initializes HTMX fragments.
+all language fields. Delegated interactions also work in HTMX fragments.
+The initial HTML includes selected tab state, focus order, ARIA panel attributes,
+and `hidden` on inactive panels. JavaScript hydrates delegated interactions
+without changing the initial state, including after HTMX swaps. A
+`scripting: none` CSS fallback reveals all native fields without JavaScript.
 
 Role management authorization is currently deferred. Signed-in users can view,
 create, update, and delete roles through the common role service methods. All

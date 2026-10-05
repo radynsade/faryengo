@@ -14,6 +14,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 )
 
 // FlashSessionStorage is the session-storage operation used by the admin transport.
@@ -177,5 +178,5 @@ func (h *Handler) readFlashes(ctx context.Context, request *http.Request, kind s
 
 func (h *Handler) flashUnavailable(writer http.ResponseWriter, request *http.Request, err error) {
 	slog.ErrorContext(request.Context(), "admin flash session storage", "error", err)
-	http.Error(writer, "Notifications are temporarily unavailable. Please reload before submitting again.", http.StatusServiceUnavailable)
+	http.Error(writer, admini18n.T(request.Context(), "errors.notifications"), http.StatusServiceUnavailable)
 }

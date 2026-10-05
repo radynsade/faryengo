@@ -1,10 +1,12 @@
 package pages
 
 import (
+	"context"
 	"net/url"
 	"strconv"
 
 	"github.com/radynsade/faryengo/internal/security"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 )
@@ -85,6 +87,7 @@ type RoleNameField struct {
 type RoleFormProps struct {
 	Panel            layouts.PanelProps
 	ID               string
+	Name             string
 	Title            string
 	Action           string
 	NameTranslations components.TranslationsInputProps
@@ -99,9 +102,23 @@ type RoleViewProps struct {
 	DeleteErrors []string
 }
 
-func roleDeleteDialog(action, name string, errors []string) components.ConfirmDeleteProps {
+func roleDeleteDialog(ctx context.Context, action, name string, errors []string) components.ConfirmDeleteProps {
 	return components.ConfirmDeleteProps{
-		ID: "confirm-delete", Title: "Delete role", Name: name, Action: action, Errors: errors,
-		Message: "Are you sure you want to delete the role? You will not be able to restore it.",
+		ID: "confirm-delete", Title: admini18n.T(ctx, "roles.delete"), Name: name, Action: action, Errors: errors,
+		Message: admini18n.T(ctx, "roles.delete_message"),
+	}
+}
+
+func permissionSelectProps(ctx context.Context, id, label string, options []PermissionOption) components.MultiSelectProps {
+	values := make([]components.MultiSelectOption, 0, len(options))
+
+	for _, option := range options {
+		values = append(values, components.MultiSelectOption{
+			Value: string(option.Value), Label: option.Label, Selected: option.Selected,
+		})
+	}
+
+	return components.MultiSelectProps{
+		ID: id, Name: "permissions", Label: label, Placeholder: admini18n.T(ctx, "fields.select_permissions"), Options: values,
 	}
 }
