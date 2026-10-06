@@ -56,7 +56,7 @@ func TestCatalogCoverage(t *testing.T) {
 				for _, count := range []int{0, 1, 2, 5, 11, 21, 101} {
 					config := &goi18n.LocalizeConfig{
 						MessageID:    id,
-						TemplateData: map[string]any{"Name": "Test", "Label": "Name", "Language": "English", "Count": count},
+						TemplateData: map[string]any{"Name": "Test", "Label": "Name", "Language": "English", "Field": "name", "Count": count},
 					}
 
 					if id == "multiselect.selected" {

@@ -65,6 +65,7 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"GET /admin/{language}", h.home},
 			{"GET /admin/{language}/users", h.users},
 			{"GET /admin/{language}/roles", h.roles},
+			{"GET /admin/{language}/roles/table", h.rolesTable},
 			{"GET /admin/{language}/roles/create", h.roleCreate},
 			{"POST /admin/{language}/roles/create", h.roleCreate},
 			{"GET /admin/{language}/roles/{role}/view", h.roleView},

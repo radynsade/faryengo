@@ -90,6 +90,7 @@ func TestUserServiceCreate(t *testing.T) {
 		{name: "invalid", request: input.CreateUserInput{}, wantErr: input.ErrInvalidCreateUserInput},
 		{name: "hash failure", request: validCreateUserInput(), hashErr: context.Canceled, wantErr: context.Canceled},
 		{name: "duplicate", request: validCreateUserInput(), createErr: security.ErrUserAlreadyExists, wantErr: security.ErrUserAlreadyExists, wantWrite: true},
+		{name: "missing role", request: validCreateUserInput(), createErr: security.ErrRoleNotFound, wantErr: security.ErrRoleNotFound, wantWrite: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			store := &fakeUserStore{createErr: tt.createErr}
@@ -105,7 +106,7 @@ func TestUserServiceCreate(t *testing.T) {
 			}
 
 			if tt.wantErr == nil {
-				if user == nil || user != store.user || uuid.UUID(user.ID()) == uuid.Nil || user.PasswordHash() != "encoded" || user.Email() != security.Email(tt.request.Email) || hasher.ctx != ctx || hasher.password != "secret-password" || store.ctx != ctx {
+				if user == nil || user != store.user || uuid.UUID(user.ID()).Version() != 7 || user.PasswordHash() != "encoded" || user.Email() != security.Email(tt.request.Email) || hasher.ctx != ctx || hasher.password != "secret-password" || store.ctx != ctx {
 					t.Fatalf("Create() user = %v, hasher = %+v, store = %+v", user, hasher, store)
 				}
 			} else if user != nil {

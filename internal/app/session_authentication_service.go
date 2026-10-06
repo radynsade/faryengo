@@ -46,7 +46,7 @@ func (s *SessionAuthenticationService) SignIn(ctx context.Context, request input
 
 	if err == nil {
 		var id uuid.UUID
-		id, err = uuid.NewRandom()
+		id, err = uuid.NewV7()
 
 		if err != nil {
 			err = fmt.Errorf("generate session ID: %w", err)

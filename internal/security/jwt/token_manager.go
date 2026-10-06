@@ -82,11 +82,11 @@ func (m *Manager) Issue(ctx context.Context, userID security.UserID, sessionID u
 
 	if contextErr := ctx.Err(); contextErr != nil {
 		err = fmt.Errorf("issue JWT: %w", contextErr)
-	} else if uuid.UUID(userID) == uuid.Nil || sessionID == uuid.Nil || !sessionExpiry.After(now) {
+	} else if userID.Validate() != nil || sessionID == uuid.Nil || !sessionExpiry.After(now) {
 		err = security.ErrInvalidSession
 	} else {
-		accessID, accessErr := uuid.NewRandom()
-		refreshID, refreshErr := uuid.NewRandom()
+		accessID, accessErr := uuid.NewV7()
+		refreshID, refreshErr := uuid.NewV7()
 
 		if accessErr != nil {
 			err = fmt.Errorf("generate access JWT ID: %w", accessErr)
@@ -114,7 +114,7 @@ func (m *Manager) Reissue(ctx context.Context, userID security.UserID, sessionID
 
 	if contextErr := ctx.Err(); contextErr != nil {
 		err = fmt.Errorf("reissue JWT: %w", contextErr)
-	} else if uuid.UUID(userID) == uuid.Nil || sessionID == uuid.Nil || issuance.Validate() != nil ||
+	} else if userID.Validate() != nil || sessionID == uuid.Nil || issuance.Validate() != nil ||
 		issuance.KeyID != m.config.KeyID || !issuance.RefreshExpiresAt.After(m.now()) {
 		err = security.ErrInvalidSession
 	} else {
@@ -160,7 +160,7 @@ func (m *Manager) Verify(ctx context.Context, raw string, use security.TokenUse)
 
 	if contextErr := ctx.Err(); contextErr != nil {
 		err = fmt.Errorf("verify JWT: %w", contextErr)
-	} else if len(raw) == 0 || len(raw) > 4096 || (use != security.AccessToken && use != security.RefreshToken) {
+	} else if len(raw) == 0 || len(raw) > 4096 || use.Validate() != nil {
 		err = security.ErrInvalidToken
 	} else {
 		audience, typ := m.tokenType(use)
@@ -185,11 +185,11 @@ func (m *Manager) Verify(ctx context.Context, raw string, use security.TokenUse)
 		if parseErr != nil {
 			err = fmt.Errorf("verify JWT: %w: %w", security.ErrInvalidToken, parseErr)
 		} else {
-			userID, userErr := uuid.Parse(parsed.Subject)
+			userID, userErr := security.NewUserID(parsed.Subject)
 			sessionID, sessionErr := uuid.Parse(parsed.SessionID)
 			tokenID, idErr := uuid.Parse(parsed.ID)
 
-			if !token.Valid || parsed.Use != use || userErr != nil || userID == uuid.Nil || sessionErr != nil || sessionID == uuid.Nil ||
+			if !token.Valid || parsed.Use != use || userErr != nil || sessionErr != nil || sessionID == uuid.Nil ||
 				idErr != nil || tokenID == uuid.Nil || parsed.IssuedAt == nil || parsed.ExpiresAt == nil || parsed.NotBefore == nil ||
 				!parsed.ExpiresAt.After(parsed.IssuedAt.Time) ||
 				!parsed.NotBefore.Equal(parsed.IssuedAt.Time) || parsed.Issuer != m.config.Issuer ||
@@ -207,7 +207,7 @@ func (m *Manager) Verify(ctx context.Context, raw string, use security.TokenUse)
 				} else if validationErr != nil {
 					err = fmt.Errorf("verify JWT: %w: %w", security.ErrInvalidToken, validationErr)
 				} else {
-					result = security.TokenClaims{UserID: security.UserID(userID), SessionID: sessionID, ExpiresAt: parsed.ExpiresAt.Time}
+					result = security.TokenClaims{UserID: userID, SessionID: sessionID, ExpiresAt: parsed.ExpiresAt.Time}
 				}
 			}
 		}

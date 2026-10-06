@@ -1,6 +1,7 @@
 package jwt
 
 import (
+	"bytes"
 	"context"
 	"crypto/ed25519"
 	"crypto/rand"
@@ -71,7 +72,7 @@ func TestJWTValidation(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := testManager(t)
-			userID, sessionID := security.UserID(uuid.New()), uuid.New()
+			userID, sessionID := security.UserID(newTestUUID(t)), newTestUUID(t)
 			pair, err := manager.Issue(context.Background(), userID, sessionID, manager.now().Add(time.Hour))
 
 			if err != nil {
@@ -129,7 +130,7 @@ func TestJWTValidation(t *testing.T) {
 
 func TestJWTSeparationExpiryAndCancellation(t *testing.T) {
 	manager := testManager(t)
-	pair, err := manager.Issue(context.Background(), security.UserID(uuid.New()), uuid.New(), manager.now().Add(time.Hour))
+	pair, err := manager.Issue(context.Background(), security.UserID(newTestUUID(t)), newTestUUID(t), manager.now().Add(time.Hour))
 
 	if err != nil {
 		t.Fatal(err)
@@ -165,7 +166,7 @@ func TestJWTSeparationExpiryAndCancellation(t *testing.T) {
 
 func TestJWTKeyRotation(t *testing.T) {
 	old := testManager(t)
-	pair, err := old.Issue(context.Background(), security.UserID(uuid.New()), uuid.New(), old.now().Add(time.Hour))
+	pair, err := old.Issue(context.Background(), security.UserID(newTestUUID(t)), newTestUUID(t), old.now().Add(time.Hour))
 
 	if err != nil {
 		t.Fatal(err)
@@ -207,7 +208,7 @@ func TestJWTExpiredTokenClassification(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := testManager(t)
-			pair, err := manager.Issue(t.Context(), security.UserID(uuid.New()), uuid.New(), manager.now().Add(time.Hour))
+			pair, err := manager.Issue(t.Context(), security.UserID(newTestUUID(t)), newTestUUID(t), manager.now().Add(time.Hour))
 
 			if err != nil {
 				t.Fatal(err)
@@ -252,11 +253,16 @@ func TestJWTExpiredTokenClassification(t *testing.T) {
 
 func TestJWTReissueAcrossInstances(t *testing.T) {
 	manager := testManager(t)
-	userID, sessionID := security.UserID(uuid.New()), uuid.New()
+	userID, sessionID := security.UserID(newTestUUID(t)), newTestUUID(t)
 	pair, err := manager.Issue(t.Context(), userID, sessionID, manager.now().Add(time.Hour))
 
 	if err != nil {
 		t.Fatal(err)
+	}
+
+	if pair.Issuance.AccessID.Version() != 7 || pair.Issuance.RefreshID.Version() != 7 ||
+		bytes.Compare(pair.Issuance.AccessID[:], pair.Issuance.RefreshID[:]) >= 0 {
+		t.Fatalf("token IDs must be ordered UUIDv7 values: %+v", pair.Issuance)
 	}
 
 	other, err := NewManager(manager.config)
@@ -293,4 +299,15 @@ func TestJWTReissueAcrossInstances(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newTestUUID(t *testing.T) uuid.UUID {
+	t.Helper()
+	id, err := uuid.NewV7()
+
+	if err != nil {
+		t.Fatalf("generate UUIDv7: %v", err)
+	}
+
+	return id
 }

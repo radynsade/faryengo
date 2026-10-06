@@ -4,6 +4,7 @@ import (
 	"context"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/radynsade/faryengo/internal/security"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
@@ -32,6 +33,12 @@ type RoleListProps struct {
 	Page         security.RolePage
 	Permissions  []PermissionOption
 	InvalidQuery bool
+	Loading      bool
+	Errors       []string
+}
+
+func (p RoleListProps) TableURL() string {
+	return strings.Replace(p.URL(p.Query.Page, p.Query.Sort, p.Query.Descending), "/roles?", "/roles/table?", 1)
 }
 
 func (p RoleListProps) URL(page int, sort security.RoleSort, descending bool) string {

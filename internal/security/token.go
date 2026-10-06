@@ -21,6 +21,16 @@ const (
 	RefreshToken TokenUse = "refresh"
 )
 
+func (u TokenUse) Validate() error {
+	var err error
+
+	if u != AccessToken && u != RefreshToken {
+		err = ErrInvalidToken
+	}
+
+	return err
+}
+
 // TokenSession adds refresh state to a revocable authenticated session.
 type TokenSession struct {
 	Session

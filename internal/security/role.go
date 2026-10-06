@@ -22,6 +22,22 @@ var (
 
 type RoleID uuid.UUID
 
+func NewRoleID(value string) (RoleID, error) {
+	id, err := uuid.Parse(value)
+
+	if err != nil {
+		err = fmt.Errorf("parse role ID: %w: %w", ErrInvalidRoleID, err)
+	} else {
+		err = RoleID(id).Validate()
+	}
+
+	if err != nil {
+		id = uuid.Nil
+	}
+
+	return RoleID(id), err
+}
+
 func (id RoleID) Validate() error {
 	if uuid.UUID(id) == uuid.Nil {
 		return ErrInvalidRoleID

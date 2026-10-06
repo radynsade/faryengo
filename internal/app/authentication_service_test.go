@@ -5,6 +5,7 @@ import (
 	"crypto/ed25519"
 	"crypto/rand"
 	"errors"
+	"fmt"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -104,8 +105,8 @@ func (h *authHasher) Verify(ctx context.Context, password string, hash security.
 
 func authFixture(t *testing.T) (*JWTAuthenticationService, *authRepository, *authHasher, *miniredis.Miniredis) {
 	t.Helper()
-	roleID := security.RoleID(uuid.New())
-	user, err := security.NewUser(security.UserID(uuid.New()), roleID, "person@example.com", "+37123456789", "stored", "First", "Last")
+	roleID := security.RoleID(newTestUUID(t))
+	user, err := security.NewUser(security.UserID(newTestUUID(t)), roleID, "person@example.com", "+37123456789", "stored", "First", "Last")
 
 	if err != nil {
 		t.Fatal(err)
@@ -123,7 +124,7 @@ func authFixture(t *testing.T) (*JWTAuthenticationService, *authRepository, *aut
 		t.Fatal(err)
 	}
 
-	repository := &authRepository{credentials: security.Credentials{User: user, Version: uuid.New()}, role: role}
+	repository := &authRepository{credentials: security.Credentials{User: user, Version: newTestUUID(t)}, role: role}
 	mini := miniredis.RunT(t)
 	client := redislib.NewClient(&redislib.Options{Addr: mini.Addr(), MaxRetries: -1, DialTimeout: 100 * time.Millisecond})
 	t.Cleanup(func() {
@@ -173,6 +174,12 @@ func signIn(t *testing.T, s *JWTAuthenticationService) security.TokenPair {
 		t.Fatal(err)
 	}
 
+	claims, err := s.dependencies.Tokens.Verify(t.Context(), pair.AccessToken, security.AccessToken)
+
+	if err != nil || claims.SessionID.Version() != 7 {
+		t.Fatalf("JWT session ID must be UUIDv7: %v, %v", claims.SessionID, err)
+	}
+
 	return pair
 }
 
@@ -181,8 +188,8 @@ func TestAuthenticationRevocation(t *testing.T) {
 		name       string
 		invalidate func(*testing.T, *JWTAuthenticationService, *authRepository, *miniredis.Miniredis, security.TokenPair)
 	}{
-		{"password change", func(_ *testing.T, _ *JWTAuthenticationService, r *authRepository, _ *miniredis.Miniredis, _ security.TokenPair) {
-			r.credentials.Version = uuid.New()
+		{"password change", func(t *testing.T, _ *JWTAuthenticationService, r *authRepository, _ *miniredis.Miniredis, _ security.TokenPair) {
+			r.credentials.Version = newTestUUID(t)
 		}},
 		{"deleted user", func(_ *testing.T, _ *JWTAuthenticationService, r *authRepository, _ *miniredis.Miniredis, _ security.TokenPair) {
 			r.deleted = true
@@ -375,7 +382,7 @@ func TestAuthenticationStorageFailures(t *testing.T) {
 func TestPasswordChangeCannotResurrectOtherDevices(t *testing.T) {
 	service, repository, _, _ := authFixture(t)
 	first, second := signIn(t, service), signIn(t, service)
-	repository.credentials.Version = uuid.New()
+	repository.credentials.Version = newTestUUID(t)
 	third := signIn(t, service)
 
 	for _, old := range []security.TokenPair{first, second} {
@@ -401,7 +408,11 @@ func (r *authRepository) Invalidate(ctx context.Context, id security.UserID) err
 	} else if id != r.credentials.User.ID() {
 		err = security.ErrUserNotFound
 	} else {
-		r.credentials.Version = uuid.New()
+		r.credentials.Version, err = uuid.NewV7()
+
+		if err != nil {
+			err = fmt.Errorf("generate credential version: %w", err)
+		}
 	}
 
 	return err
@@ -475,4 +486,15 @@ func authorizeJWT(service *JWTAuthenticationService, ctx context.Context, raw st
 	}
 
 	return principal, err
+}
+
+func newTestUUID(t *testing.T) uuid.UUID {
+	t.Helper()
+	id, err := uuid.NewV7()
+
+	if err != nil {
+		t.Fatalf("generate UUIDv7: %v", err)
+	}
+
+	return id
 }

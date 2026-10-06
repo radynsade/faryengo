@@ -34,7 +34,7 @@ public authentication REST API routes.
 Sign-in generates a new random 256-bit credential, encoded as URL-safe base64.
 The browser receives only this opaque ID in `faryen_session` (or
 `__Host-faryen_session` with secure cookies). No user ID, permissions, JWT, or
-other claims appear in it. A separate random internal UUID identifies the device
+other claims appear in it. A separate internal UUIDv7 identifies the device
 session in the server-side principal. Submitted or existing cookie values never
 choose the new credential, preventing session fixation.
 
@@ -61,9 +61,9 @@ new sign-in; browser sessions do not refresh or issue JWTs.
   at 90 days. A JWT device session also expires after 7 days without a refresh.
 - Both tokens are signed with Ed25519 (`EdDSA`). Verification pins the algorithm,
   key ID, issuer, audience, token purpose, and header type. It requires expiration,
-  not-before, issued-at, subject, session ID, and a random token ID. Clock skew is
+  not-before, issued-at, subject, session ID, and a UUIDv7 token ID. Clock skew is
   limited to 30 seconds. Access and refresh tokens cannot substitute for each other.
-- Each device login has a random session ID. Refreshing rotates the token using
+- Each device login has a UUIDv7 session ID. Refreshing rotates the token using
   an atomic Redis compare-and-swap. Requests carrying the immediately previous
   refresh token within a fixed 10-second overlap window receive the identical
   replacement pair. This tolerates parallel API client requests across server
@@ -88,7 +88,7 @@ in [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html#section-4.14.2).
 
 | Store | Data |
 | --- | --- |
-| PostgreSQL | Users, Argon2id password hashes, current role/permissions, unique case-insensitive email addresses, and a random `credential_version` per user. |
+| PostgreSQL | Users, Argon2id password hashes, current role/permissions, unique case-insensitive email addresses, and a UUIDv7 `credential_version` per user. |
 | Redis/Dragonfly | Per-device credential version, absolute expiration, and a user session generation for both mechanisms. Browser credentials have digest lookup keys; JWT sessions additionally store current/previous refresh digests, public rotation claims, and a fixed overlap deadline. Session and lookup keys expire automatically; generation keys remain until explicitly cleaned up. Rate-limit keys expire after their window. |
 
 Every browser-session or access-token authentication checks the Redis session
@@ -143,9 +143,10 @@ Changing that key without retaining its public key invalidates existing JWTs.
 The admin-only server does not initialize JWT signing or require a signing seed.
 
 `DATABASE_URL`, `REDIS_URL`, issuer/audience settings, token TTLs, cookie flags,
-and the listen address are listed in `.env.example`. PostgreSQL 13 or later is
-required for the built-in `gen_random_uuid()` used by the migration. An operator
-must apply the migration before deploying this server. Migration execution is
+and the listen address are listed in `.env.example`. PostgreSQL 18 or later is
+required for the built-in `uuidv7()` used by credential invalidation, defaults,
+and rotation triggers. An operator must apply migration `000007_use_uuid_v7`
+before deploying this server. Migration execution is
 never part of application startup. Resolve duplicate `lower(email)` values in
 existing users before applying the new unique index.
 

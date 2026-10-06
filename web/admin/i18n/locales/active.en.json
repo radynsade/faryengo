@@ -215,6 +215,9 @@
   "roles.edit": {
     "other": "Edit role"
   },
+  "roles.edit_title": {
+    "other": "Edit role \"{{.Name}}\""
+  },
   "roles.delete": {
     "other": "Delete role"
   },
@@ -238,6 +241,12 @@
   },
   "roles.name_help": {
     "other": "Enter a name in at least one language. Leave a translation blank to omit it."
+  },
+  "roles.loading": {
+    "other": "Loading roles…"
+  },
+  "actions.retry": {
+    "other": "Retry"
   },
   "roles.empty": {
     "other": "No roles found. Try changing or resetting your filters."
@@ -320,5 +329,23 @@
   },
   "errors.cross_origin": {
     "other": "This request was blocked. Reload the page and try again."
+  },
+  "validation.required": {
+    "other": "{{.Field}}: required."
+  },
+  "validation.invalid": {
+    "other": "{{.Field}}: invalid value."
+  },
+  "validation.email": {
+    "other": "{{.Field}}: invalid email."
+  },
+  "validation.uuid": {
+    "other": "{{.Field}}: invalid UUID."
+  },
+  "validation.phone": {
+    "other": "{{.Field}}: invalid phone number."
+  },
+  "validation.too_long": {
+    "other": "{{.Field}}: exceeds maximum length."
   }
 }

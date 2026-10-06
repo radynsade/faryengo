@@ -161,7 +161,7 @@ an existing JavaScript hook alongside the generic `filter-menu` class.
 | Cards | `.card`, `__eyebrow`, `__links`; page content owns its heading and paragraphs |
 | Page titles | `.page-title`, `__heading`, `.breadcrumbs`, `__list`, `__item`, `__link`, `__separator`; `PageTitle` renders the title and an ordered breadcrumb list |
 | Collection layout | `.list-toolbar`, `__controls`, `.action-group`, `.tag-list`, `.pagination`, `__current` |
-| Tables | `.data-table-scroll`, `.data-table`, `__actions`, `__empty`, `.table-sort`; page rules own domain-specific column widths |
+| Tables | `.data-table-scroll`, `.data-table`, `__actions`, `__empty`, `__loading`, `__spinner`, `.table-sort`; page rules own domain-specific column widths |
 | Filters | `.filter-menu`, `__form`; native `details` and `summary` remain usable without JavaScript |
 | Details | `.details-list`; semantic `dl`, `dt`, and `dd` elements; role-view permissions use the same badges as the role list |
 | Copyable values | `CopyValue` and `.copy-value`; inline scalar values with Tabler `copy` on hover/focus and `copy-check` after successful copying; localized clipboard status and keyboard activation |
@@ -241,6 +241,15 @@ rows, with muted label cells and permission badges matching the list. It retains
 copyable Name and UUID values, the shared super-role badge, and the delete
 confirmation dialog. These styles are scoped to `.role-view`; the role list,
 sidebar, typography, and color tokens are unchanged.
+The roles collection initially renders its controls and a single loading row,
+with unknown totals and disabled pagination. HTMX loads `/roles/table` after
+the initial render and replaces only `#roles-list-table` with the populated
+collection; the first page request does not query the role list. Sorting,
+filtering, and pagination retain their ordinary page URLs and repeat this flow.
+The loading row announces its localized status, and its spinner respects reduced
+motion. A native link inside `noscript` opens the populated table as a full page.
+Loading errors consume error flashes in the table fragment and provide a Retry
+link. Background table swaps do not move keyboard focus.
 Create and edit pages share `.role-form` with the same compact toolbar as the
 role view and full-width fields using their existing labels. The edit toolbar
 starts with Save, View, and List, with an outlined Delete icon at the end.

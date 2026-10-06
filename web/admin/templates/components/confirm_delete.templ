@@ -46,10 +46,7 @@ templ ConfirmDelete(props ConfirmDeleteProps) {
 		<div class="confirm-delete__body">
 			<div class="confirm-delete__header">
 				<i class="ti ti-alert-triangle confirm-delete__icon" aria-hidden="true"></i>
-				<h2 id={ props.ID + "-title" } class="confirm-delete__title">
-					{ props.Title }
-					<span class="confirm-delete__name" data-confirm-name>{ props.Name }</span>
-				</h2>
+				<h2 id={ props.ID + "-title" } class="confirm-delete__title">{ props.Title }{ " \"" }<span data-confirm-name>{ props.Name }</span>{ "\"" }</h2>
 			</div>
 			<p id={ props.ID + "-message" } class="confirm-delete__message">{ props.Message }</p>
 			<p class="confirm-delete__error" role="alert" hidden?={ len(props.Errors) == 0 } data-confirm-error>{ strings.Join(props.Errors, " ") }</p>

@@ -63,7 +63,7 @@ func TestSessionLogin(t *testing.T) {
 
 	stored, err := sessions.sessions.FindSession(t.Context(), credentialDigest(first.ID))
 
-	if err != nil || stored.ID != principal.SessionID || stored.CredentialVersion != repository.credentials.Version || !stored.ExpiresAt.Equal(first.ExpiresAt) {
+	if err != nil || stored.ID.Version() != 7 || stored.ID != principal.SessionID || stored.CredentialVersion != repository.credentials.Version || !stored.ExpiresAt.Equal(first.ExpiresAt) {
 		t.Fatalf("server session = %+v, %v", stored, err)
 	}
 
@@ -97,8 +97,8 @@ func TestSessionInvalidation(t *testing.T) {
 		{name: "absolute expiration", change: func(_ *testing.T, _ *SessionAuthenticationService, _ *authRepository, mini *miniredis.Miniredis, _ security.SessionGrant) {
 			mini.FastForward(24 * time.Hour)
 		}},
-		{name: "password change", change: func(_ *testing.T, _ *SessionAuthenticationService, repo *authRepository, _ *miniredis.Miniredis, _ security.SessionGrant) {
-			repo.credentials.Version = uuid.New()
+		{name: "password change", change: func(t *testing.T, _ *SessionAuthenticationService, repo *authRepository, _ *miniredis.Miniredis, _ security.SessionGrant) {
+			repo.credentials.Version = newTestUUID(t)
 		}},
 		{name: "user deletion", change: func(_ *testing.T, _ *SessionAuthenticationService, repo *authRepository, _ *miniredis.Miniredis, _ security.SessionGrant) {
 			repo.deleted = true
@@ -255,7 +255,7 @@ func TestAccountLogoutRevokesEveryMechanism(t *testing.T) {
 func TestSessionCredentialValidation(t *testing.T) {
 	sessions, _, _, _ := sessionFixture(t)
 
-	for _, raw := range []string{"", "invalid", uuid.NewString(), base64.RawURLEncoding.EncodeToString(make([]byte, 32))} {
+	for _, raw := range []string{"", "invalid", newTestUUID(t).String(), base64.RawURLEncoding.EncodeToString(make([]byte, 32))} {
 		t.Run(raw, func(t *testing.T) {
 			principal, err := sessions.Authenticate(t.Context(), raw)
 

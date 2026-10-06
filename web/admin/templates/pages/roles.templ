@@ -11,159 +11,207 @@ import (
 templ Roles(props RoleListProps) {
 	@layouts.Panel(props.Panel) {
 		@components.ConfirmDelete(roleDeleteDialog(ctx, "", "", nil))
-		<div class="role-list">
-			<div class="list-toolbar">
-				@components.ActionLink(props.Panel.BasePath+"/roles/create", "button button--primary button--compact", admini18n.T(ctx, "roles.create")) {
-					<i class="ti ti-plus" aria-hidden="true"></i>
-					{ admini18n.T(ctx, "actions.create") }
-				}
-				<div class="list-toolbar__controls">
-					<span class="role-total">{ admini18n.T(ctx, "common.total_found", map[string]any{"Count": props.Page.Total}) }</span>
-					<details class="filter-menu role-filters" open?={ props.InvalidQuery }>
-						<summary class="button button--secondary button--compact">
-							<i class="ti ti-filter" aria-hidden="true"></i>
-							{ admini18n.T(ctx, "actions.filter") }
-							if props.Query.Filters.Count() > 0 {
-								<span class="badge">{ strconv.Itoa(props.Query.Filters.Count()) }</span>
+		@RolesTable(props)
+	}
+}
+
+templ RolesTable(props RoleListProps) {
+	<div id="roles-list-table" class="role-list" aria-busy={ strconv.FormatBool(props.Loading) }>
+		<div class="list-toolbar">
+			@components.ActionLink(props.Panel.BasePath+"/roles/create", "button button--primary button--compact", admini18n.T(ctx, "roles.create")) {
+				<i class="ti ti-plus" aria-hidden="true"></i>
+				{ admini18n.T(ctx, "actions.create") }
+			}
+			<div class="list-toolbar__controls">
+				<span class="role-total">
+					if props.Loading {
+						{ admini18n.T(ctx, "common.total_found", map[string]any{"Count": "–"}) }
+					} else {
+						{ admini18n.T(ctx, "common.total_found", map[string]any{"Count": props.Page.Total}) }
+					}
+				</span>
+				<details class="filter-menu role-filters" open?={ props.InvalidQuery }>
+					<summary class="button button--secondary button--compact">
+						<i class="ti ti-filter" aria-hidden="true"></i>
+						{ admini18n.T(ctx, "actions.filter") }
+						if props.Query.Filters.Count() > 0 {
+							<span class="badge">{ strconv.Itoa(props.Query.Filters.Count()) }</span>
+						}
+					</summary>
+					<form
+						class="filter-menu__form form-stack"
+						method="get"
+						action={ templ.URL(props.Panel.BasePath + "/roles") }
+						hx-get={ props.Panel.BasePath + "/roles" }
+						hx-target="#page-content"
+						hx-swap="morph:outerHTML show:none"
+						hx-push-url="true"
+						hx-sync="body:replace"
+					>
+						<input type="hidden" name="sort" value={ string(props.Query.Sort) }/>
+						<input type="hidden" name="order" value={ map[bool]string{false: "asc", true: "desc"}[props.Query.Descending] }/>
+						<input type="hidden" name="size" value={ strconv.Itoa(props.Query.PageSize) }/>
+						<label class="form-field">
+							<span class="form-field__label">{ admini18n.T(ctx, "fields.uuid_contains") }</span>
+							<input class="form-field__input" name="uuid" value={ props.Query.Filters.IDLike } maxlength="100"/>
+						</label>
+						<label class="form-field">
+							<span class="form-field__label">{ admini18n.T(ctx, "fields.name_contains") }</span>
+							<input class="form-field__input" name="name" value={ props.Query.Filters.NameLike } maxlength="500"/>
+						</label>
+						@RolePermissions("role-filter-permissions", admini18n.T(ctx, "fields.permissions_all"), props.Permissions)
+						<label class="form-field">
+							<span class="form-field__label">{ admini18n.T(ctx, "fields.super_role") }</span>
+							<select class="form-field__input" name="super">
+								<option value="" selected?={ props.Query.Filters.IsSuper == nil }>{ admini18n.T(ctx, "common.any") }</option>
+								<option value="true" selected?={ props.Query.Filters.IsSuper != nil && *props.Query.Filters.IsSuper }>{ admini18n.T(ctx, "common.yes") }</option>
+								<option value="false" selected?={ props.Query.Filters.IsSuper != nil && !*props.Query.Filters.IsSuper }>{ admini18n.T(ctx, "common.no") }</option>
+							</select>
+						</label>
+						<div class="action-group">
+							<button class="button button--primary button--compact" type="submit">{ admini18n.T(ctx, "actions.apply_filters") }</button>
+							@components.ActionLink(props.Panel.BasePath+"/roles", "button button--secondary button--compact", admini18n.T(ctx, "actions.reset_filters")) {
+								{ admini18n.T(ctx, "actions.reset") }
 							}
-						</summary>
-						<form
-							class="filter-menu__form form-stack"
-							method="get"
-							action={ templ.URL(props.Panel.BasePath + "/roles") }
-							hx-get={ props.Panel.BasePath + "/roles" }
-							hx-target="#page-content"
-							hx-swap="morph:outerHTML show:none"
-							hx-push-url="true"
-							hx-sync="body:replace"
-						>
-							<input type="hidden" name="sort" value={ string(props.Query.Sort) }/>
-							<input type="hidden" name="order" value={ map[bool]string{false: "asc", true: "desc"}[props.Query.Descending] }/>
-							<input type="hidden" name="size" value={ strconv.Itoa(props.Query.PageSize) }/>
-							<label class="form-field">
-								<span class="form-field__label">{ admini18n.T(ctx, "fields.uuid_contains") }</span>
-								<input class="form-field__input" name="uuid" value={ props.Query.Filters.IDLike } maxlength="100"/>
-							</label>
-							<label class="form-field">
-								<span class="form-field__label">{ admini18n.T(ctx, "fields.name_contains") }</span>
-								<input class="form-field__input" name="name" value={ props.Query.Filters.NameLike } maxlength="500"/>
-							</label>
-							@RolePermissions("role-filter-permissions", admini18n.T(ctx, "fields.permissions_all"), props.Permissions)
-							<label class="form-field">
-								<span class="form-field__label">{ admini18n.T(ctx, "fields.super_role") }</span>
-								<select class="form-field__input" name="super">
-									<option value="" selected?={ props.Query.Filters.IsSuper == nil }>{ admini18n.T(ctx, "common.any") }</option>
-									<option value="true" selected?={ props.Query.Filters.IsSuper != nil && *props.Query.Filters.IsSuper }>{ admini18n.T(ctx, "common.yes") }</option>
-									<option value="false" selected?={ props.Query.Filters.IsSuper != nil && !*props.Query.Filters.IsSuper }>{ admini18n.T(ctx, "common.no") }</option>
-								</select>
-							</label>
-							<div class="action-group">
-								<button class="button button--primary button--compact" type="submit">{ admini18n.T(ctx, "actions.apply_filters") }</button>
-								@components.ActionLink(props.Panel.BasePath+"/roles", "button button--secondary button--compact", admini18n.T(ctx, "actions.reset_filters")) {
-									{ admini18n.T(ctx, "actions.reset") }
-								}
-							</div>
-						</form>
-					</details>
-					<nav class="pagination" aria-label={ admini18n.T(ctx, "pagination.roles") }>
-						if props.Page.Page > 1 {
-							@components.ActionLink(props.URL(1, props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.first")) {
-								<i class="ti ti-chevrons-left" aria-hidden="true"></i>
-							}
-							@components.ActionLink(props.URL(props.Page.Page-1, props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.previous")) {
-								<i class="ti ti-chevron-left" aria-hidden="true"></i>
-							}
+						</div>
+					</form>
+				</details>
+				<nav class="pagination" aria-label={ admini18n.T(ctx, "pagination.roles") }>
+					if !props.Loading && props.Page.Page > 1 {
+						@components.ActionLink(props.URL(1, props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.first")) {
+							<i class="ti ti-chevrons-left" aria-hidden="true"></i>
+						}
+						@components.ActionLink(props.URL(props.Page.Page-1, props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.previous")) {
+							<i class="ti ti-chevron-left" aria-hidden="true"></i>
+						}
+					} else {
+						<span class="icon-button" aria-disabled="true"><i class="ti ti-chevrons-left" aria-hidden="true"></i></span>
+						<span class="icon-button" aria-disabled="true"><i class="ti ti-chevron-left" aria-hidden="true"></i></span>
+					}
+					<span class="pagination__current">
+						{ strconv.Itoa(props.Page.Page) } /
+						if props.Loading {
+							–
 						} else {
-							<span class="icon-button" aria-disabled="true"><i class="ti ti-chevrons-left" aria-hidden="true"></i></span>
-							<span class="icon-button" aria-disabled="true"><i class="ti ti-chevron-left" aria-hidden="true"></i></span>
+							{ strconv.Itoa(props.Page.Pages()) }
 						}
-						<span class="pagination__current">{ strconv.Itoa(props.Page.Page) } / { strconv.Itoa(props.Page.Pages()) }</span>
-						if props.Page.Page < props.Page.Pages() {
-							@components.ActionLink(props.URL(props.Page.Page+1, props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.next")) {
-								<i class="ti ti-chevron-right" aria-hidden="true"></i>
-							}
-							@components.ActionLink(props.URL(props.Page.Pages(), props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.last")) {
-								<i class="ti ti-chevrons-right" aria-hidden="true"></i>
-							}
-						} else {
-							<span class="icon-button" aria-disabled="true"><i class="ti ti-chevron-right" aria-hidden="true"></i></span>
-							<span class="icon-button" aria-disabled="true"><i class="ti ti-chevrons-right" aria-hidden="true"></i></span>
+					</span>
+					if !props.Loading && props.Page.Page < props.Page.Pages() {
+						@components.ActionLink(props.URL(props.Page.Page+1, props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.next")) {
+							<i class="ti ti-chevron-right" aria-hidden="true"></i>
 						}
-					</nav>
-				</div>
-			</div>
-			<div class="data-table-scroll" tabindex="0" role="region" aria-label={ admini18n.T(ctx, "roles.table") }>
-				<table class="data-table">
-					<caption class="visually-hidden">{ admini18n.T(ctx, "roles.caption") }</caption>
-					<thead>
-						<tr>
-							<th scope="col" aria-sort={ props.SortDirection(security.RoleSortID) }>
-								@RoleSortLink(props, security.RoleSortID, admini18n.T(ctx, "fields.uuid"))
-							</th>
-							<th scope="col" aria-sort={ props.SortDirection(security.RoleSortName) }>
-								@RoleSortLink(props, security.RoleSortName, admini18n.T(ctx, "fields.name"))
-							</th>
-							<th scope="col" aria-sort={ props.SortDirection(security.RoleSortSuper) }>
-								@RoleSortLink(props, security.RoleSortSuper, admini18n.T(ctx, "fields.super"))
-							</th>
-							<th scope="col">{ admini18n.T(ctx, "fields.permissions") }</th>
-							<th scope="col" class="data-table__actions"><span class="visually-hidden">{ admini18n.T(ctx, "fields.actions") }</span></th>
-						</tr>
-					</thead>
-					<tbody>
-						for _, row := range props.Rows {
-							<tr>
-								<td class="role-table__uuid">{ row.ID }</td>
-								<td>
-									<div class="tag-list">
-										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "text-link", admini18n.T(ctx, "actions.view_named", map[string]any{"Name": row.Name})) {
-											{ row.Name }
-										}
-										if row.Current {
-											<span class="badge">{ admini18n.T(ctx, "roles.your_role") }</span>
-										}
-									</div>
-								</td>
-								<td>
-									@RoleSuper(row.IsSuper)
-								</td>
-								<td>
-									<div class="tag-list">
-										if row.IsSuper {
-											<span class="badge">{ admini18n.T(ctx, "roles.all_permissions") }</span>
-										} else {
-											for _, permission := range row.Permissions {
-												<span class="badge">{ permission }</span>
-											}
-											if len(row.Permissions) == 0 {
-												<span class="role-muted">{ admini18n.T(ctx, "common.none") }</span>
-											}
-										}
-									</div>
-								</td>
-								<td class="data-table__actions">
-									<div class="action-group">
-										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "icon-button", admini18n.T(ctx, "actions.view_named", map[string]any{"Name": row.Name})) {
-											<i class="ti ti-eye" aria-hidden="true"></i>
-										}
-										@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/edit", "icon-button", admini18n.T(ctx, "actions.edit_named", map[string]any{"Name": row.Name})) {
-											<i class="ti ti-pencil" aria-hidden="true"></i>
-										}
-										@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+row.ID+"/delete", row.Name, "icon-button icon-button--danger", admini18n.T(ctx, "actions.delete_named", map[string]any{"Name": row.Name})) {
-											<i class="ti ti-trash" aria-hidden="true"></i>
-										}
-									</div>
-								</td>
-							</tr>
+						@components.ActionLink(props.URL(props.Page.Pages(), props.Query.Sort, props.Query.Descending), "icon-button", admini18n.T(ctx, "pagination.last")) {
+							<i class="ti ti-chevrons-right" aria-hidden="true"></i>
 						}
-						if len(props.Rows) == 0 {
-							<tr><td colspan="5" class="data-table__empty">{ admini18n.T(ctx, "roles.empty") }</td></tr>
-						}
-					</tbody>
-				</table>
+					} else {
+						<span class="icon-button" aria-disabled="true"><i class="ti ti-chevron-right" aria-hidden="true"></i></span>
+						<span class="icon-button" aria-disabled="true"><i class="ti ti-chevrons-right" aria-hidden="true"></i></span>
+					}
+				</nav>
 			</div>
 		</div>
-	}
+		<div class="data-table-scroll" tabindex="0" role="region" aria-label={ admini18n.T(ctx, "roles.table") }>
+			<table class="data-table">
+				<caption class="visually-hidden">{ admini18n.T(ctx, "roles.caption") }</caption>
+				<thead>
+					<tr>
+						<th scope="col" aria-sort={ props.SortDirection(security.RoleSortID) }>
+							@RoleSortLink(props, security.RoleSortID, admini18n.T(ctx, "fields.uuid"))
+						</th>
+						<th scope="col" aria-sort={ props.SortDirection(security.RoleSortName) }>
+							@RoleSortLink(props, security.RoleSortName, admini18n.T(ctx, "fields.name"))
+						</th>
+						<th scope="col" aria-sort={ props.SortDirection(security.RoleSortSuper) }>
+							@RoleSortLink(props, security.RoleSortSuper, admini18n.T(ctx, "fields.super"))
+						</th>
+						<th scope="col">{ admini18n.T(ctx, "fields.permissions") }</th>
+						<th scope="col" class="data-table__actions"><span class="visually-hidden">{ admini18n.T(ctx, "fields.actions") }</span></th>
+					</tr>
+				</thead>
+				<tbody>
+					if props.Loading {
+						<tr>
+							<td colspan="5" class="data-table__loading">
+								<div role="status"
+									hx-get={ props.TableURL() }
+									hx-trigger="load delay:100ms, htmx:afterSettle from:body delay:100ms"
+									hx-target="#roles-list-table"
+									hx-swap="outerHTML"
+									hx-sync="body:abort"
+								>
+									<span class="data-table__spinner" aria-hidden="true"></span>
+									<span class="visually-hidden">{ admini18n.T(ctx, "roles.loading") }</span>
+								</div>
+								<noscript>
+									<a class="text-link" href={ templ.URL(props.TableURL()) }>{ admini18n.T(ctx, "actions.list") }</a>
+								</noscript>
+							</td>
+						</tr>
+					}
+					for _, row := range props.Rows {
+						<tr>
+							<td class="role-table__uuid">{ row.ID }</td>
+							<td>
+								<div class="tag-list">
+									@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "text-link", admini18n.T(ctx, "actions.view_named", map[string]any{"Name": row.Name})) {
+										{ row.Name }
+									}
+									if row.Current {
+										<span class="badge">{ admini18n.T(ctx, "roles.your_role") }</span>
+									}
+								</div>
+							</td>
+							<td>
+								@RoleSuper(row.IsSuper)
+							</td>
+							<td>
+								<div class="tag-list">
+									if row.IsSuper {
+										<span class="badge">{ admini18n.T(ctx, "roles.all_permissions") }</span>
+									} else {
+										for _, permission := range row.Permissions {
+											<span class="badge">{ permission }</span>
+										}
+										if len(row.Permissions) == 0 {
+											<span class="role-muted">{ admini18n.T(ctx, "common.none") }</span>
+										}
+									}
+								</div>
+							</td>
+							<td class="data-table__actions">
+								<div class="action-group">
+									@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/view", "icon-button", admini18n.T(ctx, "actions.view_named", map[string]any{"Name": row.Name})) {
+										<i class="ti ti-eye" aria-hidden="true"></i>
+									}
+									@components.ActionLink(props.Panel.BasePath+"/roles/"+row.ID+"/edit", "icon-button", admini18n.T(ctx, "actions.edit_named", map[string]any{"Name": row.Name})) {
+										<i class="ti ti-pencil" aria-hidden="true"></i>
+									}
+									@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+row.ID+"/delete", row.Name, "icon-button icon-button--danger", admini18n.T(ctx, "actions.delete_named", map[string]any{"Name": row.Name})) {
+										<i class="ti ti-trash" aria-hidden="true"></i>
+									}
+								</div>
+							</td>
+						</tr>
+					}
+					if len(props.Errors) > 0 {
+						<tr>
+							<td colspan="5" class="data-table__empty">
+								for _, message := range props.Errors {
+									<p class="notice notice--error" role="alert">{ message }</p>
+								}
+								@components.ActionLink(props.URL(props.Query.Page, props.Query.Sort, props.Query.Descending), "button button--secondary button--compact", admini18n.T(ctx, "actions.retry")) {
+									{ admini18n.T(ctx, "actions.retry") }
+								}
+							</td>
+						</tr>
+					}
+					if !props.Loading && len(props.Errors) == 0 && len(props.Rows) == 0 {
+						<tr><td colspan="5" class="data-table__empty">{ admini18n.T(ctx, "roles.empty") }</td></tr>
+					}
+				</tbody>
+			</table>
+		</div>
+	</div>
 }
 
 templ RoleSortLink(props RoleListProps, sort security.RoleSort, label string) {

@@ -76,10 +76,18 @@ func (s *AuthenticationService) VerifyCredentials(ctx context.Context, request i
 	var result *security.Credentials
 	var err error
 
-	if validationErr := request.Validate(); validationErr != nil {
-		err = fmt.Errorf("sign in: %w", validationErr)
+	email, emailErr := security.NewEmail(request.Email)
+	password, passwordErr := security.NewPassword(request.Password)
+
+	// Bound account lookup input independently of the sign-in transport.
+	if len(request.Email) > 254 {
+		emailErr = security.ErrInvalidEmail
+	}
+
+	if valueErr := errors.Join(emailErr, passwordErr); valueErr != nil {
+		err = fmt.Errorf("sign in: %w: %w", input.ErrInvalidSignInInput, valueErr)
 	} else {
-		credentials, lookupErr := s.dependencies.Credentials.FindByEmail(ctx, security.Email(request.Email))
+		credentials, lookupErr := s.dependencies.Credentials.FindByEmail(ctx, email)
 		missing := errors.Is(lookupErr, security.ErrUserNotFound) || (lookupErr == nil && credentials == nil)
 
 		if lookupErr != nil && !missing {
@@ -91,7 +99,7 @@ func (s *AuthenticationService) VerifyCredentials(ctx context.Context, request i
 				hash = credentials.User.PasswordHash()
 			}
 
-			matches, verifyErr := s.verifyPassword(ctx, request.Password, hash)
+			matches, verifyErr := s.verifyPassword(ctx, password.Value(), hash)
 
 			if verifyErr != nil {
 				err = fmt.Errorf("verify sign-in credentials: %w", verifyErr)
@@ -128,7 +136,7 @@ func (s *AuthenticationService) loadCredentials(ctx context.Context, session sec
 	var credentials *security.Credentials
 	var err error
 
-	if session.ID == uuid.Nil || uuid.UUID(session.UserID) == uuid.Nil || !session.ExpiresAt.After(s.now()) {
+	if session.Validate() != nil || !session.ExpiresAt.After(s.now()) {
 		err = security.ErrSessionRevoked
 	} else {
 		credentials, err = s.dependencies.Credentials.FindByUserID(ctx, session.UserID)
@@ -176,7 +184,7 @@ func (s *AuthenticationService) ResolvePrincipal(ctx context.Context, session se
 func (s *AuthenticationService) SignOut(ctx context.Context, principal security.Principal) error {
 	var err error
 
-	if uuid.UUID(principal.UserID) == uuid.Nil || principal.SessionID == uuid.Nil {
+	if principal.UserID.Validate() != nil || principal.SessionID == uuid.Nil {
 		err = security.ErrInvalidSession
 	} else if revokeErr := s.dependencies.Revoker.Revoke(ctx, principal.UserID, principal.SessionID); revokeErr != nil {
 		err = fmt.Errorf("sign out session: %w", revokeErr)
@@ -194,7 +202,7 @@ func (s *AuthenticationService) SignOutAll(ctx context.Context, principal securi
 func (s *AuthenticationService) RevokeUserSessions(ctx context.Context, userID security.UserID) error {
 	var err error
 
-	if uuid.UUID(userID) == uuid.Nil {
+	if userID.Validate() != nil {
 		err = security.ErrInvalidSession
 	} else if invalidateErr := s.dependencies.Invalidator.Invalidate(ctx, userID); invalidateErr != nil {
 		err = fmt.Errorf("invalidate user credentials: %w", invalidateErr)

@@ -19,8 +19,7 @@ func opaqueSessionKey(digest string) string {
 }
 
 func validSessionState(session security.Session) bool {
-	return session.ID != uuid.Nil && uuid.UUID(session.UserID) != uuid.Nil &&
-		session.CredentialVersion != uuid.Nil && !session.ExpiresAt.IsZero()
+	return session.Validate() == nil
 }
 
 // CreateSession uses the same generation and session hash as JWT revocation and
@@ -34,7 +33,7 @@ func (s *SessionStore) CreateSession(ctx context.Context, session security.Sessi
 	if !validSessionState(session) || !validHash(digest) {
 		err = security.ErrInvalidSession
 	} else {
-		generation, randomErr := uuid.NewRandom()
+		generation, randomErr := uuid.NewV7()
 
 		if randomErr != nil {
 			err = fmt.Errorf("generate session generation: %w", randomErr)
@@ -82,13 +81,13 @@ func (s *SessionStore) FindSession(ctx context.Context, digest string) (security
 			if len(parts) != 2 {
 				err = security.ErrInvalidSession
 			} else {
-				userID, userErr := uuid.Parse(parts[0])
+				userID, userErr := security.NewUserID(parts[0])
 				id, idErr := uuid.Parse(parts[1])
 
-				if userErr != nil || idErr != nil || userID == uuid.Nil || id == uuid.Nil {
+				if userErr != nil || idErr != nil || id == uuid.Nil {
 					err = security.ErrInvalidSession
 				} else {
-					session, err = s.findOpaqueSession(ctx, security.UserID(userID), id)
+					session, err = s.findOpaqueSession(ctx, userID, id)
 				}
 			}
 		}

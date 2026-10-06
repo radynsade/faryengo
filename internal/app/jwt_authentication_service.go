@@ -72,7 +72,7 @@ func (s *JWTAuthenticationService) SignIn(ctx context.Context, request input.Sig
 
 func (s *JWTAuthenticationService) createSession(ctx context.Context, credentials *security.Credentials) (security.TokenPair, error) {
 	var pair security.TokenPair
-	id, err := uuid.NewRandom()
+	id, err := uuid.NewV7()
 
 	if err != nil {
 		err = fmt.Errorf("generate session ID: %w", err)

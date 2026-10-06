@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -93,8 +94,13 @@ func parseCreateRole(args []string) (appinput.CreateRoleInput, error) {
 
 				if err != nil {
 					err = fmt.Errorf("parse create-role name: %w", err)
-				} else if validationErr := request.Validate(); validationErr != nil {
-					err = fmt.Errorf("validate create-role arguments: %w", validationErr)
+				} else {
+					_, nameErr := security.NewRoleName(request.Name)
+					_, permissionErr := security.NewPermissions(request.Permissions)
+
+					if valueErr := errors.Join(nameErr, permissionErr); valueErr != nil {
+						err = fmt.Errorf("create-role arguments: %w: %w", appinput.ErrInvalidCreateRoleInput, valueErr)
+					}
 				}
 			}
 		}

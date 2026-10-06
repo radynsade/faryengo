@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	redislib "github.com/redis/go-redis/v9"
 
 	"github.com/radynsade/faryengo/internal/app"
@@ -166,7 +165,7 @@ func TestAdminUsesOnlyOpaqueSessionCookies(t *testing.T) {
 
 	// Password revocation must also affect sessions created through the admin.
 	cookies := login(t, mux)
-	repository.credentials.Version = uuid.New()
+	repository.credentials.Version = newTestUUID(t)
 
 	if response := httpRequest(mux, http.MethodGet, "/admin/en", "", cookies); response.Code != http.StatusSeeOther {
 		t.Fatalf("credential revocation did not invalidate admin: %d", response.Code)

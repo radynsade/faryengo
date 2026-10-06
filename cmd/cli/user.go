@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 
@@ -73,7 +74,7 @@ func parseCreateUser(args []string) (appinput.CreateUserInput, error) {
 					Password: positional[3], Phone: positional[4], RoleID: security.RoleID(roleID),
 				}
 
-				if validationErr := request.Validate(); validationErr != nil {
+				if validationErr := userArgumentValues(request); validationErr != nil {
 					err = fmt.Errorf("validate create-user arguments: %w", validationErr)
 				}
 			}
@@ -107,11 +108,17 @@ func parseDeleteUser(args []string) (security.UserID, error) {
 }
 
 func parseCommandUUID(value string, invalid error) (uuid.UUID, error) {
-	id, parseErr := uuid.Parse(value)
+	var id uuid.UUID
 	var err error
 
-	if len(value) != 36 || parseErr != nil || id == uuid.Nil {
-		id, err = uuid.Nil, invalid
+	if len(value) != 36 {
+		err = invalid
+	} else if errors.Is(invalid, security.ErrInvalidRoleID) {
+		parsed, parseErr := security.NewRoleID(value)
+		id, err = uuid.UUID(parsed), parseErr
+	} else {
+		parsed, parseErr := security.NewUserID(value)
+		id, err = uuid.UUID(parsed), parseErr
 	}
 
 	return id, err
@@ -155,6 +162,22 @@ func executeUserCommand(ctx context.Context, command userCommand, service *app.U
 		}
 	default:
 		err = errInvalidCommand
+	}
+
+	return err
+}
+
+// Validate primitive CLI arguments with domain constructors before connecting.
+func userArgumentValues(request appinput.CreateUserInput) error {
+	_, emailErr := security.NewEmail(request.Email)
+	_, phoneErr := security.NewPhone(request.Phone)
+	_, firstErr := security.NewFirstName(request.FirstName)
+	_, lastErr := security.NewLastName(request.LastName)
+	_, passwordErr := security.NewRegistrationPassword(request.Password)
+	err := errors.Join(emailErr, phoneErr, firstErr, lastErr, passwordErr)
+
+	if err != nil {
+		err = fmt.Errorf("%w: %w", appinput.ErrInvalidCreateUserInput, err)
 	}
 
 	return err

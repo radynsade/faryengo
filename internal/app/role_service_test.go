@@ -80,7 +80,7 @@ func TestRoleServiceCreate(t *testing.T) {
 			}
 
 			if err == nil {
-				if role != store.written || uuid.UUID(role.ID()) == uuid.Nil || role.Name()["lv"].Content() != "Administrators" || !role.IsSuper() || !slices.Equal(role.Permissions(), valid.Permissions) || store.ctx != ctx {
+				if role != store.written || uuid.UUID(role.ID()).Version() != 7 || role.Name()["lv"].Content() != "Administrators" || !role.IsSuper() || !slices.Equal(role.Permissions(), valid.Permissions) || store.ctx != ctx {
 					t.Fatalf("created role = %v, store = %+v", role, store)
 				}
 

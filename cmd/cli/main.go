@@ -15,6 +15,7 @@ import (
 	"github.com/radynsade/faryengo/internal/app"
 	appinput "github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/config"
+	"github.com/radynsade/faryengo/internal/languages"
 	languagespgxgoqu "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
 )
 
@@ -238,8 +239,12 @@ func parseCreateLanguage(args []string) (appinput.CreateLanguageInput, error) {
 				input.EnglishName = positional[1]
 				input.NativeName = positional[2]
 
-				if validationErr := input.Validate(); validationErr != nil {
-					err = fmt.Errorf("validate create-language arguments: %w", validationErr)
+				_, codeErr := languages.NewLanguageCode(input.Code)
+				_, englishErr := languages.NewLanguageEnglishName(input.EnglishName)
+				_, nativeErr := languages.NewLanguageNativeName(input.NativeName)
+
+				if valueErr := errors.Join(codeErr, englishErr, nativeErr); valueErr != nil {
+					err = fmt.Errorf("create-language arguments: %w: %w", appinput.ErrInvalidCreateLanguageInput, valueErr)
 				}
 			}
 		}

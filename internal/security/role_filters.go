@@ -54,6 +54,27 @@ const (
 	DefaultRolePageSize          = 25
 )
 
+func NewRoleSort(value string) (RoleSort, error) {
+	sort := RoleSort(value)
+	err := sort.Validate()
+
+	if err != nil {
+		sort = ""
+	}
+
+	return sort, err
+}
+
+func (s RoleSort) Validate() error {
+	var err error
+
+	if s != RoleSortID && s != RoleSortName && s != RoleSortSuper {
+		err = ErrInvalidRoleQuery
+	}
+
+	return err
+}
+
 type RoleQuery struct {
 	Filters    RoleFilters
 	Sort       RoleSort
@@ -70,8 +91,8 @@ func (q RoleQuery) Validate() error {
 		err = filterErr
 	} else if q.Page < 1 || q.Page > 1_000_000 || q.PageSize < 1 || q.PageSize > 100 {
 		err = ErrInvalidRoleQuery
-	} else if q.Sort != RoleSortID && q.Sort != RoleSortName && q.Sort != RoleSortSuper {
-		err = ErrInvalidRoleQuery
+	} else if sortErr := q.Sort.Validate(); sortErr != nil {
+		err = sortErr
 	} else if languageErr := q.Language.Validate(); languageErr != nil {
 		err = fmt.Errorf("%w: %w", ErrInvalidRoleQuery, languageErr)
 	}

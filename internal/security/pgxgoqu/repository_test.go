@@ -460,7 +460,7 @@ func TestUserRepositoryCreate(t *testing.T) {
 		{name: "missing role", user: testUser(t), execErr: &pgconn.PgError{Code: "23503", ConstraintName: "user_role_id_fkey"}, wantErr: security.ErrRoleNotFound, wantExec: true},
 		{name: "unrelated foreign key", user: testUser(t), execErr: otherForeignKey, wantErr: otherForeignKey, wantExec: true},
 		{name: "nil user", wantErr: ErrNilUser},
-		{name: "invalid user", user: &security.User{}, wantErr: security.ErrInvalidRoleID},
+		{name: "invalid user", user: &security.User{}, wantErr: security.ErrInvalidUserID},
 		{name: "database error", user: testUser(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantExec: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -502,7 +502,7 @@ func TestUserRepositoryUpdate(t *testing.T) {
 		{name: "updated", user: testUser(t), tag: pgconn.NewCommandTag("UPDATE 1"), wantExec: true},
 		{name: "not found", user: testUser(t), tag: pgconn.NewCommandTag("UPDATE 0"), wantErr: security.ErrUserNotFound, wantExec: true},
 		{name: "nil user", wantErr: ErrNilUser},
-		{name: "invalid user", user: &security.User{}, wantErr: security.ErrInvalidRoleID},
+		{name: "invalid user", user: &security.User{}, wantErr: security.ErrInvalidUserID},
 		{name: "database error", user: testUser(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantExec: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

@@ -38,29 +38,41 @@ func NewUserService(repository security.UserRepository, hasher security.Password
 
 func (s *UserService) Create(ctx context.Context, request input.CreateUserInput) (*security.User, error) {
 	var user *security.User
+	var values userValues
+	var password security.Password
 	var err error
 
 	if s == nil || s.repository == nil {
 		err = ErrNilUserRepository
 	} else if s.hasher == nil {
 		err = ErrNilPasswordHasher
-	} else if validationErr := request.Validate(); validationErr != nil {
-		err = fmt.Errorf("validate create user input: %w", validationErr)
 	} else {
+		values, err = userValuesFromInput(request.RoleID, request.Email, request.Phone, request.FirstName, request.LastName)
+		var passwordErr error
+		password, passwordErr = security.NewRegistrationPassword(request.Password)
+		err = errors.Join(err, passwordErr)
+
+		if err != nil {
+			err = fmt.Errorf("create user values: %w: %w", input.ErrInvalidCreateUserInput, err)
+		}
+	}
+
+	if err == nil {
 		var id uuid.UUID
-		id, err = uuid.NewRandom()
+		id, err = uuid.NewV7()
+
 		if err != nil {
 			err = fmt.Errorf("generate user ID: %w", err)
 		} else {
 			var hash security.PasswordHash
-			hash, err = s.hasher.Hash(ctx, request.Password)
+			hash, err = s.hasher.Hash(ctx, password.Value())
 			if err != nil {
 				err = fmt.Errorf("hash user password: %w", err)
 			} else {
 				user, err = security.NewUser(
-					security.UserID(id), request.RoleID, security.Email(request.Email),
-					security.Phone(request.Phone), hash, security.FirstName(request.FirstName),
-					security.LastName(request.LastName),
+					security.UserID(id), request.RoleID, values.email,
+					values.phone, hash, values.firstName,
+					values.lastName,
 				)
 				if err != nil {
 					err = fmt.Errorf("create user: %w", err)
@@ -77,15 +89,30 @@ func (s *UserService) Create(ctx context.Context, request input.CreateUserInput)
 
 func (s *UserService) Update(ctx context.Context, request input.UpdateUserInput) (*security.User, error) {
 	var user *security.User
+	var values userValues
+	var password security.Password
 	var err error
 
 	if s == nil || s.repository == nil {
 		err = ErrNilUserRepository
 	} else if s.hasher == nil {
 		err = ErrNilPasswordHasher
-	} else if validationErr := request.Validate(); validationErr != nil {
-		err = fmt.Errorf("validate update user input: %w", validationErr)
 	} else {
+		values, err = userValuesFromInput(request.RoleID, request.Email, request.Phone, request.FirstName, request.LastName)
+		err = errors.Join(err, request.ID.Validate())
+
+		if request.Password != nil {
+			var passwordErr error
+			password, passwordErr = security.NewPassword(*request.Password)
+			err = errors.Join(err, passwordErr)
+		}
+
+		if err != nil {
+			err = fmt.Errorf("update user values: %w: %w", input.ErrInvalidUpdateUserInput, err)
+		}
+	}
+
+	if err == nil {
 		var existing *security.User
 		existing, err = s.repository.FindByID(ctx, request.ID)
 
@@ -97,15 +124,15 @@ func (s *UserService) Update(ctx context.Context, request input.UpdateUserInput)
 
 		if err == nil {
 			user, err = security.NewUser(
-				request.ID, request.RoleID, security.Email(request.Email),
-				security.Phone(request.Phone), existing.PasswordHash(), security.FirstName(request.FirstName),
-				security.LastName(request.LastName),
+				request.ID, request.RoleID, values.email,
+				values.phone, existing.PasswordHash(), values.firstName,
+				values.lastName,
 			)
 			if err != nil {
 				err = fmt.Errorf("update user %s: %w", uuid.UUID(request.ID), err)
 			} else if request.Password != nil {
 				var hash security.PasswordHash
-				hash, err = s.hasher.Hash(ctx, *request.Password)
+				hash, err = s.hasher.Hash(ctx, password.Value())
 
 				if err != nil {
 					err = fmt.Errorf("hash user password: %w", err)
@@ -134,8 +161,8 @@ func (s *UserService) Delete(ctx context.Context, id security.UserID) error {
 
 	if s == nil || s.repository == nil {
 		err = ErrNilUserRepository
-	} else if uuid.UUID(id) == uuid.Nil {
-		err = fmt.Errorf("delete user: %w", input.ErrInvalidUserID)
+	} else if validationErr := id.Validate(); validationErr != nil {
+		err = fmt.Errorf("delete user: %w", validationErr)
 	} else if deleteErr := s.repository.Delete(ctx, id); deleteErr != nil {
 		err = fmt.Errorf("delete user %s: %w", uuid.UUID(id), deleteErr)
 	}

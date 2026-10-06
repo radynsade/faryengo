@@ -28,6 +28,18 @@ type Session struct {
 	ExpiresAt         time.Time
 }
 
+// Validate checks intrinsic device state. Expiration and durable revocation
+// require the application clock and repositories and are checked separately.
+func (s Session) Validate() error {
+	var err error
+
+	if s.ID == uuid.Nil || s.UserID.Validate() != nil || s.CredentialVersion == uuid.Nil || s.ExpiresAt.IsZero() {
+		err = ErrInvalidSession
+	}
+
+	return err
+}
+
 // SessionGrant is an opaque credential and its server-controlled expiration.
 // Only the ID is sent in the browser cookie; no identity or claims are encoded.
 type SessionGrant struct {

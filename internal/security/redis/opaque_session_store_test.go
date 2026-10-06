@@ -39,7 +39,7 @@ func TestOpaqueSessionState(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store, mini, token := testStore(t)
 			session := token.Session
-			session.ID = uuid.New()
+			session.ID = newTestUUID(t)
 			session.ExpiresAt = time.Now().UTC().Truncate(time.Second).Add(30 * 24 * time.Hour)
 			digest := hash("opaque credential")
 
@@ -77,7 +77,7 @@ func TestOpaqueSessionState(t *testing.T) {
 func TestOpaqueSessionAbsoluteExpiration(t *testing.T) {
 	store, mini, token := testStore(t)
 	session := token.Session
-	session.ID = uuid.New()
+	session.ID = newTestUUID(t)
 	digest := hash("opaque")
 
 	if err := store.CreateSession(t.Context(), session, digest); err != nil {
@@ -115,7 +115,7 @@ func TestOpaqueSessionLookupCannotAuthorizeJWTState(t *testing.T) {
 func TestOpaqueSessionCreationCannotReplaceExistingState(t *testing.T) {
 	store, _, token := testStore(t)
 	session := token.Session
-	session.ID = uuid.New()
+	session.ID = newTestUUID(t)
 	digest := hash("opaque")
 
 	if err := store.CreateSession(t.Context(), session, digest); err != nil {
@@ -123,7 +123,7 @@ func TestOpaqueSessionCreationCannotReplaceExistingState(t *testing.T) {
 	}
 
 	next := session
-	next.ID = uuid.New()
+	next.ID = newTestUUID(t)
 
 	if err := store.CreateSession(t.Context(), next, digest); !errors.Is(err, security.ErrInvalidSession) {
 		t.Fatalf("existing session credential replaced: %v", err)

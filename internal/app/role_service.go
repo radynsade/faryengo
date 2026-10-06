@@ -4,8 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
 
 	"github.com/google/uuid"
 
@@ -39,16 +37,18 @@ func (s *RoleService) Create(ctx context.Context, request input.CreateRoleInput)
 
 	if s == nil || s.repository == nil {
 		err = ErrNilRoleRepository
-	} else if validationErr := request.Validate(); validationErr != nil {
-		err = fmt.Errorf("validate create role input: %w", validationErr)
 	} else {
 		var id uuid.UUID
-		id, err = uuid.NewRandom()
+		id, err = uuid.NewV7()
 
 		if err != nil {
 			err = fmt.Errorf("generate role ID: %w", err)
 		} else {
 			role, err = roleFromInput(security.RoleID(id), request.Name, request.Permissions, request.IsSuper)
+
+			if err != nil {
+				err = fmt.Errorf("create role values: %w: %w", input.ErrInvalidCreateRoleInput, err)
+			}
 
 			if err == nil {
 				if createErr := s.repository.Create(ctx, role); createErr != nil {
@@ -122,25 +122,42 @@ func (s *RoleService) List(ctx context.Context, query security.RoleQuery) (secur
 
 func (s *RoleService) Update(ctx context.Context, request input.UpdateRoleInput) (*security.Role, error) {
 	var role *security.Role
+	var replacement languages.Text
+	var permissions []security.Permission
 	var err error
 
 	if s == nil || s.repository == nil {
 		err = ErrNilRoleRepository
-	} else if validationErr := request.Validate(); validationErr != nil {
-		err = fmt.Errorf("validate update role input: %w", validationErr)
 	} else {
+		err = request.ID.Validate()
+		var permissionErr error
+		permissions, permissionErr = security.NewPermissions(request.Permissions)
+		var nameErr error
+
+		if request.Name != nil {
+			replacement, nameErr = security.NewRoleName(request.Name)
+		}
+
+		err = errors.Join(err, nameErr, permissionErr)
+
+		if err != nil {
+			err = fmt.Errorf("update role values: %w: %w", input.ErrInvalidUpdateRoleInput, err)
+		}
+	}
+
+	if err == nil {
 		var existing *security.Role
 		existing, err = s.FindByID(ctx, request.ID)
 
 		if err == nil {
-			name, permissions, isSuper := existing.Name(), existing.Permissions(), existing.IsSuper()
+			name, isSuper := existing.Name(), existing.IsSuper()
 
 			if request.Name != nil {
-				name, err = roleNameFromInput(request.Name)
+				name = replacement
 			}
 
-			if request.Permissions != nil {
-				permissions = request.Permissions
+			if request.Permissions == nil {
+				permissions = existing.Permissions()
 			}
 
 			if request.IsSuper != nil {
@@ -184,7 +201,9 @@ func (s *RoleService) Delete(ctx context.Context, id security.RoleID) error {
 
 func roleFromInput(id security.RoleID, name map[string]string, permissions []security.Permission, isSuper bool) (*security.Role, error) {
 	var role *security.Role
-	text, err := roleNameFromInput(name)
+	text, nameErr := security.NewRoleName(name)
+	permissions, permissionErr := security.NewPermissions(permissions)
+	err := errors.Join(nameErr, permissionErr)
 
 	if err == nil {
 		role, err = security.NewRole(id, text, permissions)
@@ -195,28 +214,4 @@ func roleFromInput(id security.RoleID, name map[string]string, permissions []sec
 	}
 
 	return role, err
-}
-
-func roleNameFromInput(name map[string]string) (languages.Text, error) {
-	translations := make([]languages.Translation, 0, len(name))
-	var text languages.Text
-	var err error
-
-	for _, code := range slices.Sorted(maps.Keys(name)) {
-		var translation languages.Translation
-		translation, err = languages.NewTranslation(languages.LanguageCode(code), name[code])
-
-		if err != nil {
-			err = fmt.Errorf("map role name %q: %w", code, err)
-			break
-		}
-
-		translations = append(translations, translation)
-	}
-
-	if err == nil {
-		text, err = languages.NewText(translations)
-	}
-
-	return text, err
 }

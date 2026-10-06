@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -31,10 +32,12 @@ type httpCredentials struct {
 	role        *security.Role
 	otherRoles  []*security.Role
 	roleErr     error
+	roleListErr error
 	deleteErr   error
 	lastQuery   security.RoleQuery
 	lastFilters security.RoleFilters
 	roleWrites  int
+	roleReads   int
 }
 
 func (r *httpCredentials) FindByEmail(_ context.Context, email security.Email) (*security.Credentials, error) {
@@ -108,8 +111,8 @@ func httpFixtureWithFlashStorage(t *testing.T, secure bool, flashStorage flashms
 
 func httpFixtureWithInstances(t *testing.T, secure bool, flashStorage flashmsg.FlashSessionStorage, count int) ([]*http.ServeMux, *httpCredentials, *miniredis.Miniredis) {
 	t.Helper()
-	roleID := security.RoleID(uuid.New())
-	user, err := security.NewUser(security.UserID(uuid.New()), roleID, "person@example.com", "+37123456789", "stored", "First", "Last")
+	roleID := security.RoleID(newTestUUID(t))
+	user, err := security.NewUser(security.UserID(newTestUUID(t)), roleID, "person@example.com", "+37123456789", "stored", "First", "Last")
 
 	if err != nil {
 		t.Fatal(err)
@@ -127,7 +130,7 @@ func httpFixtureWithInstances(t *testing.T, secure bool, flashStorage flashmsg.F
 		t.Fatal(err)
 	}
 
-	repository := &httpCredentials{credentials: security.Credentials{User: user, Version: uuid.New()}, role: role}
+	repository := &httpCredentials{credentials: security.Credentials{User: user, Version: newTestUUID(t)}, role: role}
 	mini := miniredis.RunT(t)
 
 	var instances []*http.ServeMux
@@ -450,7 +453,7 @@ func TestAdminAuthenticationState(t *testing.T) {
 	}{
 		{name: "anonymous", change: func(_ *httpCredentials, _ *miniredis.Miniredis, _ []*http.Cookie) []*http.Cookie { return nil }, status: http.StatusSeeOther},
 		{name: "password change", change: func(repo *httpCredentials, _ *miniredis.Miniredis, cookies []*http.Cookie) []*http.Cookie {
-			repo.credentials.Version = uuid.New()
+			repo.credentials.Version = newTestUUID(t)
 
 			return cookies
 		}, status: http.StatusSeeOther},
@@ -524,8 +527,23 @@ func (r *httpCredentials) Invalidate(ctx context.Context, id security.UserID) er
 	} else if id != r.credentials.User.ID() {
 		err = security.ErrUserNotFound
 	} else {
-		r.credentials.Version = uuid.New()
+		r.credentials.Version, err = uuid.NewV7()
+
+		if err != nil {
+			err = fmt.Errorf("generate credential version: %w", err)
+		}
 	}
 
 	return err
+}
+
+func newTestUUID(t *testing.T) uuid.UUID {
+	t.Helper()
+	id, err := uuid.NewV7()
+
+	if err != nil {
+		t.Fatalf("generate UUIDv7: %v", err)
+	}
+
+	return id
 }

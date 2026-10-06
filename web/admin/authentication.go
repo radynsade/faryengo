@@ -13,6 +13,7 @@ import (
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 )
 
@@ -30,14 +31,14 @@ func (h *Handler) signIn(writer http.ResponseWriter, request *http.Request) {
 		if parseErr != nil || len(request.PostForm) != 2 || len(request.PostForm["email"]) != 1 || len(request.PostForm["password"]) != 1 {
 			h.renderSignIn(writer, request, http.StatusBadRequest, "", admini18n.T(request.Context(), "errors.credentials_form"))
 		} else {
-			credentials := input.SignInInput{Email: request.PostForm.Get("email"), Password: request.PostForm.Get("password")}
+			credentials := signInRequest{Email: request.PostForm.Get("email"), Password: request.PostForm.Get("password")}
 
-			if validationErr := credentials.Validate(); validationErr != nil {
-				h.renderSignIn(writer, request, http.StatusBadRequest, credentials.Email, admini18n.T(request.Context(), "errors.credentials_form"))
+			if validationErr := requestvalidation.Validate(request.Context(), credentials); validationErr != nil {
+				h.renderSignIn(writer, request, http.StatusBadRequest, credentials.Email, admini18n.T(request.Context(), "errors.credentials_form")+" "+requestFieldMessages(request.Context(), validationErr))
 			} else if limitErr := h.allowSignIn(request, credentials.Email); limitErr != nil {
 				h.signInError(writer, request, credentials.Email, limitErr)
 			} else {
-				session, err := h.service.SignIn(request.Context(), credentials)
+				session, err := h.service.SignIn(request.Context(), input.SignInInput{Email: credentials.Email, Password: credentials.Password})
 
 				if err != nil {
 					h.signInError(writer, request, credentials.Email, err)

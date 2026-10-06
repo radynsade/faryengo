@@ -215,6 +215,9 @@
   "roles.edit": {
     "other": "Rediģēt lomu"
   },
+  "roles.edit_title": {
+    "other": "Rediģēt lomu «{{.Name}}»"
+  },
   "roles.delete": {
     "other": "Dzēst lomu"
   },
@@ -238,6 +241,12 @@
   },
   "roles.name_help": {
     "other": "Ievadiet nosaukumu vismaz vienā valodā. Atstājiet tulkojumu tukšu, lai to izlaistu."
+  },
+  "roles.loading": {
+    "other": "Ielādē lomas…"
+  },
+  "actions.retry": {
+    "other": "Mēģināt vēlreiz"
   },
   "roles.empty": {
     "other": "Lomas nav atrastas. Mēģiniet mainīt vai atiestatīt filtrus."
@@ -321,5 +330,23 @@
   },
   "errors.cross_origin": {
     "other": "Šis pieprasījums tika bloķēts. Pārlādējiet lapu un mēģiniet vēlreiz."
+  },
+  "validation.required": {
+    "other": "{{.Field}}: obligāts lauks."
+  },
+  "validation.invalid": {
+    "other": "{{.Field}}: nederīga vērtība."
+  },
+  "validation.email": {
+    "other": "{{.Field}}: nederīga e-pasta adrese."
+  },
+  "validation.uuid": {
+    "other": "{{.Field}}: nederīgs UUID."
+  },
+  "validation.phone": {
+    "other": "{{.Field}}: nederīgs tālruņa numurs."
+  },
+  "validation.too_long": {
+    "other": "{{.Field}}: pārsniegts maksimālais garums."
   }
 }

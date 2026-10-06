@@ -47,7 +47,7 @@ func (h *Handler) flashSession(request *http.Request, create bool) (flashmsg.Ses
 		}
 
 		if state.guestID == uuid.Nil && create {
-			state.guestID, err = uuid.NewRandom()
+			state.guestID, err = uuid.NewV7()
 		}
 
 		if state.guestID != uuid.Nil {

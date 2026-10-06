@@ -14,10 +14,10 @@ import (
 )
 
 func TestAdminLocalizedPages(t *testing.T) {
-	for _, locale := range []struct{ code, signIn, restore, panel, users, roles, create, edit, permissions, close string }{
-		{"en", "Sign in", "Restore password", "Admin panel", "Users", "Roles", "Create role", "Edit role", "Permissions", "Close"},
-		{"lv", "Pieslēgties", "Atjaunot paroli", "Administrācijas panelis", "Lietotāji", "Lomas", "Izveidot lomu", "Rediģēt lomu", "Atļaujas", "Aizvērt"},
-		{"ru", "Войти", "Восстановить пароль", "Панель администратора", "Пользователи", "Роли", "Создать роль", "Редактировать роль", "Разрешения", "Закрыть"},
+	for _, locale := range []struct{ code, signIn, restore, panel, users, roles, create, edit, editTitle, permissions, close string }{
+		{"en", "Sign in", "Restore password", "Admin panel", "Users", "Roles", "Create role", "Edit role", `Edit role "Admin"`, "Permissions", "Close"},
+		{"lv", "Pieslēgties", "Atjaunot paroli", "Administrācijas panelis", "Lietotāji", "Lomas", "Izveidot lomu", "Rediģēt lomu", "Rediģēt lomu «Admin»", "Atļaujas", "Aizvērt"},
+		{"ru", "Войти", "Восстановить пароль", "Панель администратора", "Пользователи", "Роли", "Создать роль", "Редактировать роль", "Редактировать роль «Admin»", "Разрешения", "Закрыть"},
 	} {
 		t.Run(locale.code, func(t *testing.T) {
 			mux, repository, _ := httpFixture(t)
@@ -55,6 +55,14 @@ func TestAdminLocalizedPages(t *testing.T) {
 
 						if response.Code != http.StatusOK || response.Header().Get("Content-Language") != locale.code || !strings.Contains(body, page.title) {
 							t.Fatalf("localized page = %d %s", response.Code, body)
+						}
+
+						if page.path == rolePath+"/view" && (!strings.Contains(body, `aria-label="`+locale.edit+`"`) || !strings.Contains(body, "</i> "+locale.edit+"</a>")) {
+							t.Fatal("edit button must show only the localized action without the role name")
+						}
+
+						if page.path == rolePath+"/edit" && !strings.Contains(body, `<h1 id="page-heading" class="page-title__heading">`+html.EscapeString(locale.editTitle)+`</h1>`) {
+							t.Fatal("edit page heading must include the quoted role name")
 						}
 
 						if !fragment && !strings.Contains(body, `<html lang="`+locale.code+`">`) {
@@ -104,7 +112,7 @@ func TestAdminLocalizedMessages(t *testing.T) {
 
 			cookies := login(t, mux)
 			invalid := httpRequest(mux, http.MethodPost, root+"/roles/create", "name[en]=", cookies)
-			missing := httpRequest(mux, http.MethodGet, root+"/roles/"+uuid.NewString()+"/view", "", cookies)
+			missing := httpRequest(mux, http.MethodGet, root+"/roles/"+newTestUUID(t).String()+"/view", "", cookies)
 
 			for _, check := range []struct {
 				response *httptest.ResponseRecorder

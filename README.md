@@ -5,9 +5,9 @@
 - [ ] make a common query domain and web parsing. Maybe /pkg?
 - [ ] styles and scripts loaded only when needed ?
 - [ ] form error handling and errors display (ajax)
-- [ ] no manual continue session
-- [ ] fix design delete confirmation modal
+- [x] no manual continue session
+- [x] fix design delete confirmation modal
 - [x] list button on the view page
-- [ ] use uuid v7
-- [ ] table loaders
+- [x] use uuid v7
+- [x] table loaders
 - [x] circular count badge in multiselect

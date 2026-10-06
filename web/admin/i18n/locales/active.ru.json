@@ -215,6 +215,9 @@
   "roles.edit": {
     "other": "Редактировать роль"
   },
+  "roles.edit_title": {
+    "other": "Редактировать роль «{{.Name}}»"
+  },
   "roles.delete": {
     "other": "Удалить роль"
   },
@@ -238,6 +241,12 @@
   },
   "roles.name_help": {
     "other": "Введите название хотя бы на одном языке. Оставьте перевод пустым, чтобы пропустить его."
+  },
+  "roles.loading": {
+    "other": "Загрузка ролей…"
+  },
+  "actions.retry": {
+    "other": "Повторить"
   },
   "roles.empty": {
     "other": "Роли не найдены. Попробуйте изменить или сбросить фильтры."
@@ -322,5 +331,23 @@
   },
   "errors.cross_origin": {
     "other": "Этот запрос заблокирован. Обновите страницу и попробуйте ещё раз."
+  },
+  "validation.required": {
+    "other": "{{.Field}}: обязательное поле."
+  },
+  "validation.invalid": {
+    "other": "{{.Field}}: недопустимое значение."
+  },
+  "validation.email": {
+    "other": "{{.Field}}: неверный адрес электронной почты."
+  },
+  "validation.uuid": {
+    "other": "{{.Field}}: неверный UUID."
+  },
+  "validation.phone": {
+    "other": "{{.Field}}: неверный номер телефона."
+  },
+  "validation.too_long": {
+    "other": "{{.Field}}: превышена максимальная длина."
   }
 }

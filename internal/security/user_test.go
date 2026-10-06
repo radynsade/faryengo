@@ -150,7 +150,7 @@ func TestUserRejectsZeroValues(t *testing.T) {
 		{name: "last name", email: email, phone: phone, hash: hash, first: first, want: ErrInvalidLastName},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			user, err := NewUser(UserID{}, roleID, tt.email, tt.phone, tt.hash, tt.first, tt.last)
+			user, err := NewUser(UserID{1}, roleID, tt.email, tt.phone, tt.hash, tt.first, tt.last)
 
 			if user != nil || !errors.Is(err, tt.want) {
 				t.Fatalf("NewUser() = (%v, %v), want (nil, %v)", user, err, tt.want)
@@ -158,7 +158,7 @@ func TestUserRejectsZeroValues(t *testing.T) {
 		})
 	}
 
-	user, err := NewUser(UserID{}, roleID, email, phone, hash, first, last)
+	user, err := NewUser(UserID{1}, roleID, email, phone, hash, first, last)
 
 	if err != nil {
 		t.Fatalf("NewUser() = %v, want nil", err)
@@ -216,13 +216,13 @@ func TestUserRequiresRoleID(t *testing.T) {
 	first, _ := NewFirstName("First")
 	last, _ := NewLastName("Last")
 
-	user, err := NewUser(UserID{}, RoleID{}, email, phone, hash, first, last)
+	user, err := NewUser(UserID{1}, RoleID{}, email, phone, hash, first, last)
 	if user != nil || !errors.Is(err, ErrInvalidRoleID) {
 		t.Fatalf("NewUser(zero RoleID) = (%v, %v), want (nil, %v)", user, err, ErrInvalidRoleID)
 	}
 
 	originalRoleID := RoleID{1}
-	user, err = NewUser(UserID{}, originalRoleID, email, phone, hash, first, last)
+	user, err = NewUser(UserID{1}, originalRoleID, email, phone, hash, first, last)
 	if err != nil {
 		t.Fatalf("NewUser(valid RoleID) error = %v", err)
 	}

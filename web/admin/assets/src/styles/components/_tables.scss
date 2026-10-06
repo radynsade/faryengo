@@ -56,8 +56,33 @@
 		text-align: center;
 	}
 
+	& &__loading {
+		padding: var(--space-12) var(--space-4);
+		text-align: center;
+	}
+
+	&__spinner {
+		display: inline-block;
+		width: var(--icon-success);
+		height: var(--icon-success);
+		border: var(--focus-offset) solid var(--color-accent-soft);
+		border-top-color: var(--color-accent);
+		border-radius: var(--radius-count);
+		animation: data-table-spin 0.8s linear infinite;
+
+		@media (prefers-reduced-motion: reduce) {
+			animation: none;
+		}
+	}
+
 	.text-link {
 		overflow-wrap: anywhere;
+	}
+}
+
+@keyframes data-table-spin {
+	to {
+		transform: rotate(360deg);
 	}
 }
 

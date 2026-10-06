@@ -74,11 +74,13 @@ func (r *httpCredentials) matchingRoles(filters security.RoleFilters) []*securit
 }
 
 func (r *httpCredentials) Count(_ context.Context, filters security.RoleFilters) (int, error) {
+	r.roleReads++
 	r.lastFilters = filters
-	return len(r.matchingRoles(filters)), r.roleErr
+	return len(r.matchingRoles(filters)), r.roleListErr
 }
 
 func (r *httpCredentials) Find(_ context.Context, query security.RoleQuery) ([]*security.Role, error) {
+	r.roleReads++
 	r.lastQuery = query
 	result := r.matchingRoles(query.Filters)
 	slices.SortFunc(result, func(a, b *security.Role) int {
@@ -95,7 +97,7 @@ func (r *httpCredentials) Find(_ context.Context, query security.RoleQuery) ([]*
 		return order
 	})
 	start := min((query.Page-1)*query.PageSize, len(result))
-	return result[start:min(start+query.PageSize, len(result))], r.roleErr
+	return result[start:min(start+query.PageSize, len(result))], r.roleListErr
 }
 
 type httpLanguages struct{}

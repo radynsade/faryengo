@@ -19,6 +19,7 @@ import (
 	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
@@ -29,17 +30,26 @@ import (
 var errInvalidRoleForm = errors.New("invalid role form")
 
 func (h *Handler) roles(writer http.ResponseWriter, request *http.Request) {
+	h.roleList(writer, request, false)
+}
+
+func (h *Handler) rolesTable(writer http.ResponseWriter, request *http.Request) {
+	h.roleList(writer, request, true)
+}
+
+func (h *Handler) roleList(writer http.ResponseWriter, request *http.Request, load bool) {
 	h.withPanel(writer, request, "roles", "", func(actor security.Principal, panel layouts.PanelProps) {
 		query, err := parseRoleQuery(request)
-		props := pages.RoleListProps{Panel: panel, Query: query,
-			Page: security.RolePage{Page: 1, PageSize: security.DefaultRolePageSize}}
+		props := pages.RoleListProps{Panel: panel, Query: query, Loading: !load,
+			Page: security.RolePage{Page: query.Page, PageSize: query.PageSize}}
 		status := http.StatusOK
+		fragment := load && request.Header.Get("HX-Request") == "true" && request.Header.Get("HX-History-Restore-Request") != "true"
 
-		if err == nil {
+		if err == nil && load {
 			props.Page, err = h.roleService.List(request.Context(), query)
 		}
 
-		if err == nil {
+		if err == nil && load {
 			props.Query.Page = props.Page.Page
 			catalog, catalogErr := h.languages.List(request.Context())
 			err = catalogErr
@@ -57,15 +67,31 @@ func (h *Handler) roles(writer http.ResponseWriter, request *http.Request) {
 			var message string
 			status, message = roleError(request, err)
 			flashErr = h.addFlash(request.Context(), writer, request, flashmsg.Error, message)
-			props.InvalidQuery = true
+			props.InvalidQuery = errors.Is(err, security.ErrInvalidRoleQuery)
+			props.Loading = false
 			props.Page = security.RolePage{Page: 1, PageSize: security.DefaultRolePageSize}
 			props.Rows = nil
+
+			if flashErr == nil && fragment {
+				var bag *flashmsg.Bag
+				bag, flashErr = h.readFlashes(request.Context(), request, flashmsg.Error)
+
+				if flashErr == nil {
+					props.Errors = bag.Get(flashmsg.Error)
+				}
+			}
 		}
 
 		props.Permissions = permissionOptions(request.Context(), query.Filters.Permissions)
 
 		if flashErr != nil {
 			h.flashUnavailable(writer, request, flashErr)
+		} else if fragment {
+			writer.Header().Add("Vary", "HX-Request")
+			writer.Header().Add("Vary", "HX-History-Restore-Request")
+			writer.Header().Set("HX-Retarget", "#roles-list-table")
+			writer.Header().Set("HX-Reswap", "outerHTML")
+			templ.Handler(pages.RolesTable(props), templ.WithStatus(status)).ServeHTTP(writer, request)
 		} else {
 			h.renderPage(writer, request, admini18n.T(request.Context(), "navigation.roles")+" · Faryen "+admini18n.T(request.Context(), "common.admin"), pages.Roles(props), templ.WithStatus(status))
 		}
@@ -73,16 +99,12 @@ func (h *Handler) roles(writer http.ResponseWriter, request *http.Request) {
 }
 
 func parseRoleQuery(request *http.Request) (security.RoleQuery, error) {
-	query := security.RoleQuery{Sort: security.RoleSortID, Page: 1, PageSize: security.DefaultRolePageSize, Language: languages.LanguageCode(request.PathValue("language"))}
+	dto := roleQueryRequest{Sort: string(security.RoleSortID), Page: 1, Size: security.DefaultRolePageSize, Language: request.PathValue("language")}
 	values, err := url.ParseQuery(request.URL.RawQuery)
 
 	if err == nil {
-		query.Filters.IDLike = strings.TrimSpace(values.Get("uuid"))
-		query.Filters.NameLike = strings.TrimSpace(values.Get("name"))
-
-		for _, permission := range values["permissions"] {
-			query.Filters.Permissions = append(query.Filters.Permissions, security.Permission(permission))
-		}
+		dto.IDLike, dto.NameLike = strings.TrimSpace(values.Get("uuid")), strings.TrimSpace(values.Get("name"))
+		dto.Permissions, dto.Super, dto.Order = values["permissions"], values.Get("super"), values.Get("order")
 
 		for _, key := range []string{"uuid", "name", "super", "sort", "order", "page", "size"} {
 			if len(values[key]) > 1 {
@@ -90,31 +112,14 @@ func parseRoleQuery(request *http.Request) (security.RoleQuery, error) {
 			}
 		}
 
-		if value := values.Get("super"); value != "" {
-			if value == "true" || value == "false" {
-				isSuper := value == "true"
-				query.Filters.IsSuper = &isSuper
-			} else {
-				err = security.ErrInvalidRoleQuery
-			}
-		}
-
 		if value := values.Get("sort"); value != "" {
-			query.Sort = security.RoleSort(value)
-		}
-
-		if value := values.Get("order"); value != "" {
-			query.Descending = value == "desc"
-
-			if value != "asc" && value != "desc" {
-				err = security.ErrInvalidRoleQuery
-			}
+			dto.Sort = value
 		}
 
 		for _, parameter := range []struct {
 			key    string
 			target *int
-		}{{"page", &query.Page}, {"size", &query.PageSize}} {
+		}{{"page", &dto.Page}, {"size", &dto.Size}} {
 			if value := values.Get(parameter.key); value != "" {
 				number, parseErr := strconv.Atoi(value)
 
@@ -127,8 +132,21 @@ func parseRoleQuery(request *http.Request) (security.RoleQuery, error) {
 		}
 
 		if err == nil {
-			err = query.Validate()
+			err = requestvalidation.Validate(request.Context(), dto)
 		}
+	}
+
+	query := security.RoleQuery{Filters: security.RoleFilters{IDLike: dto.IDLike, NameLike: dto.NameLike},
+		Sort: security.RoleSort(dto.Sort), Descending: dto.Order == "desc", Page: dto.Page, PageSize: dto.Size, Language: languages.LanguageCode(dto.Language)}
+
+	// Retain submitted filters for rendering even when validation failed.
+	for _, permission := range dto.Permissions {
+		query.Filters.Permissions = append(query.Filters.Permissions, security.Permission(permission))
+	}
+
+	if dto.Super == "true" || dto.Super == "false" {
+		isSuper := dto.Super == "true"
+		query.Filters.IsSuper = &isSuper
 	}
 
 	if err != nil {
@@ -169,7 +187,7 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 			if edit {
 				props.ID = uuid.UUID(id).String()
 				props.Name = roleRow(request.Context(), role, actor, languages.LanguageCode(request.PathValue("language")), catalog).Name
-				props.Title, props.Action = admini18n.T(request.Context(), "roles.edit"), panel.BasePath+"/roles/"+props.ID+"/edit"
+				props.Title, props.Action = admini18n.T(request.Context(), "roles.edit_title", map[string]any{"Name": props.Name}), panel.BasePath+"/roles/"+props.ID+"/edit"
 				values.IsSuper, values.Permissions = role.IsSuper(), role.Permissions()
 
 				for _, translation := range role.Name().Translations() {
@@ -230,7 +248,7 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 }
 
 func parseRoleForm(writer http.ResponseWriter, request *http.Request, catalog []*languages.Language) (input.CreateRoleInput, error) {
-	values := input.CreateRoleInput{Name: make(map[string]string), Permissions: []security.Permission{}}
+	dto := roleFormRequest{Name: make(map[string]string), Permissions: []string{}}
 	err := parseRolePost(writer, request)
 
 	if err == nil {
@@ -247,26 +265,40 @@ func parseRoleForm(writer http.ResponseWriter, request *http.Request, catalog []
 				if !known[code] || len(request.PostForm[key]) != 1 {
 					err = errInvalidRoleForm
 				} else if name := strings.TrimSpace(request.PostForm.Get(key)); name != "" {
-					values.Name[code] = name
+					dto.Name[code] = name
 				}
 			} else if key != "permissions" && key != "is_super" {
 				err = errInvalidRoleForm
 			}
 		}
 
-		if len(request.PostForm["is_super"]) > 1 || (request.PostForm.Get("is_super") != "" && request.PostForm.Get("is_super") != "1") {
+		if len(request.PostForm["is_super"]) > 1 {
 			err = errInvalidRoleForm
 		}
 
-		values.IsSuper = request.PostForm.Get("is_super") == "1"
-
-		for _, permission := range request.PostForm["permissions"] {
-			values.Permissions = append(values.Permissions, security.Permission(permission))
-		}
+		dto.IsSuper, dto.Permissions = request.PostForm.Get("is_super"), request.PostForm["permissions"]
 
 		if err == nil {
-			err = values.Validate()
+			err = requestvalidation.Validate(request.Context(), dto)
+
+			// A malformed checkbox is a bad form, preserving existing status behavior.
+			var fields *requestvalidation.Errors
+
+			if errors.As(err, &fields) {
+				for _, field := range fields.Fields {
+					if field.Field == "is_super" {
+						err = fmt.Errorf("%w: %w", errInvalidRoleForm, err)
+						break
+					}
+				}
+			}
 		}
+	}
+
+	values := input.CreateRoleInput{Name: dto.Name, Permissions: []security.Permission{}, IsSuper: dto.IsSuper == "1"}
+
+	for _, permission := range dto.Permissions {
+		values.Permissions = append(values.Permissions, security.Permission(permission))
 	}
 
 	return values, err
@@ -325,8 +357,12 @@ func (h *Handler) roleDetails(writer http.ResponseWriter, request *http.Request,
 			if deleteRole && request.Method == http.MethodPost {
 				err = parseRolePost(writer, request)
 
-				if err == nil && (len(request.PostForm) != 1 || len(request.PostForm["confirm"]) != 1 || request.PostForm.Get("confirm") != "delete") {
-					err = errInvalidRoleForm
+				if err == nil {
+					if len(request.PostForm) != 1 || len(request.PostForm["confirm"]) != 1 {
+						err = errInvalidRoleForm
+					} else if fieldErr := requestvalidation.Validate(request.Context(), roleDeleteRequest{Confirm: request.PostForm.Get("confirm")}); fieldErr != nil {
+						err = fmt.Errorf("%w: %w", errInvalidRoleForm, fieldErr)
+					}
 				}
 
 				if err == nil {
@@ -400,13 +436,18 @@ func (h *Handler) renderRoleDeleteError(writer http.ResponseWriter, request *htt
 }
 
 func roleID(request *http.Request) (security.RoleID, error) {
-	id, err := uuid.Parse(request.PathValue("role"))
+	var id security.RoleID
+	err := requestvalidation.Validate(request.Context(), roleIDRequest{ID: request.PathValue("role")})
 
-	if err != nil || id == uuid.Nil {
-		err = security.ErrInvalidRoleID
+	if err == nil {
+		id, err = security.NewRoleID(request.PathValue("role"))
 	}
 
-	return security.RoleID(id), err
+	if err != nil {
+		err = fmt.Errorf("role ID: %w: %w", security.ErrInvalidRoleID, err)
+	}
+
+	return id, err
 }
 
 func roleNameTranslations(ctx context.Context, catalog []*languages.Language, names map[string]string, language string) components.TranslationsInputProps {
@@ -489,10 +530,14 @@ func roleError(request *http.Request, err error) (int, string) {
 		status, message = http.StatusBadRequest, admini18n.T(request.Context(), "errors.role_form")
 	case errors.Is(err, security.ErrInvalidRoleQuery):
 		status, message = http.StatusBadRequest, admini18n.T(request.Context(), "errors.role_query")
-	case errors.Is(err, input.ErrInvalidCreateRoleInput), errors.Is(err, input.ErrInvalidUpdateRoleInput):
+	case errors.Is(err, requestvalidation.ErrInvalidRequest), errors.Is(err, input.ErrInvalidCreateRoleInput), errors.Is(err, input.ErrInvalidUpdateRoleInput):
 		status, message = http.StatusUnprocessableEntity, admini18n.T(request.Context(), "errors.role_values")
 	case errors.Is(err, languages.ErrLanguageNotFound):
 		status, message = http.StatusUnprocessableEntity, admini18n.T(request.Context(), "errors.language_missing")
+	}
+
+	if fields := requestFieldMessages(request.Context(), err); fields != "" {
+		message += " " + fields
 	}
 
 	if status == http.StatusInternalServerError {

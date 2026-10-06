@@ -102,7 +102,7 @@ func (s *SessionStore) Create(ctx context.Context, session security.TokenSession
 	if !validSession(session) {
 		err = security.ErrInvalidSession
 	} else {
-		generation, randomErr := uuid.NewRandom()
+		generation, randomErr := uuid.NewV7()
 
 		if randomErr != nil {
 			err = fmt.Errorf("generate session generation: %w", randomErr)
@@ -209,9 +209,9 @@ func (s *SessionStore) Revoke(ctx context.Context, userID security.UserID, id uu
 
 func (s *SessionStore) RevokeAll(ctx context.Context, userID security.UserID) error {
 	var err error
-	generation, randomErr := uuid.NewRandom()
+	generation, randomErr := uuid.NewV7()
 
-	if uuid.UUID(userID) == uuid.Nil {
+	if userID.Validate() != nil {
 		err = security.ErrInvalidSession
 	} else if randomErr != nil {
 		err = fmt.Errorf("generate session generation: %w", randomErr)

@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/google/uuid"
 	redislib "github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 
@@ -35,8 +34,8 @@ func TestIntegrationRedisOpaqueSession(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	session := security.Session{ID: uuid.New(), UserID: security.UserID(uuid.New()), CredentialVersion: uuid.New(), ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour).Truncate(time.Second)}
-	digest := hash(uuid.NewString())
+	session := security.Session{ID: newTestUUID(t), UserID: security.UserID(newTestUUID(t)), CredentialVersion: newTestUUID(t), ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour).Truncate(time.Second)}
+	digest := hash(newTestUUID(t).String())
 
 	for _, key := range append(sessionKeys(session.UserID, session.ID), opaqueSessionKey(digest)) {
 		t.Cleanup(func() {
@@ -92,7 +91,7 @@ func TestIntegrationRedisSessionRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	session := security.TokenSession{Session: security.Session{ID: uuid.New(), UserID: security.UserID(uuid.New()), CredentialVersion: uuid.New(), ExpiresAt: time.Now().Add(30 * 24 * time.Hour).Truncate(time.Second)}, RefreshHash: hash("initial")}
+	session := security.TokenSession{Session: security.Session{ID: newTestUUID(t), UserID: security.UserID(newTestUUID(t)), CredentialVersion: newTestUUID(t), ExpiresAt: time.Now().Add(30 * 24 * time.Hour).Truncate(time.Second)}, RefreshHash: hash("initial")}
 
 	if err := store.Create(t.Context(), session); err != nil {
 		t.Fatal(err)
@@ -122,9 +121,12 @@ func TestIntegrationRedisSessionRotation(t *testing.T) {
 	results := make([]security.TokenIssuance, 8)
 
 	for index := 0; index < 8; index++ {
+		digest := hash(newTestUUID(t).String())
+		issuance := testIssuance(t, session)
+
 		group.Go(func() error {
 			var err error
-			results[index], err = store.Rotate(ctx, session, hash(uuid.NewString()), testIssuance(session))
+			results[index], err = store.Rotate(ctx, session, digest, issuance)
 			return err
 		})
 	}

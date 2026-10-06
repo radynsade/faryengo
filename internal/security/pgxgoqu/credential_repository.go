@@ -97,11 +97,11 @@ func (r *CredentialRepository) Invalidate(ctx context.Context, id security.UserI
 
 	if r == nil || r.db == nil {
 		err = ErrNilPool
-	} else if uuid.UUID(id) == uuid.Nil {
+	} else if id.Validate() != nil {
 		err = security.ErrInvalidSession
 	} else {
 		query, args, buildErr := goqu.Dialect("postgres").Update("user").
-			Set(goqu.Record{"credential_version": goqu.L("gen_random_uuid()")}).
+			Set(goqu.Record{"credential_version": goqu.L("uuidv7()")}).
 			Where(goqu.Ex{"id": uuid.UUID(id).String()}).Prepared(true).ToSQL()
 
 		if buildErr == nil {

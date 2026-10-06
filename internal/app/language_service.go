@@ -51,18 +51,18 @@ func (s *LanguageService) Create(ctx context.Context, request input.CreateLangua
 
 	if s == nil || s.repository == nil {
 		err = ErrNilLanguageRepository
-	} else if validationErr := request.Validate(); validationErr != nil {
-		err = fmt.Errorf("validate create language input: %w", validationErr)
 	} else {
-		language, err = languages.NewLanguage(
-			languages.LanguageCode(request.Code),
-			languages.LanguageEnglishName(request.EnglishName),
-			languages.LanguageNativeName(request.NativeName),
-			request.IsFallback,
-		)
+		code, codeErr := languages.NewLanguageCode(request.Code)
+		english, englishErr := languages.NewLanguageEnglishName(request.EnglishName)
+		native, nativeErr := languages.NewLanguageNativeName(request.NativeName)
+		err = errors.Join(fieldError("code", codeErr), fieldError("english name", englishErr), fieldError("native name", nativeErr))
+
+		if err == nil {
+			language, err = languages.NewLanguage(code, english, native, request.IsFallback)
+		}
 
 		if err != nil {
-			err = fmt.Errorf("create language: %w", err)
+			err = fmt.Errorf("create language: %w: %w", input.ErrInvalidCreateLanguageInput, err)
 		} else if language.IsFallback() {
 			fallback, findErr := s.repository.FindFallback(ctx)
 
@@ -99,6 +99,14 @@ func (s *LanguageService) Delete(ctx context.Context, code string) error {
 		} else if deleteErr := s.repository.Delete(ctx, languageCode); deleteErr != nil {
 			err = fmt.Errorf("delete language %s: %w", code, deleteErr)
 		}
+	}
+
+	return err
+}
+
+func fieldError(field string, err error) error {
+	if err != nil {
+		err = fmt.Errorf("%s: %w", field, err)
 	}
 
 	return err

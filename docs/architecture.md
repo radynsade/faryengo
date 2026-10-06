@@ -54,7 +54,7 @@ have a purpose; not every directory below needs to exist from the start.
 | --- | --- |
 | `cmd/` | Application entry points. Each executable has its own directory (for example, `cmd/server/`) and wires its dependencies in `main`. |
 | `internal/` | Application code that must not be imported by other repositories. Every directory directly under `internal/` is a domain scope, except `app/` and `config/`. Keep domain logic and infrastructure implementations within their scopes; transport belongs outside domain directories. |
-| `internal/app/input/` | Application service input values and their validation. This is not a domain scope. |
+| `internal/app/input/` | Application service input values and use-case error sentinels. Services construct domain values; inputs do not repeat domain validation. This is not a domain scope. |
 | `internal/config/` | Application configuration struct and utilities to load `.env` with `godotenv` and read environment variables. This is not a domain scope. |
 | `internal/<domain>/` | A domain-scoped directory. Put each aggregate in its own `.go` file named after the aggregate (for example, a `User` aggregate belongs in `user.go`). |
 | `internal/<domain>/<implementation_name>/` | Infrastructure layer only: implementations of domain interfaces for Redis, PostgreSQL, hashing algorithms, and other infrastructure features. The team chooses a descriptive implementation name. For example, a `UserRepository` implementation using a pgx PostgreSQL connection pool and the goqu query builder belongs in `internal/security/pgxgoqu/`. Transport implementations must not live here. |
@@ -71,6 +71,11 @@ The admin assets package embeds its Vite build and manifest into the Go binary. 
 Keep tests beside the Go packages they exercise. The root contains module and
 build files such as `go.mod` and `Makefile`.
 
+Generate all new UUIDs as version 7 for time-ordered identifiers. Go code uses
+`github.com/google/uuid.NewV7()` and handles its error; PostgreSQL uses the
+built-in `uuidv7()` function, requiring PostgreSQL 18 or later. Existing UUIDs
+remain valid regardless of their version.
+
 ## Authentication state
 
 Authentication has a transport-independent identity service that resolves
@@ -82,3 +87,48 @@ and account-wide logout invalidate the durable version. Current permissions
 are loaded on every authentication, and authorization accepts the common
 principal. Storage outages deny access. See [authentication.md](authentication.md)
 for transport, configuration, rotation policy, and operational requirements.
+
+## Validation boundaries
+
+HTTP handlers decode primitive request DTOs, validate their structure, and then
+map them to application inputs. DTO tags use the shared
+`middleware/requestvalidation` validator, initialized with
+`WithRequiredStructEnabled`. It converts failures to sorted transport field
+errors containing names, rules, and limits, without submitted values or library
+error types. Admin forms localize those errors. Body limits, media types,
+duplicate parameters, and form/catalog binding remain transport checks.
+The admin mailbox rule delegates to `security.NewEmail` because the library's
+built-in email format excludes some mailboxes accepted by this domain.
+The HTTP UUID format rule also retains the existing parser's accepted encodings;
+the CLI continues requiring canonical hyphenated UUID arguments.
+
+Application services construct domain values before hashing, loading, or writing
+state. They coordinate existence, authorization, fallback-language policy, and
+conflicts. Repository errors also represent constraints enforced atomically by
+the database, including unique emails, missing references, and deletion of
+assigned roles. Input structs have no generic `Validate` method. CLI parsing
+uses domain constructors to reject invalid arguments before opening a database
+connection; services independently construct values again for all callers.
+The sign-in account-lookup limit of 254 bytes remains a use-case constraint.
+
+Security and Languages own plain Go invariant checks and validated constructors.
+Domain packages never import the transport validator. Use constructors for raw
+mailboxes, phone numbers, names, language codes, translated role names,
+permissions, and UUID identities. Existing primitive aliases remain compatible
+with repository and typed-input contracts, so entities and value collections
+validate defensively before accepting changes. A cast alone is never a validity
+guarantee. Rehydration through entity constructors checks stored values too.
+Both User and Role reject zero identities at creation and in identity setters;
+UUID version is unrestricted for existing values.
+
+`security.Password` encapsulates plaintext input separately from `PasswordHash`.
+`NewPassword` enforces nonempty input and the 4096-byte bound for sign-in and
+replacement credentials. `NewRegistrationPassword` additionally enforces the
+existing nonblank, eight-character creation policy. Hash implementations retain
+algorithm-specific encoded-hash checks and resource bounds. Session intrinsic
+state and token issuance relationships belong to Security; clock-dependent
+expiration, durable credential versions, and revocation require orchestration.
+Role filter and query validity remain domain checks for non-HTTP callers and
+repositories, with DTO tags providing early HTTP feedback. Configuration,
+asset-manifest, migration-file, and storage-format checks remain in their owning
+parsers and adapters; they are not aggregate invariants.

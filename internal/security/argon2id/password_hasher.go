@@ -48,8 +48,8 @@ func (h *Hasher) Hash(ctx context.Context, password string) (security.PasswordHa
 		err = ErrNilHasher
 	} else if contextErr := ctx.Err(); contextErr != nil {
 		err = fmt.Errorf("hash password: %w", contextErr)
-	} else if password == "" || len(password) > security.MaxPasswordBytes {
-		err = security.ErrInvalidPassword
+	} else if _, passwordErr := security.NewPassword(password); passwordErr != nil {
+		err = passwordErr
 	} else {
 		salt := make([]byte, saltBytes)
 		if _, readErr := io.ReadFull(h.saltReader, salt); readErr != nil {

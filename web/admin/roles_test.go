@@ -23,7 +23,7 @@ func addHTTPRole(t *testing.T, repository *httpCredentials, name string, permiss
 		t.Fatal(err)
 	}
 
-	role, err := security.NewRole(security.RoleID(uuid.New()), languages.Text{"en": translation}, permissions)
+	role, err := security.NewRole(security.RoleID(newTestUUID(t)), languages.Text{"en": translation}, permissions)
 
 	if err != nil {
 		t.Fatal(err)
@@ -298,7 +298,7 @@ func TestRolesAuthenticatedAccess(t *testing.T) {
 			root := "/admin/en/roles"
 			path := root + "/" + uuid.UUID(role.ID()).String()
 
-			for _, route := range []string{root, root + "/create", path + "/view", path + "/edit"} {
+			for _, route := range []string{root, root + "/table", root + "/create", path + "/view", path + "/edit"} {
 				response := httpRequest(mux, http.MethodGet, route, "", cookies)
 
 				if response.Code != status {
@@ -311,7 +311,7 @@ func TestRolesAuthenticatedAccess(t *testing.T) {
 					}
 				}
 
-				if !tt.anonymous && (route == root || route == path+"/view") {
+				if !tt.anonymous && (route == root+"/table" || route == path+"/view") {
 					if !strings.Contains(response.Body.String(), `href="`+path+`/edit"`) || !strings.Contains(response.Body.String(), `data-confirm-action="`+path+`/delete"`) {
 						t.Fatal("role page hid the edit or delete action")
 					}
@@ -356,6 +356,11 @@ func TestRoleDeleteModal(t *testing.T) {
 			for _, route := range []string{"/admin/en/roles", path + "/view", path + "/edit"} {
 				response := httpRequest(mux, http.MethodGet, route, "", cookies)
 				body := response.Body.String()
+
+				if route == "/admin/en/roles" {
+					table := httpRequest(mux, http.MethodGet, route+"/table", "", cookies)
+					body += table.Body.String()
+				}
 
 				if response.Code != http.StatusOK || !strings.Contains(body, `<dialog id="confirm-delete"`) || !strings.Contains(body, `data-confirm-action="`+path+`/delete"`) || !strings.Contains(body, html.EscapeString(role.Name()["en"].Content())) || strings.Contains(body, `href="`+path+`/delete"`) {
 					t.Fatalf("modal page %s = %d %s", route, response.Code, body)
@@ -522,7 +527,7 @@ func TestRolesFiltersAndFragments(t *testing.T) {
 	}
 
 	query := url.Values{"name": {"Pārskat"}, "super": {"false"}, "permissions": {"view_role"}, "sort": {"name"}, "order": {"desc"}, "page": {"999"}, "size": {"1"}}
-	request := httptest.NewRequest(http.MethodGet, "https://admin.example.com/admin/lv/roles?"+query.Encode(), nil)
+	request := httptest.NewRequest(http.MethodGet, "https://admin.example.com/admin/lv/roles/table?"+query.Encode(), nil)
 	request.Header.Set("HX-Request", "true")
 
 	for _, cookie := range cookies {
@@ -541,7 +546,7 @@ func TestRolesFiltersAndFragments(t *testing.T) {
 		t.Fatalf("filters did not reach repository: %+v", repository.lastQuery)
 	}
 
-	view := httpRequest(mux, http.MethodGet, "/admin/en/roles", "", cookies)
+	view := httpRequest(mux, http.MethodGet, "/admin/en/roles/table", "", cookies)
 
 	if !strings.Contains(view.Body.String(), html.EscapeString("Review <script>alert(1)</script>")) || strings.Contains(view.Body.String(), "<script>alert(1)</script>") {
 		t.Fatal("role name was not escaped")

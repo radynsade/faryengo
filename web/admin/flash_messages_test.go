@@ -36,8 +36,8 @@ func flashFixture(t *testing.T) (*Handler, *miniredis.Miniredis, *securityredis.
 		t.Fatal(err)
 	}
 
-	principal := security.Principal{UserID: security.UserID(uuid.New()), SessionID: uuid.New()}
-	session := security.Session{ID: principal.SessionID, UserID: principal.UserID, CredentialVersion: uuid.New(), ExpiresAt: time.Now().Add(time.Hour)}
+	principal := security.Principal{UserID: security.UserID(newTestUUID(t)), SessionID: newTestUUID(t)}
+	session := security.Session{ID: principal.SessionID, UserID: principal.UserID, CredentialVersion: newTestUUID(t), ExpiresAt: time.Now().Add(time.Hour)}
 
 	if err := store.CreateSession(t.Context(), session, strings.Repeat("a", 64)); err != nil {
 		t.Fatal(err)
@@ -80,6 +80,12 @@ func TestAnonymousFlashSession(t *testing.T) {
 
 			if len(cookies) != 1 || cookies[0].Secure != secure || !cookies[0].HttpOnly || cookies[0].SameSite != http.SameSiteStrictMode || cookies[0].Path != "/" || cookies[0].MaxAge != int(anonymousFlashTTL.Seconds()) {
 				t.Fatalf("anonymous flash cookie = %v", cookies)
+			}
+
+			id, err := uuid.Parse(cookies[0].Value)
+
+			if err != nil || id.Version() != 7 {
+				t.Fatalf("anonymous flash ID must be UUIDv7: %v, %v", id, err)
 			}
 
 			session, err := handler.flashSession(request, false)

@@ -48,3 +48,12 @@ otherwise the conversion fails and the migration transaction leaves the schema,
 grants, and migration history unchanged. The rollback takes an exclusive lock
 on the role table while converting its permissions column. See
 [PostgreSQL enum limitations](https://www.postgresql.org/docs/current/datatype-enum.html).
+
+Migration `000007_use_uuid_v7` requires PostgreSQL 18 or later and changes the
+user credential-version default and rotation trigger to the built-in
+[`uuidv7()`](https://www.postgresql.org/docs/18/functions-uuid.html) function.
+Apply it before deploying the updated credential repository. Existing UUIDs
+and credential versions are preserved. Its down migration restores UUIDv4
+generation for the default and trigger; deploy the previous application version
+when rolling back. Earlier migration files retain their original SQL so applied
+checksums remain valid.

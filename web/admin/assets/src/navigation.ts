@@ -51,7 +51,16 @@ document.addEventListener('htmx:beforeRequest', () =>
 	showNavigationError(false),
 );
 
-document.addEventListener('htmx:afterSettle', focusPageContent);
+document.addEventListener('htmx:afterSettle', (event) => {
+	const detail = (event as CustomEvent).detail;
+
+	if (
+		detail.target instanceof HTMLElement
+		&& detail.target.id === 'page-content'
+	) {
+		focusPageContent();
+	}
+});
 document.addEventListener('htmx:historyRestore', focusPageContent);
 
 for (const event of [

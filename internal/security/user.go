@@ -21,6 +21,7 @@ var (
 	ErrUserNotFound        = errors.New("user not found")
 	ErrUserAlreadyExists   = errors.New("user already exists")
 	ErrUserConflict        = errors.New("user credentials changed during update")
+	ErrInvalidUserID       = errors.New("invalid user ID")
 )
 
 var phonePattern = regexp.MustCompile(`^\+[1-9][0-9]{1,14}$`)
@@ -129,6 +130,32 @@ func (n LastName) Validate() error {
 
 type UserID uuid.UUID
 
+func NewUserID(value string) (UserID, error) {
+	id, err := uuid.Parse(value)
+
+	if err != nil {
+		err = fmt.Errorf("parse user ID: %w: %w", ErrInvalidUserID, err)
+	} else {
+		err = UserID(id).Validate()
+	}
+
+	if err != nil {
+		id = uuid.Nil
+	}
+
+	return UserID(id), err
+}
+
+func (id UserID) Validate() error {
+	var err error
+
+	if uuid.UUID(id) == uuid.Nil {
+		err = ErrInvalidUserID
+	}
+
+	return err
+}
+
 type User struct {
 	id                   UserID
 	roleID               RoleID
@@ -149,6 +176,10 @@ func NewUser(
 	firstName FirstName,
 	lastName LastName,
 ) (*User, error) {
+	if err := id.Validate(); err != nil {
+		return nil, fmt.Errorf("create user: %w", err)
+	}
+
 	if err := roleID.Validate(); err != nil {
 		return nil, fmt.Errorf("create user: %w", err)
 	}
@@ -189,8 +220,13 @@ func (u *User) ID() UserID {
 	return u.id
 }
 
-func (u *User) SetID(id UserID) {
+func (u *User) SetID(id UserID) error {
+	if err := id.Validate(); err != nil {
+		return fmt.Errorf("set user ID: %w", err)
+	}
+
 	u.id = id
+	return nil
 }
 
 func (u *User) RoleID() RoleID {

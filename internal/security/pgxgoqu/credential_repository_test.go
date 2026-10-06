@@ -31,7 +31,7 @@ func TestCredentialRepository(t *testing.T) {
 		{name: "invalid version", nilVersion: true, wantErr: security.ErrInvalidSession},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			id, roleID, version := uuid.New(), uuid.New(), uuid.New()
+			id, roleID, version := newTestUUID(t), newTestUUID(t), newTestUUID(t)
 
 			if tt.nilVersion {
 				version = uuid.Nil
@@ -70,6 +70,35 @@ func TestCredentialRepository(t *testing.T) {
 				} else if _, ok := db.queryArgs[0].(pgtype.UUID); !ok {
 					t.Fatalf("UUID parameter type = %T", db.queryArgs[0])
 				}
+			}
+		})
+	}
+}
+
+func TestCredentialRepositoryInvalidate(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		tag     string
+		execErr error
+		wantErr error
+	}{
+		{name: "invalidated", tag: "UPDATE 1"},
+		{name: "not found", tag: "UPDATE 0", wantErr: security.ErrUserNotFound},
+		{name: "query canceled", execErr: context.Canceled, wantErr: context.Canceled},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			id := newTestUUID(t)
+			ctx := t.Context()
+			db := &fakeSecurityDB{execTag: pgconn.NewCommandTag(tt.tag), execErr: tt.execErr}
+			err := (&CredentialRepository{db: db}).Invalidate(ctx, security.UserID(id))
+
+			if !errors.Is(err, tt.wantErr) {
+				t.Fatalf("Invalidate() error = %v, want %v", err, tt.wantErr)
+			}
+
+			if db.execContext != ctx || !strings.Contains(db.execQuery, `"credential_version"=uuidv7()`) ||
+				len(db.execArgs) != 1 || db.execArgs[0] != (pgtype.UUID{Bytes: id, Valid: true}) {
+				t.Fatalf("credential invalidation query = %s, arguments = %v", db.execQuery, db.execArgs)
 			}
 		})
 	}
@@ -116,4 +145,15 @@ func TestUserPasswordSnapshotUpdates(t *testing.T) {
 			}
 		})
 	}
+}
+
+func newTestUUID(t *testing.T) uuid.UUID {
+	t.Helper()
+	id, err := uuid.NewV7()
+
+	if err != nil {
+		t.Fatalf("generate UUIDv7: %v", err)
+	}
+
+	return id
 }
