@@ -332,21 +332,24 @@
     "other": "Šis pieprasījums tika bloķēts. Pārlādējiet lapu un mēģiniet vēlreiz."
   },
   "validation.required": {
-    "other": "{{.Field}}: obligāts lauks."
+    "other": "Šis lauks ir obligāts."
   },
   "validation.invalid": {
-    "other": "{{.Field}}: nederīga vērtība."
+    "other": "Ievadiet derīgu vērtību."
   },
   "validation.email": {
-    "other": "{{.Field}}: nederīga e-pasta adrese."
+    "other": "Ievadiet derīgu e-pasta adresi."
   },
   "validation.uuid": {
-    "other": "{{.Field}}: nederīgs UUID."
+    "other": "Ievadiet derīgu UUID."
   },
   "validation.phone": {
-    "other": "{{.Field}}: nederīgs tālruņa numurs."
+    "other": "Ievadiet derīgu tālruņa numuru."
   },
   "validation.too_long": {
-    "other": "{{.Field}}: pārsniegts maksimālais garums."
+    "other": "Šī vērtība ir pārāk gara."
+  },
+  "validation.role_name": {
+    "other": "Ievadiet nosaukumu vismaz vienā valodā."
   }
 }

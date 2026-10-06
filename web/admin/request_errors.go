@@ -3,18 +3,24 @@ package admin
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 
+	"github.com/radynsade/faryengo/internal/languages"
+	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+	"github.com/radynsade/faryengo/web/admin/templates/components"
 )
 
-func requestFieldMessages(ctx context.Context, err error) string {
-	var fields *requestvalidation.Errors
-	var messages []string
+func requestFieldErrors(ctx context.Context, err error) components.FieldErrors {
+	var failures *requestvalidation.Errors
+	var fields components.FieldErrors
 
-	if errors.As(err, &fields) {
-		for _, field := range fields.Fields {
+	if errors.As(err, &failures) {
+		fields = make(components.FieldErrors)
+
+		for _, field := range failures.Fields {
 			id := "invalid"
 
 			switch field.Rule {
@@ -30,9 +36,37 @@ func requestFieldMessages(ctx context.Context, err error) string {
 				id = "too_long"
 			}
 
-			messages = append(messages, admini18n.T(ctx, "validation."+id, map[string]any{"Field": field.Field}))
+			if field.Field == "name" && (field.Rule == "required" || field.Rule == "min") {
+				id = "role_name"
+			}
+
+			key := field.Field
+
+			// All selected values belong to the one permissions control.
+			if strings.HasPrefix(key, "permissions[") {
+				key = "permissions"
+			}
+
+			message := admini18n.T(ctx, "validation."+id)
+
+			if !slices.Contains(fields[key], message) {
+				fields[key] = append(fields[key], message)
+			}
+		}
+	} else {
+		// Domain/application errors with an unambiguous editable field also stay
+		// beside that field. Operational failures remain form-wide notifications.
+		switch {
+		case errors.Is(err, security.ErrInvalidRoleName):
+			fields = components.FieldErrors{"name": {admini18n.T(ctx, "validation.role_name")}}
+		case errors.Is(err, languages.ErrInvalidTranslationContent):
+			fields = components.FieldErrors{"name": {admini18n.T(ctx, "validation.invalid")}}
+		case errors.Is(err, languages.ErrLanguageNotFound):
+			fields = components.FieldErrors{"name": {admini18n.T(ctx, "errors.language_missing")}}
+		case errors.Is(err, security.ErrInvalidPermission):
+			fields = components.FieldErrors{"permissions": {admini18n.T(ctx, "validation.invalid")}}
 		}
 	}
 
-	return strings.Join(messages, " ")
+	return fields
 }

@@ -10,6 +10,7 @@ type SignInProps struct {
 	Action             string
 	RestorePasswordURL string
 	Email              string
+	FieldErrors        components.FieldErrors
 }
 
 // SignIn submits credentials using a native form, including without JavaScript.
@@ -25,6 +26,7 @@ templ SignIn(props SignInProps) {
 				Autocomplete: "username",
 				Value:        props.Email,
 				Required:     true,
+				Errors:       props.FieldErrors["email"],
 			})
 			@components.TextInput(components.TextInputProps{
 				ID:           "password",
@@ -34,6 +36,7 @@ templ SignIn(props SignInProps) {
 				Placeholder:  admini18n.T(ctx, "fields.password_placeholder"),
 				Autocomplete: "current-password",
 				Required:     true,
+				Errors:       props.FieldErrors["password"],
 			})
 			@components.PrimaryButton("submit") {
 				{ admini18n.T(ctx, "actions.sign_in") }

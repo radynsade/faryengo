@@ -54,10 +54,14 @@ shows those messages in the existing success dialog. Multiple successes share
 one dialog. There are no `notice` or `notice_name` query parameters to forge,
 replay, or clean up in JavaScript.
 
-Authentication, authorization, role validation, and role-loading errors use the
-same bag. They are stored and consumed in the response that displays the error,
-keeping the current status code and submitted form values. This preserves native
-form behavior and avoids persisting passwords or invalid form input. Deletion
+Authentication failures, authorization, operational failures, malformed requests,
+and role-loading errors use the same bag. They are stored and consumed in the
+response that displays the error, keeping the current status code and submitted
+form values. Editable field validation errors are passed directly to the form
+components in that response, without a flash write or notification banner.
+Labels and borders indicate invalid controls, and localized messages appear
+below them. Field errors and submitted values never enter flash storage; sign-in
+passwords are never rendered or persisted. Deletion
 failures consume only the error type and stay in the confirmation dialog;
 pending success messages remain available for a normal page render.
 

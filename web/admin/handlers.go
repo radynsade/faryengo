@@ -14,6 +14,7 @@ import (
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	"github.com/radynsade/faryengo/web/admin/assets"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
 )
@@ -102,13 +103,13 @@ func (h *Handler) handleSignIn(writer http.ResponseWriter, request *http.Request
 	if err == nil {
 		http.Redirect(writer, request, adminPath(request), http.StatusSeeOther)
 	} else if invalidSession(err) {
-		h.renderSignIn(writer, request, http.StatusOK, "", "")
+		h.renderSignIn(writer, request, http.StatusOK, "", "", nil)
 	} else {
 		h.signInError(writer, request, "", err)
 	}
 }
 
-func (h *Handler) renderSignIn(writer http.ResponseWriter, request *http.Request, status int, email, message string) {
+func (h *Handler) renderSignIn(writer http.ResponseWriter, request *http.Request, status int, email, message string, fields components.FieldErrors) {
 	var err error
 
 	if message != "" {
@@ -122,6 +123,7 @@ func (h *Handler) renderSignIn(writer http.ResponseWriter, request *http.Request
 			Action:             adminPath(request) + "/sign-in",
 			RestorePasswordURL: adminPath(request) + "/restore-password",
 			Email:              email,
+			FieldErrors:        fields,
 		}), templ.WithStatus(status))
 	}
 }

@@ -51,14 +51,15 @@ func TestLocalizedFieldErrors(t *testing.T) {
 	for _, tt := range []struct {
 		language string
 		want     string
-	}{{"en", "required"}, {"lv", "obligāts lauks"}, {"ru", "обязательное поле"}} {
+	}{{"en", "at least one language"}, {"lv", "vismaz vienā valodā"}, {"ru", "хотя бы на одном языке"}} {
 		t.Run(tt.language, func(t *testing.T) {
 			request := httptest.NewRequest("GET", "/admin/"+tt.language+"/roles", nil)
 			request.SetPathValue("language", tt.language)
 			err := requestvalidation.Validate(t.Context(), roleFormRequest{})
-			message := requestFieldMessages(admini18n.WithRequest(request), err)
+			fields := requestFieldErrors(admini18n.WithRequest(request), err)
+			message := strings.Join(fields["name"], " ")
 
-			if !strings.Contains(message, "name:") || !strings.Contains(message, tt.want) {
+			if len(fields) != 1 || !strings.Contains(message, tt.want) {
 				t.Fatalf("localized validation = %q", message)
 			}
 		})

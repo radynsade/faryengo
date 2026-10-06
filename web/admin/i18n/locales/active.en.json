@@ -331,21 +331,24 @@
     "other": "This request was blocked. Reload the page and try again."
   },
   "validation.required": {
-    "other": "{{.Field}}: required."
+    "other": "This field is required."
   },
   "validation.invalid": {
-    "other": "{{.Field}}: invalid value."
+    "other": "Enter a valid value."
   },
   "validation.email": {
-    "other": "{{.Field}}: invalid email."
+    "other": "Enter a valid email address."
   },
   "validation.uuid": {
-    "other": "{{.Field}}: invalid UUID."
+    "other": "Enter a valid UUID."
   },
   "validation.phone": {
-    "other": "{{.Field}}: invalid phone number."
+    "other": "Enter a valid phone number."
   },
   "validation.too_long": {
-    "other": "{{.Field}}: exceeds maximum length."
+    "other": "This value is too long."
+  },
+  "validation.role_name": {
+    "other": "Enter a name in at least one language."
   }
 }

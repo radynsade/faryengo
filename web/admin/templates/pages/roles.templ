@@ -51,22 +51,31 @@ templ RolesTable(props RoleListProps) {
 						<input type="hidden" name="sort" value={ string(props.Query.Sort) }/>
 						<input type="hidden" name="order" value={ map[bool]string{false: "asc", true: "desc"}[props.Query.Descending] }/>
 						<input type="hidden" name="size" value={ strconv.Itoa(props.Query.PageSize) }/>
-						<label class="form-field">
-							<span class="form-field__label">{ admini18n.T(ctx, "fields.uuid_contains") }</span>
-							<input class="form-field__input" name="uuid" value={ props.Query.Filters.IDLike } maxlength="100"/>
-						</label>
-						<label class="form-field">
-							<span class="form-field__label">{ admini18n.T(ctx, "fields.name_contains") }</span>
-							<input class="form-field__input" name="name" value={ props.Query.Filters.NameLike } maxlength="500"/>
-						</label>
-						@RolePermissions("role-filter-permissions", admini18n.T(ctx, "fields.permissions_all"), props.Permissions)
-						<label class="form-field">
+						@components.TextInput(components.TextInputProps{
+							ID: "role-filter-uuid", Name: "uuid", Type: "text", Label: admini18n.T(ctx, "fields.uuid_contains"),
+							Value: props.Query.Filters.IDLike, MaxLength: 100, Errors: props.FieldErrors["uuid"],
+						})
+						@components.TextInput(components.TextInputProps{
+							ID: "role-filter-name", Name: "name", Type: "text", Label: admini18n.T(ctx, "fields.name_contains"),
+							Value: props.Query.Filters.NameLike, MaxLength: 500, Errors: props.FieldErrors["name"],
+						})
+						@RolePermissions("role-filter-permissions", admini18n.T(ctx, "fields.permissions_all"), props.Permissions, props.FieldErrors["permissions"])
+						<label class={ "form-field", templ.KV("form-field--invalid", len(props.FieldErrors["super"]) > 0) }>
 							<span class="form-field__label">{ admini18n.T(ctx, "fields.super_role") }</span>
-							<select class="form-field__input" name="super">
+							<select
+								class="form-field__input"
+								id="role-filter-super"
+								name="super"
+								if len(props.FieldErrors["super"]) > 0 {
+									aria-invalid="true"
+									aria-describedby="role-filter-super-errors"
+								}
+							>
 								<option value="" selected?={ props.Query.Filters.IsSuper == nil }>{ admini18n.T(ctx, "common.any") }</option>
 								<option value="true" selected?={ props.Query.Filters.IsSuper != nil && *props.Query.Filters.IsSuper }>{ admini18n.T(ctx, "common.yes") }</option>
 								<option value="false" selected?={ props.Query.Filters.IsSuper != nil && !*props.Query.Filters.IsSuper }>{ admini18n.T(ctx, "common.no") }</option>
 							</select>
+							@components.FieldMessages("role-filter-super-errors", props.FieldErrors["super"])
 						</label>
 						<div class="action-group">
 							<button class="button button--primary button--compact" type="submit">{ admini18n.T(ctx, "actions.apply_filters") }</button>
@@ -132,7 +141,8 @@ templ RolesTable(props RoleListProps) {
 					if props.Loading {
 						<tr>
 							<td colspan="5" class="data-table__loading">
-								<div role="status"
+								<div
+									role="status"
 									hx-get={ props.TableURL() }
 									hx-trigger="load delay:100ms, htmx:afterSettle from:body delay:100ms"
 									hx-target="#roles-list-table"
@@ -205,7 +215,7 @@ templ RolesTable(props RoleListProps) {
 							</td>
 						</tr>
 					}
-					if !props.Loading && len(props.Errors) == 0 && len(props.Rows) == 0 {
+					if !props.Loading && !props.InvalidQuery && len(props.Errors) == 0 && len(props.Rows) == 0 {
 						<tr><td colspan="5" class="data-table__empty">{ admini18n.T(ctx, "roles.empty") }</td></tr>
 					}
 				</tbody>
@@ -227,8 +237,8 @@ templ RoleSortLink(props RoleListProps, sort security.RoleSort, label string) {
 	}
 }
 
-templ RolePermissions(id, label string, options []PermissionOption) {
-	@components.MultiSelect(permissionSelectProps(ctx, id, label, options))
+templ RolePermissions(id, label string, options []PermissionOption, errors []string) {
+	@components.MultiSelect(permissionSelectProps(ctx, id, label, options, errors))
 }
 
 templ RoleSuper(isSuper bool) {
@@ -296,12 +306,28 @@ templ RoleFieldsForm(props RoleFormProps) {
 				</div>
 				<div class="role-form__row">
 					<div class="role-form__field">
-						<label class="form-checkbox"><input type="checkbox" name="is_super" value="1" checked?={ props.IsSuper }/>{ admini18n.T(ctx, "roles.super_help") }</label>
+						<div class="form-field">
+							<label class={ "form-checkbox", templ.KV("form-checkbox--invalid", len(props.FieldErrors["is_super"]) > 0) }>
+								<input
+									id="role-super"
+									type="checkbox"
+									name="is_super"
+									value="1"
+									checked?={ props.IsSuper }
+									if len(props.FieldErrors["is_super"]) > 0 {
+										aria-invalid="true"
+										aria-describedby="role-super-errors"
+									}
+								/>
+								{ admini18n.T(ctx, "roles.super_help") }
+							</label>
+							@components.FieldMessages("role-super-errors", props.FieldErrors["is_super"])
+						</div>
 					</div>
 				</div>
 				<div class="role-form__row">
 					<div class="role-form__field">
-						@RolePermissions("role-permissions", admini18n.T(ctx, "fields.permissions"), props.Permissions)
+						@RolePermissions("role-permissions", admini18n.T(ctx, "fields.permissions"), props.Permissions, props.FieldErrors["permissions"])
 					</div>
 				</div>
 			</div>

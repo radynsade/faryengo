@@ -95,7 +95,8 @@ map them to application inputs. DTO tags use the shared
 `middleware/requestvalidation` validator, initialized with
 `WithRequiredStructEnabled`. It converts failures to sorted transport field
 errors containing names, rules, and limits, without submitted values or library
-error types. Admin forms localize those errors. Body limits, media types,
+error types. Admin forms attach localized errors to their controls in the current
+response, without writing field errors to flash storage. Body limits, media types,
 duplicate parameters, and form/catalog binding remain transport checks.
 The admin mailbox rule delegates to `security.NewEmail` because the library's
 built-in email format excludes some mailboxes accepted by this domain.

@@ -4,9 +4,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"mime"
 	"net"
 	"net/http"
+	"net/url"
+	"slices"
 	"strings"
 	"time"
 
@@ -23,18 +26,18 @@ func (h *Handler) signIn(writer http.ResponseWriter, request *http.Request) {
 	mediaType, _, mediaErr := mime.ParseMediaType(request.Header.Get("Content-Type"))
 
 	if mediaErr != nil || mediaType != "application/x-www-form-urlencoded" {
-		h.renderSignIn(writer, request, http.StatusUnsupportedMediaType, "", admini18n.T(request.Context(), "errors.sign_in_form"))
+		h.renderSignIn(writer, request, http.StatusUnsupportedMediaType, "", admini18n.T(request.Context(), "errors.sign_in_form"), nil)
 	} else {
 		request.Body = http.MaxBytesReader(writer, request.Body, 32768)
 		parseErr := request.ParseForm()
 
-		if parseErr != nil || len(request.PostForm) != 2 || len(request.PostForm["email"]) != 1 || len(request.PostForm["password"]) != 1 {
-			h.renderSignIn(writer, request, http.StatusBadRequest, "", admini18n.T(request.Context(), "errors.credentials_form"))
+		if parseErr != nil || !validSignInForm(request.PostForm) {
+			h.renderSignIn(writer, request, http.StatusBadRequest, "", admini18n.T(request.Context(), "errors.credentials_form"), nil)
 		} else {
 			credentials := signInRequest{Email: request.PostForm.Get("email"), Password: request.PostForm.Get("password")}
 
 			if validationErr := requestvalidation.Validate(request.Context(), credentials); validationErr != nil {
-				h.renderSignIn(writer, request, http.StatusBadRequest, credentials.Email, admini18n.T(request.Context(), "errors.credentials_form")+" "+requestFieldMessages(request.Context(), validationErr))
+				h.renderSignIn(writer, request, http.StatusBadRequest, credentials.Email, "", requestFieldErrors(request.Context(), validationErr))
 			} else if limitErr := h.allowSignIn(request, credentials.Email); limitErr != nil {
 				h.signInError(writer, request, credentials.Email, limitErr)
 			} else {
@@ -152,7 +155,7 @@ func (h *Handler) signInError(writer http.ResponseWriter, request *http.Request,
 		writer.Header().Set("Retry-After", "900")
 	}
 
-	h.renderSignIn(writer, request, status, email, message)
+	h.renderSignIn(writer, request, status, email, message, nil)
 }
 
 func authenticationError(ctx context.Context, err error) (int, string) {
@@ -167,4 +170,18 @@ func authenticationError(ctx context.Context, err error) (int, string) {
 	}
 
 	return status, message
+}
+
+// Missing fields are handled by DTO validation; duplicates and unknown fields
+// are malformed forms rather than editable field values.
+func validSignInForm(values url.Values) bool {
+	valid := len(values["email"]) <= 1 && len(values["password"]) <= 1
+
+	for _, key := range slices.Sorted(maps.Keys(values)) {
+		if key != "email" && key != "password" {
+			valid = false
+		}
+	}
+
+	return valid
 }

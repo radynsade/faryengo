@@ -35,6 +35,7 @@ type RoleListProps struct {
 	InvalidQuery bool
 	Loading      bool
 	Errors       []string
+	FieldErrors  components.FieldErrors
 }
 
 func (p RoleListProps) TableURL() string {
@@ -94,6 +95,7 @@ type RoleFormProps struct {
 	NameTranslations components.TranslationsInputProps
 	Permissions      []PermissionOption
 	IsSuper          bool
+	FieldErrors      components.FieldErrors
 }
 
 type RoleViewProps struct {
@@ -109,7 +111,7 @@ func roleDeleteDialog(ctx context.Context, action, name string, errors []string)
 	}
 }
 
-func permissionSelectProps(ctx context.Context, id, label string, options []PermissionOption) components.MultiSelectProps {
+func permissionSelectProps(ctx context.Context, id, label string, options []PermissionOption, errors []string) components.MultiSelectProps {
 	values := make([]components.MultiSelectOption, 0, len(options))
 
 	for _, option := range options {
@@ -119,6 +121,6 @@ func permissionSelectProps(ctx context.Context, id, label string, options []Perm
 	}
 
 	return components.MultiSelectProps{
-		ID: id, Name: "permissions", Label: label, Placeholder: admini18n.T(ctx, "fields.select_permissions"), Options: values,
+		ID: id, Name: "permissions", Label: label, Placeholder: admini18n.T(ctx, "fields.select_permissions"), Options: values, Errors: errors,
 	}
 }

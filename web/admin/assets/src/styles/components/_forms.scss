@@ -18,6 +18,22 @@
 	gap: var(--space-2);
 	min-width: 0;
 
+	&--invalid > .form-field__label {
+		color: var(--color-danger);
+	}
+
+	&__errors {
+		display: grid;
+		gap: var(--space-1);
+	}
+
+	&__error {
+		margin: 0;
+		color: var(--color-danger);
+		font-size: var(--font-size-small);
+		overflow-wrap: anywhere;
+	}
+
 	&__label {
 		font-size: var(--font-size-control);
 		font-weight: var(--font-weight-semibold);
@@ -49,6 +65,14 @@
 			border-color: var(--color-accent);
 			box-shadow: 0 0 0 var(--focus-halo) var(--color-focus);
 		}
+
+		&[aria-invalid='true'] {
+			border-color: var(--color-danger);
+
+			&:focus {
+				box-shadow: 0 0 0 var(--focus-halo) var(--color-danger-soft);
+			}
+		}
 	}
 }
 
@@ -76,6 +100,15 @@
 .form-checkbox {
 	@include ui.row;
 	font-size: var(--font-size-control);
+
+	&--invalid {
+		color: var(--color-danger);
+
+		input {
+			outline: var(--border-width) solid var(--color-danger);
+			outline-offset: var(--border-width);
+		}
+	}
 
 	input {
 		flex: none;

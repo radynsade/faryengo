@@ -97,9 +97,9 @@ func TestAdminLocalizedPages(t *testing.T) {
 
 func TestAdminLocalizedMessages(t *testing.T) {
 	for _, locale := range []struct{ code, invalidSession, roleValues, roleMissing, roleUsed, created string }{
-		{"en", "The email, password, or session is invalid.", "Enter a name in at least one language and select valid permissions.", "Role not found.", "Reassign those users", `Role "Editors" created successfully.`},
-		{"lv", "E-pasts, parole vai sesija nav derīga.", "Ievadiet nosaukumu vismaz vienā valodā un atlasiet derīgas atļaujas.", "Loma nav atrasta.", "piešķiriet šiem lietotājiem citu lomu", `Loma «Editors» veiksmīgi izveidota.`},
-		{"ru", "Электронная почта, пароль или сеанс недействительны.", "Введите название хотя бы на одном языке и выберите допустимые разрешения.", "Роль не найдена.", "Назначьте им другую роль", `Роль «Editors» успешно создана.`},
+		{"en", "The email, password, or session is invalid.", "Enter a name in at least one language.", "Role not found.", "Reassign those users", `Role "Editors" created successfully.`},
+		{"lv", "E-pasts, parole vai sesija nav derīga.", "Ievadiet nosaukumu vismaz vienā valodā.", "Loma nav atrasta.", "piešķiriet šiem lietotājiem citu lomu", `Loma «Editors» veiksmīgi izveidota.`},
+		{"ru", "Электронная почта, пароль или сеанс недействительны.", "Введите название хотя бы на одном языке.", "Роль не найдена.", "Назначьте им другую роль", `Роль «Editors» успешно создана.`},
 	} {
 		t.Run(locale.code, func(t *testing.T) {
 			mux, repository, _ := httpFixture(t)

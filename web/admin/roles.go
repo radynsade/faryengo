@@ -66,7 +66,24 @@ func (h *Handler) roleList(writer http.ResponseWriter, request *http.Request, lo
 		if err != nil {
 			var message string
 			status, message = roleError(request, err)
-			flashErr = h.addFlash(request.Context(), writer, request, flashmsg.Error, message)
+			var fields components.FieldErrors
+
+			if errors.Is(err, security.ErrInvalidRoleQuery) {
+				fields = requestFieldErrors(request.Context(), err)
+			}
+
+			props.FieldErrors = make(components.FieldErrors)
+
+			for _, key := range []string{"uuid", "name", "permissions", "super"} {
+				if len(fields[key]) > 0 {
+					props.FieldErrors[key] = fields[key]
+				}
+			}
+
+			if len(props.FieldErrors) == 0 || len(props.FieldErrors) != len(fields) {
+				flashErr = h.addFlash(request.Context(), writer, request, flashmsg.Error, message)
+			}
+
 			props.InvalidQuery = errors.Is(err, security.ErrInvalidRoleQuery)
 			props.Loading = false
 			props.Page = security.RolePage{Page: 1, PageSize: security.DefaultRolePageSize}
@@ -93,6 +110,10 @@ func (h *Handler) roleList(writer http.ResponseWriter, request *http.Request, lo
 			writer.Header().Set("HX-Reswap", "outerHTML")
 			templ.Handler(pages.RolesTable(props), templ.WithStatus(status)).ServeHTTP(writer, request)
 		} else {
+			if len(props.FieldErrors) > 0 && request.Header.Get("HX-Request") == "true" && request.Header.Get("HX-History-Restore-Request") != "true" {
+				writer.Header().Set("HX-Retarget", "#page-content")
+			}
+
 			h.renderPage(writer, request, admini18n.T(request.Context(), "navigation.roles")+" · Faryen "+admini18n.T(request.Context(), "common.admin"), pages.Roles(props), templ.WithStatus(status))
 		}
 	})
@@ -230,15 +251,25 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 					var message string
 					status, message = roleError(request, err)
 
-					if flashErr := h.addFlash(request.Context(), writer, request, flashmsg.Error, message); flashErr != nil {
-						h.flashUnavailable(writer, request, flashErr)
-						responded = true
+					props.FieldErrors = requestFieldErrors(request.Context(), err)
+
+					if len(props.FieldErrors) == 0 {
+						if flashErr := h.addFlash(request.Context(), writer, request, flashmsg.Error, message); flashErr != nil {
+							h.flashUnavailable(writer, request, flashErr)
+							responded = true
+						}
 					}
 				}
 			}
 
 			if !responded {
 				props.NameTranslations = roleNameTranslations(request.Context(), catalog, values.Name, request.PathValue("language"))
+				props.NameTranslations.Errors = props.FieldErrors["name"]
+
+				for index := range props.NameTranslations.Values {
+					field := &props.NameTranslations.Values[index]
+					field.Errors = props.FieldErrors["name["+field.Code+"]"]
+				}
 				props.Permissions = permissionOptions(request.Context(), values.Permissions)
 				props.IsSuper = values.IsSuper
 				h.renderPage(writer, request, props.Title+" · Faryen "+admini18n.T(request.Context(), "common.admin"), pages.RoleForm(props), templ.WithStatus(status))
@@ -534,10 +565,6 @@ func roleError(request *http.Request, err error) (int, string) {
 		status, message = http.StatusUnprocessableEntity, admini18n.T(request.Context(), "errors.role_values")
 	case errors.Is(err, languages.ErrLanguageNotFound):
 		status, message = http.StatusUnprocessableEntity, admini18n.T(request.Context(), "errors.language_missing")
-	}
-
-	if fields := requestFieldMessages(request.Context(), err); fields != "" {
-		message += " " + fields
 	}
 
 	if status == http.StatusInternalServerError {

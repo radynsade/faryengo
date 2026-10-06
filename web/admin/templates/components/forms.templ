@@ -1,19 +1,52 @@
 package components
 
+import "strconv"
+
 // TextInputProps describes a labeled input and its browser autofill hint.
 type TextInputProps struct {
-	ID string
-	Name string
-	Type string
-	Label string
-	Placeholder string
+	ID           string
+	Name         string
+	Type         string
+	Label        string
+	Placeholder  string
 	Autocomplete string
-	Value string
-	Required bool
+	Value        string
+	Required     bool
+	MaxLength    int
+	Errors       []string
+}
+
+// FieldErrors keeps localized messages beside their controls in this response.
+type FieldErrors map[string][]string
+
+func describedBy(ids ...string) string {
+	var description string
+
+	for _, id := range ids {
+		if id != "" {
+			if description != "" {
+				description += " "
+			}
+
+			description += id
+		}
+	}
+
+	return description
+}
+
+templ FieldMessages(id string, messages []string) {
+	if len(messages) > 0 {
+		<div class="form-field__errors" id={ id } role="alert">
+			for _, message := range messages {
+				<p class="form-field__error">{ message }</p>
+			}
+		</div>
+	}
 }
 
 templ TextInput(props TextInputProps) {
-	<div class="form-field">
+	<div class={ "form-field", templ.KV("form-field--invalid", len(props.Errors) > 0) }>
 		<label class="form-field__label" for={ props.ID }>{ props.Label }</label>
 		<input
 			class="form-field__input"
@@ -24,7 +57,15 @@ templ TextInput(props TextInputProps) {
 			autocomplete={ props.Autocomplete }
 			value={ props.Value }
 			required?={ props.Required }
+			if props.MaxLength > 0 {
+				maxlength={ strconv.Itoa(props.MaxLength) }
+			}
+			if len(props.Errors) > 0 {
+				aria-invalid="true"
+				aria-describedby={ props.ID + "-errors" }
+			}
 		/>
+		@FieldMessages(props.ID+"-errors", props.Errors)
 	</div>
 }
 

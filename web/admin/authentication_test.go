@@ -302,17 +302,18 @@ func TestAdminInvalidSignIn(t *testing.T) {
 	for _, tt := range []struct {
 		name, body, contentType, query string
 		status                         int
+		field                          string
 	}{
 		{name: "unknown account", body: "email=unknown%40example.com&password=correct", status: http.StatusUnauthorized},
 		{name: "wrong password", body: "email=person%40example.com&password=wrong-secret", status: http.StatusUnauthorized},
-		{name: "invalid email", body: "email=bad&password=correct", status: http.StatusBadRequest},
-		{name: "empty password", body: "email=person%40example.com&password=", status: http.StatusBadRequest},
-		{name: "missing email", body: "password=correct", status: http.StatusBadRequest},
+		{name: "invalid email", body: "email=bad&password=correct", status: http.StatusBadRequest, field: "email"},
+		{name: "empty password", body: "email=person%40example.com&password=", status: http.StatusBadRequest, field: "password"},
+		{name: "missing email", body: "password=correct", status: http.StatusBadRequest, field: "email"},
 		{name: "duplicate email", body: "email=person%40example.com&email=other%40example.com&password=correct", status: http.StatusBadRequest},
 		{name: "duplicate password", body: "email=person%40example.com&password=correct&password=other", status: http.StatusBadRequest},
 		{name: "unknown field", body: "email=person%40example.com&password=correct&role=admin", status: http.StatusBadRequest},
 		{name: "malformed encoding", body: "email=%zz&password=correct", status: http.StatusBadRequest},
-		{name: "query credentials ignored", body: "password=correct", query: "?email=person%40example.com", status: http.StatusBadRequest},
+		{name: "query credentials ignored", body: "password=correct", query: "?email=person%40example.com", status: http.StatusBadRequest, field: "email"},
 		{name: "oversized body", body: "email=person%40example.com&password=" + strings.Repeat("x", 32768), status: http.StatusBadRequest},
 		{name: "JSON rejected", body: `{}`, contentType: "application/json", status: http.StatusUnsupportedMediaType},
 	} {
@@ -328,20 +329,35 @@ func TestAdminInvalidSignIn(t *testing.T) {
 			response := httptest.NewRecorder()
 			mux.ServeHTTP(response, request)
 
-			if response.Code != tt.status || !strings.HasPrefix(response.Header().Get("Content-Type"), "text/html") ||
-				!strings.Contains(response.Body.String(), `class="form-error" role="alert"`) || len(response.Result().Cookies()) != 1 {
+			if response.Code != tt.status || !strings.HasPrefix(response.Header().Get("Content-Type"), "text/html") {
 				t.Fatalf("invalid sign-in = %d: %s", response.Code, response.Body.String())
 			}
 
-			flashCookie := response.Result().Cookies()[0]
+			var cookies []*http.Cookie
 
-			if flashCookie.Name != "__Host-faryen_flash" || !flashCookie.HttpOnly || !flashCookie.Secure || flashCookie.SameSite != http.SameSiteStrictMode {
-				t.Fatalf("unsafe anonymous flash cookie: %s", flashCookie)
+			if tt.field != "" {
+				assertInvalidControl(t, response.Body.String(), tt.field, tt.field+"-errors")
+
+				if strings.Contains(response.Body.String(), `class="form-error"`) || len(response.Result().Cookies()) != 0 {
+					t.Fatal("field validation used a form-wide flash notification")
+				}
+			} else {
+				if !strings.Contains(response.Body.String(), `class="form-error" role="alert"`) || len(response.Result().Cookies()) != 1 {
+					t.Fatal("form-wide sign-in error lost its notification")
+				}
+
+				flashCookie := response.Result().Cookies()[0]
+
+				if flashCookie.Name != "__Host-faryen_flash" || !flashCookie.HttpOnly || !flashCookie.Secure || flashCookie.SameSite != http.SameSiteStrictMode {
+					t.Fatalf("unsafe anonymous flash cookie: %s", flashCookie)
+				}
+
+				cookies = []*http.Cookie{flashCookie}
 			}
 
-			reloaded := httpRequest(mux, http.MethodGet, "/admin/en/sign-in", "", []*http.Cookie{flashCookie})
+			reloaded := httpRequest(mux, http.MethodGet, "/admin/en/sign-in", "", cookies)
 
-			if reloaded.Code != http.StatusOK || strings.Contains(reloaded.Body.String(), `class="form-error"`) {
+			if reloaded.Code != http.StatusOK || strings.Contains(reloaded.Body.String(), `class="form-error"`) || strings.Contains(reloaded.Body.String(), `aria-invalid="true"`) {
 				t.Fatal("sign-in error was replayed after rendering")
 			}
 

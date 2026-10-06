@@ -205,6 +205,18 @@ HTMX fragments carry the same complete markup and need no initialization pass.
 The `scripting: none` CSS fallback hides the tab bar and reveals all native
 fields when JavaScript is disabled.
 
+Field validation uses `.form-field--invalid`, red labels and control borders,
+and `.form-field__errors` messages directly below the relevant controls. Invalid
+native inputs and enhanced multiselects carry `aria-invalid` and link to their
+messages through `aria-describedby`; translation controls retain their help-text
+reference too. Each invalid translation marks its language tab, and the server
+opens the first tab with a field error. The requirement to supply at least one
+translated name is a group error beside the name input; other translations remain
+optional. Checkbox errors appear beneath the checkbox. Messages use the interface
+catalogs and apply to full pages, HTMX fragments, and native forms without
+JavaScript. Field errors live only in the submission response; form-wide failures
+continue using notifications.
+
 ## Layout and page responsibilities
 
 The reusable `LanguageSwitcher` renders native locale links in the sidebar and
