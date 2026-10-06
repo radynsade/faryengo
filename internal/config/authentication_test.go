@@ -15,7 +15,7 @@ func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 func clearAuthEnvironment(t *testing.T) {
 	t.Helper()
 
-	for _, key := range []string{"REDIS_URL", "HTTP_ADDRESS", "JWT_SIGNING_SEED", "JWT_KEY_ID", "JWT_ISSUER", "JWT_ACCESS_AUDIENCE", "JWT_REFRESH_AUDIENCE", "ACCESS_TOKEN_TTL", "REFRESH_TOKEN_TTL", "AUTH_COOKIE_SECURE"} {
+	for _, key := range []string{"REDIS_URL", "HTTP_ADDRESS", "JWT_SIGNING_SEED", "JWT_KEY_ID", "JWT_ISSUER", "JWT_ACCESS_AUDIENCE", "JWT_REFRESH_AUDIENCE", "ACCESS_TOKEN_TTL", "REFRESH_TOKEN_TTL", "SESSION_TTL", "AUTH_COOKIE_SECURE"} {
 		t.Setenv(key, "")
 	}
 }
@@ -30,6 +30,9 @@ func TestAuthenticationConfig(t *testing.T) {
 		{name: "bad secure flag", key: "AUTH_COOKIE_SECURE", value: "invalid", wantErr: true},
 		{name: "bad access lifetime", key: "ACCESS_TOKEN_TTL", value: "invalid", wantErr: true},
 		{name: "bad refresh lifetime", key: "REFRESH_TOKEN_TTL", value: "invalid", wantErr: true},
+		{name: "bad session lifetime", key: "SESSION_TTL", value: "invalid", wantErr: true},
+		{name: "zero session lifetime", key: "SESSION_TTL", value: "0s", wantErr: true},
+		{name: "long session lifetime", key: "SESSION_TTL", value: "2161h", wantErr: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Chdir(t.TempDir())
@@ -50,7 +53,7 @@ func TestAuthenticationConfig(t *testing.T) {
 					t.Fatal(err)
 				}
 
-				if config.AccessTokenTTL != 5*time.Minute || config.RefreshTokenTTL != 30*24*time.Hour {
+				if config.AccessTokenTTL != 5*time.Minute || config.RefreshTokenTTL != 30*24*time.Hour || config.SessionTTL != 7*24*time.Hour {
 					t.Fatal("incorrect token defaults")
 				}
 

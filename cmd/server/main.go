@@ -20,7 +20,6 @@ import (
 	"github.com/radynsade/faryengo/internal/config"
 	languagepg "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
 	"github.com/radynsade/faryengo/internal/security/argon2id"
-	securityjwt "github.com/radynsade/faryengo/internal/security/jwt"
 	"github.com/radynsade/faryengo/internal/security/pgxgoqu"
 	securityredis "github.com/radynsade/faryengo/internal/security/redis"
 	"github.com/radynsade/faryengo/middleware"
@@ -43,19 +42,6 @@ func run(ctx context.Context) error {
 
 	if err != nil {
 		return fmt.Errorf("load server configuration: %w", err)
-	}
-
-	key, err := settings.SigningKey()
-
-	if err != nil {
-		return fmt.Errorf("configure JWT signing: %w", err)
-	}
-
-	tokens, err := securityjwt.NewManager(securityjwt.Config{PrivateKey: key, KeyID: settings.JWTKeyID,
-		Issuer: settings.JWTIssuer, AccessAudience: settings.JWTAccessAudience, RefreshAudience: settings.JWTRefreshAudience, AccessTTL: settings.AccessTokenTTL})
-
-	if err != nil {
-		return fmt.Errorf("configure JWT: %w", err)
 	}
 
 	if strings.TrimSpace(settings.DatabaseURL) == "" {
@@ -121,10 +107,16 @@ func run(ctx context.Context) error {
 	}
 
 	service, err := app.NewAuthenticationService(ctx, app.AuthenticationDependencies{Credentials: credentials, Invalidator: credentials,
-		Roles: roles, Hasher: argon2id.NewHasher(), Tokens: tokens, Sessions: sessions, Rotator: sessions, Revoker: sessions}, settings.RefreshTokenTTL)
+		Roles: roles, Hasher: argon2id.NewHasher(), Revoker: sessions})
 
 	if err != nil {
 		return fmt.Errorf("configure authentication: %w", err)
+	}
+
+	browserSessions, err := app.NewSessionAuthenticationService(service, sessions, settings.SessionTTL)
+
+	if err != nil {
+		return fmt.Errorf("configure browser authentication: %w", err)
 	}
 
 	roleService, err := app.NewRoleService(roles)
@@ -151,7 +143,7 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("configure admin flash store: %w", err)
 	}
 
-	adminHandler, err := admin.NewHandler(service, roleService, languageService, limiter, flashes, settings.AuthCookieSecure)
+	adminHandler, err := admin.NewHandler(browserSessions, roleService, languageService, limiter, flashes, settings.AuthCookieSecure)
 
 	if err != nil {
 		return fmt.Errorf("configure admin transport: %w", err)

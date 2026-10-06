@@ -107,7 +107,6 @@ func TestLanguageLinks(t *testing.T) {
 		{"edit", "/roles/abc/edit", "/roles/abc/edit"},
 		{"create", "/roles/create", "/roles/create"},
 		{"delete error", "/roles/abc/delete", "/roles/abc/view"},
-		{"refresh error", "/refresh", "/sign-in"},
 		{"sign out error", "/sign-out", "/sign-in"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

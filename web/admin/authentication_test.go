@@ -2,8 +2,7 @@ package admin
 
 import (
 	"context"
-	"crypto/ed25519"
-	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -20,7 +19,6 @@ import (
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/security"
-	securityjwt "github.com/radynsade/faryengo/internal/security/jwt"
 	securityredis "github.com/radynsade/faryengo/internal/security/redis"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
@@ -104,6 +102,12 @@ func httpFixtureWithCookies(t *testing.T, secure bool) (*http.ServeMux, *httpCre
 
 func httpFixtureWithFlashStorage(t *testing.T, secure bool, flashStorage flashmsg.FlashSessionStorage) (*http.ServeMux, *httpCredentials, *miniredis.Miniredis) {
 	t.Helper()
+	instances, repository, mini := httpFixtureWithInstances(t, secure, flashStorage, 1)
+	return instances[0], repository, mini
+}
+
+func httpFixtureWithInstances(t *testing.T, secure bool, flashStorage flashmsg.FlashSessionStorage, count int) ([]*http.ServeMux, *httpCredentials, *miniredis.Miniredis) {
+	t.Helper()
 	roleID := security.RoleID(uuid.New())
 	user, err := security.NewUser(security.UserID(uuid.New()), roleID, "person@example.com", "+37123456789", "stored", "First", "Last")
 
@@ -125,75 +129,78 @@ func httpFixtureWithFlashStorage(t *testing.T, secure bool, flashStorage flashms
 
 	repository := &httpCredentials{credentials: security.Credentials{User: user, Version: uuid.New()}, role: role}
 	mini := miniredis.RunT(t)
-	client := redislib.NewClient(&redislib.Options{Addr: mini.Addr(), MaxRetries: -1, DialTimeout: 100 * time.Millisecond})
-	t.Cleanup(func() {
-		if err := client.Close(); err != nil {
-			t.Error(err)
-		}
-	})
-	sessions, err := securityredis.NewSessionStore(client)
 
-	if err != nil {
-		t.Fatal(err)
-	}
+	var instances []*http.ServeMux
 
-	limiter, err := securityredis.NewRateLimiter(client)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	_, key, err := ed25519.GenerateKey(rand.Reader)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	tokens, err := securityjwt.NewManager(securityjwt.Config{PrivateKey: key, KeyID: "test", Issuer: "faryen", AccessAudience: "admin", RefreshAudience: "refresh", AccessTTL: 5 * time.Minute})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	service, err := app.NewAuthenticationService(context.Background(), app.AuthenticationDependencies{Credentials: repository, Invalidator: repository, Roles: repository, Hasher: httpHasher{}, Tokens: tokens, Sessions: sessions, Rotator: sessions, Revoker: sessions}, 24*time.Hour)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	roleService, err := app.NewRoleService(repository)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	languageService, err := app.NewLanguageService(httpLanguages{})
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	if flashStorage == nil {
-		flashStorage, err = flashredis.NewStore(client, "admin", anonymousFlashTTL)
+	for range count {
+		client := redislib.NewClient(&redislib.Options{Addr: mini.Addr(), MaxRetries: -1, DialTimeout: 100 * time.Millisecond})
+		t.Cleanup(func() {
+			if err := client.Close(); err != nil {
+				t.Error(err)
+			}
+		})
+		sessions, err := securityredis.NewSessionStore(client)
 
 		if err != nil {
 			t.Fatal(err)
 		}
+
+		limiter, err := securityredis.NewRateLimiter(client)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		authentication, err := app.NewAuthenticationService(context.Background(), app.AuthenticationDependencies{Credentials: repository, Invalidator: repository, Roles: repository, Hasher: httpHasher{}, Revoker: sessions})
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		service, err := app.NewSessionAuthenticationService(authentication, sessions, 24*time.Hour)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		roleService, err := app.NewRoleService(repository)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		languageService, err := app.NewLanguageService(httpLanguages{})
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		storage := flashStorage
+
+		if storage == nil {
+			storage, err = flashredis.NewStore(client, "admin", anonymousFlashTTL)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+		}
+
+		handler, err := NewHandler(service, roleService, languageService, limiter, storage, secure)
+
+		if err != nil {
+			t.Fatal(err)
+		}
+
+		mux := http.NewServeMux()
+
+		if err := handler.RegisterHandlers(mux); err != nil {
+			t.Fatal(err)
+		}
+
+		instances = append(instances, mux)
 	}
 
-	handler, err := NewHandler(service, roleService, languageService, limiter, flashStorage, secure)
-
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mux := http.NewServeMux()
-
-	if err := handler.RegisterHandlers(mux); err != nil {
-		t.Fatal(err)
-	}
-
-	return mux, repository, mini
+	return instances, repository, mini
 }
 
 func httpRequest(mux *http.ServeMux, method, path, body string, cookies []*http.Cookie) *httptest.ResponseRecorder {
@@ -249,8 +256,14 @@ func TestAdminSignIn(t *testing.T) {
 
 			cookies := response.Result().Cookies()
 
-			if len(cookies) != 2 {
+			if len(cookies) != 1 {
 				t.Fatalf("cookies = %d", len(cookies))
+			}
+
+			decoded, decodeErr := base64.RawURLEncoding.DecodeString(cookies[0].Value)
+
+			if decodeErr != nil || len(decoded) != 32 || !strings.HasSuffix(cookies[0].Name, "faryen_session") {
+				t.Fatal("login did not return only an opaque session cookie")
 			}
 
 			for _, cookie := range cookies {
@@ -260,7 +273,7 @@ func TestAdminSignIn(t *testing.T) {
 				}
 
 				if strings.Contains(response.Body.String(), cookie.Value) {
-					t.Fatal("token exposed in HTML")
+					t.Fatal("session credential exposed in HTML")
 				}
 			}
 
@@ -350,7 +363,7 @@ func TestAdminCSRF(t *testing.T) {
 	}{
 		{name: "sign-in cross origin", path: "sign-in", origin: "https://attacker.example", status: http.StatusForbidden},
 		{name: "sign-in cross site", path: "sign-in", site: "cross-site", status: http.StatusForbidden},
-		{name: "refresh cross origin", path: "refresh", origin: "https://attacker.example", status: http.StatusForbidden},
+
 		{name: "sign-out cross origin", path: "sign-out", origin: "https://attacker.example", status: http.StatusForbidden},
 		{name: "same origin", path: "sign-in", origin: "https://admin.example.com", status: http.StatusSeeOther},
 	} {
@@ -404,87 +417,28 @@ func TestAdminThrottling(t *testing.T) {
 	}
 }
 
-func TestAdminSessionRenewalAndSignOut(t *testing.T) {
-	for _, tt := range []struct {
-		name   string
-		replay bool
-	}{
-		{name: "renewal and logout"},
-		{name: "refresh replay", replay: true},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			mux, _, _ := httpFixture(t)
-			old := login(t, mux)
-			var refreshOnly []*http.Cookie
+func TestAdminSessionSignOut(t *testing.T) {
+	mux, _, _ := httpFixture(t)
+	cookies := login(t, mux)
+	response := httpRequest(mux, http.MethodPost, "/admin/en/sign-out", "", cookies)
 
-			for _, cookie := range old {
-				if cookie.Name == "__Host-faryen_refresh" {
-					refreshOnly = append(refreshOnly, cookie)
-				}
-			}
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/admin/en/sign-in" {
+		t.Fatalf("sign-out = %d", response.Code)
+	}
 
-			response := httpRequest(mux, http.MethodGet, "/admin/en", "", refreshOnly)
+	cleared := response.Result().Cookies()
 
-			if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/admin/en/sign-in" {
-				t.Fatal("missing access cookie did not redirect to sign-in")
-			}
+	if len(cleared) != 1 || cleared[0].Name != "__Host-faryen_session" || cleared[0].MaxAge != -1 ||
+		!cleared[0].HttpOnly || !cleared[0].Secure || cleared[0].SameSite != http.SameSiteStrictMode || cleared[0].Path != "/" {
+		t.Fatal("session cookie not cleared safely")
+	}
 
-			page := httpRequest(mux, http.MethodGet, "/admin/en/sign-in", "", refreshOnly)
+	if response := httpRequest(mux, http.MethodGet, "/admin/en", "", cookies); response.Code != http.StatusSeeOther {
+		t.Fatalf("revoked session remained active: %d", response.Code)
+	}
 
-			if !strings.Contains(page.Body.String(), "Continue your session") || !strings.Contains(page.Body.String(), `action="/admin/en/refresh"`) {
-				t.Fatal("missing session renewal form")
-			}
-
-			response = httpRequest(mux, http.MethodPost, "/admin/en/refresh", "", refreshOnly)
-
-			if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/admin/en" {
-				t.Fatalf("renewal = %d: %s", response.Code, response.Body.String())
-			}
-
-			next := response.Result().Cookies()
-
-			if len(next) != 2 || next[0].Value == old[0].Value || next[1].Value == old[1].Value {
-				t.Fatal("renewal did not rotate both tokens")
-			}
-
-			if tt.replay {
-				response = httpRequest(mux, http.MethodPost, "/admin/en/refresh", "", old)
-
-				if response.Code != http.StatusUnauthorized || strings.Contains(response.Body.String(), "Continue your session") {
-					t.Fatal("refresh replay accepted or retry offered")
-				}
-			} else {
-				if response := httpRequest(mux, http.MethodGet, "/admin/en", "", next); response.Code != http.StatusOK {
-					t.Fatalf("renewed session rejected: %d", response.Code)
-				}
-
-				response = httpRequest(mux, http.MethodPost, "/admin/en/sign-out", "", next)
-
-				if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/admin/en/sign-in" {
-					t.Fatalf("sign-out = %d", response.Code)
-				}
-			}
-
-			cleared := 0
-
-			for _, cookie := range response.Result().Cookies() {
-				if cookie.Name == "__Host-faryen_access" || cookie.Name == "__Host-faryen_refresh" {
-					if cookie.MaxAge != -1 || !cookie.HttpOnly || !cookie.Secure || cookie.Path != "/" {
-						t.Fatal("session cookies not cleared safely")
-					}
-
-					cleared++
-				}
-			}
-
-			if cleared != 2 {
-				t.Fatal("both session cookies must be cleared")
-			}
-
-			if response := httpRequest(mux, http.MethodGet, "/admin/en", "", next); response.Code != http.StatusSeeOther {
-				t.Fatalf("revoked session remained active: %d", response.Code)
-			}
-		})
+	if response := httpRequest(mux, http.MethodPost, "/admin/en/sign-out", "", cookies); response.Code != http.StatusSeeOther {
+		t.Fatalf("repeated logout = %d", response.Code)
 	}
 }
 
@@ -510,8 +464,8 @@ func TestAdminAuthenticationState(t *testing.T) {
 
 			return cookies
 		}, status: http.StatusServiceUnavailable},
-		{name: "refresh cannot authorize", change: func(_ *httpCredentials, _ *miniredis.Miniredis, cookies []*http.Cookie) []*http.Cookie {
-			cookies[0].Value = cookies[1].Value
+		{name: "invalid opaque credential", change: func(_ *httpCredentials, _ *miniredis.Miniredis, cookies []*http.Cookie) []*http.Cookie {
+			cookies[0].Value = "invalid"
 
 			return cookies
 		}, status: http.StatusSeeOther},

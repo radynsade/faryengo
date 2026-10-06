@@ -1,11 +1,11 @@
 package admin
 
 import (
-	"errors"
 	"net/http"
 
 	"github.com/a-h/templ"
 
+	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
@@ -34,13 +34,9 @@ func (h *Handler) panel(writer http.ResponseWriter, request *http.Request, secti
 }
 
 func (h *Handler) withPanel(writer http.ResponseWriter, request *http.Request, section string, permission security.Permission, handle func(security.Principal, layouts.PanelProps)) {
-	principal, err := h.service.Authenticate(request.Context(), h.cookie(request, "access"))
+	principal, err := h.authenticate(writer, request)
 
-	if errors.Is(err, security.ErrInvalidToken) || errors.Is(err, security.ErrSessionRevoked) || errors.Is(err, security.ErrInvalidSession) {
-		if !errors.Is(err, security.ErrInvalidToken) {
-			h.clearTokens(writer)
-		}
-
+	if invalidSession(err) {
 		http.Redirect(writer, request, adminPath(request)+"/sign-in", http.StatusSeeOther)
 	} else if err != nil {
 		h.signInError(writer, request, "", err)
@@ -61,7 +57,7 @@ func (h *Handler) withPanel(writer http.ResponseWriter, request *http.Request, s
 			props.Title = admini18n.T(request.Context(), "navigation.roles")
 		}
 
-		allowed := permission == "" || principal.HasPermission(permission)
+		allowed := permission == "" || app.Authorize(principal, permission) == nil
 
 		if allowed {
 			handle(principal, props)

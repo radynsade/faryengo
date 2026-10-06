@@ -37,12 +37,12 @@ func (h *Handler) signIn(writer http.ResponseWriter, request *http.Request) {
 			} else if limitErr := h.allowSignIn(request, credentials.Email); limitErr != nil {
 				h.signInError(writer, request, credentials.Email, limitErr)
 			} else {
-				pair, err := h.service.SignIn(request.Context(), credentials)
+				session, err := h.service.SignIn(request.Context(), credentials)
 
 				if err != nil {
 					h.signInError(writer, request, credentials.Email, err)
 				} else {
-					h.setTokens(writer, pair)
+					h.setSession(writer, session)
 					http.Redirect(writer, request, adminPath(request), http.StatusSeeOther)
 				}
 			}
@@ -81,33 +81,25 @@ func (h *Handler) allowSignIn(request *http.Request, email string) error {
 	return err
 }
 
-func (h *Handler) refresh(writer http.ResponseWriter, request *http.Request) {
-	pair, err := h.service.Refresh(request.Context(), h.cookie(request, "refresh"))
+// authenticate uses the same opaque cookie for SSR and HTMX requests.
+func (h *Handler) authenticate(writer http.ResponseWriter, request *http.Request) (security.Principal, error) {
+	raw := h.cookie(request, "session")
+	principal, err := h.service.Authenticate(request.Context(), raw)
 
-	if err == nil {
-		_, err = h.service.Authenticate(request.Context(), pair.AccessToken)
+	if invalidSession(err) && raw != "" {
+		h.clearSession(writer)
 	}
 
-	if err != nil {
-		// A rotation failure can be ambiguous; never invite a retry with the
-		// old refresh token, which would revoke the session as a replay.
-		h.clearTokens(writer)
-		h.signInError(writer, request, "", err)
-	} else {
-		h.setTokens(writer, pair)
-		http.Redirect(writer, request, adminPath(request), http.StatusSeeOther)
-	}
+	return principal, err
+}
+
+func invalidSession(err error) bool {
+	return errors.Is(err, security.ErrSessionRevoked) || errors.Is(err, security.ErrInvalidSession)
 }
 
 func (h *Handler) signOut(writer http.ResponseWriter, request *http.Request) {
-	raw, use := h.cookie(request, "refresh"), security.RefreshToken
-
-	if raw == "" {
-		raw, use = h.cookie(request, "access"), security.AccessToken
-	}
-
-	err := h.service.SignOut(request.Context(), raw, use)
-	h.clearTokens(writer)
+	err := h.service.SignOut(request.Context(), h.cookie(request, "session"))
+	h.clearSession(writer)
 	status, _ := authenticationError(request.Context(), err)
 
 	if err == nil || status == http.StatusUnauthorized {
@@ -138,26 +130,16 @@ func (h *Handler) cookie(request *http.Request, kind string) string {
 	return value
 }
 
-func (h *Handler) setTokens(writer http.ResponseWriter, pair security.TokenPair) {
-	for _, token := range []struct {
-		kind, value string
-		expires     time.Time
-	}{
-		{"access", pair.AccessToken, pair.AccessExpiresAt},
-		{"refresh", pair.RefreshToken, pair.RefreshExpiresAt},
-	} {
-		lifetime := int(time.Until(token.expires).Seconds())
-		http.SetCookie(writer, &http.Cookie{Name: h.cookieName(token.kind), Value: token.value,
-			Path: "/", HttpOnly: true, Secure: h.secureCookies, SameSite: http.SameSiteStrictMode,
-			Expires: token.expires, MaxAge: max(1, lifetime)})
-	}
+func (h *Handler) setSession(writer http.ResponseWriter, session security.SessionGrant) {
+	lifetime := int(time.Until(session.ExpiresAt).Seconds())
+	http.SetCookie(writer, &http.Cookie{Name: h.cookieName("session"), Value: session.ID,
+		Path: "/", HttpOnly: true, Secure: h.secureCookies, SameSite: http.SameSiteStrictMode,
+		Expires: session.ExpiresAt, MaxAge: max(1, lifetime)})
 }
 
-func (h *Handler) clearTokens(writer http.ResponseWriter) {
-	for _, kind := range []string{"access", "refresh"} {
-		http.SetCookie(writer, &http.Cookie{Name: h.cookieName(kind), Path: "/", HttpOnly: true,
-			Secure: h.secureCookies, SameSite: http.SameSiteStrictMode, MaxAge: -1, Expires: time.Unix(1, 0)})
-	}
+func (h *Handler) clearSession(writer http.ResponseWriter) {
+	http.SetCookie(writer, &http.Cookie{Name: h.cookieName("session"), Path: "/", HttpOnly: true,
+		Secure: h.secureCookies, SameSite: http.SameSiteStrictMode, MaxAge: -1, Expires: time.Unix(1, 0)})
 }
 
 func (h *Handler) signInError(writer http.ResponseWriter, request *http.Request, email string, err error) {
@@ -175,8 +157,7 @@ func (h *Handler) signInError(writer http.ResponseWriter, request *http.Request,
 func authenticationError(ctx context.Context, err error) (int, string) {
 	status, message := http.StatusServiceUnavailable, admini18n.T(ctx, "errors.sign_in_unavailable")
 
-	if errors.Is(err, security.ErrInvalidCredentials) || errors.Is(err, security.ErrInvalidToken) ||
-		errors.Is(err, security.ErrSessionRevoked) || errors.Is(err, security.ErrRefreshTokenReused) || errors.Is(err, security.ErrInvalidSession) {
+	if errors.Is(err, security.ErrInvalidCredentials) || invalidSession(err) {
 		status, message = http.StatusUnauthorized, admini18n.T(ctx, "errors.invalid_session")
 	} else if errors.Is(err, security.ErrPermissionDenied) || errors.Is(err, security.ErrInvalidPermission) {
 		status, message = http.StatusForbidden, admini18n.T(ctx, "errors.access")

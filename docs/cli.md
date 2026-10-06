@@ -84,5 +84,6 @@ Argon2id password hash through the application `UserService`.
 Creation prints `created user <UUID>`; deletion prints `deleted user <UUID>`.
 Neither command prints passwords or hashes. Duplicate emails, missing roles,
 and missing users return errors and a nonzero exit status. Deleting a user
-prevents subsequent access and refresh authentication for that user because
+prevents subsequent browser-session and JWT access/refresh authentication for
+that user because
 session checks require the current PostgreSQL user record.

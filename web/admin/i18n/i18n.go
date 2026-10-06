@@ -117,7 +117,7 @@ func LanguageLinks(ctx context.Context) []LanguageLink {
 	switch parts[last] {
 	case "delete":
 		parts[last] = "view"
-	case "refresh", "sign-out":
+	case "sign-out":
 		parts[last] = "sign-in"
 	}
 

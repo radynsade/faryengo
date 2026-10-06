@@ -22,7 +22,7 @@ lint: vet
 	golangci-lint run ./...
 
 build: lint
-	rm bin -d -r
+	rm bin -d -rf
 	mkdir -p bin
 	go build -o bin/server ./cmd/server
 	go build -o bin/migrate ./cmd/migrate

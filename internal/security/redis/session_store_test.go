@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -21,7 +20,7 @@ import (
 
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 
-func testStore(t *testing.T) (*SessionStore, *miniredis.Miniredis, security.Session) {
+func testStore(t *testing.T) (*SessionStore, *miniredis.Miniredis, security.TokenSession) {
 	t.Helper()
 	mini := miniredis.RunT(t)
 	now := time.Now().UTC().Truncate(time.Second)
@@ -38,7 +37,7 @@ func testStore(t *testing.T) (*SessionStore, *miniredis.Miniredis, security.Sess
 		t.Fatal(err)
 	}
 
-	session := security.Session{ID: uuid.New(), UserID: security.UserID(uuid.New()), CredentialVersion: uuid.New(), RefreshHash: hash("old"), ExpiresAt: now.Add(time.Hour)}
+	session := security.TokenSession{Session: security.Session{ID: uuid.New(), UserID: security.UserID(uuid.New()), CredentialVersion: uuid.New(), ExpiresAt: now.Add(time.Hour)}, RefreshHash: hash("old")}
 
 	if err := store.Create(context.Background(), session); err != nil {
 		t.Fatal(err)
@@ -52,28 +51,34 @@ func hash(value string) string {
 	return hex.EncodeToString(digest[:])
 }
 
+func testIssuance(session security.TokenSession) security.TokenIssuance {
+	now := time.Now().UTC().Truncate(time.Second)
+	return security.TokenIssuance{KeyID: "test", AccessID: uuid.New(), RefreshID: uuid.New(), IssuedAt: now,
+		AccessExpiresAt: now.Add(5 * time.Minute), RefreshExpiresAt: session.ExpiresAt}
+}
+
 func TestSessionRevocation(t *testing.T) {
 	for _, tt := range []struct {
 		name       string
-		invalidate func(*testing.T, *SessionStore, *miniredis.Miniredis, security.Session)
+		invalidate func(*testing.T, *SessionStore, *miniredis.Miniredis, security.TokenSession)
 	}{
-		{"logout", func(t *testing.T, s *SessionStore, _ *miniredis.Miniredis, session security.Session) {
+		{"logout", func(t *testing.T, s *SessionStore, _ *miniredis.Miniredis, session security.TokenSession) {
 			if err := s.Revoke(context.Background(), session.UserID, session.ID); err != nil {
 				t.Fatal(err)
 			}
 		}},
-		{"all devices", func(t *testing.T, s *SessionStore, _ *miniredis.Miniredis, session security.Session) {
+		{"all devices", func(t *testing.T, s *SessionStore, _ *miniredis.Miniredis, session security.TokenSession) {
 			if err := s.RevokeAll(context.Background(), session.UserID); err != nil {
 				t.Fatal(err)
 			}
 		}},
-		{"expiry", func(_ *testing.T, _ *SessionStore, m *miniredis.Miniredis, _ security.Session) {
+		{"expiry", func(_ *testing.T, _ *SessionStore, m *miniredis.Miniredis, _ security.TokenSession) {
 			m.FastForward(time.Hour)
 		}},
-		{"missing generation", func(_ *testing.T, _ *SessionStore, m *miniredis.Miniredis, session security.Session) {
+		{"missing generation", func(_ *testing.T, _ *SessionStore, m *miniredis.Miniredis, session security.TokenSession) {
 			m.Del(sessionKeys(session.UserID, session.ID)[0])
 		}},
-		{"missing session", func(_ *testing.T, _ *SessionStore, m *miniredis.Miniredis, session security.Session) {
+		{"missing session", func(_ *testing.T, _ *SessionStore, m *miniredis.Miniredis, session security.TokenSession) {
 			m.Del(sessionKeys(session.UserID, session.ID)[1])
 		}},
 	} {
@@ -91,7 +96,7 @@ func TestSessionRevocation(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if err := store.Rotate(context.Background(), session, hash("new")); !errors.Is(err, security.ErrSessionRevoked) {
+			if _, err := store.Rotate(context.Background(), session, hash("new"), testIssuance(session)); !errors.Is(err, security.ErrSessionRevoked) {
 				t.Fatal(err)
 			}
 		})
@@ -103,7 +108,7 @@ func TestRefreshReplayAndAbsoluteExpiry(t *testing.T) {
 	key := sessionKeys(session.UserID, session.ID)[1]
 	originalTTL := mini.TTL(key)
 
-	if err := store.Rotate(context.Background(), session, hash("next")); err != nil {
+	if _, err := store.Rotate(context.Background(), session, hash("next"), testIssuance(session)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -113,7 +118,9 @@ func TestRefreshReplayAndAbsoluteExpiry(t *testing.T) {
 		t.Fatalf("rotation = %v, %v", current, err)
 	}
 
-	if err := store.Rotate(context.Background(), session, hash("replay")); !errors.Is(err, security.ErrRefreshTokenReused) {
+	mini.SetTime(time.Now().UTC().Truncate(time.Second).Add(RefreshOverlapWindow))
+
+	if _, err := store.Rotate(context.Background(), session, hash("replay"), testIssuance(session)); !errors.Is(err, security.ErrRefreshTokenReused) {
 		t.Fatal(err)
 	}
 
@@ -124,20 +131,14 @@ func TestRefreshReplayAndAbsoluteExpiry(t *testing.T) {
 
 func TestConcurrentRefresh(t *testing.T) {
 	store, _, session := testStore(t)
-	group, ctx := errgroup.WithContext(context.Background())
-	var successes atomic.Int32
+	group, ctx := errgroup.WithContext(t.Context())
+	results := make([]security.TokenIssuance, 12)
 
 	for index := 0; index < 12; index++ {
 		group.Go(func() error {
-			err := store.Rotate(ctx, session, hash(fmt.Sprint(index)))
-
-			if err == nil {
-				successes.Add(1)
-			} else if !errors.Is(err, security.ErrRefreshTokenReused) && !errors.Is(err, security.ErrSessionRevoked) {
-				return err
-			}
-
-			return nil
+			var err error
+			results[index], err = store.Rotate(ctx, session, hash(fmt.Sprint(index)), testIssuance(session))
+			return err
 		})
 	}
 
@@ -145,11 +146,13 @@ func TestConcurrentRefresh(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if successes.Load() != 1 {
-		t.Fatalf("successful rotations = %d", successes.Load())
+	for _, result := range results {
+		if result != results[0] {
+			t.Fatal("concurrent rotations returned different issuance claims")
+		}
 	}
 
-	if _, err := store.FindByID(context.Background(), session.UserID, session.ID); !errors.Is(err, security.ErrSessionRevoked) {
+	if _, err := store.FindByID(t.Context(), session.UserID, session.ID); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -237,5 +240,115 @@ func TestIdleSessionExpiry(t *testing.T) {
 
 	if _, err := store.FindByID(context.Background(), session.UserID, session.ID); !errors.Is(err, security.ErrSessionRevoked) {
 		t.Fatal(err)
+	}
+}
+
+func TestRefreshOverlapDeadline(t *testing.T) {
+	for _, tt := range []struct {
+		name  string
+		delay time.Duration
+		valid bool
+	}{
+		{name: "inside window", delay: RefreshOverlapWindow - time.Millisecond, valid: true},
+		{name: "at deadline", delay: RefreshOverlapWindow},
+		{name: "past deadline", delay: RefreshOverlapWindow + time.Millisecond},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			store, mini, session := testStore(t)
+			proposal := testIssuance(session)
+			winner, err := store.Rotate(t.Context(), session, hash("winner"), proposal)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			mini.FastForward(tt.delay)
+			mini.SetTime(proposal.IssuedAt.Add(tt.delay))
+			key := sessionKeys(session.UserID, session.ID)[1]
+			ttl := mini.TTL(key)
+			deadline := mini.HGet(key, "refresh_overlap_until")
+			duplicate, err := store.Rotate(t.Context(), session, hash("loser"), testIssuance(session))
+
+			if tt.valid {
+				if err != nil || duplicate != winner || mini.TTL(key) != ttl || mini.HGet(key, "refresh_overlap_until") != deadline || mini.HGet(key, "refresh_hash") != hash("winner") {
+					t.Fatalf("duplicate changed rotation or expiration: %v", err)
+				}
+
+				mini.SetTime(proposal.IssuedAt.Add(RefreshOverlapWindow))
+
+				if _, err := store.Rotate(t.Context(), session, hash("retry"), testIssuance(session)); !errors.Is(err, security.ErrRefreshTokenReused) {
+					t.Fatalf("duplicate extended the overlap window: %v", err)
+				}
+			} else if !errors.Is(err, security.ErrRefreshTokenReused) {
+				t.Fatalf("late replay = %v", err)
+			}
+
+			if _, err := store.FindByID(t.Context(), session.UserID, session.ID); !errors.Is(err, security.ErrSessionRevoked) {
+				t.Fatal("replay did not revoke the session")
+			}
+		})
+	}
+}
+
+func TestRefreshOverlapRevocation(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		invalidate func(*testing.T, *SessionStore, *miniredis.Miniredis, *security.TokenSession)
+	}{
+		{name: "logout", invalidate: func(t *testing.T, store *SessionStore, _ *miniredis.Miniredis, session *security.TokenSession) {
+			if err := store.Revoke(t.Context(), session.UserID, session.ID); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "all devices", invalidate: func(t *testing.T, store *SessionStore, _ *miniredis.Miniredis, session *security.TokenSession) {
+			if err := store.RevokeAll(t.Context(), session.UserID); err != nil {
+				t.Fatal(err)
+			}
+		}},
+		{name: "credential version", invalidate: func(_ *testing.T, _ *SessionStore, _ *miniredis.Miniredis, session *security.TokenSession) {
+			session.CredentialVersion = uuid.New()
+		}},
+		{name: "missing generation", invalidate: func(_ *testing.T, _ *SessionStore, mini *miniredis.Miniredis, session *security.TokenSession) {
+			mini.Del(sessionKeys(session.UserID, session.ID)[0])
+		}},
+		{name: "expired session", invalidate: func(_ *testing.T, _ *SessionStore, mini *miniredis.Miniredis, session *security.TokenSession) {
+			mini.SetTime(session.ExpiresAt)
+		}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			store, mini, session := testStore(t)
+
+			if _, err := store.Rotate(t.Context(), session, hash("winner"), testIssuance(session)); err != nil {
+				t.Fatal(err)
+			}
+
+			tt.invalidate(t, store, mini, &session)
+
+			if _, err := store.Rotate(t.Context(), session, hash("duplicate"), testIssuance(session)); !errors.Is(err, security.ErrSessionRevoked) {
+				t.Fatalf("overlap bypassed revocation: %v", err)
+			}
+		})
+	}
+}
+
+func TestRefreshOverlapCannotRecoverOlderRotations(t *testing.T) {
+	store, _, original := testStore(t)
+
+	if _, err := store.Rotate(t.Context(), original, hash("second"), testIssuance(original)); err != nil {
+		t.Fatal(err)
+	}
+
+	current, err := store.FindByID(t.Context(), original.UserID, original.ID)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := store.Rotate(t.Context(), current, hash("third"), testIssuance(current)); err != nil {
+		t.Fatal(err)
+	}
+
+	if _, err := store.Rotate(t.Context(), original, hash("replay"), testIssuance(original)); !errors.Is(err, security.ErrRefreshTokenReused) {
+		t.Fatalf("older rotation was accepted during overlap: %v", err)
 	}
 }

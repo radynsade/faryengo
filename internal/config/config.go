@@ -24,6 +24,7 @@ type Config struct {
 	JWTRefreshAudience string
 	AccessTokenTTL     time.Duration
 	RefreshTokenTTL    time.Duration
+	SessionTTL         time.Duration
 	AuthCookieSecure   bool
 }
 
@@ -46,6 +47,7 @@ func Load() (Config, error) {
 	settings.JWTRefreshAudience = envDefault("JWT_REFRESH_AUDIENCE", "faryen-refresh")
 	accessTTL, accessErr := time.ParseDuration(envDefault("ACCESS_TOKEN_TTL", "5m"))
 	refreshTTL, refreshErr := time.ParseDuration(envDefault("REFRESH_TOKEN_TTL", "720h"))
+	sessionTTL, sessionErr := time.ParseDuration(envDefault("SESSION_TTL", "168h"))
 	secure, secureErr := strconv.ParseBool(envDefault("AUTH_COOKIE_SECURE", "true"))
 	var err error
 
@@ -53,10 +55,14 @@ func Load() (Config, error) {
 		err = fmt.Errorf("parse ACCESS_TOKEN_TTL: %w", accessErr)
 	} else if refreshErr != nil {
 		err = fmt.Errorf("parse REFRESH_TOKEN_TTL: %w", refreshErr)
+	} else if sessionErr != nil {
+		err = fmt.Errorf("parse SESSION_TTL: %w", sessionErr)
+	} else if sessionTTL < time.Second || sessionTTL > 90*24*time.Hour {
+		err = errors.New("SESSION_TTL must be between 1s and 2160h")
 	} else if secureErr != nil {
 		err = fmt.Errorf("parse AUTH_COOKIE_SECURE: %w", secureErr)
 	} else {
-		settings.AccessTokenTTL, settings.RefreshTokenTTL, settings.AuthCookieSecure = accessTTL, refreshTTL, secure
+		settings.AccessTokenTTL, settings.RefreshTokenTTL, settings.SessionTTL, settings.AuthCookieSecure = accessTTL, refreshTTL, sessionTTL, secure
 	}
 
 	return settings, err

@@ -25,7 +25,7 @@ type RateLimiter interface {
 }
 
 type Handler struct {
-	service       *app.AuthenticationService
+	service       *app.SessionAuthenticationService
 	roleService   *app.RoleService
 	languages     *app.LanguageService
 	limiter       RateLimiter
@@ -33,7 +33,7 @@ type Handler struct {
 	secureCookies bool
 }
 
-func NewHandler(service *app.AuthenticationService, roles *app.RoleService, languages *app.LanguageService, limiter RateLimiter, flashStorage flashmsg.FlashSessionStorage, secureCookies bool) (*Handler, error) {
+func NewHandler(service *app.SessionAuthenticationService, roles *app.RoleService, languages *app.LanguageService, limiter RateLimiter, flashStorage flashmsg.FlashSessionStorage, secureCookies bool) (*Handler, error) {
 	var handler *Handler
 	var err error
 
@@ -53,9 +53,6 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 		err = fmt.Errorf("register admin assets: %w", registerErr)
 	} else {
 		protection := http.NewCrossOriginProtection()
-		protection.SetDenyHandler(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-			http.Error(writer, admini18n.T(request.Context(), "errors.cross_origin"), http.StatusForbidden)
-		}))
 
 		for _, route := range []struct {
 			pattern string
@@ -63,7 +60,6 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 		}{
 			{"GET /admin/{language}/sign-in", h.handleSignIn},
 			{"POST /admin/{language}/sign-in", h.signIn},
-			{"POST /admin/{language}/refresh", h.refresh},
 			{"POST /admin/{language}/sign-out", h.signOut},
 			{"GET /admin/{language}/restore-password", h.handleRestorePassword},
 			{"GET /admin/{language}", h.home},
@@ -82,7 +78,12 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 				request = request.WithContext(admini18n.WithRequest(request))
 				writer.Header().Set("Content-Language", admini18n.Language(request.Context()))
 				request = request.WithContext(context.WithValue(request.Context(), flashRequestKey{}, &flashRequest{}))
-				protection.Handler(route.handler).ServeHTTP(writer, request)
+
+				if checkErr := protection.Check(request); checkErr != nil {
+					http.Error(writer, admini18n.T(request.Context(), "errors.cross_origin"), http.StatusForbidden)
+				} else {
+					route.handler(writer, request)
+				}
 			}))
 		}
 	}
@@ -95,7 +96,15 @@ func adminPath(request *http.Request) string {
 }
 
 func (h *Handler) handleSignIn(writer http.ResponseWriter, request *http.Request) {
-	h.renderSignIn(writer, request, http.StatusOK, "", "")
+	_, err := h.authenticate(writer, request)
+
+	if err == nil {
+		http.Redirect(writer, request, adminPath(request), http.StatusSeeOther)
+	} else if invalidSession(err) {
+		h.renderSignIn(writer, request, http.StatusOK, "", "")
+	} else {
+		h.signInError(writer, request, "", err)
+	}
 }
 
 func (h *Handler) renderSignIn(writer http.ResponseWriter, request *http.Request, status int, email, message string) {
@@ -110,10 +119,8 @@ func (h *Handler) renderSignIn(writer http.ResponseWriter, request *http.Request
 	} else {
 		h.renderPage(writer, request, admini18n.T(request.Context(), "actions.sign_in")+" · Faryen "+admini18n.T(request.Context(), "common.admin"), pages.SignIn(pages.SignInProps{
 			Action:             adminPath(request) + "/sign-in",
-			RefreshAction:      adminPath(request) + "/refresh",
 			RestorePasswordURL: adminPath(request) + "/restore-password",
 			Email:              email,
-			CanContinue:        status == http.StatusOK && h.cookie(request, "refresh") != "",
 		}), templ.WithStatus(status))
 	}
 }

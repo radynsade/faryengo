@@ -185,9 +185,6 @@
   "auth.description": {
     "other": "Ievadiet savus datus, lai piekļūtu administrācijas panelim."
   },
-  "auth.continue": {
-    "other": "Turpināt sesiju"
-  },
   "auth.forgot": {
     "other": "Aizmirsāt paroli?"
   },

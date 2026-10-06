@@ -85,14 +85,19 @@ func (m *Manager) Issue(ctx context.Context, userID security.UserID, sessionID u
 	} else if uuid.UUID(userID) == uuid.Nil || sessionID == uuid.Nil || !sessionExpiry.After(now) {
 		err = security.ErrInvalidSession
 	} else {
-		accessExpiry := minTime(now.Add(m.config.AccessTTL), sessionExpiry)
-		pair.AccessToken, err = m.sign(userID, sessionID, security.AccessToken, now, accessExpiry)
+		accessID, accessErr := uuid.NewRandom()
+		refreshID, refreshErr := uuid.NewRandom()
 
-		if err == nil {
-			pair.RefreshToken, err = m.sign(userID, sessionID, security.RefreshToken, now, sessionExpiry)
+		if accessErr != nil {
+			err = fmt.Errorf("generate access JWT ID: %w", accessErr)
+		} else if refreshErr != nil {
+			err = fmt.Errorf("generate refresh JWT ID: %w", refreshErr)
+		} else {
+			pair, err = m.Reissue(ctx, userID, sessionID, security.TokenIssuance{
+				KeyID: m.config.KeyID, AccessID: accessID, RefreshID: refreshID, IssuedAt: now,
+				AccessExpiresAt: minTime(now.Add(m.config.AccessTTL), sessionExpiry), RefreshExpiresAt: sessionExpiry,
+			})
 		}
-
-		pair.AccessExpiresAt, pair.RefreshExpiresAt = accessExpiry, sessionExpiry
 	}
 
 	if err != nil {
@@ -102,27 +107,48 @@ func (m *Manager) Issue(ctx context.Context, userID security.UserID, sessionID u
 	return pair, err
 }
 
-func (m *Manager) sign(userID security.UserID, sessionID uuid.UUID, use security.TokenUse, now, expiry time.Time) (string, error) {
-	var encoded string
-	nonce, err := uuid.NewRandom()
+// Reissue recreates the same Ed25519-signed tokens from shared public claims.
+func (m *Manager) Reissue(ctx context.Context, userID security.UserID, sessionID uuid.UUID, issuance security.TokenIssuance) (security.TokenPair, error) {
+	var pair security.TokenPair
+	var err error
+
+	if contextErr := ctx.Err(); contextErr != nil {
+		err = fmt.Errorf("reissue JWT: %w", contextErr)
+	} else if uuid.UUID(userID) == uuid.Nil || sessionID == uuid.Nil || issuance.Validate() != nil ||
+		issuance.KeyID != m.config.KeyID || !issuance.RefreshExpiresAt.After(m.now()) {
+		err = security.ErrInvalidSession
+	} else {
+		pair.AccessToken, err = m.sign(userID, sessionID, issuance.AccessID, security.AccessToken, issuance.IssuedAt, issuance.AccessExpiresAt)
+
+		if err == nil {
+			pair.RefreshToken, err = m.sign(userID, sessionID, issuance.RefreshID, security.RefreshToken, issuance.IssuedAt, issuance.RefreshExpiresAt)
+		}
+
+		if err == nil {
+			pair.Issuance = issuance
+			pair.AccessExpiresAt, pair.RefreshExpiresAt = issuance.AccessExpiresAt, issuance.RefreshExpiresAt
+		} else {
+			pair = security.TokenPair{}
+		}
+	}
+
+	return pair, err
+}
+
+func (m *Manager) sign(userID security.UserID, sessionID, tokenID uuid.UUID, use security.TokenUse, now, expiry time.Time) (string, error) {
+	audience, typ := m.tokenType(use)
+	token := jwtlib.NewWithClaims(jwtlib.SigningMethodEdDSA, claims{
+		RegisteredClaims: jwtlib.RegisteredClaims{
+			Issuer: m.config.Issuer, Subject: uuid.UUID(userID).String(), Audience: jwtlib.ClaimStrings{audience},
+			ExpiresAt: jwtlib.NewNumericDate(expiry), IssuedAt: jwtlib.NewNumericDate(now), NotBefore: jwtlib.NewNumericDate(now), ID: tokenID.String(),
+		},
+		SessionID: sessionID.String(), Use: use,
+	})
+	token.Header["typ"], token.Header["kid"] = typ, m.config.KeyID
+	encoded, err := token.SignedString(m.config.PrivateKey)
 
 	if err != nil {
-		err = fmt.Errorf("generate JWT ID: %w", err)
-	} else {
-		audience, typ := m.tokenType(use)
-		token := jwtlib.NewWithClaims(jwtlib.SigningMethodEdDSA, claims{
-			RegisteredClaims: jwtlib.RegisteredClaims{
-				Issuer: m.config.Issuer, Subject: uuid.UUID(userID).String(), Audience: jwtlib.ClaimStrings{audience},
-				ExpiresAt: jwtlib.NewNumericDate(expiry), IssuedAt: jwtlib.NewNumericDate(now), NotBefore: jwtlib.NewNumericDate(now), ID: nonce.String(),
-			},
-			SessionID: sessionID.String(), Use: use,
-		})
-		token.Header["typ"], token.Header["kid"] = typ, m.config.KeyID
-		encoded, err = token.SignedString(m.config.PrivateKey)
-
-		if err != nil {
-			err = fmt.Errorf("sign JWT: %w", err)
-		}
+		err = fmt.Errorf("sign JWT: %w", err)
 	}
 
 	return encoded, err
@@ -153,9 +179,8 @@ func (m *Manager) Verify(ctx context.Context, raw string, use security.TokenUse)
 			}
 
 			return key, keyErr
-		}, jwtlib.WithValidMethods([]string{jwtlib.SigningMethodEdDSA.Alg()}), jwtlib.WithIssuer(m.config.Issuer),
-			jwtlib.WithAudience(audience), jwtlib.WithExpirationRequired(), jwtlib.WithNotBeforeRequired(),
-			jwtlib.WithIssuedAt(), jwtlib.WithStrictDecoding(), jwtlib.WithTimeFunc(m.now), jwtlib.WithLeeway(30*time.Second))
+		}, jwtlib.WithValidMethods([]string{jwtlib.SigningMethodEdDSA.Alg()}),
+			jwtlib.WithStrictDecoding(), jwtlib.WithoutClaimsValidation())
 
 		if parseErr != nil {
 			err = fmt.Errorf("verify JWT: %w: %w", security.ErrInvalidToken, parseErr)
@@ -165,11 +190,25 @@ func (m *Manager) Verify(ctx context.Context, raw string, use security.TokenUse)
 			tokenID, idErr := uuid.Parse(parsed.ID)
 
 			if !token.Valid || parsed.Use != use || userErr != nil || userID == uuid.Nil || sessionErr != nil || sessionID == uuid.Nil ||
-				idErr != nil || tokenID == uuid.Nil || parsed.IssuedAt == nil || !parsed.ExpiresAt.After(parsed.IssuedAt.Time) ||
-				!parsed.NotBefore.Equal(parsed.IssuedAt.Time) || len(parsed.Audience) != 1 || (use == security.AccessToken && parsed.ExpiresAt.Sub(parsed.IssuedAt.Time) > 15*time.Minute) {
+				idErr != nil || tokenID == uuid.Nil || parsed.IssuedAt == nil || parsed.ExpiresAt == nil || parsed.NotBefore == nil ||
+				!parsed.ExpiresAt.After(parsed.IssuedAt.Time) ||
+				!parsed.NotBefore.Equal(parsed.IssuedAt.Time) || parsed.Issuer != m.config.Issuer ||
+				len(parsed.Audience) != 1 || parsed.Audience[0] != audience || (use == security.AccessToken && parsed.ExpiresAt.Sub(parsed.IssuedAt.Time) > 15*time.Minute) {
 				err = security.ErrInvalidToken
 			} else {
-				result = security.TokenClaims{UserID: security.UserID(userID), SessionID: sessionID, ExpiresAt: parsed.ExpiresAt.Time}
+				validator := jwtlib.NewValidator(jwtlib.WithExpirationRequired(), jwtlib.WithNotBeforeRequired(),
+					jwtlib.WithIssuedAt(), jwtlib.WithTimeFunc(m.now), jwtlib.WithLeeway(30*time.Second))
+				validationErr := validator.Validate(parsed)
+
+				if errors.Is(validationErr, jwtlib.ErrTokenExpired) {
+					// Signature, purpose and structural claims were checked first:
+					// only a genuinely expired token can request automatic renewal.
+					err = fmt.Errorf("verify JWT: %w: %w: %w", security.ErrInvalidToken, security.ErrTokenExpired, validationErr)
+				} else if validationErr != nil {
+					err = fmt.Errorf("verify JWT: %w: %w", security.ErrInvalidToken, validationErr)
+				} else {
+					result = security.TokenClaims{UserID: security.UserID(userID), SessionID: sessionID, ExpiresAt: parsed.ExpiresAt.Time}
+				}
 			}
 		}
 	}

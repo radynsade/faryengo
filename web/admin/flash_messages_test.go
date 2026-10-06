@@ -37,9 +37,9 @@ func flashFixture(t *testing.T) (*Handler, *miniredis.Miniredis, *securityredis.
 	}
 
 	principal := security.Principal{UserID: security.UserID(uuid.New()), SessionID: uuid.New()}
-	session := security.Session{ID: principal.SessionID, UserID: principal.UserID, CredentialVersion: uuid.New(), RefreshHash: strings.Repeat("a", 64), ExpiresAt: time.Now().Add(time.Hour)}
+	session := security.Session{ID: principal.SessionID, UserID: principal.UserID, CredentialVersion: uuid.New(), ExpiresAt: time.Now().Add(time.Hour)}
 
-	if err := store.Create(t.Context(), session); err != nil {
+	if err := store.CreateSession(t.Context(), session, strings.Repeat("a", 64)); err != nil {
 		t.Fatal(err)
 	}
 
@@ -131,7 +131,7 @@ func TestFlashStorageFailureResponse(t *testing.T) {
 	}
 }
 
-func TestFlashSurvivesSessionRefresh(t *testing.T) {
+func TestFlashSurvivesSessionNavigation(t *testing.T) {
 	mux, _, _ := httpFixture(t)
 	cookies := login(t, mux)
 	created := httpRequest(mux, http.MethodPost, "/admin/en/roles/create", "name[en]=Editors", cookies)
@@ -140,18 +140,12 @@ func TestFlashSurvivesSessionRefresh(t *testing.T) {
 		t.Fatalf("create = %d", created.Code)
 	}
 
-	refreshed := httpRequest(mux, http.MethodPost, "/admin/en/refresh", "", cookies)
-
-	if refreshed.Code != http.StatusSeeOther {
-		t.Fatalf("refresh = %d", refreshed.Code)
-	}
-
 	for render := range 2 {
-		response := httpRequest(mux, http.MethodGet, created.Header().Get("Location"), "", refreshed.Result().Cookies())
+		response := httpRequest(mux, http.MethodGet, created.Header().Get("Location"), "", cookies)
 		shown := strings.Contains(response.Body.String(), "created successfully.")
 
 		if response.Code != http.StatusOK || shown != (render == 0) {
-			t.Fatalf("flash after refresh, render %d = %d: %s", render, response.Code, response.Body.String())
+			t.Fatalf("flash after redirect, render %d = %d: %s", render, response.Code, response.Body.String())
 		}
 	}
 }

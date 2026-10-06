@@ -102,7 +102,7 @@ func (h *authHasher) Verify(ctx context.Context, password string, hash security.
 	return password == "correct" && hash == "stored", ctx.Err()
 }
 
-func authFixture(t *testing.T) (*AuthenticationService, *authRepository, *authHasher, *miniredis.Miniredis) {
+func authFixture(t *testing.T) (*JWTAuthenticationService, *authRepository, *authHasher, *miniredis.Miniredis) {
 	t.Helper()
 	roleID := security.RoleID(uuid.New())
 	user, err := security.NewUser(security.UserID(uuid.New()), roleID, "person@example.com", "+37123456789", "stored", "First", "Last")
@@ -150,7 +150,13 @@ func authFixture(t *testing.T) (*AuthenticationService, *authRepository, *authHa
 	}
 
 	hasher := &authHasher{}
-	service, err := NewAuthenticationService(context.Background(), AuthenticationDependencies{Credentials: repository, Invalidator: repository, Roles: repository, Hasher: hasher, Tokens: tokens, Sessions: sessions, Rotator: sessions, Revoker: sessions}, 24*time.Hour)
+	authentication, err := NewAuthenticationService(context.Background(), AuthenticationDependencies{Credentials: repository, Invalidator: repository, Roles: repository, Hasher: hasher, Revoker: sessions})
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	service, err := NewJWTAuthenticationService(authentication, JWTAuthenticationDependencies{Tokens: tokens, Reissuer: tokens, Sessions: sessions, Rotator: sessions}, 24*time.Hour)
 
 	if err != nil {
 		t.Fatal(err)
@@ -159,7 +165,7 @@ func authFixture(t *testing.T) (*AuthenticationService, *authRepository, *authHa
 	return service, repository, hasher, mini
 }
 
-func signIn(t *testing.T, s *AuthenticationService) security.TokenPair {
+func signIn(t *testing.T, s *JWTAuthenticationService) security.TokenPair {
 	t.Helper()
 	pair, err := s.SignIn(context.Background(), input.SignInInput{Email: "person@example.com", Password: "correct"})
 
@@ -173,25 +179,25 @@ func signIn(t *testing.T, s *AuthenticationService) security.TokenPair {
 func TestAuthenticationRevocation(t *testing.T) {
 	for _, tt := range []struct {
 		name       string
-		invalidate func(*testing.T, *AuthenticationService, *authRepository, *miniredis.Miniredis, security.TokenPair)
+		invalidate func(*testing.T, *JWTAuthenticationService, *authRepository, *miniredis.Miniredis, security.TokenPair)
 	}{
-		{"password change", func(_ *testing.T, _ *AuthenticationService, r *authRepository, _ *miniredis.Miniredis, _ security.TokenPair) {
+		{"password change", func(_ *testing.T, _ *JWTAuthenticationService, r *authRepository, _ *miniredis.Miniredis, _ security.TokenPair) {
 			r.credentials.Version = uuid.New()
 		}},
-		{"deleted user", func(_ *testing.T, _ *AuthenticationService, r *authRepository, _ *miniredis.Miniredis, _ security.TokenPair) {
+		{"deleted user", func(_ *testing.T, _ *JWTAuthenticationService, r *authRepository, _ *miniredis.Miniredis, _ security.TokenPair) {
 			r.deleted = true
 		}},
-		{"single logout", func(t *testing.T, s *AuthenticationService, _ *authRepository, _ *miniredis.Miniredis, p security.TokenPair) {
+		{"single logout", func(t *testing.T, s *JWTAuthenticationService, _ *authRepository, _ *miniredis.Miniredis, p security.TokenPair) {
 			if err := s.SignOut(context.Background(), p.RefreshToken, security.RefreshToken); err != nil {
 				t.Fatal(err)
 			}
 		}},
-		{"logout all", func(t *testing.T, s *AuthenticationService, _ *authRepository, _ *miniredis.Miniredis, p security.TokenPair) {
+		{"logout all", func(t *testing.T, s *JWTAuthenticationService, _ *authRepository, _ *miniredis.Miniredis, p security.TokenPair) {
 			if err := s.SignOutAll(context.Background(), p.AccessToken); err != nil {
 				t.Fatal(err)
 			}
 		}},
-		{"expired session", func(_ *testing.T, _ *AuthenticationService, _ *authRepository, m *miniredis.Miniredis, _ security.TokenPair) {
+		{"expired session", func(_ *testing.T, _ *JWTAuthenticationService, _ *authRepository, m *miniredis.Miniredis, _ security.TokenPair) {
 			m.FastForward(24 * time.Hour)
 		}},
 	} {
@@ -200,6 +206,12 @@ func TestAuthenticationRevocation(t *testing.T) {
 			pair := signIn(t, service)
 
 			if _, err := service.Authenticate(context.Background(), pair.AccessToken); err != nil {
+				t.Fatal(err)
+			}
+
+			// Populate the shared rotation result before invalidation, so a
+			// duplicate cannot use the overlap window to bypass revocation.
+			if _, err := service.Refresh(t.Context(), pair.RefreshToken); err != nil {
 				t.Fatal(err)
 			}
 
@@ -217,7 +229,7 @@ func TestAuthenticationRevocation(t *testing.T) {
 }
 
 func TestAuthenticationRotationAndReplay(t *testing.T) {
-	service, _, _, _ := authFixture(t)
+	service, _, _, mini := authFixture(t)
 	old := signIn(t, service)
 	next, err := service.Refresh(context.Background(), old.RefreshToken)
 
@@ -232,6 +244,8 @@ func TestAuthenticationRotationAndReplay(t *testing.T) {
 	if _, err := service.Authenticate(context.Background(), next.AccessToken); err != nil {
 		t.Fatal(err)
 	}
+
+	mini.SetTime(time.Now().Add(securityredis.RefreshOverlapWindow))
 
 	if _, err := service.Refresh(context.Background(), old.RefreshToken); !errors.Is(err, security.ErrRefreshTokenReused) {
 		t.Fatal(err)
@@ -265,11 +279,11 @@ func TestAuthenticationCurrentPermissions(t *testing.T) {
 
 			pair := signIn(t, service)
 
-			if _, err := service.Authorize(context.Background(), pair.AccessToken, tt.view); err != nil {
+			if _, err := authorizeJWT(service, context.Background(), pair.AccessToken, tt.view); err != nil {
 				t.Fatal(err)
 			}
 
-			if _, err := service.Authorize(context.Background(), pair.AccessToken, tt.manage); !errors.Is(err, security.ErrPermissionDenied) {
+			if _, err := authorizeJWT(service, context.Background(), pair.AccessToken, tt.manage); !errors.Is(err, security.ErrPermissionDenied) {
 				t.Fatal(err)
 			}
 
@@ -277,11 +291,11 @@ func TestAuthenticationCurrentPermissions(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			if _, err := service.Authorize(context.Background(), pair.AccessToken, tt.view); !errors.Is(err, security.ErrPermissionDenied) {
+			if _, err := authorizeJWT(service, context.Background(), pair.AccessToken, tt.view); !errors.Is(err, security.ErrPermissionDenied) {
 				t.Fatal(err)
 			}
 
-			if _, err := service.Authorize(context.Background(), pair.AccessToken, tt.manage); err != nil {
+			if _, err := authorizeJWT(service, context.Background(), pair.AccessToken, tt.manage); err != nil {
 				t.Fatal(err)
 			}
 		})
@@ -303,7 +317,7 @@ func TestAuthenticationCurrentSuperRole(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			repository.role.SetIsSuper(tt.isSuper)
-			principal, err := service.Authorize(context.Background(), pair.AccessToken, security.PermissionManageUser)
+			principal, err := authorizeJWT(service, context.Background(), pair.AccessToken, security.PermissionManageUser)
 
 			if !errors.Is(err, tt.want) || (err == nil && principal.IsSuper != tt.isSuper) {
 				t.Fatalf("Authorize() = %v, %v, want %v", principal, err, tt.want)
@@ -399,7 +413,7 @@ func TestDurableLogoutAllSurvivesRedisFailure(t *testing.T) {
 	version := repository.credentials.Version
 	mini.Close()
 
-	if err := service.RevokeUserSessions(context.Background(), repository.credentials.User.ID()); err == nil {
+	if err := service.authentication.RevokeUserSessions(context.Background(), repository.credentials.User.ID()); err == nil {
 		t.Fatal("Redis cleanup failure was hidden")
 	}
 
@@ -432,11 +446,11 @@ func TestPasswordVerificationCapacity(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			service, _, hasher, _ := authFixture(t)
 
-			if !service.verifications.TryAcquire(4) {
+			if !service.authentication.verifications.TryAcquire(4) {
 				t.Fatal("cannot reserve verification capacity")
 			}
 
-			defer service.verifications.Release(4)
+			defer service.authentication.verifications.Release(4)
 			ctx, cancel := context.WithCancel(t.Context())
 			defer cancel()
 
@@ -444,11 +458,21 @@ func TestPasswordVerificationCapacity(t *testing.T) {
 				cancel()
 			}
 
-			matches, err := service.verifyPassword(ctx, "correct", "stored")
+			matches, err := service.authentication.verifyPassword(ctx, "correct", "stored")
 
 			if matches || !errors.Is(err, tt.want) || hasher.calls.Load() != 0 {
 				t.Fatalf("overload performed password work: matches = %v, error = %v, calls = %d", matches, err, hasher.calls.Load())
 			}
 		})
 	}
+}
+
+func authorizeJWT(service *JWTAuthenticationService, ctx context.Context, raw string, permission security.Permission) (security.Principal, error) {
+	principal, err := service.Authenticate(ctx, raw)
+
+	if err == nil {
+		err = Authorize(principal, permission)
+	}
+
+	return principal, err
 }

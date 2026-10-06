@@ -62,7 +62,12 @@ does not implicitly grant the corresponding view permission.
 - An invalid change to contact details, the credential, a name, a role ID, or role permissions leaves the existing value intact.
 - Role IDs must be nonzero UUIDs.
 
-Authentication flows and sessions are outside the current Security model.
+Authentication mechanisms are coordinated in the application layer.
+`security.Session` holds transport-independent server-side device state,
+`security.TokenSession` adds refresh state for JWT, and `security.Principal`
+contains the current authenticated identity and role permissions for either
+mechanism. Authorization consumes the principal independently of cookies or
+tokens.
 
 ## Languages
 

@@ -188,3 +188,109 @@ func TestJWTKeyRotation(t *testing.T) {
 		t.Fatal(err)
 	}
 }
+
+func TestJWTExpiredTokenClassification(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		mutate  func(*claims)
+		badKey  bool
+		expired bool
+	}{
+		{name: "expired access", expired: true},
+		{name: "expired with wrong signature", badKey: true},
+		{name: "expired with wrong issuer", mutate: func(c *claims) { c.Issuer = "attacker" }},
+		{name: "expired with wrong audience", mutate: func(c *claims) { c.Audience = jwtlib.ClaimStrings{"other"} }},
+		{name: "expired with wrong purpose", mutate: func(c *claims) { c.Use = security.RefreshToken }},
+		{name: "expired with invalid subject", mutate: func(c *claims) { c.Subject = "invalid" }},
+		{name: "expired with missing issued at", mutate: func(c *claims) { c.IssuedAt = nil }},
+		{name: "expired with missing not before", mutate: func(c *claims) { c.NotBefore = nil }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := testManager(t)
+			pair, err := manager.Issue(t.Context(), security.UserID(uuid.New()), uuid.New(), manager.now().Add(time.Hour))
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			parsed := &claims{}
+			token, _, err := new(jwtlib.Parser).ParseUnverified(pair.AccessToken, parsed)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if tt.mutate != nil {
+				tt.mutate(parsed)
+			}
+
+			key := manager.config.PrivateKey
+
+			if tt.badKey {
+				_, key, err = ed25519.GenerateKey(rand.Reader)
+
+				if err != nil {
+					t.Fatal(err)
+				}
+			}
+
+			raw, err := token.SignedString(key)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			manager.now = func() time.Time { return pair.AccessExpiresAt.Add(31 * time.Second) }
+			_, err = manager.Verify(t.Context(), raw, security.AccessToken)
+
+			if !errors.Is(err, security.ErrInvalidToken) || errors.Is(err, security.ErrTokenExpired) != tt.expired {
+				t.Fatalf("expiration classification = %v", err)
+			}
+		})
+	}
+}
+
+func TestJWTReissueAcrossInstances(t *testing.T) {
+	manager := testManager(t)
+	userID, sessionID := security.UserID(uuid.New()), uuid.New()
+	pair, err := manager.Issue(t.Context(), userID, sessionID, manager.now().Add(time.Hour))
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	other, err := NewManager(manager.config)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	other.now = manager.now
+	recreated, err := other.Reissue(t.Context(), userID, sessionID, pair.Issuance)
+
+	if err != nil || recreated != pair {
+		t.Fatalf("another instance did not reproduce the identical pair: %v", err)
+	}
+
+	for _, tt := range []struct {
+		name   string
+		mutate func(*security.TokenIssuance)
+	}{
+		{name: "unknown signing key", mutate: func(i *security.TokenIssuance) { i.KeyID = "other" }},
+		{name: "missing access ID", mutate: func(i *security.TokenIssuance) { i.AccessID = uuid.Nil }},
+		{name: "reused ID", mutate: func(i *security.TokenIssuance) { i.RefreshID = i.AccessID }},
+		{name: "missing issued at", mutate: func(i *security.TokenIssuance) { i.IssuedAt = time.Time{} }},
+		{name: "excessive access lifetime", mutate: func(i *security.TokenIssuance) { i.AccessExpiresAt = i.IssuedAt.Add(16 * time.Minute) }},
+		{name: "access exceeds session", mutate: func(i *security.TokenIssuance) { i.RefreshExpiresAt = i.AccessExpiresAt.Add(-time.Second) }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			issuance := pair.Issuance
+			tt.mutate(&issuance)
+			result, err := other.Reissue(t.Context(), userID, sessionID, issuance)
+
+			if !errors.Is(err, security.ErrInvalidSession) || result != (security.TokenPair{}) {
+				t.Fatalf("invalid issuance produced tokens: %v", err)
+			}
+		})
+	}
+}

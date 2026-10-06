@@ -32,7 +32,7 @@ The shared `LanguageSwitcher` component renders native links in the panel sideba
 and authentication layout. It marks the selected language, uses native language
 names, and preserves resource IDs and all query parameters, including repeated
 permission filters. Mutation-only routes map to a navigable destination: role
-deletion to role viewing, and refresh/sign-out to sign-in. Language changes use
+deletion to role viewing, and sign-out to sign-in. Language changes use
 full navigation so the entire document uses the new language. Links work without
 JavaScript; switching pages does not save unsaved form values.
 

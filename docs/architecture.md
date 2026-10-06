@@ -73,9 +73,12 @@ build files such as `go.mod` and `Makefile`.
 
 ## Authentication state
 
-Authentication uses Ed25519 JWT access and refresh tokens, PostgreSQL credential
-versions, and revocable Redis/Dragonfly session state. Password changes and
-account-wide logout invalidate the durable version. Session checks and current
-role permissions are required for every access-token authentication; storage
-outages deny access. See [authentication.md](authentication.md) for transport,
-configuration, rotation policy, and operational requirements.
+Authentication has a transport-independent identity service that resolves
+`security.Principal`, with separate opaque-session and Ed25519 JWT access/refresh
+mechanisms. The admin uses only server-side sessions and a random opaque cookie;
+JWT remains available for API transports. PostgreSQL credential versions and
+revocable Redis/Dragonfly device state guard both mechanisms. Password changes
+and account-wide logout invalidate the durable version. Current permissions
+are loaded on every authentication, and authorization accepts the common
+principal. Storage outages deny access. See [authentication.md](authentication.md)
+for transport, configuration, rotation policy, and operational requirements.

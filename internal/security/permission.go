@@ -2,7 +2,10 @@ package security
 
 import "errors"
 
-var ErrInvalidPermission = errors.New("invalid permission")
+var (
+	ErrInvalidPermission = errors.New("invalid permission")
+	ErrPermissionDenied  = errors.New("permission denied")
+)
 
 type Permission string
 

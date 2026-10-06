@@ -25,8 +25,9 @@ session cookie is needed. Other applications can use their own session fields.
 The admin uses the authenticated principal to locate the device session;
 URL parameters never choose the session or supply a notification.
 
-Flashes share the session's existing TTL and survive refresh-token rotation.
-Adding or consuming them does not extend either the idle or absolute session
+Flashes share the browser session's existing TTL and survive navigation and form
+submissions using the same opaque session cookie.
+Adding or consuming them does not extend either the absolute browser-session
 lifetime. Lua checks session generation and absolute expiration before every
 operation. A missing, expired, or revoked session cannot be recreated by a flash
 write. The normal authentication checks still verify durable credentials and

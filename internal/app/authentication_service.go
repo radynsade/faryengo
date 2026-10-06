@@ -3,8 +3,6 @@ package app
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"time"
@@ -21,7 +19,7 @@ var (
 	ErrAuthenticationBusy          = errors.New("password verification capacity exhausted")
 )
 
-// Consumer interfaces keep persistence and token libraries outside the service.
+// Consumer interfaces keep persistence implementations outside the service.
 type CredentialRepository interface {
 	FindByEmail(context.Context, security.Email) (*security.Credentials, error)
 	FindByUserID(context.Context, security.UserID) (*security.Credentials, error)
@@ -29,20 +27,6 @@ type CredentialRepository interface {
 
 type AuthorizationRoleRepository interface {
 	FindByID(context.Context, security.RoleID) (*security.Role, error)
-}
-
-type TokenManager interface {
-	Issue(context.Context, security.UserID, uuid.UUID, time.Time) (security.TokenPair, error)
-	Verify(context.Context, string, security.TokenUse) (security.TokenClaims, error)
-}
-
-type SessionRepository interface {
-	Create(context.Context, security.Session) error
-	FindByID(context.Context, security.UserID, uuid.UUID) (security.Session, error)
-}
-
-type SessionRotator interface {
-	Rotate(context.Context, security.Session, string) error
 }
 
 type SessionRevoker interface {
@@ -59,44 +43,37 @@ type AuthenticationDependencies struct {
 	Invalidator CredentialInvalidator
 	Roles       AuthorizationRoleRepository
 	Hasher      security.PasswordHasher
-	Tokens      TokenManager
-	Sessions    SessionRepository
-	Rotator     SessionRotator
 	Revoker     SessionRevoker
 }
 
 type AuthenticationService struct {
 	dependencies  AuthenticationDependencies
-	refreshTTL    time.Duration
 	dummyHash     security.PasswordHash
 	verifications *semaphore.Weighted
 	now           func() time.Time
 }
 
-func NewAuthenticationService(ctx context.Context, deps AuthenticationDependencies, refreshTTL time.Duration) (*AuthenticationService, error) {
+func NewAuthenticationService(ctx context.Context, deps AuthenticationDependencies) (*AuthenticationService, error) {
 	var service *AuthenticationService
 	var err error
 
-	if deps.Credentials == nil || deps.Invalidator == nil || deps.Roles == nil || deps.Hasher == nil || deps.Tokens == nil ||
-		deps.Sessions == nil || deps.Rotator == nil || deps.Revoker == nil || refreshTTL < time.Second || refreshTTL > 90*24*time.Hour {
+	if deps.Credentials == nil || deps.Invalidator == nil || deps.Roles == nil || deps.Hasher == nil || deps.Revoker == nil {
 		err = ErrInvalidAuthenticationConfig
 	} else {
-		// Unknown accounts still run the same password verification work.
 		hash, hashErr := deps.Hasher.Hash(ctx, rand.Text())
 
 		if hashErr != nil {
 			err = fmt.Errorf("create dummy credential: %w", hashErr)
 		} else {
-			service = &AuthenticationService{dependencies: deps, refreshTTL: refreshTTL, dummyHash: hash,
-				verifications: semaphore.NewWeighted(4), now: time.Now}
+			service = &AuthenticationService{dependencies: deps, dummyHash: hash, verifications: semaphore.NewWeighted(4), now: time.Now}
 		}
 	}
 
 	return service, err
 }
 
-func (s *AuthenticationService) SignIn(ctx context.Context, request input.SignInInput) (security.TokenPair, error) {
-	var pair security.TokenPair
+func (s *AuthenticationService) VerifyCredentials(ctx context.Context, request input.SignInInput) (*security.Credentials, error) {
+	var result *security.Credentials
 	var err error
 
 	if validationErr := request.Validate(); validationErr != nil {
@@ -121,12 +98,12 @@ func (s *AuthenticationService) SignIn(ctx context.Context, request input.SignIn
 			} else if missing || credentials.User == nil || credentials.Version == uuid.Nil || !matches {
 				err = security.ErrInvalidCredentials
 			} else {
-				pair, err = s.createSession(ctx, credentials)
+				result = credentials
 			}
 		}
 	}
 
-	return pair, err
+	return result, err
 }
 
 func (s *AuthenticationService) verifyPassword(ctx context.Context, password string, hash security.PasswordHash) (bool, error) {
@@ -145,157 +122,71 @@ func (s *AuthenticationService) verifyPassword(ctx context.Context, password str
 	return matches, err
 }
 
-func (s *AuthenticationService) createSession(ctx context.Context, credentials *security.Credentials) (security.TokenPair, error) {
-	var pair security.TokenPair
-	id, err := uuid.NewRandom()
-
-	if err != nil {
-		err = fmt.Errorf("generate session ID: %w", err)
-	} else {
-		expires := s.now().UTC().Truncate(time.Second).Add(s.refreshTTL)
-		pair, err = s.dependencies.Tokens.Issue(ctx, credentials.User.ID(), id, expires)
-
-		if err == nil {
-			session := security.Session{ID: id, UserID: credentials.User.ID(), CredentialVersion: credentials.Version,
-				RefreshHash: tokenHash(pair.RefreshToken), ExpiresAt: pair.RefreshExpiresAt}
-
-			if createErr := s.dependencies.Sessions.Create(ctx, session); createErr != nil {
-				err = fmt.Errorf("create authenticated session: %w", createErr)
-			}
-		}
-	}
-
-	if err != nil {
-		pair = security.TokenPair{}
-	}
-
-	return pair, err
-}
-
-func (s *AuthenticationService) Refresh(ctx context.Context, raw string) (security.TokenPair, error) {
-	var pair security.TokenPair
-	claims, err := s.dependencies.Tokens.Verify(ctx, raw, security.RefreshToken)
-
-	if err == nil {
-		session, _, loadErr := s.loadSession(ctx, claims)
-
-		if loadErr != nil {
-			err = loadErr
-		} else if !session.ExpiresAt.Equal(claims.ExpiresAt) {
-			err = security.ErrInvalidToken
-		} else {
-			pair, err = s.dependencies.Tokens.Issue(ctx, claims.UserID, claims.SessionID, session.ExpiresAt)
-
-			if err == nil {
-				// Compare the presented token, not the current stored hash. Old
-				// signed tokens must reach the atomic replay detection path.
-				session.RefreshHash = tokenHash(raw)
-				err = s.dependencies.Rotator.Rotate(ctx, session, tokenHash(pair.RefreshToken))
-
-				if err != nil {
-					err = fmt.Errorf("rotate refresh token: %w", err)
-				}
-			}
-		}
-	}
-
-	if err != nil {
-		pair = security.TokenPair{}
-	}
-
-	return pair, err
-}
-
-func (s *AuthenticationService) loadSession(ctx context.Context, claims security.TokenClaims) (security.Session, *security.Credentials, error) {
+// loadCredentials checks durable identity and revocation state for every mechanism.
+// Session repositories must check their own expiration and revocation generation.
+func (s *AuthenticationService) loadCredentials(ctx context.Context, session security.Session) (*security.Credentials, error) {
 	var credentials *security.Credentials
-	session, err := s.dependencies.Sessions.FindByID(ctx, claims.UserID, claims.SessionID)
+	var err error
 
-	if err != nil {
-		err = fmt.Errorf("load authenticated session: %w", err)
+	if session.ID == uuid.Nil || uuid.UUID(session.UserID) == uuid.Nil || !session.ExpiresAt.After(s.now()) {
+		err = security.ErrSessionRevoked
 	} else {
-		credentials, err = s.dependencies.Credentials.FindByUserID(ctx, claims.UserID)
+		credentials, err = s.dependencies.Credentials.FindByUserID(ctx, session.UserID)
 
 		if errors.Is(err, security.ErrUserNotFound) {
 			err = security.ErrSessionRevoked
 		} else if err != nil {
 			err = fmt.Errorf("load current credentials: %w", err)
-		} else if credentials == nil || credentials.User == nil || credentials.User.ID() != claims.UserID ||
-			credentials.Version == uuid.Nil || credentials.Version != session.CredentialVersion || !session.ExpiresAt.After(s.now()) {
+		} else if credentials == nil || credentials.User == nil || credentials.User.ID() != session.UserID ||
+			credentials.Version == uuid.Nil || credentials.Version != session.CredentialVersion {
 			err = security.ErrSessionRevoked
 		}
 	}
 
-	return session, credentials, err
+	if err != nil {
+		credentials = nil
+	}
+
+	return credentials, err
 }
 
-func (s *AuthenticationService) Authenticate(ctx context.Context, raw string) (security.Principal, error) {
+// ResolvePrincipal loads the same current identity and permissions for every
+// authentication mechanism, after that mechanism has verified its credential.
+func (s *AuthenticationService) ResolvePrincipal(ctx context.Context, session security.Session) (security.Principal, error) {
 	var principal security.Principal
-	claims, err := s.dependencies.Tokens.Verify(ctx, raw, security.AccessToken)
+	credentials, err := s.loadCredentials(ctx, session)
 
 	if err == nil {
-		_, credentials, loadErr := s.loadSession(ctx, claims)
+		role, roleErr := s.dependencies.Roles.FindByID(ctx, credentials.User.RoleID())
 
-		if loadErr != nil {
-			err = loadErr
+		if errors.Is(roleErr, security.ErrRoleNotFound) || (roleErr == nil && role == nil) {
+			err = security.ErrPermissionDenied
+		} else if roleErr != nil {
+			err = fmt.Errorf("load current authorization role: %w", roleErr)
 		} else {
-			role, roleErr := s.dependencies.Roles.FindByID(ctx, credentials.User.RoleID())
-
-			if errors.Is(roleErr, security.ErrRoleNotFound) || (roleErr == nil && role == nil) {
-				err = security.ErrPermissionDenied
-			} else if roleErr != nil {
-				err = fmt.Errorf("load current authorization role: %w", roleErr)
-			} else {
-				principal = security.Principal{UserID: claims.UserID, SessionID: claims.SessionID,
-					FirstName: credentials.User.FirstName(), LastName: credentials.User.LastName(),
-					Email:  credentials.User.Email(),
-					RoleID: role.ID(), Permissions: role.Permissions(), IsSuper: role.IsSuper()}
-			}
+			principal = security.Principal{UserID: session.UserID, SessionID: session.ID,
+				FirstName: credentials.User.FirstName(), LastName: credentials.User.LastName(), Email: credentials.User.Email(),
+				RoleID: role.ID(), Permissions: role.Permissions(), IsSuper: role.IsSuper()}
 		}
 	}
 
 	return principal, err
 }
 
-func (s *AuthenticationService) Authorize(ctx context.Context, raw string, permission security.Permission) (security.Principal, error) {
-	var principal security.Principal
+func (s *AuthenticationService) SignOut(ctx context.Context, principal security.Principal) error {
 	var err error
 
-	if validationErr := permission.Validate(); validationErr != nil {
-		err = fmt.Errorf("authorize permission: %w", validationErr)
-	} else {
-		principal, err = s.Authenticate(ctx, raw)
-
-		if err == nil && !principal.HasPermission(permission) {
-			principal = security.Principal{}
-			err = security.ErrPermissionDenied
-		}
-	}
-
-	return principal, err
-}
-
-func (s *AuthenticationService) SignOut(ctx context.Context, raw string, use security.TokenUse) error {
-	claims, err := s.dependencies.Tokens.Verify(ctx, raw, use)
-
-	if err == nil {
-		err = s.dependencies.Revoker.Revoke(ctx, claims.UserID, claims.SessionID)
-
-		if err != nil {
-			err = fmt.Errorf("sign out session: %w", err)
-		}
+	if uuid.UUID(principal.UserID) == uuid.Nil || principal.SessionID == uuid.Nil {
+		err = security.ErrInvalidSession
+	} else if revokeErr := s.dependencies.Revoker.Revoke(ctx, principal.UserID, principal.SessionID); revokeErr != nil {
+		err = fmt.Errorf("sign out session: %w", revokeErr)
 	}
 
 	return err
 }
 
-func (s *AuthenticationService) SignOutAll(ctx context.Context, access string) error {
-	principal, err := s.Authenticate(ctx, access)
-
-	if err == nil {
-		err = s.RevokeUserSessions(ctx, principal.UserID)
-	}
-
-	return err
+func (s *AuthenticationService) SignOutAll(ctx context.Context, principal security.Principal) error {
+	return s.RevokeUserSessions(ctx, principal.UserID)
 }
 
 // RevokeUserSessions is for trusted application use cases. HTTP callers must
@@ -312,9 +203,4 @@ func (s *AuthenticationService) RevokeUserSessions(ctx context.Context, userID s
 	}
 
 	return err
-}
-
-func tokenHash(raw string) string {
-	hash := sha256.Sum256([]byte(raw))
-	return hex.EncodeToString(hash[:])
 }

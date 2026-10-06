@@ -3,6 +3,7 @@ package redis
 import (
 	"context"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strconv"
@@ -35,25 +36,37 @@ if tonumber(ARGV[3]) <= milliseconds or redis.call('EXISTS', KEYS[2]) == 1 then 
 redis.call('SET', KEYS[1], ARGV[4], 'NX')
 local generation = redis.call('GET', KEYS[1])
 redis.call('HSET', KEYS[2], 'generation', generation, 'version', ARGV[1], 'refresh_hash', ARGV[2], 'expires', ARGV[3])
-redis.call('PEXPIREAT', KEYS[2], math.min(tonumber(ARGV[3]), milliseconds + tonumber(ARGV[5])))
+local expiry = tonumber(ARGV[3])
+if tonumber(ARGV[5]) > 0 then expiry = math.min(expiry, milliseconds + tonumber(ARGV[5])) end
+redis.call('PEXPIREAT', KEYS[2], expiry)
 return 1
 `)
 
 var findSession = redislib.NewScript(checkSession + `return {fields[2], fields[3], fields[4]}`)
 
+// RefreshOverlapWindow tolerates concurrent requests carrying the previous
+// token. Redis time fixes this deadline at the first successful rotation.
+const RefreshOverlapWindow = 10 * time.Second
+
 var rotateSession = redislib.NewScript(checkSession + `
-if fields[2] ~= ARGV[1] then return 0 end
+if fields[2] ~= ARGV[1] then return {'revoked'} end
 if fields[3] ~= ARGV[2] then
+    local previous = redis.call('HMGET', KEYS[2], 'previous_refresh_hash', 'refresh_overlap_until', 'refresh_issuance')
+    if previous[1] == ARGV[2] and previous[2] and tonumber(previous[2]) > milliseconds and previous[3] then
+        return {'ok', previous[3]}
+    end
     redis.call('DEL', KEYS[2])
-    return 2
+    return {'reused'}
 end
-redis.call('HSET', KEYS[2], 'refresh_hash', ARGV[3])
+redis.call('HSET', KEYS[2], 'refresh_hash', ARGV[3], 'previous_refresh_hash', ARGV[2],
+    'refresh_overlap_until', math.min(milliseconds + tonumber(ARGV[5]), tonumber(ARGV[7])), 'refresh_issuance', ARGV[6])
 redis.call('PEXPIREAT', KEYS[2], math.min(tonumber(fields[4]), milliseconds + tonumber(ARGV[4])))
-return 1
+return {'ok', ARGV[6]}
 `)
 
-// SessionStore stores no raw tokens. Refresh rotation uses a compare-and-swap;
-// replay revokes the entire device session, including its access tokens.
+// SessionStore stores token hashes and public issuance claims, never raw tokens.
+// Overlapping refreshes return one issuance; reuse after the window revokes the
+// entire device session, including its access tokens.
 type SessionStore struct{ client *redislib.Client }
 
 func NewSessionStore(client *redislib.Client) (*SessionStore, error) {
@@ -79,12 +92,11 @@ func validHash(value string) bool {
 	return err == nil && len(decoded) == 32
 }
 
-func validSession(session security.Session) bool {
-	return uuid.UUID(session.UserID) != uuid.Nil && session.ID != uuid.Nil &&
-		session.CredentialVersion != uuid.Nil && validHash(session.RefreshHash) && !session.ExpiresAt.IsZero()
+func validSession(session security.TokenSession) bool {
+	return validSessionState(session.Session) && validHash(session.RefreshHash)
 }
 
-func (s *SessionStore) Create(ctx context.Context, session security.Session) error {
+func (s *SessionStore) Create(ctx context.Context, session security.TokenSession) error {
 	var err error
 
 	if !validSession(session) {
@@ -109,8 +121,8 @@ func (s *SessionStore) Create(ctx context.Context, session security.Session) err
 	return err
 }
 
-func (s *SessionStore) FindByID(ctx context.Context, userID security.UserID, id uuid.UUID) (security.Session, error) {
-	var session security.Session
+func (s *SessionStore) FindByID(ctx context.Context, userID security.UserID, id uuid.UUID) (security.TokenSession, error) {
+	var session security.TokenSession
 	fields, err := findSession.Run(ctx, s.client, sessionKeys(userID, id)).StringSlice()
 
 	if errors.Is(err, redislib.Nil) {
@@ -122,7 +134,7 @@ func (s *SessionStore) FindByID(ctx context.Context, userID security.UserID, id 
 	} else {
 		version, versionErr := uuid.Parse(fields[0])
 		expiry, expiryErr := strconv.ParseInt(fields[2], 10, 64)
-		candidate := security.Session{ID: id, UserID: userID, CredentialVersion: version, RefreshHash: fields[1], ExpiresAt: time.UnixMilli(expiry)}
+		candidate := security.TokenSession{Session: security.Session{ID: id, UserID: userID, CredentialVersion: version, ExpiresAt: time.UnixMilli(expiry)}, RefreshHash: fields[1]}
 
 		if versionErr != nil || expiryErr != nil || !validSession(candidate) {
 			err = security.ErrInvalidSession
@@ -134,32 +146,55 @@ func (s *SessionStore) FindByID(ctx context.Context, userID security.UserID, id 
 	return session, err
 }
 
-func (s *SessionStore) Rotate(ctx context.Context, session security.Session, newHash string) error {
+func (s *SessionStore) Rotate(ctx context.Context, session security.TokenSession, newHash string, proposal security.TokenIssuance) (security.TokenIssuance, error) {
+	var issuance security.TokenIssuance
 	var err error
 
-	if !validSession(session) || !validHash(newHash) || session.RefreshHash == newHash {
+	if !validSession(session) || !validHash(newHash) || session.RefreshHash == newHash ||
+		proposal.Validate() != nil || !proposal.RefreshExpiresAt.Equal(session.ExpiresAt) {
 		err = security.ErrInvalidSession
 	} else {
-		result, rotateErr := rotateSession.Run(ctx, s.client, sessionKeys(session.UserID, session.ID), session.CredentialVersion.String(), session.RefreshHash, newHash, (7 * 24 * time.Hour).Milliseconds()).Int()
+		encoded, encodeErr := json.Marshal(proposal)
 
-		if errors.Is(rotateErr, redislib.Nil) {
-			err = security.ErrSessionRevoked
-		} else if rotateErr != nil {
-			err = fmt.Errorf("rotate session: %w", rotateErr)
+		if encodeErr != nil {
+			err = fmt.Errorf("encode refresh issuance: %w", encodeErr)
 		} else {
-			switch result {
-			case 0:
+			result, rotateErr := rotateSession.Run(ctx, s.client, sessionKeys(session.UserID, session.ID),
+				session.CredentialVersion.String(), session.RefreshHash, newHash, (7 * 24 * time.Hour).Milliseconds(),
+				RefreshOverlapWindow.Milliseconds(), string(encoded), proposal.AccessExpiresAt.UnixMilli()).StringSlice()
+
+			if errors.Is(rotateErr, redislib.Nil) {
 				err = security.ErrSessionRevoked
-			case 1:
-			case 2:
-				err = security.ErrRefreshTokenReused
-			default:
+			} else if rotateErr != nil {
+				err = fmt.Errorf("rotate session: %w", rotateErr)
+			} else if len(result) == 0 {
 				err = security.ErrInvalidSession
+			} else {
+				switch result[0] {
+				case "revoked":
+					err = security.ErrSessionRevoked
+				case "ok":
+					if len(result) != 2 {
+						err = security.ErrInvalidSession
+					} else if decodeErr := json.Unmarshal([]byte(result[1]), &issuance); decodeErr != nil {
+						err = fmt.Errorf("decode refresh issuance: %w", decodeErr)
+					} else if issuance.Validate() != nil || !issuance.RefreshExpiresAt.Equal(session.ExpiresAt) {
+						err = security.ErrInvalidSession
+					}
+				case "reused":
+					err = security.ErrRefreshTokenReused
+				default:
+					err = security.ErrInvalidSession
+				}
 			}
 		}
 	}
 
-	return err
+	if err != nil {
+		issuance = security.TokenIssuance{}
+	}
+
+	return issuance, err
 }
 
 func (s *SessionStore) Revoke(ctx context.Context, userID security.UserID, id uuid.UUID) error {

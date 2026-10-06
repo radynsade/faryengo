@@ -39,8 +39,10 @@ func TestAdminLocalizedPages(t *testing.T) {
 					t.Run(name, func(t *testing.T) {
 						request := httptest.NewRequest(http.MethodGet, "/admin/"+locale.code+page.path, nil)
 
-						for _, cookie := range cookies {
-							request.AddCookie(cookie)
+						if page.path != "/sign-in" {
+							for _, cookie := range cookies {
+								request.AddCookie(cookie)
+							}
 						}
 
 						if fragment {

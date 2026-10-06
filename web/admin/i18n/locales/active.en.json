@@ -185,9 +185,6 @@
   "auth.description": {
     "other": "Enter your details to access the admin panel."
   },
-  "auth.continue": {
-    "other": "Continue your session"
-  },
   "auth.forgot": {
     "other": "Forgot your password?"
   },
