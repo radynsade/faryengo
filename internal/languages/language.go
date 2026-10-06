@@ -97,13 +97,7 @@ type Language struct {
 	isFallback  bool
 }
 
-var (
-	ErrInvalidLanguage               = errors.New("invalid language")
-	ErrLanguageNotFound              = errors.New("language not found")
-	ErrLanguageAlreadyExists         = errors.New("language already exists")
-	ErrFallbackLanguageAlreadyExists = errors.New("fallback language already exists")
-	ErrFallbackLanguageAlreadyInUse  = errors.New("fallback language already in use")
-)
+var ErrInvalidLanguage = errors.New("invalid language")
 
 func NewLanguage(
 	code LanguageCode,
@@ -160,6 +154,13 @@ func (l *Language) Validate() error {
 //
 // Language repository
 //
+
+var (
+	ErrLanguageNotFound              = errors.New("language not found")
+	ErrLanguageAlreadyExists         = errors.New("language already exists")
+	ErrFallbackLanguageAlreadyExists = errors.New("fallback language already exists")
+	ErrFallbackLanguageAlreadyInUse  = errors.New("fallback language already in use")
+)
 
 type ErrLanguageCreateFailed interface {
 	error
