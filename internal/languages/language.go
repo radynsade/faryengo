@@ -9,7 +9,9 @@ import (
 	"unicode/utf8"
 )
 
+//
 // Alpha-2 language code
+//
 
 type LanguageCode string
 
@@ -32,7 +34,9 @@ func (c LanguageCode) Validate() error {
 	return err
 }
 
+//
 // Language english name
+//
 
 type LanguageEnglishName string
 
@@ -56,7 +60,9 @@ func (n LanguageEnglishName) Validate() error {
 	return err
 }
 
+//
 // Language native name
+//
 
 type LanguageNativeName string
 
@@ -80,7 +86,9 @@ func (n LanguageNativeName) Validate() error {
 	return err
 }
 
+//
 // Language
+//
 
 type Language struct {
 	code        LanguageCode
@@ -89,7 +97,13 @@ type Language struct {
 	isFallback  bool
 }
 
-var ErrInvalidLanguage = errors.New("invalid language")
+var (
+	ErrInvalidLanguage               = errors.New("invalid language")
+	ErrLanguageNotFound              = errors.New("language not found")
+	ErrLanguageAlreadyExists         = errors.New("language already exists")
+	ErrFallbackLanguageAlreadyExists = errors.New("fallback language already exists")
+	ErrFallbackLanguageAlreadyInUse  = errors.New("fallback language already in use")
+)
 
 func NewLanguage(
 	code LanguageCode,
@@ -143,12 +157,32 @@ func (l *Language) Validate() error {
 	return err
 }
 
+//
 // Language repository
+//
+
+type ErrLanguageCreateFailed interface {
+	error
+	Language() *Language
+	Unwrap() error
+}
+
+type ErrLanguageUpdateFailed interface {
+	error
+	Language() *Language
+	Unwrap() error
+}
+
+type ErrLanguageDeleteFailed interface {
+	error
+	LanguageCode() LanguageCode
+	Unwrap() error
+}
 
 type LanguageRepository interface {
-	Create(ctx context.Context, language *Language) error
-	Update(ctx context.Context, language *Language) error
-	Delete(ctx context.Context, code LanguageCode) error
+	Create(ctx context.Context, language *Language) ErrLanguageCreateFailed
+	Update(ctx context.Context, language *Language) ErrLanguageUpdateFailed
+	Delete(ctx context.Context, code LanguageCode) ErrLanguageDeleteFailed
 	FindByCode(ctx context.Context, code LanguageCode) (*Language, error)
 	FindFallback(ctx context.Context) (*Language, error)
 	FindAll(ctx context.Context) ([]*Language, error)
