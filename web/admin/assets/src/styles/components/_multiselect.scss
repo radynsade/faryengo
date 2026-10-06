@@ -19,9 +19,12 @@
 
 	&__count {
 		position: absolute;
+		display: grid;
+		place-items: center;
 		top: 50%;
 		right: var(--control-padding-inline);
 		min-width: var(--count-min-width);
+		aspect-ratio: 1;
 		padding: 0 var(--badge-padding-inline);
 		transform: translateY(-50%);
 		border-radius: var(--radius-count);
@@ -29,6 +32,7 @@
 		background: var(--color-accent);
 		font-size: var(--font-size-small);
 		font-weight: var(--font-weight-bold);
+		line-height: 1;
 		text-align: center;
 		pointer-events: none;
 	}

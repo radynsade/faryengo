@@ -7,7 +7,7 @@
 - [ ] form error handling and errors display (ajax)
 - [ ] no manual continue session
 - [ ] fix design delete confirmation modal
-- [ ] list button on the view page
+- [x] list button on the view page
 - [ ] use uuid v7
 - [ ] table loaders
-- [ ] round count badge in multiselect
+- [x] circular count badge in multiselect

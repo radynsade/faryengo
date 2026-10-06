@@ -273,10 +273,16 @@ templ RoleView(props RoleViewProps) {
 				})
 				<section class="role-view" aria-labelledby="page-heading">
 					<header class="list-toolbar">
-						@components.ActionLink(props.Panel.BasePath+"/roles/"+props.Role.ID+"/edit", "button button--primary button--compact", admini18n.T(ctx, "roles.edit")) {
-							<i class="ti ti-pencil" aria-hidden="true"></i>
-							{ admini18n.T(ctx, "roles.edit") }
-						}
+						<div class="action-group">
+							@components.ActionLink(props.Panel.BasePath+"/roles/"+props.Role.ID+"/edit", "button button--primary button--compact", admini18n.T(ctx, "roles.edit")) {
+								<i class="ti ti-pencil" aria-hidden="true"></i>
+								{ admini18n.T(ctx, "roles.edit") }
+							}
+							@components.ActionLink(props.Panel.BasePath+"/roles", "button button--secondary button--compact", admini18n.T(ctx, "actions.list")) {
+								<i class="ti ti-list" aria-hidden="true"></i>
+								{ admini18n.T(ctx, "actions.list") }
+							}
+						</div>
 						@components.DeleteButton("confirm-delete", props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", props.Role.Name, "icon-button icon-button--danger", admini18n.T(ctx, "roles.delete")) {
 							<i class="ti ti-trash" aria-hidden="true"></i>
 						}
