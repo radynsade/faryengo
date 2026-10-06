@@ -27,13 +27,13 @@ func TestCreateLanguageServiceDomainInputs(t *testing.T) {
 		{
 			name:       "invalid code",
 			request:    input.CreateLanguageInput{Code: "LV", EnglishName: "Latvian", NativeName: "Latviešu"},
-			wantErrors: []error{languages.ErrInvalidLanguageCode},
+			wantErrors: []error{languages.ErrInvalidLanguageCodeCharacters},
 			wantFields: []string{"code"},
 		},
 		{
 			name:       "blank English name",
 			request:    input.CreateLanguageInput{Code: "lv", EnglishName: " ", NativeName: "Latviešu"},
-			wantErrors: []error{languages.ErrInvalidLanguageEnglishName},
+			wantErrors: []error{languages.ErrInvalidLanguageEnglishNameCharacters},
 			wantFields: []string{"english name"},
 		},
 		{
@@ -45,7 +45,7 @@ func TestCreateLanguageServiceDomainInputs(t *testing.T) {
 		{
 			name:       "all fields invalid",
 			request:    input.CreateLanguageInput{Code: "", EnglishName: "", NativeName: ""},
-			wantErrors: []error{languages.ErrInvalidLanguageCode, languages.ErrInvalidLanguageEnglishName, languages.ErrInvalidLanguageNativeName},
+			wantErrors: []error{languages.ErrInvalidLanguageCodeCharacters, languages.ErrInvalidLanguageEnglishNameCharacters, languages.ErrInvalidLanguageNativeName},
 			wantFields: []string{"code", "english name", "native name"},
 		},
 	} {

@@ -38,7 +38,7 @@ func TestParseCreateLanguage(t *testing.T) {
 		{name: "wrong group", args: []string{"language", "create-language", "lv", "Latvian", "Latviešu"}, wantError: errInvalidCommand},
 		{name: "wrong operation", args: []string{"languages", "create", "lv", "Latvian", "Latviešu"}, wantError: errInvalidCommand},
 		{name: "missing native name", args: []string{"languages", "create-language", "lv", "Latvian"}, wantError: errInvalidCommand},
-		{name: "invalid code", args: []string{"languages", "create-language", "LV", "Latvian", "Latviešu"}, wantError: languages.ErrInvalidLanguageCode},
+		{name: "invalid code", args: []string{"languages", "create-language", "LV", "Latvian", "Latviešu"}, wantError: languages.ErrInvalidLanguageCodeCharacters},
 		{name: "extra argument", args: []string{"languages", "create-language", "lv", "Latvian", "Latviešu", "extra"}, wantError: errInvalidCommand},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -47,7 +47,7 @@ func TestParseCreateLanguage(t *testing.T) {
 				t.Fatalf("parseCreateLanguage(%v) = (%+v, %v), want (%q, %q, %q, %v)", tt.args, input, err, tt.wantCode, tt.wantEN, tt.wantName, tt.wantError)
 			}
 
-			if errors.Is(tt.wantError, languages.ErrInvalidLanguageCode) && !errors.Is(err, appinput.ErrInvalidCreateLanguageInput) {
+			if errors.Is(tt.wantError, languages.ErrInvalidLanguageCodeCharacters) && !errors.Is(err, appinput.ErrInvalidCreateLanguageInput) {
 				t.Fatalf("parseCreateLanguage() error = %v, want ErrInvalidCreateLanguageInput", err)
 			}
 		})

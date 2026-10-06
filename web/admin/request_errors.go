@@ -59,7 +59,7 @@ func requestFieldErrors(ctx context.Context, err error) components.FieldErrors {
 		switch {
 		case errors.Is(err, security.ErrInvalidRoleName):
 			fields = components.FieldErrors{"name": {admini18n.T(ctx, "validation.role_name")}}
-		case errors.Is(err, languages.ErrInvalidTranslationContent):
+		case errors.Is(err, languages.ErrInvalidTranslationContentCharacters):
 			fields = components.FieldErrors{"name": {admini18n.T(ctx, "validation.invalid")}}
 		case errors.Is(err, languages.ErrLanguageNotFound):
 			fields = components.FieldErrors{"name": {admini18n.T(ctx, "errors.language_missing")}}

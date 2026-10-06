@@ -72,8 +72,8 @@ func TestLanguageServiceCreateLanguage(t *testing.T) {
 		wantCalls int
 	}{
 		{name: "created", input: valid, wantCalls: 1},
-		{name: "invalid code", input: appinput.CreateLanguageInput{Code: "LV", EnglishName: "Latvian", NativeName: "Latviešu"}, wantErr: languages.ErrInvalidLanguageCode},
-		{name: "invalid English name", input: appinput.CreateLanguageInput{Code: "lv", NativeName: "Latviešu"}, wantErr: languages.ErrInvalidLanguageEnglishName},
+		{name: "invalid code", input: appinput.CreateLanguageInput{Code: "LV", EnglishName: "Latvian", NativeName: "Latviešu"}, wantErr: languages.ErrInvalidLanguageCodeCharacters},
+		{name: "invalid English name", input: appinput.CreateLanguageInput{Code: "lv", NativeName: "Latviešu"}, wantErr: languages.ErrInvalidLanguageEnglishNameCharacters},
 		{name: "invalid native name", input: appinput.CreateLanguageInput{Code: "lv", EnglishName: "Latvian"}, wantErr: languages.ErrInvalidLanguageNativeName},
 		{name: "duplicate", input: valid, createErr: languages.ErrLanguageAlreadyExists, wantErr: languages.ErrLanguageAlreadyExists, wantCalls: 1},
 		{name: "repository error", input: valid, createErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantCalls: 1},
@@ -132,8 +132,8 @@ func TestLanguageServiceDeleteLanguage(t *testing.T) {
 		wantCalls int
 	}{
 		{name: "deleted", code: "lv", wantCalls: 1},
-		{name: "invalid code", code: "LV", wantErr: languages.ErrInvalidLanguageCode},
-		{name: "missing code", wantErr: languages.ErrInvalidLanguageCode},
+		{name: "invalid code", code: "LV", wantErr: languages.ErrInvalidLanguageCodeCharacters},
+		{name: "missing code", wantErr: languages.ErrInvalidLanguageCodeCharacters},
 		{name: "not found", code: "lv", deleteErr: languages.ErrLanguageNotFound, wantErr: languages.ErrLanguageNotFound, wantCalls: 1},
 		{name: "repository error", code: "lv", deleteErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantCalls: 1},
 	} {

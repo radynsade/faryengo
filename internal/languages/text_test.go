@@ -1,139 +1,101 @@
-package languages
+package languages_test
 
 import (
 	"errors"
+	"maps"
+	"strings"
 	"testing"
+
+	"github.com/radynsade/faryengo/internal/languages"
 )
 
-func TestNewTranslation(t *testing.T) {
+func TestTranslationContentValidate(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
-		code    LanguageCode
-		content string
-		wantErr error
+		content languages.TranslationContent
+		want    []error
 	}{
-		{name: "English", code: "en", content: "Hello"},
-		{name: "Unicode", code: "lv", content: "Sveiki"},
-		{name: "invalid code", code: "EN", content: "Hello", wantErr: ErrInvalidLanguageCode},
-		{name: "empty content", code: "en", wantErr: ErrInvalidTranslationContent},
-		{name: "whitespace content", code: "en", content: " \t ", wantErr: ErrInvalidTranslationContent},
-		{name: "invalid UTF-8", code: "en", content: "\xff", wantErr: ErrInvalidTranslationContent},
+		{name: "English", content: "Hello"},
+		{name: "Unicode", content: "Sveiki, pasaule! 世界 🌍"},
+		{name: "surrounding whitespace", content: " \tHello\n "},
+		{name: "multiline", content: "Hello\nWorld"},
+		{name: "long content", content: languages.TranslationContent(strings.Repeat("界", 1000))},
+		{name: "empty", want: []error{languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
+		{name: "whitespace", content: " \t\r\n", want: []error{languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
+		{name: "Unicode whitespace", content: "\u00a0\u2003", want: []error{languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
+		{name: "invalid UTF-8", content: "Hello\xff", want: []error{languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			translation, err := NewTranslation(tt.code, tt.content)
-
-			if tt.wantErr != nil {
-				if translation != (Translation{}) || !errors.Is(err, tt.wantErr) {
-					t.Fatalf("NewTranslation() = (%v, %v), want zero value and %v", translation, err, tt.wantErr)
-				}
-			} else {
-				if err != nil {
-					t.Fatalf("NewTranslation() error = %v, want nil", err)
-				}
-
-				if translation.LanguageCode() != tt.code || translation.Content() != tt.content {
-					t.Fatalf("NewTranslation() = %v, want (%q, %q)", translation, tt.code, tt.content)
-				}
-			}
+			assertValidationErrors(t, tt.content.Validate(), tt.want...)
 		})
 	}
 }
 
-func TestNewText(t *testing.T) {
+func TestTextValidate(t *testing.T) {
 	for _, tt := range []struct {
-		name         string
-		translations []Translation
-		wantErr      error
-	}{
-		{name: "empty"},
-		{name: "multilingual", translations: []Translation{{languageCode: "en", content: "Hello"}, {languageCode: "lv", content: "Sveiki"}}},
-		{name: "duplicate code", translations: []Translation{{languageCode: "en", content: "Hello"}, {languageCode: "en", content: "Hi"}}, wantErr: ErrDuplicateTranslation},
-		{name: "invalid code", translations: []Translation{{languageCode: "EN", content: "Hello"}}, wantErr: ErrInvalidLanguageCode},
-		{name: "invalid content", translations: []Translation{{languageCode: "en", content: " "}}, wantErr: ErrInvalidTranslationContent},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			text, err := NewText(tt.translations)
-
-			if tt.wantErr != nil {
-				if len(text.Translations()) != 0 || !errors.Is(err, tt.wantErr) {
-					t.Fatalf("NewText() = (%v, %v), want empty text and %v", text, err, tt.wantErr)
-				}
-			} else {
-				if err != nil {
-					t.Fatalf("NewText() error = %v, want nil", err)
-				}
-
-				if len(text.Translations()) != len(tt.translations) {
-					t.Fatalf("NewText() has %d translations, want %d", len(text.Translations()), len(tt.translations))
-				}
-			}
-		})
-	}
-}
-
-func TestTextLookupAndCopies(t *testing.T) {
-	input := []Translation{{languageCode: "en", content: "Hello"}, {languageCode: "lv", content: "Sveiki"}}
-	text, err := NewText(input)
-
-	if err != nil {
-		t.Fatalf("NewText() error = %v, want nil", err)
-	}
-
-	input[0] = Translation{languageCode: "fr", content: "Bonjour"}
-	output := text.Translations()
-	output[1] = Translation{languageCode: "de", content: "Hallo"}
-
-	for _, tt := range []struct {
-		name        string
-		code        LanguageCode
-		wantContent string
-		wantFound   bool
-	}{
-		{name: "original English", code: "en", wantContent: "Hello", wantFound: true},
-		{name: "original Latvian", code: "lv", wantContent: "Sveiki", wantFound: true},
-		{name: "missing French", code: "fr"},
-		{name: "missing German", code: "de"},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			translation, found := text.Translation(tt.code)
-
-			if found != tt.wantFound || translation.Content() != tt.wantContent {
-				t.Fatalf("Translation(%q) = (%v, %v), want content %q and found %v", tt.code, translation, found, tt.wantContent, tt.wantFound)
-			}
-		})
-	}
-}
-
-func TestTextMapValidation(t *testing.T) {
-	for _, tt := range []struct {
-		name    string
-		text    Text
-		wantErr error
+		name string
+		text languages.Text
+		want []error
 	}{
 		{name: "nil map"},
-		{name: "valid map", text: Text{"en": {languageCode: "en", content: "Hello"}}},
-		{name: "invalid key", text: Text{"EN": {languageCode: "EN", content: "Hello"}}, wantErr: ErrInvalidLanguageCode},
-		{name: "mismatched key", text: Text{"en": {languageCode: "lv", content: "Sveiki"}}, wantErr: ErrTranslationLanguageMismatch},
-		{name: "invalid content", text: Text{"en": {languageCode: "en", content: " "}}, wantErr: ErrInvalidTranslationContent},
+		{name: "empty map", text: languages.Text{}},
+		{name: "single translation", text: languages.Text{"en": "Hello"}},
+		{name: "multilingual", text: languages.Text{"lv": "Sveiki", "en": "Hello", "ja": "こんにちは"}},
+		{name: "empty code", text: languages.Text{"": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode}},
+		{name: "invalid code", text: languages.Text{"EN": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode, languages.ErrInvalidLanguageCodeCharacters}},
+		{name: "invalid UTF-8 code", text: languages.Text{"e\xff": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode, languages.ErrInvalidLanguageCodeCharacters}},
+		{name: "empty content", text: languages.Text{"en": ""}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
+		{name: "whitespace content", text: languages.Text{"en": " \t"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
+		{name: "invalid UTF-8 content", text: languages.Text{"en": "\xff"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
+		{name: "invalid after valid entry", text: languages.Text{"en": "Hello", "lv": " "}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			err := tt.text.Validate()
+			before := maps.Clone(tt.text)
+			assertValidationErrors(t, tt.text.Validate(), tt.want...)
 
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("Text.Validate() = %v, want %v", err, tt.wantErr)
+			if !maps.Equal(tt.text, before) || (tt.text == nil) != (before == nil) {
+				t.Fatal("Validate() changed the translations")
 			}
 		})
 	}
 }
 
-func TestTextTranslationsAreSorted(t *testing.T) {
-	text := Text{
-		"lv": {languageCode: "lv", content: "Sveiki"},
-		"en": {languageCode: "en", content: "Hello"},
-	}
-	translations := text.Translations()
+func TestTextValidateErrorOrder(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		text    languages.Text
+		want    []error
+		exclude error
+	}{
+		{
+			name:    "code before content for the same entry",
+			text:    languages.Text{"EN": " "},
+			want:    []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode, languages.ErrInvalidLanguageCodeCharacters},
+			exclude: languages.ErrInvalidTranslationContent,
+		},
+		{
+			name:    "earlier invalid code before later invalid content",
+			text:    languages.Text{"EN": "Hello", "lv": " "},
+			want:    []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode, languages.ErrInvalidLanguageCodeCharacters},
+			exclude: languages.ErrInvalidTranslationContent,
+		},
+		{
+			name:    "earlier invalid content before later invalid code",
+			text:    languages.Text{"en": " ", "lV": "Sveiki"},
+			want:    []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters},
+			exclude: languages.ErrInvalidLanguageCode,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			// Repeated checks exercise randomized map iteration order.
+			for range 32 {
+				err := tt.text.Validate()
+				assertValidationErrors(t, err, tt.want...)
 
-	if len(translations) != 2 || translations[0].LanguageCode() != "en" || translations[1].LanguageCode() != "lv" {
-		t.Fatalf("Translations() = %v, want English then Latvian", translations)
+				if errors.Is(err, tt.exclude) {
+					t.Fatalf("Validate() error = %v, must stop before %v", err, tt.exclude)
+				}
+			}
+		})
 	}
 }

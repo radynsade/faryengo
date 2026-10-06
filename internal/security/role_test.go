@@ -133,7 +133,7 @@ func TestRoleNamePreservesValidState(t *testing.T) {
 		t.Fatalf("SetName(nil) error = %v, want %v", err, ErrInvalidRoleName)
 	}
 
-	if err := role.SetName(languages.Text{"EN": {}}); !errors.Is(err, languages.ErrInvalidLanguageCode) {
+	if err := role.SetName(languages.Text{"EN": {}}); !errors.Is(err, languages.ErrInvalidLanguageCodeCharacters) {
 		t.Fatalf("SetName(invalid) error = %v, want invalid language code", err)
 	}
 
