@@ -37,8 +37,8 @@ func TestTextValidate(t *testing.T) {
 		text languages.Text
 		want []error
 	}{
-		{name: "nil map"},
-		{name: "empty map", text: languages.Text{}},
+		{name: "nil map", want: []error{languages.ErrInvalidText, languages.ErrTextHasNoTranslations}},
+		{name: "empty map", text: languages.Text{}, want: []error{languages.ErrInvalidText, languages.ErrTextHasNoTranslations}},
 		{name: "single translation", text: languages.Text{"en": "Hello"}},
 		{name: "multilingual", text: languages.Text{"lv": "Sveiki", "en": "Hello", "ja": "こんにちは"}},
 		{name: "empty code", text: languages.Text{"": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode}},

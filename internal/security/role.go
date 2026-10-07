@@ -8,43 +8,68 @@ import (
 	"slices"
 
 	"github.com/google/uuid"
-
 	"github.com/radynsade/faryengo/internal/languages"
 )
 
+//
+// Permission
+//
+
 var (
-	ErrInvalidRoleID     = errors.New("invalid role ID")
-	ErrRoleNotFound      = errors.New("role not found")
-	ErrRoleAlreadyExists = errors.New("role already exists")
-	ErrRoleAlreadyInUse  = errors.New("role is assigned to users")
-	ErrInvalidRoleName   = errors.New("invalid role name")
+	ErrInvalidPermission = errors.New("invalid permission")
+	ErrPermissionDenied  = errors.New("permission denied")
 )
+
+type Permission string
+
+const (
+	PermissionManageUser Permission = "manage_user"
+	PermissionViewUser   Permission = "view_user"
+	PermissionManageRole Permission = "manage_role"
+	PermissionViewRole   Permission = "view_role"
+)
+
+func AllPermissions() []Permission {
+	return []Permission{
+		PermissionManageUser,
+		PermissionViewUser,
+		PermissionManageRole,
+		PermissionViewRole,
+	}
+}
+
+func (p Permission) Validate() error {
+	switch p {
+	case PermissionManageUser, PermissionViewUser, PermissionManageRole, PermissionViewRole:
+		return nil
+	default:
+		return ErrInvalidPermission
+	}
+}
+
+//
+// Role ID
+//
+
+var ErrInvalidRoleID = errors.New("invalid role ID")
 
 type RoleID uuid.UUID
 
-func NewRoleID(value string) (RoleID, error) {
-	id, err := uuid.Parse(value)
-
-	if err != nil {
-		err = fmt.Errorf("parse role ID: %w: %w", ErrInvalidRoleID, err)
-	} else {
-		err = RoleID(id).Validate()
-	}
-
-	if err != nil {
-		id = uuid.Nil
-	}
-
-	return RoleID(id), err
-}
-
 func (id RoleID) Validate() error {
+	var err error
+
 	if uuid.UUID(id) == uuid.Nil {
-		return ErrInvalidRoleID
+		err = ErrInvalidRoleID
 	}
 
-	return nil
+	return err
 }
+
+//
+// Role
+//
+
+var ErrInvalidRole = errors.New("invalid role")
 
 type Role struct {
 	id          RoleID
@@ -53,54 +78,28 @@ type Role struct {
 	isSuper     bool
 }
 
-func NewRole(id RoleID, name languages.Text, permissions []Permission) (*Role, error) {
-	if err := id.Validate(); err != nil {
-		return nil, fmt.Errorf("create role: %w", err)
-	}
-
-	if err := validateRoleName(name); err != nil {
-		return nil, fmt.Errorf("create role: %w", err)
-	}
-
-	if err := validatePermissions(permissions); err != nil {
-		return nil, fmt.Errorf("create role: %w", err)
-	}
-
-	return &Role{
-		id:          id,
-		name:        maps.Clone(name),
-		permissions: slices.Clone(permissions),
-	}, nil
-}
-
 func (r *Role) ID() RoleID {
 	return r.id
 }
 
-func (r *Role) SetID(id RoleID) error {
-	if err := id.Validate(); err != nil {
-		return fmt.Errorf("set role ID: %w", err)
-	}
-
+func (r *Role) SetID(id RoleID) {
 	r.id = id
-	return nil
 }
 
 func (r *Role) Name() languages.Text {
 	return maps.Clone(r.name)
 }
 
-func (r *Role) SetName(name languages.Text) error {
-	if err := validateRoleName(name); err != nil {
-		return fmt.Errorf("set role name: %w", err)
-	}
-
+func (r *Role) SetName(name languages.Text) {
 	r.name = maps.Clone(name)
-	return nil
 }
 
 func (r *Role) Permissions() []Permission {
 	return slices.Clone(r.permissions)
+}
+
+func (r *Role) SetPermissions(permissions []Permission) {
+	r.permissions = slices.Clone(permissions)
 }
 
 func (r *Role) IsSuper() bool {
@@ -111,43 +110,65 @@ func (r *Role) SetIsSuper(isSuper bool) {
 	r.isSuper = isSuper
 }
 
-func (r *Role) SetPermissions(permissions []Permission) error {
-	if err := validatePermissions(permissions); err != nil {
-		return fmt.Errorf("set role permissions: %w", err)
+func (r *Role) Validate() error {
+	var err error
+
+	err = r.id.Validate()
+
+	if err == nil {
+		err = r.name.Validate()
 	}
 
-	r.permissions = slices.Clone(permissions)
-	return nil
-}
+	if err == nil {
+		for _, permission := range r.permissions {
+			err = permission.Validate()
 
-func validateRoleName(name languages.Text) error {
-	if len(name) == 0 {
-		return ErrInvalidRoleName
-	}
-
-	if err := name.Validate(); err != nil {
-		return fmt.Errorf("validate role name: %w", err)
-	}
-
-	return nil
-}
-
-func validatePermissions(permissions []Permission) error {
-	for _, permission := range permissions {
-		if err := permission.Validate(); err != nil {
-			return fmt.Errorf("permission %q: %w", permission, err)
+			if err != nil {
+				break
+			}
 		}
 	}
 
-	return nil
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrInvalidRole, err)
+	}
+
+	return err
 }
 
-// RoleRepository stores and retrieves roles.
+//
+// Role repository
+//
+
+var (
+	ErrRoleNotFound      = errors.New("role not found")
+	ErrRoleAlreadyExists = errors.New("role already exists")
+	ErrRoleAlreadyInUse  = errors.New("role is assigned to users")
+)
+
+type ErrRoleCreateFailed interface {
+	error
+	Role() *Role
+	Unwrap() error
+}
+
+type ErrRoleUpdateFailed interface {
+	error
+	Role() *Role
+	Unwrap() error
+}
+
+type ErrRoleDeleteFailed interface {
+	error
+	RoleID() RoleID
+	Unwrap() error
+}
+
 type RoleRepository interface {
-	Create(ctx context.Context, role *Role) error
-	Update(ctx context.Context, role *Role) error
-	Delete(ctx context.Context, id RoleID) error
+	Create(ctx context.Context, role *Role) ErrRoleCreateFailed
+	Update(ctx context.Context, role *Role) ErrRoleUpdateFailed
+	Delete(ctx context.Context, id RoleID) ErrRoleDeleteFailed
 	FindByID(ctx context.Context, id RoleID) (*Role, error)
-	Find(ctx context.Context, query RoleQuery) ([]*Role, error)
-	Count(ctx context.Context, filters RoleFilters) (int, error)
+	// Find(ctx context.Context, query RoleQuery) ([]*Role, error)
+	// Count(ctx context.Context, filters RoleFilters) (int, error)
 }
