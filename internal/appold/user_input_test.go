@@ -25,14 +25,14 @@ func TestCreateUserServiceDomainInputs(t *testing.T) {
 	}{
 		{name: "valid", request: valid},
 		{name: "invalid fields", request: input.CreateUserInput{}, wantErr: input.ErrInvalidCreateUserInput},
-		{name: "empty password", request: input.CreateUserInput{RoleID: valid.RoleID, Email: valid.Email, Phone: valid.Phone, FirstName: valid.FirstName, LastName: valid.LastName}, wantErr: security.ErrInvalidPassword},
-		{name: "short password", request: withPassword("1234567"), wantErr: security.ErrInvalidPassword},
-		{name: "blank password", request: withPassword("        "), wantErr: security.ErrInvalidPassword},
+		{name: "empty password", request: input.CreateUserInput{RoleID: valid.RoleID, Email: valid.Email, Phone: valid.Phone, FirstName: valid.FirstName, LastName: valid.LastName}, wantErr: security.ErrPasswordInvalid},
+		{name: "short password", request: withPassword("1234567"), wantErr: security.ErrPasswordInvalid},
+		{name: "blank password", request: withPassword("        "), wantErr: security.ErrPasswordInvalid},
 		{name: "minimum password length", request: withPassword("12345678")},
-		{name: "short Unicode password", request: withPassword("āāāāāāā"), wantErr: security.ErrInvalidPassword},
+		{name: "short Unicode password", request: withPassword("āāāāāāā"), wantErr: security.ErrPasswordInvalid},
 		{name: "Unicode password", request: withPassword("āāāāāāāā")},
 		{name: "maximum password bytes", request: withPassword(strings.Repeat("x", security.MaxPasswordBytes))},
-		{name: "oversized password", request: withPassword(strings.Repeat("x", security.MaxPasswordBytes+1)), wantErr: security.ErrInvalidPassword},
+		{name: "oversized password", request: withPassword(strings.Repeat("x", security.MaxPasswordBytes+1)), wantErr: security.ErrPasswordInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			service, _ := NewUserService(&fakeUserStore{stored: validStoredUser(t)}, &fakePasswordHasher{hash: "hash"})
@@ -61,7 +61,7 @@ func TestUpdateUserServiceDomainInputs(t *testing.T) {
 	}{
 		{name: "valid without password change", request: valid},
 		{name: "invalid ID", request: input.UpdateUserInput{RoleID: valid.RoleID, Email: valid.Email, Phone: valid.Phone, FirstName: valid.FirstName, LastName: valid.LastName}, wantErr: input.ErrInvalidUserID},
-		{name: "empty new password", request: invalidPassword, wantErr: security.ErrInvalidPassword},
+		{name: "empty new password", request: invalidPassword, wantErr: security.ErrPasswordInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			service, _ := NewUserService(&fakeUserStore{stored: validStoredUser(t)}, &fakePasswordHasher{hash: "hash"})

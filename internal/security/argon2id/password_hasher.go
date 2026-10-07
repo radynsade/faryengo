@@ -98,7 +98,7 @@ func (h *Hasher) Verify(
 	} else if contextErr := ctx.Err(); contextErr != nil {
 		err = fmt.Errorf("verify password: %w", contextErr)
 	} else if len(password) > security.MaxPasswordBytes {
-		err = security.ErrInvalidPassword
+		err = security.ErrPasswordInvalid
 	} else {
 		var (
 			params   hashParameters
@@ -143,13 +143,13 @@ func parseHash(hash security.PasswordHash) (hashParameters, []byte, []byte, erro
 	)
 
 	if len(hash) > maxEncodedHashBytes {
-		return params, nil, nil, fmt.Errorf("parse Argon2id hash length: %w", security.ErrInvalidPasswordHash)
+		return params, nil, nil, fmt.Errorf("parse Argon2id hash length: %w", security.ErrPasswordHashInvalid)
 	}
 
 	parts := strings.Split(string(hash), "$")
 
 	if len(parts) != 6 || parts[0] != "" || parts[1] != "argon2id" || parts[2] != fmt.Sprintf("v=%d", argon2.Version) {
-		return params, nil, nil, fmt.Errorf("parse Argon2id hash header: %w", security.ErrInvalidPasswordHash)
+		return params, nil, nil, fmt.Errorf("parse Argon2id hash header: %w", security.ErrPasswordHashInvalid)
 	}
 
 	count, err := fmt.Sscanf(parts[3], "m=%d,t=%d,p=%d", &params.memoryKiB, &params.iterations, &params.parallelism)
@@ -157,25 +157,25 @@ func parseHash(hash security.PasswordHash) (hashParameters, []byte, []byte, erro
 	if err != nil || count != 3 || parts[3] != fmt.Sprintf("m=%d,t=%d,p=%d", params.memoryKiB, params.iterations, params.parallelism) ||
 		params.memoryKiB < 8*uint32(params.parallelism) || params.memoryKiB > maxMemoryKiB ||
 		params.iterations == 0 || params.iterations > maxIterations || params.parallelism == 0 || params.parallelism > maxParallelism {
-		return hashParameters{}, nil, nil, fmt.Errorf("parse Argon2id hash parameters: %w", security.ErrInvalidPasswordHash)
+		return hashParameters{}, nil, nil, fmt.Errorf("parse Argon2id hash parameters: %w", security.ErrPasswordHashInvalid)
 	}
 
 	encoding := base64.RawStdEncoding.Strict()
 
 	if len(parts[4]) != encoding.EncodedLen(saltBytes) || len(parts[5]) != encoding.EncodedLen(keyBytes) {
-		return hashParameters{}, nil, nil, fmt.Errorf("parse Argon2id hash lengths: %w", security.ErrInvalidPasswordHash)
+		return hashParameters{}, nil, nil, fmt.Errorf("parse Argon2id hash lengths: %w", security.ErrPasswordHashInvalid)
 	}
 
 	salt, err = encoding.DecodeString(parts[4])
 
 	if err != nil || len(salt) != saltBytes {
-		return hashParameters{}, nil, nil, fmt.Errorf("decode Argon2id salt: %w", security.ErrInvalidPasswordHash)
+		return hashParameters{}, nil, nil, fmt.Errorf("decode Argon2id salt: %w", security.ErrPasswordHashInvalid)
 	}
 
 	key, err = encoding.DecodeString(parts[5])
 
 	if err != nil || len(key) != keyBytes {
-		return hashParameters{}, nil, nil, fmt.Errorf("decode Argon2id key: %w", security.ErrInvalidPasswordHash)
+		return hashParameters{}, nil, nil, fmt.Errorf("decode Argon2id key: %w", security.ErrPasswordHashInvalid)
 	}
 
 	return params, salt, key, nil

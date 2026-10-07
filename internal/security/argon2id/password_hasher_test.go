@@ -82,7 +82,7 @@ func TestHasherRejectsInvalidInputs(t *testing.T) {
 		password string
 		wantErr  error
 	}{
-		{name: "empty password", hasher: hasher, wantErr: security.ErrInvalidPassword},
+		{name: "empty password", hasher: hasher, wantErr: security.ErrPasswordInvalid},
 		{name: "nil hasher", password: "password", wantErr: ErrNilHasher},
 		{name: "nil salt reader", hasher: &Hasher{}, password: "password", wantErr: ErrNilHasher},
 		{name: "salt read fails", hasher: &Hasher{saltReader: failingReader{err: io.ErrUnexpectedEOF}}, password: "password", wantErr: io.ErrUnexpectedEOF},
@@ -133,7 +133,7 @@ func TestVerifyRejectsMalformedHashes(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			matches, err := hasher.Verify(context.Background(), "password", tt.hash)
-			if matches || !errors.Is(err, security.ErrInvalidPasswordHash) {
+			if matches || !errors.Is(err, security.ErrPasswordHashInvalid) {
 				t.Fatalf("Verify() = (%v, %v), want (false, ErrInvalidPasswordHash)", matches, err)
 			}
 		})

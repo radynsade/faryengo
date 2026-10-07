@@ -13,16 +13,16 @@ import (
 //
 
 const (
-	MinimumPasswordLength = 6
-	MaxPasswordBytes      = 4096
+	MinPasswordLength = 6
+	MaxPasswordBytes  = 4096
 )
 
 var (
-	ErrInvalidPassword           = errors.New("invalid password")
-	ErrEmptyPassword             = errors.New("is empty")
-	ErrTooShortPassword          = fmt.Errorf("less than %d characters", MinimumPasswordLength)
-	ErrTooLongPassword           = fmt.Errorf("exceeds the limit of %d bytes", MaxPasswordBytes)
-	ErrInvalidPasswordCharacters = errors.New("invalid characters")
+	ErrPasswordInvalid      = errors.New("invalid password")
+	ErrPasswordEmpty        = errors.New("is empty")
+	ErrPasswordTooShort     = fmt.Errorf("less than %d characters", MinPasswordLength)
+	ErrPasswordTooLong      = fmt.Errorf("exceeds the limit of %d bytes", MaxPasswordBytes)
+	ErrPasswordInvalidChars = errors.New("invalid characters")
 )
 
 type Password string
@@ -31,17 +31,17 @@ func (p Password) Validate() error {
 	var err error
 
 	if strings.TrimSpace(string(p)) == "" {
-		err = ErrEmptyPassword
+		err = ErrPasswordEmpty
 	} else if !utf8.ValidString(string(p)) {
-		err = ErrInvalidPasswordCharacters
+		err = ErrPasswordInvalidChars
 	} else if len(p) > MaxPasswordBytes {
-		err = ErrTooLongPassword
-	} else if utf8.RuneCountInString(string(p)) < MinimumPasswordLength {
-		err = ErrTooShortPassword
+		err = ErrPasswordTooLong
+	} else if utf8.RuneCountInString(string(p)) < MinPasswordLength {
+		err = ErrPasswordTooShort
 	}
 
 	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrInvalidPassword, err)
+		err = fmt.Errorf("%w: %w", ErrPasswordInvalid, err)
 	}
 
 	return err
@@ -52,8 +52,8 @@ func (p Password) Validate() error {
 //
 
 var (
-	ErrInvalidPasswordHash = errors.New("invalid password hash")
-	ErrEmptyPasswordHash   = errors.New("is empty")
+	ErrPasswordHashInvalid = errors.New("invalid password hash")
+	ErrPasswordHashEmpty   = errors.New("is empty")
 )
 
 type PasswordHash string
@@ -62,11 +62,11 @@ func (p PasswordHash) Validate() error {
 	var err error
 
 	if strings.TrimSpace(string(p)) == "" {
-		err = ErrEmptyPasswordHash
+		err = ErrPasswordHashEmpty
 	}
 
 	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrInvalidPasswordHash, err)
+		err = fmt.Errorf("%w: %w", ErrPasswordHashInvalid, err)
 	}
 
 	return err
