@@ -4,8 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"slices"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/radynsade/faryengo/internal/languages"
@@ -73,55 +73,36 @@ func (id RoleID) Validate() error {
 var ErrInvalidRole = errors.New("invalid role")
 
 type Role struct {
-	id          RoleID
-	name        languages.Text
-	permissions []Permission
-	isSuper     bool
+	ID          RoleID
+	Name        languages.Text
+	Permissions []Permission
+	IsSuper     bool
 }
 
-func (r *Role) ID() RoleID {
-	return r.id
-}
-
-func (r *Role) SetID(id RoleID) {
-	r.id = id
-}
-
-func (r *Role) Name() languages.Text {
-	return maps.Clone(r.name)
-}
-
-func (r *Role) SetName(name languages.Text) {
-	r.name = maps.Clone(name)
-}
-
-func (r *Role) Permissions() []Permission {
-	return slices.Clone(r.permissions)
-}
-
-func (r *Role) SetPermissions(permissions []Permission) {
-	r.permissions = slices.Clone(permissions)
-}
-
-func (r *Role) IsSuper() bool {
-	return r.isSuper
-}
-
-func (r *Role) SetIsSuper(isSuper bool) {
-	r.isSuper = isSuper
+func NewRole(id RoleID, name languages.Text, permissions []Permission, isSuper bool) *Role {
+	return &Role{
+		ID:          id,
+		Name:        name,
+		Permissions: permissions,
+		IsSuper:     isSuper,
+	}
 }
 
 func (r *Role) Validate() error {
 	var err error
 
-	err = r.id.Validate()
-
-	if err == nil {
-		err = r.name.Validate()
+	if r == nil {
+		err = ErrInvalidRole
+	} else {
+		err = r.ID.Validate()
 	}
 
 	if err == nil {
-		for _, permission := range r.permissions {
+		err = r.Name.Validate()
+	}
+
+	if err == nil {
+		for _, permission := range r.Permissions {
 			err = permission.Validate()
 
 			if err != nil {
@@ -172,6 +153,46 @@ type RoleFilter struct {
 	IsSuper     *bool
 }
 
+var ErrInvalidRoleQuery = errors.New("invalid role query")
+
+func (f RoleFilter) Validate() error {
+	var err error
+
+	if !utf8.ValidString(f.IDLike) || !utf8.ValidString(f.NameLike) || strings.ContainsRune(f.IDLike+f.NameLike, '\x00') || len(f.IDLike) > 100 || len(f.NameLike) > 500 {
+		err = ErrInvalidRoleQuery
+	} else if validationErr := validatePermissions(f.Permissions); validationErr != nil {
+		err = fmt.Errorf("%w: %w", ErrInvalidRoleQuery, validationErr)
+	}
+
+	return err
+}
+
+func (f RoleFilter) Count() int {
+	count := 0
+
+	for _, applied := range []bool{f.IDLike != "", f.NameLike != "", len(f.Permissions) > 0, f.IsSuper != nil} {
+		if applied {
+			count++
+		}
+	}
+
+	return count
+}
+
+func validatePermissions(permissions []Permission) error {
+	var err error
+
+	for _, permission := range permissions {
+		err = permission.Validate()
+
+		if err != nil {
+			break
+		}
+	}
+
+	return err
+}
+
 type RoleSort string
 
 const (
@@ -180,7 +201,47 @@ const (
 	RoleSortIsSuper = RoleSort("is_super")
 )
 
-type RoleQuery domquery.Query[RoleFilter, RoleSort]
+func (s RoleSort) Validate() error {
+	var err error
+
+	if s != RoleSortID && s != RoleSortName && s != RoleSortIsSuper {
+		err = ErrInvalidRoleQuery
+	}
+
+	return err
+}
+
+const DefaultRolePageSize = 25
+
+type RoleQuery struct {
+	domquery.Query[RoleFilter, RoleSort]
+	Language languages.Code
+}
+
+func NewRoleQuery(filter RoleFilter, sort RoleSort, order domquery.SortOrder, limit, page int, language languages.Code) RoleQuery {
+	return RoleQuery{Query: domquery.NewQuery(filter, sort, order, limit, page), Language: language}
+}
+
+func (q RoleQuery) Validate() error {
+	var err error
+	err = q.Filters().Validate()
+
+	if err == nil {
+		if q.Page() < 1 || q.Page() > 1_000_000 || q.Limit() < 1 || q.Limit() > 100 {
+			err = ErrInvalidRoleQuery
+		} else {
+			err = q.SortBy().Validate()
+		}
+	}
+
+	if err == nil {
+		if validationErr := q.Language.Validate(); validationErr != nil {
+			err = fmt.Errorf("%w: %w", ErrInvalidRoleQuery, validationErr)
+		}
+	}
+
+	return err
+}
 
 type RoleRepository interface {
 	Create(ctx context.Context, role *Role) ErrRoleCreateFailed

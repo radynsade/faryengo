@@ -37,7 +37,7 @@ func flashFixture(t *testing.T) (*Handler, *miniredis.Miniredis, *securityredis.
 	}
 
 	principal := security.Principal{UserID: security.UserID(newTestUUID(t)), SessionID: newTestUUID(t)}
-	session := security.Session{ID: principal.SessionID, UserID: principal.UserID, CredentialVersion: newTestUUID(t), ExpiresAt: time.Now().Add(time.Hour)}
+	session := security.Session{ID: principal.SessionID, UserID: principal.UserID, AuthenticationSnapshotVersion: newTestUUID(t), ExpiresAt: time.Now().Add(time.Hour)}
 
 	if err := store.CreateSession(t.Context(), session, strings.Repeat("a", 64)); err != nil {
 		t.Fatal(err)

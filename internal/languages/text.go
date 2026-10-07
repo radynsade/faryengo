@@ -41,26 +41,33 @@ type Text map[Code]TranslationContent
 
 var (
 	ErrInvalidText           = errors.New("invalid text")
+	ErrNilText               = errors.New("is nil")
 	ErrTextHasNoTranslations = errors.New("there is no any translation")
 )
 
 func (t Text) Validate() error {
 	var err error
 
-	if len(t) == 0 {
-		err = ErrTextHasNoTranslations
-	} else {
-		for _, code := range slices.Sorted(maps.Keys(t)) {
-			err = code.Validate()
+	if t == nil {
+		err = ErrNilText
+	}
 
-			if err != nil {
-				break
-			}
+	if err == nil {
+		if len(t) == 0 {
+			err = ErrTextHasNoTranslations
+		} else {
+			for _, code := range slices.Sorted(maps.Keys(t)) {
+				err = code.Validate()
 
-			err = t[code].Validate()
+				if err != nil {
+					break
+				}
 
-			if err != nil {
-				break
+				err = t[code].Validate()
+
+				if err != nil {
+					break
+				}
 			}
 		}
 	}

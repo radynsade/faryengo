@@ -8,11 +8,11 @@ const (
 )
 
 func (o SortOrder) IsAsc() bool {
-	return o == SortOrderAsc
+	return bool(o)
 }
 
 func (o SortOrder) IsDesc() bool {
-	return o == SortOrderDesc
+	return !bool(o)
 }
 
 type Query[FilterType any, SortType ~string] struct {
@@ -21,6 +21,10 @@ type Query[FilterType any, SortType ~string] struct {
 	sortBy    SortType
 	limit     int
 	page      int
+}
+
+func NewQuery[F any, S ~string](filter F, sortBy S, sortOrder SortOrder, limit, page int) Query[F, S] {
+	return Query[F, S]{filter: filter, sortBy: sortBy, sortOrder: sortOrder, limit: limit, page: page}
 }
 
 func (q *Query[FilterType, SortType]) Filters() FilterType {

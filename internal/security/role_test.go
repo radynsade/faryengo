@@ -40,11 +40,11 @@ func TestRoleValidate(t *testing.T) {
 		{name: "name validated before permissions", id: validID, permissions: []security.Permission{"unknown"}, want: []error{languages.ErrInvalidText, languages.ErrTextHasNoTranslations}, exclude: security.ErrInvalidPermission},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			role := &security.Role{}
-			role.SetID(tt.id)
-			role.SetName(tt.roleName)
-			role.SetPermissions(tt.permissions)
-			role.SetIsSuper(tt.isSuper)
+			role := security.NewRole(tt.id, maps.Clone(tt.roleName), slices.Clone(tt.permissions), tt.isSuper)
+
+			if role == nil {
+				t.Fatal("NewRole() returned nil before validation")
+			}
 
 			err := role.Validate()
 
@@ -68,7 +68,53 @@ func TestRoleValidate(t *testing.T) {
 				t.Errorf("Validate() = %v, must stop before %v", err, tt.exclude)
 			}
 
-			if role.ID() != tt.id || !maps.Equal(role.Name(), tt.roleName) || !slices.Equal(role.Permissions(), tt.permissions) || role.IsSuper() != tt.isSuper {
+			if role.ID != tt.id || !maps.Equal(role.Name, tt.roleName) || !slices.Equal(role.Permissions, tt.permissions) || role.IsSuper != tt.isSuper {
+				t.Fatal("Validate() changed the role state")
+			}
+
+			if (role.Name == nil) != (tt.roleName == nil) || (role.Permissions == nil) != (tt.permissions == nil) {
+				t.Fatal("Validate() changed the role state")
+			}
+		})
+	}
+}
+
+func TestRoleValidateFieldChanges(t *testing.T) {
+	validID := security.RoleID(uuid.MustParse("01971a62-51dd-7000-8000-000000000001"))
+
+	for _, tt := range []struct {
+		name   string
+		change func(*security.Role)
+		want   error
+	}{
+		{name: "zero ID", change: func(role *security.Role) { role.ID = security.RoleID{} }, want: security.ErrInvalidRoleID},
+		{name: "nil name", change: func(role *security.Role) { role.Name = nil }, want: languages.ErrTextHasNoTranslations},
+		{name: "blank translation", change: func(role *security.Role) { role.Name["en"] = "" }, want: languages.ErrEmptyTranslationContent},
+		{name: "invalid permissions", change: func(role *security.Role) { role.Permissions = []security.Permission{"unknown"} }, want: security.ErrInvalidPermission},
+		{name: "invalid permission element", change: func(role *security.Role) { role.Permissions[0] = "unknown" }, want: security.ErrInvalidPermission},
+		{name: "super role", change: func(role *security.Role) { role.IsSuper = true }},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			role := security.NewRole(validID, languages.Text{"en": "Administrator"}, []security.Permission{security.PermissionViewRole}, false)
+			tt.change(role)
+			before := *role
+			before.Name = maps.Clone(role.Name)
+			before.Permissions = slices.Clone(role.Permissions)
+			err := role.Validate()
+
+			if !errors.Is(err, tt.want) {
+				t.Fatalf("Validate() = %v, want errors.Is(_, %v)", err, tt.want)
+			}
+
+			if tt.want != nil && !errors.Is(err, security.ErrInvalidRole) {
+				t.Errorf("Validate() = %v, want ErrInvalidRole", err)
+			}
+
+			if role.ID != before.ID || !maps.Equal(role.Name, before.Name) || !slices.Equal(role.Permissions, before.Permissions) || role.IsSuper != before.IsSuper {
+				t.Fatal("Validate() changed the role state")
+			}
+
+			if (role.Name == nil) != (before.Name == nil) || (role.Permissions == nil) != (before.Permissions == nil) {
 				t.Fatal("Validate() changed the role state")
 			}
 		})

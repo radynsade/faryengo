@@ -112,23 +112,26 @@ uses domain constructors to reject invalid arguments before opening a database
 connection; services independently construct values again for all callers.
 The sign-in account-lookup limit of 254 bytes remains a use-case constraint.
 
-Security and Languages own plain Go invariant checks and validated constructors.
-Domain packages never import the transport validator. Use constructors for raw
-mailboxes, phone numbers, names, language codes, translated role names,
-permissions, and UUID identities. Existing primitive aliases remain compatible
-with repository and typed-input contracts, so entities and value collections
-validate defensively before accepting changes. A cast alone is never a validity
-guarantee. Rehydration through entity constructors checks stored values too.
-Both User and Role reject zero identities at creation and in identity setters;
-UUID version is unrestricted for existing values.
+Security and Languages expose typed values and aggregate fields with explicit
+`Validate` methods. Constructors retain supplied values; callers validate before
+performing side effects. Domain packages never import the transport validator.
+A cast or constructor alone is not a validity guarantee. Repositories validate
+aggregates before writes and validate rehydrated values before returning them.
+User and Role validation reject zero identities; existing UUID versions remain
+unrestricted. Repository create, update, and delete failures expose their
+operation data and unwrap the underlying cause.
 
-`security.Password` encapsulates plaintext input separately from `PasswordHash`.
-`NewPassword` enforces nonempty input and the 4096-byte bound for sign-in and
-replacement credentials. `NewRegistrationPassword` additionally enforces the
-existing nonblank, eight-character creation policy. Hash implementations retain
-algorithm-specific encoded-hash checks and resource bounds. Session intrinsic
-state and token issuance relationships belong to Security; clock-dependent
-expiration, durable credential versions, and revocation require orchestration.
+`security.Password` is a plaintext value distinct from `PasswordHash`.
+Its validation requires valid UTF-8, nonblank input, at least six characters,
+and at most 4096 bytes. Password verification accepts bounded raw candidates so
+existing credentials can still be checked independently of the creation policy.
+Hash implementations retain algorithm-specific encoded-hash checks and resource
+bounds. `AuthenticationSnapshot` combines a user and its durable version in one
+repository read; it is stored server-side. `PrincipalRepository` projects current
+user and role data without a password hash. Such a projection does not itself
+authenticate a caller. Session intrinsic state and token issuance relationships
+belong to Security; clock-dependent expiration, current authentication snapshot
+versions, and revocation require orchestration.
 Role filter and query validity remain domain checks for non-HTTP callers and
 repositories, with DTO tags providing early HTTP feedback. Configuration,
 asset-manifest, migration-file, and storage-format checks remain in their owning

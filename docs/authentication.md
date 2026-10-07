@@ -88,7 +88,7 @@ in [RFC 9700](https://www.rfc-editor.org/rfc/rfc9700.html#section-4.14.2).
 
 | Store | Data |
 | --- | --- |
-| PostgreSQL | Users, Argon2id password hashes, current role/permissions, unique case-insensitive email addresses, and a UUIDv7 `credential_version` per user. |
+| PostgreSQL | Users, Argon2id password hashes, current role/permissions, unique case-insensitive email addresses, and a UUIDv7 `authentication_snapshot_version` per user. |
 | Redis/Dragonfly | Per-device credential version, absolute expiration, and a user session generation for both mechanisms. Browser credentials have digest lookup keys; JWT sessions additionally store current/previous refresh digests, public rotation claims, and a fixed overlap deadline. Session and lookup keys expire automatically; generation keys remain until explicitly cleaned up. Rate-limit keys expire after their window. |
 
 Every browser-session or access-token authentication checks the Redis session
@@ -100,14 +100,18 @@ revocation or authorization checks. Authentication must read PostgreSQL primary
 state; replica lag would delay credential and permission changes.
 
 Migration `000004_add_authentication` adds a database trigger that changes the
-credential version whenever the password hash or email changes. Existing
-`UserService.Update` password changes therefore invalidate browser sessions and
+credential version whenever the password hash or email changes. Migration
+`000008_security_refactor` renames the column, its constraints, the trigger, and
+its function to use `authentication_snapshot_version`. Migration
+`000009_add_user_timestamps` adds database-owned account timestamps and the
+update timestamp used for optimistic writes. Password changes therefore
+invalidate browser sessions and
 access/refresh tokens on **all devices, including the current one**, without a
-separate Redis operation. User updates compare the originally loaded password hash atomically
+separate Redis operation. User updates compare the loaded `UpdatedAt` atomically
 in SQL; a concurrent password change rejects the stale update with
 `security.ErrUserConflict`, preventing a profile update from restoring the old
 password. To change passwords through the repository, load the existing user,
-call `SetPasswordHash`, and then `Update`; reload the user before another update.
+assign `PasswordHash`, and then call `Update`; reload the user before another update.
 This also works for direct SQL password updates. Existing in-flight
 requests may finish; subsequent authentication checks reject the old version.
 

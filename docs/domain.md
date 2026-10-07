@@ -8,7 +8,20 @@ The Security domain describes a person recognized by the system and the informat
 
 A user has an identity, a role ID, an email address, a phone number, a password credential, a first name, and a last name. The identity distinguishes one user from another. The role ID identifies the user's role. Contact details and names may change without changing that identity.
 
-The application `UserService` creates users with a generated UUIDv7 and a hashed password. Creation requires a nonblank password of at least eight characters, bounded at 4096 bytes. Updates replace the role, contact details, and names; omitting a new password preserves the current hash. Deletion uses the user ID. The service constructs validated domain values before accessing the repository. User IDs must be nonzero, including when constructing or changing a user directly.
+Application user creation generates a UUIDv7 and hashes a validated password.
+`Password.Validate` requires nonblank input of at least six characters, bounded
+at 4096 bytes. Updates replace the role, contact details, and names; omitting a
+new password preserves the current hash. Deletion uses the user ID. Application
+services validate domain values before accessing the repository. Domain
+constructors retain values without validation; `User.Validate` rejects zero user
+and role IDs and invalid account fields. The exported fields allow construction
+and modification before explicit validation.
+
+User records expose creation and update times and the last changes to email,
+phone, and password. PostgreSQL owns these timestamps. Repository creation uses
+database defaults; reload to obtain them. Repository updates compare the loaded
+`UpdatedAt` atomically and reject stale writes with `ErrUserConflict`. Reload
+after every successful update before updating the user again.
 
 ### Role
 
@@ -29,7 +42,7 @@ for existing sessions. A role assigned to any user cannot be deleted. PostgreSQL
 enforces this restriction and removes an unused role's name and translations
 atomically when the role is deleted.
 
-`RoleFilters` belongs to the Security domain. UUID and name filters match literal,
+`RoleFilter` belongs to the Security domain. UUID and name filters match literal,
 case-insensitive substrings, and name filtering searches every translation. All
 selected permissions must match; super roles satisfy any permission selection.
 An optional super filter distinguishes any role, super roles, and ordinary roles.
@@ -61,15 +74,21 @@ does not implicitly grant the corresponding view permission.
 - A phone number uses international notation: a plus sign followed by 2 to 15 digits, with a nonzero first digit. Spaces and punctuation are not allowed.
 - The password credential is stored as a nonempty hash. `PasswordHasher` rejects empty passwords when hashing and verifies candidates against stored credentials. The Argon2id implementation uses 64 MiB, three passes, four lanes, a random 16-byte salt, and a 32-byte derived key. Its encoded hash includes the algorithm version and parameters.
 - First and last names must each contain a non-whitespace character and be no longer than 100 characters.
-- An invalid change to contact details, the credential, a name, a role ID, or role permissions leaves the existing value intact.
+- Validation does not modify aggregate state. Repositories reject invalid account fields, role names, and permissions before writing.
 - Role IDs must be nonzero UUIDs.
 
 Authentication mechanisms are coordinated in the application layer.
 `security.Session` holds transport-independent server-side device state,
 `security.TokenSession` adds refresh state for JWT, and `security.Principal`
 contains the current authenticated identity and role permissions for either
-mechanism. Authorization consumes the principal independently of cookies or
-tokens.
+mechanism. `AuthenticationSnapshot` contains a user and its durable version;
+sessions capture that version at sign-in. Snapshot and principal repositories
+return projections; successful repository lookup alone does not authenticate
+the caller. Session expiration and version comparison belong to application
+orchestration. `SessionResolver[C]` resolves credential-specific session state,
+and `Authenticator[C]` returns the resolved principal. Both accept a context
+and return errors. Authorization consumes the principal independently of cookies
+or tokens.
 
 ## Languages
 

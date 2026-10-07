@@ -57,3 +57,19 @@ and credential versions are preserved. Its down migration restores UUIDv4
 generation for the default and trigger; deploy the previous application version
 when rolling back. Earlier migration files retain their original SQL so applied
 checksums remain valid.
+
+Migration `000008_security_refactor` renames the user credential version to
+`authentication_snapshot_version`, including its nonzero and NOT NULL
+constraints, rotation trigger, and function. Existing version values and the
+UUIDv7 default are preserved. The down migration restores all original names.
+
+Migration `000009_add_user_timestamps` adds `created_at`, `updated_at`, and the
+last email, phone, and password change times. Existing records are initialized
+at migration time because earlier change times are unavailable. An update
+trigger preserves the creation time, updates only the change times whose values
+changed, and advances `updated_at` on every update. Security repositories compare
+the loaded update time to reject stale writes, including profile changes that
+would otherwise restore a concurrently replaced password. Apply both migrations
+before using the refactored Security repositories. Neither migration is executed
+by application startup or this refactor. The down migration removes the timestamp
+trigger, function, and columns.

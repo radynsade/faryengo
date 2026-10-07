@@ -20,9 +20,9 @@ func TestTranslationContentValidate(t *testing.T) {
 		{name: "surrounding whitespace", content: " \tHello\n "},
 		{name: "multiline", content: "Hello\nWorld"},
 		{name: "long content", content: languages.TranslationContent(strings.Repeat("界", 1000))},
-		{name: "empty", want: []error{languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
-		{name: "whitespace", content: " \t\r\n", want: []error{languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
-		{name: "Unicode whitespace", content: "\u00a0\u2003", want: []error{languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
+		{name: "empty", want: []error{languages.ErrInvalidTranslationContent, languages.ErrEmptyTranslationContent}},
+		{name: "whitespace", content: " \t\r\n", want: []error{languages.ErrInvalidTranslationContent, languages.ErrEmptyTranslationContent}},
+		{name: "Unicode whitespace", content: "\u00a0\u2003", want: []error{languages.ErrInvalidTranslationContent, languages.ErrEmptyTranslationContent}},
 		{name: "invalid UTF-8", content: "Hello\xff", want: []error{languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -44,10 +44,10 @@ func TestTextValidate(t *testing.T) {
 		{name: "empty code", text: languages.Text{"": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidCode}},
 		{name: "invalid code", text: languages.Text{"EN": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidCode, languages.ErrInvalidCodeCharacters}},
 		{name: "invalid UTF-8 code", text: languages.Text{"e\xff": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidCode, languages.ErrInvalidCodeCharacters}},
-		{name: "empty content", text: languages.Text{"en": ""}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
-		{name: "whitespace content", text: languages.Text{"en": " \t"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
+		{name: "empty content", text: languages.Text{"en": ""}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrEmptyTranslationContent}},
+		{name: "whitespace content", text: languages.Text{"en": " \t"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrEmptyTranslationContent}},
 		{name: "invalid UTF-8 content", text: languages.Text{"en": "\xff"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
-		{name: "invalid after valid entry", text: languages.Text{"en": "Hello", "lv": " "}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
+		{name: "invalid after valid entry", text: languages.Text{"en": "Hello", "lv": " "}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrEmptyTranslationContent}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			before := maps.Clone(tt.text)
@@ -82,7 +82,7 @@ func TestTextValidateErrorOrder(t *testing.T) {
 		{
 			name:    "earlier invalid content before later invalid code",
 			text:    languages.Text{"en": " ", "lV": "Sveiki"},
-			want:    []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters},
+			want:    []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrEmptyTranslationContent},
 			exclude: languages.ErrInvalidCode,
 		},
 	} {

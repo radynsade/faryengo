@@ -116,13 +116,13 @@ func TestNewLanguage(t *testing.T) {
 		{name: "preserves whitespace", code: "en", english: " English ", native: " English "},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			language, err := languages.NewLanguage(tt.code, tt.english, tt.native, tt.fallback)
+			language := languages.NewLanguage(tt.code, tt.english, tt.native, tt.fallback)
 
-			if err != nil || language == nil {
-				t.Fatalf("NewLanguage() = (%v, %v), want language and nil error", language, err)
+			if language == nil {
+				t.Fatal("NewLanguage() returned nil")
 			}
 
-			if language.Code() != tt.code || language.EnglishName() != tt.english || language.NativeName() != tt.native || language.IsFallback() != tt.fallback {
+			if language.Code != tt.code || language.EnglishName != tt.english || language.NativeName != tt.native || language.IsFallback != tt.fallback {
 				t.Fatal("NewLanguage() did not retain the supplied values")
 			}
 
@@ -131,35 +131,48 @@ func TestNewLanguage(t *testing.T) {
 	}
 }
 
-func TestLanguageSetIsFallback(t *testing.T) {
+func TestLanguageValidateFieldChanges(t *testing.T) {
 	for _, tt := range []struct {
-		name    string
-		initial bool
-		updated bool
+		name            string
+		initialFallback bool
+		change          func(*languages.Language)
+		want            []error
 	}{
-		{name: "enable", updated: true},
-		{name: "disable", initial: true},
-		{name: "keep enabled", initial: true, updated: true},
-		{name: "keep disabled"},
+		{name: "valid code", change: func(language *languages.Language) { language.Code = "en" }},
+		{
+			name:   "invalid code",
+			change: func(language *languages.Language) { language.Code = "LV" },
+			want:   []error{languages.ErrInvalidLanguage, languages.ErrInvalidCode, languages.ErrInvalidCodeCharacters},
+		},
+		{name: "valid English name", change: func(language *languages.Language) { language.EnglishName = " Latvian " }},
+		{
+			name:   "invalid English name",
+			change: func(language *languages.Language) { language.EnglishName = "" },
+			want:   []error{languages.ErrInvalidLanguage, languages.ErrInvalidEnglishName, languages.ErrEmptyEnglishName},
+		},
+		{name: "valid native name", change: func(language *languages.Language) { language.NativeName = " Latviešu " }},
+		{
+			name:   "invalid native name",
+			change: func(language *languages.Language) { language.NativeName = "" },
+			want:   []error{languages.ErrInvalidLanguage, languages.ErrInvalidNativeName, languages.ErrEmptyNativeName},
+		},
+		{name: "enable fallback", change: func(language *languages.Language) { language.IsFallback = true }},
+		{name: "disable fallback", initialFallback: true, change: func(language *languages.Language) { language.IsFallback = false }},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			language, err := languages.NewLanguage("lv", "Latvian", "Latviešu", tt.initial)
+			language := languages.NewLanguage("lv", "Latvian", "Latviešu", tt.initialFallback)
 
-			if err != nil || language == nil {
-				t.Fatalf("NewLanguage() = (%v, %v), want language and nil error", language, err)
+			if language == nil {
+				t.Fatal("NewLanguage() returned nil")
 			}
 
-			language.SetIsFallback(tt.updated)
+			tt.change(language)
+			before := *language
+			assertValidationErrors(t, language.Validate(), tt.want...)
 
-			if language.IsFallback() != tt.updated {
-				t.Errorf("IsFallback() = %v, want %v", language.IsFallback(), tt.updated)
+			if *language != before {
+				t.Fatal("Validate() changed the language state")
 			}
-
-			if language.Code() != "lv" || language.EnglishName() != "Latvian" || language.NativeName() != "Latviešu" {
-				t.Fatal("SetIsFallback() changed the language code or names")
-			}
-
-			assertValidationErrors(t, language.Validate())
 		})
 	}
 }
@@ -185,20 +198,20 @@ func TestLanguageValidate(t *testing.T) {
 		{name: "English validated before native", code: "lv", want: []error{languages.ErrInvalidLanguage, languages.ErrInvalidEnglishName, languages.ErrEmptyEnglishName}, exclude: languages.ErrInvalidNativeName},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			language, err := languages.NewLanguage(tt.code, tt.english, tt.native, false)
+			language := languages.NewLanguage(tt.code, tt.english, tt.native, false)
 
-			if err != nil || language == nil {
-				t.Fatalf("NewLanguage() = (%v, %v), want language and nil error before validation", language, err)
+			if language == nil {
+				t.Fatal("NewLanguage() returned nil before validation")
 			}
 
-			err = language.Validate()
+			err := language.Validate()
 			assertValidationErrors(t, err, tt.want...)
 
 			if tt.exclude != nil && errors.Is(err, tt.exclude) {
 				t.Errorf("Validate() error = %v, must stop before %v", err, tt.exclude)
 			}
 
-			if language.Code() != tt.code || language.EnglishName() != tt.english || language.NativeName() != tt.native || language.IsFallback() {
+			if language.Code != tt.code || language.EnglishName != tt.english || language.NativeName != tt.native || language.IsFallback {
 				t.Fatal("Validate() changed the language state")
 			}
 		})

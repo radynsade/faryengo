@@ -7,6 +7,7 @@ import (
 
 	"github.com/doug-martin/goqu/v9"
 	_ "github.com/doug-martin/goqu/v9/dialect/postgres"
+	"github.com/doug-martin/goqu/v9/exp"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -19,8 +20,10 @@ import (
 //
 
 var (
-	ErrNilPool     = errors.New("nil PostgreSQL pool")
-	ErrNilLanguage = errors.New("nil language")
+	ErrNilPool             = errors.New("nil PostgreSQL pool")
+	ErrNilLanguage         = errors.New("nil language")
+	ErrNilTransaction      = errors.New("nil PostgreSQL transaction")
+	ErrTransactionRequired = errors.New("language locking requires a PostgreSQL transaction")
 )
 
 type errLanguageWriteFailed struct {
@@ -95,8 +98,14 @@ func (e *errLanguageDeleteFailed) Error() string {
 // Repository
 //
 
+type languageDB interface {
+	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+}
+
 type LanguageRepository struct {
-	pool *pgxpool.Pool
+	pool languageDB
 }
 
 var _ languages.LanguageRepository = (*LanguageRepository)(nil)
@@ -111,6 +120,23 @@ func NewLanguageRepository(pool *pgxpool.Pool) (*LanguageRepository, error) {
 		err = ErrNilPool
 	} else {
 		repository = &LanguageRepository{pool: pool}
+	}
+
+	return repository, err
+}
+
+// WithTx returns a repository whose reads and writes use tx. The caller owns
+// committing or rolling back the transaction; the original repository is unchanged.
+func (r *LanguageRepository) WithTx(tx pgx.Tx) (*LanguageRepository, error) {
+	var repository *LanguageRepository
+	var err error
+
+	if r == nil || r.pool == nil {
+		err = ErrNilPool
+	} else if tx == nil {
+		err = ErrNilTransaction
+	} else {
+		repository = &LanguageRepository{pool: tx}
 	}
 
 	return repository, err
@@ -131,15 +157,15 @@ func (r *LanguageRepository) Create(
 	} else if validationErr := language.Validate(); validationErr != nil {
 		err = newErrLanguageCreateFailed(language, validationErr)
 	} else {
-		code := string(language.Code())
+		code := string(language.Code)
 
 		query, args, buildErr := goqu.Dialect("postgres").
 			Insert("language").
 			Rows(goqu.Record{
 				"code":         code,
-				"english_name": string(language.EnglishName()),
-				"native_name":  string(language.NativeName()),
-				"is_fallback":  language.IsFallback(),
+				"english_name": string(language.EnglishName),
+				"native_name":  string(language.NativeName),
+				"is_fallback":  language.IsFallback,
 			}).
 			Prepared(true).
 			ToSQL()
@@ -173,14 +199,14 @@ func (r *LanguageRepository) Update(
 	} else if validationErr := language.Validate(); validationErr != nil {
 		err = newErrLanguageUpdateFailed(language, validationErr)
 	} else {
-		code := string(language.Code())
+		code := string(language.Code)
 
 		query, args, buildErr := goqu.Dialect("postgres").
 			Update("language").
 			Set(goqu.Record{
-				"english_name": string(language.EnglishName()),
-				"native_name":  string(language.NativeName()),
-				"is_fallback":  language.IsFallback(),
+				"english_name": string(language.EnglishName),
+				"native_name":  string(language.NativeName),
+				"is_fallback":  language.IsFallback,
 			}).
 			Where(goqu.Ex{"code": code}).
 			Prepared(true).
@@ -251,10 +277,36 @@ func (r *LanguageRepository) FindByCode(
 	} else if validationErr := code.Validate(); validationErr != nil {
 		err = fmt.Errorf("failed to find a language by code: %w", validationErr)
 	} else {
-		language, err = r.find(ctx, goqu.Ex{"code": string(code)})
+		language, err = r.find(ctx, goqu.Ex{"code": string(code)}, false)
 
 		if err != nil {
 			err = fmt.Errorf("failed to find a language %s: %w", code, err)
+		}
+	}
+
+	return language, err
+}
+
+// Find by a code with a pessimistic row lock
+
+func (r *LanguageRepository) FindByCodeForUpdate(
+	ctx context.Context,
+	code languages.Code,
+) (*languages.Language, error) {
+	var language *languages.Language
+	var err error
+
+	if r == nil || r.pool == nil {
+		err = ErrNilPool
+	} else if validationErr := code.Validate(); validationErr != nil {
+		err = fmt.Errorf("failed to find a language by code for update: %w", validationErr)
+	} else if _, transactional := r.pool.(pgx.Tx); !transactional {
+		err = ErrTransactionRequired
+	} else {
+		language, err = r.find(ctx, goqu.Ex{"code": string(code)}, true)
+
+		if err != nil {
+			err = fmt.Errorf("failed to find a language %s for update: %w", code, err)
 		}
 	}
 
@@ -270,7 +322,7 @@ func (r *LanguageRepository) FindFallback(ctx context.Context) (*languages.Langu
 	if r == nil || r.pool == nil {
 		err = ErrNilPool
 	} else {
-		language, err = r.find(ctx, goqu.Ex{"is_fallback": true})
+		language, err = r.find(ctx, goqu.Ex{"is_fallback": true}, false)
 
 		if err != nil {
 			err = fmt.Errorf("failed to find the fallback language: %w", err)
@@ -341,16 +393,22 @@ func (r *LanguageRepository) FindAll(ctx context.Context) ([]*languages.Language
 func (r *LanguageRepository) find(
 	ctx context.Context,
 	filter goqu.Ex,
+	forUpdate bool,
 ) (*languages.Language, error) {
 	var language *languages.Language
 	var err error
 
-	query, args, buildErr := goqu.Dialect("postgres").
+	dataset := goqu.Dialect("postgres").
 		From("language").
 		Select("code", "english_name", "native_name", "is_fallback").
 		Where(filter).
-		Prepared(true).
-		ToSQL()
+		Prepared(true)
+
+	if forUpdate {
+		dataset = dataset.ForUpdate(exp.Wait)
+	}
+
+	query, args, buildErr := dataset.ToSQL()
 
 	if buildErr != nil {
 		err = fmt.Errorf("failed to build the language lookup query: %w", buildErr)
@@ -374,16 +432,14 @@ func scanLanguage(row pgx.Row) (*languages.Language, error) {
 	} else if scanErr != nil {
 		err = fmt.Errorf("scan language: %w", scanErr)
 	} else {
-		language, err = languages.NewLanguage(
+		language = languages.NewLanguage(
 			languages.Code(code),
 			languages.EnglishName(english),
 			languages.NativeName(native),
 			fallback,
 		)
 
-		if err == nil {
-			err = language.Validate()
-		}
+		err = language.Validate()
 
 		if err != nil {
 			err = fmt.Errorf("failed to decode a language: %w", err)

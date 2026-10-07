@@ -7,6 +7,7 @@ import (
 	"net/mail"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -68,31 +69,6 @@ func (p Phone) Validate() error {
 }
 
 //
-// Password hash
-//
-
-var (
-	ErrInvalidPasswordHash = errors.New("invalid password hash")
-	ErrEmptyPasswordHash   = errors.New("is empty")
-)
-
-type PasswordHash string
-
-func (p PasswordHash) Validate() error {
-	var err error
-
-	if strings.TrimSpace(string(p)) == "" {
-		err = ErrEmptyPasswordHash
-	}
-
-	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrInvalidPasswordHash, err)
-	}
-
-	return err
-}
-
-//
 // First name
 //
 
@@ -112,21 +88,17 @@ func (n FirstName) Validate() error {
 
 	if strings.TrimSpace(string(n)) == "" {
 		err = ErrEmptyFirstName
-	}
-
-	if utf8.RuneCountInString(string(n)) > MaximumFirstNameLength {
-		err = ErrTooLongFirstName
-	}
-
-	if !utf8.ValidString(string(n)) {
+	} else if !utf8.ValidString(string(n)) {
 		err = ErrInvalidFirstNameCharacters
+	} else if utf8.RuneCountInString(string(n)) > MaximumFirstNameLength {
+		err = ErrTooLongFirstName
 	}
 
 	if err != nil {
 		err = fmt.Errorf("%w: %w", ErrInvalidFirstName, err)
 	}
 
-	return nil
+	return err
 }
 
 //
@@ -149,21 +121,17 @@ func (n LastName) Validate() error {
 
 	if strings.TrimSpace(string(n)) == "" {
 		err = ErrEmptyLastName
-	}
-
-	if utf8.RuneCountInString(string(n)) > MaximumLastNameLength {
-		err = ErrTooLongLastName
-	}
-
-	if !utf8.ValidString(string(n)) {
+	} else if !utf8.ValidString(string(n)) {
 		err = ErrInvalidLastNameCharacters
+	} else if utf8.RuneCountInString(string(n)) > MaximumLastNameLength {
+		err = ErrTooLongLastName
 	}
 
 	if err != nil {
 		err = fmt.Errorf("%w: %w", ErrInvalidLastName, err)
 	}
 
-	return nil
+	return err
 }
 
 //
@@ -171,89 +139,88 @@ func (n LastName) Validate() error {
 //
 
 type User struct {
-	id           UserID
-	roleID       RoleID
-	email        Email
-	phone        Phone
-	passwordHash PasswordHash
-	firstName    FirstName
-	lastName     LastName
+	ID                UserID
+	RoleID            RoleID
+	Email             Email
+	EmailChangedAt    time.Time
+	Phone             Phone
+	PhoneChangedAt    time.Time
+	PasswordHash      PasswordHash
+	PasswordChangedAt time.Time
+	FirstName         FirstName
+	LastName          LastName
+	UpdatedAt         time.Time
+	CreatedAt         time.Time
 }
 
 func NewUser(
 	id UserID,
 	roleID RoleID,
 	email Email,
+	emailChangedAt time.Time,
 	phone Phone,
+	phoneChangedAt time.Time,
 	passwordHash PasswordHash,
+	passwordChangedAt time.Time,
 	firstName FirstName,
 	lastName LastName,
-) (*User, error) {
+	updatedAt time.Time,
+	createdAt time.Time,
+) *User {
 	return &User{
-		id:           id,
-		roleID:       roleID,
-		email:        email,
-		phone:        phone,
-		passwordHash: passwordHash,
-		firstName:    firstName,
-		lastName:     lastName,
-	}, nil
+		ID:                id,
+		RoleID:            roleID,
+		Email:             email,
+		EmailChangedAt:    emailChangedAt,
+		Phone:             phone,
+		PhoneChangedAt:    phoneChangedAt,
+		PasswordHash:      passwordHash,
+		PasswordChangedAt: passwordChangedAt,
+		FirstName:         firstName,
+		LastName:          lastName,
+		UpdatedAt:         updatedAt,
+		CreatedAt:         createdAt,
+	}
 }
 
-func (u *User) ID() UserID {
-	return u.id
-}
+func (u *User) Validate() error {
+	var err error
 
-func (u *User) SetID(id UserID) {
-	u.id = id
-}
+	if u == nil {
+		err = ErrInvalidUser
+	} else {
+		err = u.ID.Validate()
+	}
 
-func (u *User) RoleID() RoleID {
-	return u.roleID
-}
+	if err == nil {
+		err = u.RoleID.Validate()
+	}
 
-func (u *User) SetRoleID(roleID RoleID) {
-	u.roleID = roleID
-}
+	if err == nil {
+		err = u.Email.Validate()
+	}
 
-func (u *User) Email() Email {
-	return u.email
-}
+	if err == nil {
+		err = u.Phone.Validate()
+	}
 
-func (u *User) SetEmail(email Email) {
-	u.email = email
-}
+	if err == nil {
+		err = u.PasswordHash.Validate()
+	}
 
-func (u *User) Phone() Phone {
-	return u.phone
-}
+	if err == nil {
+		err = u.FirstName.Validate()
+	}
 
-func (u *User) SetPhone(phone Phone) {
-	u.phone = phone
-}
+	if err == nil {
+		err = u.LastName.Validate()
+	}
 
-func (u *User) PasswordHash() PasswordHash {
-	return u.passwordHash
-}
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrInvalidUser, err)
+	}
 
-func (u *User) SetPasswordHash(passwordHash PasswordHash) {
-	u.passwordHash = passwordHash
-}
-
-func (u *User) FirstName() FirstName {
-	return u.firstName
-}
-
-func (u *User) SetFirstName(firstName FirstName) {
-	u.firstName = firstName
-}
-
-func (u *User) LastName() LastName {
-	return u.lastName
-}
-
-func (u *User) SetLastName(lastName LastName) {
-	u.lastName = lastName
+	return err
 }
 
 //
@@ -261,8 +228,10 @@ func (u *User) SetLastName(lastName LastName) {
 //
 
 var (
+	ErrInvalidUser       = errors.New("invalid user")
 	ErrUserNotFound      = errors.New("user not found")
 	ErrUserAlreadyExists = errors.New("user already exists")
+	ErrUserConflict      = errors.New("user changed since it was loaded")
 )
 
 type ErrUserCreateFailed interface {
@@ -288,4 +257,5 @@ type UserRepository interface {
 	Update(ctx context.Context, user *User) ErrUserUpdateFailed
 	Delete(ctx context.Context, id UserID) ErrUserDeleteFailed
 	FindByID(ctx context.Context, id UserID) (*User, error)
+	FindByEmail(ctx context.Context, email Email) (*User, error)
 }

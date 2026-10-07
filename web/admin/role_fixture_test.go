@@ -112,17 +112,8 @@ func (httpLanguages) FindFallback(context.Context) (*languages.Language, error) 
 	return nil, languages.ErrLanguageNotFound
 }
 func (httpLanguages) FindAll(context.Context) ([]*languages.Language, error) {
-	en, err := languages.NewLanguage("en", "English", "English", true)
-	var result []*languages.Language
-
-	if err == nil {
-		var lv *languages.Language
-		lv, err = languages.NewLanguage("lv", "Latvian", "Latviešu", false)
-
-		if err == nil {
-			result = []*languages.Language{en, lv}
-		}
-	}
-
-	return result, err
+	return []*languages.Language{
+		languages.NewLanguage("en", "English", "English", true),
+		languages.NewLanguage("lv", "Latvian", "Latviešu", false),
+	}, nil
 }

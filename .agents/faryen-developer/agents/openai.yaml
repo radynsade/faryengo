@@ -1,0 +1,4 @@
+interface:
+  display_name: "Faryen Developer"
+  short_description: "Develop and diagnose code in the Faryen project"
+  default_prompt: "Use $faryen-developer to implement, fix, refactor, or diagnose code in the Faryen project."

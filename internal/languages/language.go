@@ -109,58 +109,48 @@ func (n NativeName) Validate() error {
 //
 
 type Language struct {
-	code        Code
-	englishName EnglishName
-	nativeName  NativeName
-	isFallback  bool
+	Code        Code
+	EnglishName EnglishName
+	NativeName  NativeName
+	IsFallback  bool
 }
 
-var ErrInvalidLanguage = errors.New("invalid language")
+var (
+	ErrInvalidLanguage = errors.New("invalid language")
+	ErrNilLanguage     = errors.New("is nil")
+)
 
 func NewLanguage(
 	code Code,
 	englishName EnglishName,
 	nativeName NativeName,
 	isFallback bool,
-) (*Language, error) {
+) *Language {
 	return &Language{
-		code:        code,
-		englishName: englishName,
-		nativeName:  nativeName,
-		isFallback:  isFallback,
-	}, nil
-}
-
-func (l *Language) Code() Code {
-	return l.code
-}
-
-func (l *Language) EnglishName() EnglishName {
-	return l.englishName
-}
-
-func (l *Language) NativeName() NativeName {
-	return l.nativeName
-}
-
-func (l *Language) IsFallback() bool {
-	return l.isFallback
-}
-
-func (l *Language) SetIsFallback(isFallback bool) {
-	l.isFallback = isFallback
+		Code:        code,
+		EnglishName: englishName,
+		NativeName:  nativeName,
+		IsFallback:  isFallback,
+	}
 }
 
 func (l *Language) Validate() error {
 	var err error
-	err = l.code.Validate()
 
-	if err == nil {
-		err = l.englishName.Validate()
+	if l == nil {
+		err = ErrNilLanguage
 	}
 
 	if err == nil {
-		err = l.nativeName.Validate()
+		err = l.Code.Validate()
+	}
+
+	if err == nil {
+		err = l.EnglishName.Validate()
+	}
+
+	if err == nil {
+		err = l.NativeName.Validate()
 	}
 
 	if err != nil {
@@ -204,6 +194,9 @@ type LanguageRepository interface {
 	Update(ctx context.Context, language *Language) ErrLanguageUpdateFailed
 	Delete(ctx context.Context, code Code) ErrLanguageDeleteFailed
 	FindByCode(ctx context.Context, code Code) (*Language, error)
+	// FindByCodeForUpdate locks the language until the caller's transaction ends.
+	// It requires a repository bound to that transaction.
+	FindByCodeForUpdate(ctx context.Context, code Code) (*Language, error)
 	FindFallback(ctx context.Context) (*Language, error)
 	FindAll(ctx context.Context) ([]*Language, error)
 }
