@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/radynsade/faryengo/internal/languages"
+	"github.com/radynsade/faryengo/pkg/domquery"
 )
 
 //
@@ -164,11 +165,28 @@ type ErrRoleDeleteFailed interface {
 	Unwrap() error
 }
 
+type RoleFilter struct {
+	IDLike      string
+	NameLike    string
+	Permissions []Permission
+	IsSuper     *bool
+}
+
+type RoleSort string
+
+const (
+	RoleSortID      = RoleSort("id")
+	RoleSortName    = RoleSort("name")
+	RoleSortIsSuper = RoleSort("is_super")
+)
+
+type RoleQuery domquery.Query[RoleFilter, RoleSort]
+
 type RoleRepository interface {
 	Create(ctx context.Context, role *Role) ErrRoleCreateFailed
 	Update(ctx context.Context, role *Role) ErrRoleUpdateFailed
 	Delete(ctx context.Context, id RoleID) ErrRoleDeleteFailed
 	FindByID(ctx context.Context, id RoleID) (*Role, error)
-	// Find(ctx context.Context, query RoleQuery) ([]*Role, error)
-	// Count(ctx context.Context, filters RoleFilters) (int, error)
+	Find(ctx context.Context, query RoleQuery) ([]*Role, error)
+	Count(ctx context.Context, filter RoleFilter) (int, error)
 }

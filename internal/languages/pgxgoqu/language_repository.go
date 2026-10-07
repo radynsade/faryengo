@@ -71,15 +71,15 @@ func (e *errLanguageUpdateFailed) Error() string {
 // Implementation of languages.ErrLanguageDeleteFailed
 
 type errLanguageDeleteFailed struct {
-	code languages.LanguageCode
+	code languages.Code
 	err  error
 }
 
-func newErrLanguageDeleteFailed(code languages.LanguageCode, err error) *errLanguageDeleteFailed {
+func newErrLanguageDeleteFailed(code languages.Code, err error) *errLanguageDeleteFailed {
 	return &errLanguageDeleteFailed{code, err}
 }
 
-func (e errLanguageDeleteFailed) LanguageCode() languages.LanguageCode {
+func (e errLanguageDeleteFailed) LanguageCode() languages.Code {
 	return e.code
 }
 
@@ -206,7 +206,7 @@ func (r *LanguageRepository) Update(
 
 func (r *LanguageRepository) Delete(
 	ctx context.Context,
-	code languages.LanguageCode,
+	code languages.Code,
 ) languages.ErrLanguageDeleteFailed {
 	var err languages.ErrLanguageDeleteFailed
 
@@ -241,7 +241,7 @@ func (r *LanguageRepository) Delete(
 
 func (r *LanguageRepository) FindByCode(
 	ctx context.Context,
-	code languages.LanguageCode,
+	code languages.Code,
 ) (*languages.Language, error) {
 	var language *languages.Language
 	var err error
@@ -375,9 +375,9 @@ func scanLanguage(row pgx.Row) (*languages.Language, error) {
 		err = fmt.Errorf("scan language: %w", scanErr)
 	} else {
 		language, err = languages.NewLanguage(
-			languages.LanguageCode(code),
-			languages.LanguageEnglishName(english),
-			languages.LanguageNativeName(native),
+			languages.Code(code),
+			languages.EnglishName(english),
+			languages.NativeName(native),
 			fallback,
 		)
 

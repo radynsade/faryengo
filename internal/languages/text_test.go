@@ -41,9 +41,9 @@ func TestTextValidate(t *testing.T) {
 		{name: "empty map", text: languages.Text{}, want: []error{languages.ErrInvalidText, languages.ErrTextHasNoTranslations}},
 		{name: "single translation", text: languages.Text{"en": "Hello"}},
 		{name: "multilingual", text: languages.Text{"lv": "Sveiki", "en": "Hello", "ja": "こんにちは"}},
-		{name: "empty code", text: languages.Text{"": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode}},
-		{name: "invalid code", text: languages.Text{"EN": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode, languages.ErrInvalidLanguageCodeCharacters}},
-		{name: "invalid UTF-8 code", text: languages.Text{"e\xff": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode, languages.ErrInvalidLanguageCodeCharacters}},
+		{name: "empty code", text: languages.Text{"": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidCode}},
+		{name: "invalid code", text: languages.Text{"EN": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidCode, languages.ErrInvalidCodeCharacters}},
+		{name: "invalid UTF-8 code", text: languages.Text{"e\xff": "Hello"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidCode, languages.ErrInvalidCodeCharacters}},
 		{name: "empty content", text: languages.Text{"en": ""}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
 		{name: "whitespace content", text: languages.Text{"en": " \t"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
 		{name: "invalid UTF-8 content", text: languages.Text{"en": "\xff"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters}},
@@ -70,20 +70,20 @@ func TestTextValidateErrorOrder(t *testing.T) {
 		{
 			name:    "code before content for the same entry",
 			text:    languages.Text{"EN": " "},
-			want:    []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode, languages.ErrInvalidLanguageCodeCharacters},
+			want:    []error{languages.ErrInvalidText, languages.ErrInvalidCode, languages.ErrInvalidCodeCharacters},
 			exclude: languages.ErrInvalidTranslationContent,
 		},
 		{
 			name:    "earlier invalid code before later invalid content",
 			text:    languages.Text{"EN": "Hello", "lv": " "},
-			want:    []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode, languages.ErrInvalidLanguageCodeCharacters},
+			want:    []error{languages.ErrInvalidText, languages.ErrInvalidCode, languages.ErrInvalidCodeCharacters},
 			exclude: languages.ErrInvalidTranslationContent,
 		},
 		{
 			name:    "earlier invalid content before later invalid code",
 			text:    languages.Text{"en": " ", "lV": "Sveiki"},
 			want:    []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent, languages.ErrInvalidTranslationContentCharacters},
-			exclude: languages.ErrInvalidLanguageCode,
+			exclude: languages.ErrInvalidCode,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

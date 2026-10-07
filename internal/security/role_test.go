@@ -32,7 +32,7 @@ func TestRoleValidate(t *testing.T) {
 		{name: "zero values", want: []error{security.ErrInvalidRoleID}, exclude: languages.ErrInvalidText},
 		{name: "nil name", id: validID, want: []error{languages.ErrInvalidText, languages.ErrTextHasNoTranslations}},
 		{name: "empty name", id: validID, roleName: languages.Text{}, want: []error{languages.ErrInvalidText, languages.ErrTextHasNoTranslations}},
-		{name: "invalid language code", id: validID, roleName: languages.Text{"EN": "Administrator"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidLanguageCode}},
+		{name: "invalid language code", id: validID, roleName: languages.Text{"EN": "Administrator"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidCode}},
 		{name: "blank translation", id: validID, roleName: languages.Text{"en": " \t"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent}},
 		{name: "invalid UTF-8 translation", id: validID, roleName: languages.Text{"en": "\xff"}, want: []error{languages.ErrInvalidText, languages.ErrInvalidTranslationContent}},
 		{name: "invalid later permission", id: validID, roleName: validName, permissions: []security.Permission{security.PermissionViewRole, "unknown"}, want: []error{security.ErrInvalidPermission}},

@@ -27,25 +27,25 @@ func TestCreateLanguageServiceDomainInputs(t *testing.T) {
 		{
 			name:       "invalid code",
 			request:    input.CreateLanguageInput{Code: "LV", EnglishName: "Latvian", NativeName: "Latviešu"},
-			wantErrors: []error{languages.ErrInvalidLanguageCodeCharacters},
+			wantErrors: []error{languages.ErrInvalidCodeCharacters},
 			wantFields: []string{"code"},
 		},
 		{
 			name:       "blank English name",
 			request:    input.CreateLanguageInput{Code: "lv", EnglishName: " ", NativeName: "Latviešu"},
-			wantErrors: []error{languages.ErrInvalidLanguageEnglishNameCharacters},
+			wantErrors: []error{languages.ErrInvalidEnglishNameCharacters},
 			wantFields: []string{"english name"},
 		},
 		{
 			name:       "long native name",
 			request:    input.CreateLanguageInput{Code: "lv", EnglishName: "Latvian", NativeName: strings.Repeat("a", 101)},
-			wantErrors: []error{languages.ErrInvalidLanguageNativeName},
+			wantErrors: []error{languages.ErrInvalidNativeName},
 			wantFields: []string{"native name"},
 		},
 		{
 			name:       "all fields invalid",
 			request:    input.CreateLanguageInput{Code: "", EnglishName: "", NativeName: ""},
-			wantErrors: []error{languages.ErrInvalidLanguageCodeCharacters, languages.ErrInvalidLanguageEnglishNameCharacters, languages.ErrInvalidLanguageNativeName},
+			wantErrors: []error{languages.ErrInvalidCodeCharacters, languages.ErrInvalidEnglishNameCharacters, languages.ErrInvalidNativeName},
 			wantFields: []string{"code", "english name", "native name"},
 		},
 	} {

@@ -16,13 +16,20 @@ type TranslationContent string
 var (
 	ErrInvalidTranslationContent           = errors.New("invalid translation content")
 	ErrInvalidTranslationContentCharacters = errors.New("invalid characters")
+	ErrEmptyTranslationContent             = errors.New("is empty")
 )
 
 func (tc TranslationContent) Validate() error {
 	var err error
 
-	if strings.TrimSpace(string(tc)) == "" || !utf8.ValidString(string(tc)) {
-		err = fmt.Errorf("%w: %w", ErrInvalidTranslationContent, ErrInvalidTranslationContentCharacters)
+	if strings.TrimSpace(string(tc)) == "" {
+		err = ErrEmptyTranslationContent
+	} else if !utf8.ValidString(string(tc)) {
+		err = ErrInvalidTranslationContentCharacters
+	}
+
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrInvalidTranslationContent, err)
 	}
 
 	return err
@@ -30,7 +37,7 @@ func (tc TranslationContent) Validate() error {
 
 // Text
 
-type Text map[LanguageCode]TranslationContent
+type Text map[Code]TranslationContent
 
 var (
 	ErrInvalidText           = errors.New("invalid text")
@@ -41,23 +48,25 @@ func (t Text) Validate() error {
 	var err error
 
 	if len(t) == 0 {
-		err = fmt.Errorf("%w: %w", ErrInvalidText, ErrTextHasNoTranslations)
+		err = ErrTextHasNoTranslations
 	} else {
 		for _, code := range slices.Sorted(maps.Keys(t)) {
 			err = code.Validate()
 
 			if err != nil {
-				err = fmt.Errorf("%w: %w", ErrInvalidText, err)
 				break
 			}
 
 			err = t[code].Validate()
 
 			if err != nil {
-				err = fmt.Errorf("%w: %w", ErrInvalidText, err)
 				break
 			}
 		}
+	}
+
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrInvalidText, err)
 	}
 
 	return err

@@ -35,7 +35,7 @@ func TestParseCreateRole(t *testing.T) {
 		{name: "role permission equals", args: []string{"security", "create-role", "en:Administrator|lv:Administrators", "--permission=manage_role", "--permission=view_role"}, permissions: []security.Permission{security.PermissionManageRole, security.PermissionViewRole}},
 		{name: "separator", args: []string{"security", "create-role", "--", "en:Administrator|lv:Administrators"}},
 		{name: "malformed translations", args: []string{"security", "create-role", "en:Name|broken"}, want: appinput.ErrInvalidStringTranslations},
-		{name: "invalid code", args: []string{"security", "create-role", "EN:Name"}, want: languages.ErrInvalidLanguageCodeCharacters},
+		{name: "invalid code", args: []string{"security", "create-role", "EN:Name"}, want: languages.ErrInvalidCodeCharacters},
 		{name: "blank name", args: []string{"security", "create-role", "en: "}, want: languages.ErrInvalidTranslationContentCharacters},
 		{name: "invalid permission", args: []string{"security", "create-role", "en:Name", "-p", "unknown"}, want: security.ErrInvalidPermission},
 		{name: "empty permission", args: []string{"security", "create-role", "en:Name", "--permission="}, want: security.ErrInvalidPermission},

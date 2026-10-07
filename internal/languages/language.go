@@ -10,77 +10,95 @@ import (
 )
 
 //
-// Alpha-2 language code
+// Alpha-2 code
 //
 
-type LanguageCode string
+type Code string
 
 var (
-	ErrInvalidLanguageCode           = errors.New("invalid language code")
-	ErrInvalidLanguageCodeCharacters = errors.New("invalid characters")
-	ErrWrongLanguageCodeLength       = errors.New("is not 2 characters long")
-	languageCodePattern              = regexp.MustCompile(`^[a-z]{2}$`)
+	ErrInvalidCode           = errors.New("invalid language code")
+	ErrInvalidCodeCharacters = errors.New("invalid characters")
+	ErrWrongCodeLength       = errors.New("is not 2 characters long")
+	codePattern              = regexp.MustCompile(`^[a-z]{2}$`)
 )
 
-func (c LanguageCode) Validate() error {
+func (c Code) Validate() error {
 	var err error
 
-	if !utf8.ValidString(string(c)) || !languageCodePattern.MatchString(string(c)) {
-		err = fmt.Errorf("%w: %w", ErrInvalidLanguageCode, ErrInvalidLanguageCodeCharacters)
-	} else if utf8.RuneCountInString(string(c)) > 2 {
-		err = fmt.Errorf("%w: %w", ErrInvalidLanguageCode, ErrWrongLanguageCodeLength)
+	if !utf8.ValidString(string(c)) || !codePattern.MatchString(string(c)) {
+		err = ErrInvalidCodeCharacters
+	} else if utf8.RuneCountInString(string(c)) != 2 {
+		err = ErrWrongCodeLength
+	}
+
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrInvalidCode, err)
 	}
 
 	return err
 }
 
 //
-// Language english name
+// English name
 //
 
-type LanguageEnglishName string
+type EnglishName string
 
-const MaximumLanguageEnglishNameLength = 100
+const MaximumEnglishNameLength = 100
 
 var (
-	ErrInvalidLanguageEnglishName           = errors.New("invalid English name")
-	ErrInvalidLanguageEnglishNameCharacters = errors.New("invalid characters")
-	ErrTooLongLanguageEnglishName           = fmt.Errorf("exceeds the limit of %d characters", MaximumLanguageEnglishNameLength)
+	ErrInvalidEnglishName           = errors.New("invalid English name")
+	ErrInvalidEnglishNameCharacters = errors.New("invalid characters")
+	ErrEmptyEnglishName             = errors.New("is empty")
+	ErrTooLongEnglishName           = fmt.Errorf("exceeds the limit of %d characters", MaximumEnglishNameLength)
 )
 
-func (n LanguageEnglishName) Validate() error {
+func (n EnglishName) Validate() error {
 	var err error
 
-	if strings.TrimSpace(string(n)) == "" || !utf8.ValidString(string(n)) {
-		err = fmt.Errorf("%w: %w", ErrInvalidLanguageEnglishName, ErrInvalidLanguageEnglishNameCharacters)
-	} else if utf8.RuneCountInString(string(n)) > MaximumLanguageEnglishNameLength {
-		err = fmt.Errorf("%w: %w", ErrInvalidLanguageEnglishName, ErrTooLongLanguageEnglishName)
+	if strings.TrimSpace(string(n)) == "" {
+		err = ErrEmptyEnglishName
+	} else if !utf8.ValidString(string(n)) {
+		err = ErrInvalidEnglishNameCharacters
+	} else if utf8.RuneCountInString(string(n)) > MaximumEnglishNameLength {
+		err = ErrTooLongEnglishName
+	}
+
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrInvalidEnglishName, err)
 	}
 
 	return err
 }
 
 //
-// Language native name
+// Native name
 //
 
-type LanguageNativeName string
+type NativeName string
 
-const MaximumLanguageNativeNameLength = 100
+const MaximumNativeNameLength = 100
 
 var (
-	ErrInvalidLanguageNativeName           = errors.New("invalid English name")
-	ErrInvalidLanguageNativeNameCharacters = errors.New("invalid characters")
-	ErrTooLongLanguageNativeName           = fmt.Errorf("exceeds the limit of %d characters", MaximumLanguageNativeNameLength)
+	ErrInvalidNativeName           = errors.New("invalid English name")
+	ErrInvalidNativeNameCharacters = errors.New("invalid characters")
+	ErrEmptyNativeName             = errors.New("is empty")
+	ErrTooLongNativeName           = fmt.Errorf("exceeds the limit of %d characters", MaximumNativeNameLength)
 )
 
-func (n LanguageNativeName) Validate() error {
+func (n NativeName) Validate() error {
 	var err error
 
-	if strings.TrimSpace(string(n)) == "" || !utf8.ValidString(string(n)) {
-		err = fmt.Errorf("%w: %w", ErrInvalidLanguageNativeName, ErrInvalidLanguageNativeNameCharacters)
-	} else if utf8.RuneCountInString(string(n)) > MaximumLanguageEnglishNameLength {
-		err = fmt.Errorf("%w: %w", ErrInvalidLanguageNativeName, ErrTooLongLanguageNativeName)
+	if strings.TrimSpace(string(n)) == "" {
+		err = ErrEmptyNativeName
+	} else if !utf8.ValidString(string(n)) {
+		err = ErrInvalidNativeNameCharacters
+	} else if utf8.RuneCountInString(string(n)) > MaximumEnglishNameLength {
+		err = ErrTooLongNativeName
+	}
+
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrInvalidNativeName, err)
 	}
 
 	return err
@@ -91,18 +109,18 @@ func (n LanguageNativeName) Validate() error {
 //
 
 type Language struct {
-	code        LanguageCode
-	englishName LanguageEnglishName
-	nativeName  LanguageNativeName
+	code        Code
+	englishName EnglishName
+	nativeName  NativeName
 	isFallback  bool
 }
 
 var ErrInvalidLanguage = errors.New("invalid language")
 
 func NewLanguage(
-	code LanguageCode,
-	englishName LanguageEnglishName,
-	nativeName LanguageNativeName,
+	code Code,
+	englishName EnglishName,
+	nativeName NativeName,
 	isFallback bool,
 ) (*Language, error) {
 	return &Language{
@@ -113,15 +131,15 @@ func NewLanguage(
 	}, nil
 }
 
-func (l *Language) Code() LanguageCode {
+func (l *Language) Code() Code {
 	return l.code
 }
 
-func (l *Language) EnglishName() LanguageEnglishName {
+func (l *Language) EnglishName() EnglishName {
 	return l.englishName
 }
 
-func (l *Language) NativeName() LanguageNativeName {
+func (l *Language) NativeName() NativeName {
 	return l.nativeName
 }
 
@@ -135,17 +153,18 @@ func (l *Language) SetIsFallback(isFallback bool) {
 
 func (l *Language) Validate() error {
 	var err error
+	err = l.code.Validate()
 
-	if err := l.code.Validate(); err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidLanguage, err)
+	if err == nil {
+		err = l.englishName.Validate()
 	}
 
-	if err := l.englishName.Validate(); err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidLanguage, err)
+	if err == nil {
+		err = l.nativeName.Validate()
 	}
 
-	if err := l.nativeName.Validate(); err != nil {
-		return fmt.Errorf("%w: %w", ErrInvalidLanguage, err)
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrInvalidLanguage, err)
 	}
 
 	return err
@@ -176,15 +195,15 @@ type ErrLanguageUpdateFailed interface {
 
 type ErrLanguageDeleteFailed interface {
 	error
-	LanguageCode() LanguageCode
+	LanguageCode() Code
 	Unwrap() error
 }
 
 type LanguageRepository interface {
 	Create(ctx context.Context, language *Language) ErrLanguageCreateFailed
 	Update(ctx context.Context, language *Language) ErrLanguageUpdateFailed
-	Delete(ctx context.Context, code LanguageCode) ErrLanguageDeleteFailed
-	FindByCode(ctx context.Context, code LanguageCode) (*Language, error)
+	Delete(ctx context.Context, code Code) ErrLanguageDeleteFailed
+	FindByCode(ctx context.Context, code Code) (*Language, error)
 	FindFallback(ctx context.Context) (*Language, error)
 	FindAll(ctx context.Context) ([]*Language, error)
 }

@@ -20,7 +20,7 @@ func TestCreateRoleServiceDomainInputs(t *testing.T) {
 		{name: "role permissions", request: input.CreateRoleInput{Name: map[string]string{"en": "Role manager"}, Permissions: []security.Permission{security.PermissionManageRole, security.PermissionViewRole}}},
 		{name: "super", request: input.CreateRoleInput{Name: map[string]string{"en": "Super"}, IsSuper: true}},
 		{name: "missing name", want: []error{security.ErrInvalidRoleName}},
-		{name: "invalid translation", request: input.CreateRoleInput{Name: map[string]string{"EN": "Name", "lv": " "}, Permissions: []security.Permission{"unknown"}}, want: []error{languages.ErrInvalidLanguageCodeCharacters, languages.ErrInvalidTranslationContentCharacters, security.ErrInvalidPermission}},
+		{name: "invalid translation", request: input.CreateRoleInput{Name: map[string]string{"EN": "Name", "lv": " "}, Permissions: []security.Permission{"unknown"}}, want: []error{languages.ErrInvalidCodeCharacters, languages.ErrInvalidTranslationContentCharacters, security.ErrInvalidPermission}},
 		{name: "invalid UTF8", request: input.CreateRoleInput{Name: map[string]string{"en": "\xff"}}, want: []error{languages.ErrInvalidTranslationContentCharacters}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

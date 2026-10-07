@@ -38,7 +38,7 @@ func TestParseCreateLanguage(t *testing.T) {
 		{name: "wrong group", args: []string{"language", "create-language", "lv", "Latvian", "Latviešu"}, wantError: errInvalidCommand},
 		{name: "wrong operation", args: []string{"languages", "create", "lv", "Latvian", "Latviešu"}, wantError: errInvalidCommand},
 		{name: "missing native name", args: []string{"languages", "create-language", "lv", "Latvian"}, wantError: errInvalidCommand},
-		{name: "invalid code", args: []string{"languages", "create-language", "LV", "Latvian", "Latviešu"}, wantError: languages.ErrInvalidLanguageCodeCharacters},
+		{name: "invalid code", args: []string{"languages", "create-language", "LV", "Latvian", "Latviešu"}, wantError: languages.ErrInvalidCodeCharacters},
 		{name: "extra argument", args: []string{"languages", "create-language", "lv", "Latvian", "Latviešu", "extra"}, wantError: errInvalidCommand},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -47,7 +47,7 @@ func TestParseCreateLanguage(t *testing.T) {
 				t.Fatalf("parseCreateLanguage(%v) = (%+v, %v), want (%q, %q, %q, %v)", tt.args, input, err, tt.wantCode, tt.wantEN, tt.wantName, tt.wantError)
 			}
 
-			if errors.Is(tt.wantError, languages.ErrInvalidLanguageCodeCharacters) && !errors.Is(err, appinput.ErrInvalidCreateLanguageInput) {
+			if errors.Is(tt.wantError, languages.ErrInvalidCodeCharacters) && !errors.Is(err, appinput.ErrInvalidCreateLanguageInput) {
 				t.Fatalf("parseCreateLanguage() error = %v, want ErrInvalidCreateLanguageInput", err)
 			}
 		})
@@ -122,7 +122,7 @@ func TestParseDeleteLanguage(t *testing.T) {
 
 type fakeCLIRepository struct {
 	context    context.Context
-	deleteCode languages.LanguageCode
+	deleteCode languages.Code
 	deleteErr  error
 	calls      int
 	created    *languages.Language
@@ -134,14 +134,14 @@ func (f *fakeCLIRepository) Create(ctx context.Context, language *languages.Lang
 	return nil
 }
 func (f *fakeCLIRepository) Update(context.Context, *languages.Language) error { return nil }
-func (f *fakeCLIRepository) Delete(ctx context.Context, code languages.LanguageCode) error {
+func (f *fakeCLIRepository) Delete(ctx context.Context, code languages.Code) error {
 	f.context = ctx
 	f.deleteCode = code
 	f.calls++
 	return f.deleteErr
 }
 
-func (f *fakeCLIRepository) FindByCode(context.Context, languages.LanguageCode) (*languages.Language, error) {
+func (f *fakeCLIRepository) FindByCode(context.Context, languages.Code) (*languages.Language, error) {
 	return nil, languages.ErrLanguageNotFound
 }
 

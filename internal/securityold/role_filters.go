@@ -81,7 +81,7 @@ type RoleQuery struct {
 	Descending bool
 	Page       int
 	PageSize   int
-	Language   languages.LanguageCode
+	Language   languages.Code
 }
 
 func (q RoleQuery) Validate() error {

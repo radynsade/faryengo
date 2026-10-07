@@ -15,7 +15,7 @@ type fakeLanguageRepository struct {
 	err               error
 	calls             int
 	updateCalls       int
-	deleteCode        languages.LanguageCode
+	deleteCode        languages.Code
 	deleteErr         error
 	deleteCalls       int
 	fallback          *languages.Language
@@ -35,14 +35,14 @@ func (f *fakeLanguageRepository) Update(context.Context, *languages.Language) er
 	return nil
 }
 
-func (f *fakeLanguageRepository) Delete(ctx context.Context, code languages.LanguageCode) error {
+func (f *fakeLanguageRepository) Delete(ctx context.Context, code languages.Code) error {
 	f.context = ctx
 	f.deleteCode = code
 	f.deleteCalls++
 	return f.deleteErr
 }
 
-func (f *fakeLanguageRepository) FindByCode(context.Context, languages.LanguageCode) (*languages.Language, error) {
+func (f *fakeLanguageRepository) FindByCode(context.Context, languages.Code) (*languages.Language, error) {
 	return nil, languages.ErrLanguageNotFound
 }
 
@@ -72,9 +72,9 @@ func TestLanguageServiceCreateLanguage(t *testing.T) {
 		wantCalls int
 	}{
 		{name: "created", input: valid, wantCalls: 1},
-		{name: "invalid code", input: appinput.CreateLanguageInput{Code: "LV", EnglishName: "Latvian", NativeName: "Latviešu"}, wantErr: languages.ErrInvalidLanguageCodeCharacters},
-		{name: "invalid English name", input: appinput.CreateLanguageInput{Code: "lv", NativeName: "Latviešu"}, wantErr: languages.ErrInvalidLanguageEnglishNameCharacters},
-		{name: "invalid native name", input: appinput.CreateLanguageInput{Code: "lv", EnglishName: "Latvian"}, wantErr: languages.ErrInvalidLanguageNativeName},
+		{name: "invalid code", input: appinput.CreateLanguageInput{Code: "LV", EnglishName: "Latvian", NativeName: "Latviešu"}, wantErr: languages.ErrInvalidCodeCharacters},
+		{name: "invalid English name", input: appinput.CreateLanguageInput{Code: "lv", NativeName: "Latviešu"}, wantErr: languages.ErrInvalidEnglishNameCharacters},
+		{name: "invalid native name", input: appinput.CreateLanguageInput{Code: "lv", EnglishName: "Latvian"}, wantErr: languages.ErrInvalidNativeName},
 		{name: "duplicate", input: valid, createErr: languages.ErrLanguageAlreadyExists, wantErr: languages.ErrLanguageAlreadyExists, wantCalls: 1},
 		{name: "repository error", input: valid, createErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantCalls: 1},
 	} {
@@ -94,7 +94,7 @@ func TestLanguageServiceCreateLanguage(t *testing.T) {
 				t.Fatalf("CreateLanguage() error = %v, want ErrInvalidCreateLanguageInput", err)
 			}
 
-			if tt.wantCalls == 1 && (repository.context != ctx || repository.language.Code() != languages.LanguageCode(tt.input.Code) || repository.language.EnglishName() != languages.LanguageEnglishName(tt.input.EnglishName) || repository.language.NativeName() != languages.LanguageNativeName(tt.input.NativeName)) {
+			if tt.wantCalls == 1 && (repository.context != ctx || repository.language.Code() != languages.Code(tt.input.Code) || repository.language.EnglishName() != languages.EnglishName(tt.input.EnglishName) || repository.language.NativeName() != languages.NativeName(tt.input.NativeName)) {
 				t.Fatalf("CreateLanguage() forwarded context %v and language %v", repository.context, repository.language)
 			}
 
@@ -132,8 +132,8 @@ func TestLanguageServiceDeleteLanguage(t *testing.T) {
 		wantCalls int
 	}{
 		{name: "deleted", code: "lv", wantCalls: 1},
-		{name: "invalid code", code: "LV", wantErr: languages.ErrInvalidLanguageCodeCharacters},
-		{name: "missing code", wantErr: languages.ErrInvalidLanguageCodeCharacters},
+		{name: "invalid code", code: "LV", wantErr: languages.ErrInvalidCodeCharacters},
+		{name: "missing code", wantErr: languages.ErrInvalidCodeCharacters},
 		{name: "not found", code: "lv", deleteErr: languages.ErrLanguageNotFound, wantErr: languages.ErrLanguageNotFound, wantCalls: 1},
 		{name: "repository error", code: "lv", deleteErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantCalls: 1},
 	} {
@@ -149,7 +149,7 @@ func TestLanguageServiceDeleteLanguage(t *testing.T) {
 				t.Fatalf("DeleteLanguage() error = %v, calls = %d, want %v and %d calls", err, repository.deleteCalls, tt.wantErr, tt.wantCalls)
 			}
 
-			if tt.wantCalls == 1 && (repository.context != ctx || repository.deleteCode != languages.LanguageCode(tt.code)) {
+			if tt.wantCalls == 1 && (repository.context != ctx || repository.deleteCode != languages.Code(tt.code)) {
 				t.Fatalf("DeleteLanguage() context = %v, code = %q", repository.context, repository.deleteCode)
 			}
 		})

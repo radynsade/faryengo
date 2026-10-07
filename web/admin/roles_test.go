@@ -122,17 +122,17 @@ func TestRoleViewSelectedLanguage(t *testing.T) {
 			name := role.Name()
 
 			for _, item := range []struct{ code, value string }{{"lv", "Redaktori"}, {"ru", "Редакторы"}} {
-				translation, err := languages.NewTranslation(languages.LanguageCode(item.code), item.value)
+				translation, err := languages.NewTranslation(languages.Code(item.code), item.value)
 
 				if err != nil {
 					t.Fatal(err)
 				}
 
-				name[languages.LanguageCode(item.code)] = translation
+				name[languages.Code(item.code)] = translation
 			}
 
 			if tt.missingTranslation {
-				delete(name, languages.LanguageCode(tt.code))
+				delete(name, languages.Code(tt.code))
 			}
 
 			if err := role.SetName(name); err != nil {

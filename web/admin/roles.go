@@ -158,7 +158,7 @@ func parseRoleQuery(request *http.Request) (security.RoleQuery, error) {
 	}
 
 	query := security.RoleQuery{Filters: security.RoleFilters{IDLike: dto.IDLike, NameLike: dto.NameLike},
-		Sort: security.RoleSort(dto.Sort), Descending: dto.Order == "desc", Page: dto.Page, PageSize: dto.Size, Language: languages.LanguageCode(dto.Language)}
+		Sort: security.RoleSort(dto.Sort), Descending: dto.Order == "desc", Page: dto.Page, PageSize: dto.Size, Language: languages.Code(dto.Language)}
 
 	// Retain submitted filters for rendering even when validation failed.
 	for _, permission := range dto.Permissions {
@@ -207,7 +207,7 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 
 			if edit {
 				props.ID = uuid.UUID(id).String()
-				props.Name = roleRow(request.Context(), role, actor, languages.LanguageCode(request.PathValue("language")), catalog).Name
+				props.Name = roleRow(request.Context(), role, actor, languages.Code(request.PathValue("language")), catalog).Name
 				props.Title, props.Action = admini18n.T(request.Context(), "roles.edit_title", map[string]any{"Name": props.Name}), panel.BasePath+"/roles/"+props.ID+"/edit"
 				values.IsSuper, values.Permissions = role.IsSuper(), role.Permissions()
 
@@ -237,7 +237,7 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 						operation = "roles.updated"
 					}
 
-					row := roleRow(request.Context(), role, actor, languages.LanguageCode(request.PathValue("language")), catalog)
+					row := roleRow(request.Context(), role, actor, languages.Code(request.PathValue("language")), catalog)
 					message := admini18n.T(request.Context(), operation, map[string]any{"Name": row.Name})
 
 					if flashErr := h.addFlash(request.Context(), writer, request, flashmsg.Success, message); flashErr != nil {
@@ -381,7 +381,7 @@ func (h *Handler) roleDetails(writer http.ResponseWriter, request *http.Request,
 				h.renderRoleError(writer, request, panel, err)
 			}
 		} else {
-			props := pages.RoleViewProps{Panel: panel, Role: roleRow(request.Context(), role, actor, languages.LanguageCode(request.PathValue("language")), catalog)}
+			props := pages.RoleViewProps{Panel: panel, Role: roleRow(request.Context(), role, actor, languages.Code(request.PathValue("language")), catalog)}
 			status, responded := http.StatusOK, false
 			var deleteMessage string
 
@@ -510,7 +510,7 @@ func permissionOptions(ctx context.Context, selected []security.Permission) []pa
 	return options
 }
 
-func roleRow(ctx context.Context, role *security.Role, actor security.Principal, code languages.LanguageCode, catalog []*languages.Language) pages.RoleRow {
+func roleRow(ctx context.Context, role *security.Role, actor security.Principal, code languages.Code, catalog []*languages.Language) pages.RoleRow {
 	name := role.Name()
 	translation, found := name.Translation(code)
 

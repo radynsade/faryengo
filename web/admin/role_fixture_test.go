@@ -102,10 +102,10 @@ func (r *httpCredentials) Find(_ context.Context, query security.RoleQuery) ([]*
 
 type httpLanguages struct{}
 
-func (httpLanguages) Create(context.Context, *languages.Language) error    { return nil }
-func (httpLanguages) Update(context.Context, *languages.Language) error    { return nil }
-func (httpLanguages) Delete(context.Context, languages.LanguageCode) error { return nil }
-func (httpLanguages) FindByCode(context.Context, languages.LanguageCode) (*languages.Language, error) {
+func (httpLanguages) Create(context.Context, *languages.Language) error { return nil }
+func (httpLanguages) Update(context.Context, *languages.Language) error { return nil }
+func (httpLanguages) Delete(context.Context, languages.Code) error      { return nil }
+func (httpLanguages) FindByCode(context.Context, languages.Code) (*languages.Language, error) {
 	return nil, languages.ErrLanguageNotFound
 }
 func (httpLanguages) FindFallback(context.Context) (*languages.Language, error) {
