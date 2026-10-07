@@ -10,7 +10,7 @@ var (
 	ErrInvalidCreateUserInput = errors.New("invalid create user input")
 	ErrInvalidUpdateUserInput = errors.New("invalid update user input")
 	// ErrInvalidUserID preserves compatibility; identity validity belongs to security.
-	ErrInvalidUserID = security.ErrInvalidUserID
+	ErrInvalidUserID = security.ErrUserIDInvalid
 )
 
 type CreateUserInput struct {

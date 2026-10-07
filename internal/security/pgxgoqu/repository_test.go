@@ -437,7 +437,7 @@ func TestUserRepositoryCreate(t *testing.T) {
 		{name: "missing role", user: testUser(t), execErr: &pgconn.PgError{Code: "23503", ConstraintName: "user_role_id_fkey"}, wantErr: security.ErrRoleNotFound, wantExec: true},
 		{name: "unrelated foreign key", user: testUser(t), execErr: otherForeignKey, wantErr: otherForeignKey, wantExec: true},
 		{name: "nil user", wantErr: ErrNilUser},
-		{name: "invalid user", user: &security.User{}, wantErr: security.ErrInvalidUserID},
+		{name: "invalid user", user: &security.User{}, wantErr: security.ErrUserIDInvalid},
 		{name: "database error", user: testUser(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantExec: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -479,7 +479,7 @@ func TestUserRepositoryUpdate(t *testing.T) {
 		{name: "updated", user: testUser(t), tag: pgconn.NewCommandTag("UPDATE 1"), wantExec: true},
 		{name: "not found", user: testUser(t), tag: pgconn.NewCommandTag("UPDATE 0"), wantErr: security.ErrUserNotFound, wantExec: true},
 		{name: "nil user", wantErr: ErrNilUser},
-		{name: "invalid user", user: &security.User{}, wantErr: security.ErrInvalidUserID},
+		{name: "invalid user", user: &security.User{}, wantErr: security.ErrUserIDInvalid},
 		{name: "database error", user: testUser(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantExec: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -542,7 +542,7 @@ func TestUserRepositoryFindByID(t *testing.T) {
 		{name: "found", row: fakeSecurityRow{values: []any{rowID, rowRoleID, "person@example.com", "+37123456789", "hash", "First", "Last", time.Unix(1, 0), time.Unix(2, 0), time.Unix(3, 0), time.Unix(4, 0), time.Unix(5, 0)}}},
 		{name: "not found", row: fakeSecurityRow{err: pgx.ErrNoRows}, wantErr: security.ErrUserNotFound},
 		{name: "scan error", row: fakeSecurityRow{err: context.DeadlineExceeded}, wantErr: context.DeadlineExceeded},
-		{name: "invalid stored email", row: fakeSecurityRow{values: []any{rowID, rowRoleID, "", "+37123456789", "hash", "First", "Last", time.Unix(1, 0), time.Unix(2, 0), time.Unix(3, 0), time.Unix(4, 0), time.Unix(5, 0)}}, wantErr: security.ErrInvalidEmail},
+		{name: "invalid stored email", row: fakeSecurityRow{values: []any{rowID, rowRoleID, "", "+37123456789", "hash", "First", "Last", time.Unix(1, 0), time.Unix(2, 0), time.Unix(3, 0), time.Unix(4, 0), time.Unix(5, 0)}}, wantErr: security.ErrEmailInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			db := &fakeSecurityDB{row: tt.row}

@@ -3,6 +3,9 @@ package security
 import (
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
+	"unicode/utf8"
 
 	"github.com/google/uuid"
 	"github.com/radynsade/faryengo/internal/languages"
@@ -79,6 +82,38 @@ func (id RoleID) Validate() error {
 }
 
 //
+// Role name
+//
+
+const MaxRoleNameLength = 100
+
+var (
+	ErrRoleNameInvalid = errors.New("invalid role name")
+	ErrRoleNameTooLong = fmt.Errorf("exceeds the limit of %d characters", MaxRoleNameLength)
+)
+
+type RoleName languages.Text
+
+func (r RoleName) Validate() error {
+	var err error
+	err = languages.Text(r).Validate()
+
+	if err == nil {
+		for _, translation := range slices.Sorted(maps.Values(r)) {
+			if utf8.RuneCountInString(string(translation)) > MaxRoleNameLength {
+				err = ErrRoleNameTooLong
+			}
+
+			if err != nil {
+				break
+			}
+		}
+	}
+
+	return err
+}
+
+//
 // Role
 //
 
@@ -89,12 +124,12 @@ var (
 
 type Role struct {
 	ID          RoleID
-	Name        languages.Text
+	Name        RoleName
 	Permissions Permissions
 	IsSuper     bool
 }
 
-func NewRole(id RoleID, name languages.Text, permissions Permissions, isSuper bool) *Role {
+func NewRole(id RoleID, name RoleName, permissions Permissions, isSuper bool) *Role {
 	return &Role{
 		ID:          id,
 		Name:        name,

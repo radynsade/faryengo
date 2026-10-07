@@ -70,8 +70,8 @@ func TestPrincipalRepositoryInvalidInput(t *testing.T) {
 		run  func() error
 		want error
 	}{
-		{name: "email", run: func() error { _, err := repository.FindByEmail(t.Context(), "bad"); return err }, want: security.ErrInvalidEmail},
-		{name: "ID", run: func() error { _, err := repository.FindByUserID(t.Context(), security.UserID{}); return err }, want: security.ErrInvalidUserID},
+		{name: "email", run: func() error { _, err := repository.FindByEmail(t.Context(), "bad"); return err }, want: security.ErrEmailInvalid},
+		{name: "ID", run: func() error { _, err := repository.FindByUserID(t.Context(), security.UserID{}); return err }, want: security.ErrUserIDInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := tt.run(); !errors.Is(err, tt.want) || db.query != "" {

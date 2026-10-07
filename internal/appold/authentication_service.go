@@ -81,7 +81,7 @@ func (s *AuthenticationService) VerifyCredentials(ctx context.Context, request i
 
 	// Bound account lookup input independently of the sign-in transport.
 	if len(request.Email) > 254 {
-		emailErr = security.ErrInvalidEmail
+		emailErr = security.ErrEmailInvalid
 	}
 
 	if valueErr := errors.Join(emailErr, passwordErr); valueErr != nil {

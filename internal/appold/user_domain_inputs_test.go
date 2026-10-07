@@ -15,10 +15,10 @@ func TestUserServiceRejectsDomainPrimitivesWithoutTransport(t *testing.T) {
 		change func(*input.CreateUserInput)
 		want   error
 	}{
-		{name: "email", change: func(r *input.CreateUserInput) { r.Email = "not-an-email" }, want: security.ErrInvalidEmail},
-		{name: "phone", change: func(r *input.CreateUserInput) { r.Phone = "37123456789" }, want: security.ErrInvalidPhone},
-		{name: "first name", change: func(r *input.CreateUserInput) { r.FirstName = " " }, want: security.ErrInvalidFirstName},
-		{name: "last name", change: func(r *input.CreateUserInput) { r.LastName = strings.Repeat("ā", 101) }, want: security.ErrInvalidLastName},
+		{name: "email", change: func(r *input.CreateUserInput) { r.Email = "not-an-email" }, want: security.ErrEmailInvalid},
+		{name: "phone", change: func(r *input.CreateUserInput) { r.Phone = "37123456789" }, want: security.ErrPhoneInvalid},
+		{name: "first name", change: func(r *input.CreateUserInput) { r.FirstName = " " }, want: security.ErrFirstNameInvalid},
+		{name: "last name", change: func(r *input.CreateUserInput) { r.LastName = strings.Repeat("ā", 101) }, want: security.ErrLastNameInvalid},
 		{name: "role ID", change: func(r *input.CreateUserInput) { r.RoleID = security.RoleID{} }, want: security.ErrRoleIDInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {

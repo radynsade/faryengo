@@ -7,7 +7,6 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/pkg/domquery"
 )
 
@@ -15,10 +14,17 @@ import (
 // Filter
 //
 
+const (
+	MaxRoleFilterIDLikeLength   = 36
+	MaxRoleFilterNameLikeLength = MaxRoleNameLength
+)
+
 var (
 	ErrRoleFilterInvalid              = errors.New("invalid role filter")
 	ErrRoleFilterIDLikeInvalidChars   = errors.New("invalid characters")
+	ErrRoleFilterIDLikeTooLong        = fmt.Errorf("exceeds the limit of %d characters", MaxRoleFilterIDLikeLength)
 	ErrRoleFilterNameLikeInvalidChars = errors.New("invalid characters")
+	ErrRoleFilterNameLikeTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxRoleFilterNameLikeLength)
 )
 
 type RoleFilter struct {
@@ -39,18 +45,55 @@ func (f RoleFilter) Validate() error {
 		err = ErrRoleFilterNameLikeInvalidChars
 	}
 
+	if len(f.IDLike) > MaxRoleFilterIDLikeLength {
+		err = ErrRoleFilterIDLikeTooLong
+	}
+
+	if len(f.NameLike) > MaxRoleFilterNameLikeLength {
+		err = ErrRoleFilterNameLikeTooLong
+	}
+
 	if err != nil {
 		err = fmt.Errorf("%w: %w", ErrRoleFilterInvalid, err)
 	}
 
-	if !utf8.ValidString(f.IDLike) ||
-		!utf8.ValidString(f.NameLike) ||
-		strings.ContainsRune(f.IDLike+f.NameLike, '\x00') ||
-		len(f.IDLike) > 100 ||
-		len(f.NameLike) > 500 {
+	return err
+}
+
+func (f RoleFilter) Count() int {
+	count := 0
+
+	for _, applied := range []bool{
+		f.IDLike != "",
+		f.NameLike != "",
+		len(f.Permissions) > 0,
+		f.IsSuper != nil,
+	} {
+		if applied {
+			count++
+		}
+	}
+
+	return count
+}
+
+//
+// Sort
+//
+
+type RoleSort string
+
+const (
+	RoleSortID      = RoleSort("id")
+	RoleSortName    = RoleSort("name")
+	RoleSortIsSuper = RoleSort("is_super")
+)
+
+func (s RoleSort) Validate() error {
+	var err error
+
+	if s != RoleSortID && s != RoleSortName && s != RoleSortIsSuper {
 		err = ErrInvalidRoleQuery
-	} else if validationErr := f.Permissions.Validate(); validationErr != nil {
-		err = fmt.Errorf("%w: %w", ErrInvalidRoleQuery, validationErr)
 	}
 
 	return err
@@ -59,6 +102,14 @@ func (f RoleFilter) Validate() error {
 //
 // Query
 //
+
+var ErrInvalidRoleQuery = errors.New("invalid role query")
+
+type RoleQuery domquery.Query[RoleFilter, RoleSort]
+
+func (q RoleQuery) Validate() error {
+	return q.Filter.Validate()
+}
 
 //
 // Repository
@@ -88,91 +139,12 @@ type ErrRoleDeleteFailed interface {
 	Unwrap() error
 }
 
-var ErrInvalidRoleQuery = errors.New("invalid role query")
-
-func (f RoleFilter) Validate() error {
-	var err error
-
-	if !utf8.ValidString(f.IDLike) ||
-		!utf8.ValidString(f.NameLike) ||
-		strings.ContainsRune(f.IDLike+f.NameLike, '\x00') ||
-		len(f.IDLike) > 100 ||
-		len(f.NameLike) > 500 {
-		err = ErrInvalidRoleQuery
-	} else if validationErr := f.Permissions.Validate(); validationErr != nil {
-		err = fmt.Errorf("%w: %w", ErrInvalidRoleQuery, validationErr)
-	}
-
-	return err
-}
-
-func (f RoleFilter) Count() int {
-	count := 0
-
-	for _, applied := range []bool{f.IDLike != "", f.NameLike != "", len(f.Permissions) > 0, f.IsSuper != nil} {
-		if applied {
-			count++
-		}
-	}
-
-	return count
-}
-
-type RoleSort string
-
-const (
-	RoleSortID      = RoleSort("id")
-	RoleSortName    = RoleSort("name")
-	RoleSortIsSuper = RoleSort("is_super")
-)
-
-func (s RoleSort) Validate() error {
-	var err error
-
-	if s != RoleSortID && s != RoleSortName && s != RoleSortIsSuper {
-		err = ErrInvalidRoleQuery
-	}
-
-	return err
-}
-
-const DefaultRolePageSize = 25
-
-type RoleQuery struct {
-	domquery.Query[RoleFilter, RoleSort]
-	Language languages.Code
-}
-
-func NewRoleQuery(filter RoleFilter, sort RoleSort, order domquery.SortOrder, limit, page int, language languages.Code) RoleQuery {
-	return RoleQuery{Query: domquery.NewQuery(filter, sort, order, limit, page), Language: language}
-}
-
-func (q RoleQuery) Validate() error {
-	var err error
-	err = q.Filters().Validate()
-
-	if err == nil {
-		if q.Page() < 1 || q.Page() > 1_000_000 || q.Limit() < 1 || q.Limit() > 100 {
-			err = ErrInvalidRoleQuery
-		} else {
-			err = q.SortBy().Validate()
-		}
-	}
-
-	if err == nil {
-		if validationErr := q.Language.Validate(); validationErr != nil {
-			err = fmt.Errorf("%w: %w", ErrInvalidRoleQuery, validationErr)
-		}
-	}
-
-	return err
-}
-
 type RoleRepository interface {
 	Create(ctx context.Context, role *Role) ErrRoleCreateFailed
 	Update(ctx context.Context, role *Role) ErrRoleUpdateFailed
 	Delete(ctx context.Context, id RoleID) ErrRoleDeleteFailed
 	FindByID(ctx context.Context, id RoleID) (*Role, error)
+	FindByIDForUpdate(ctx context.Context, id RoleID) (*Role, error)
 	Find(ctx context.Context, query RoleQuery) ([]*Role, error)
 	Count(ctx context.Context, filter RoleFilter) (int, error)
 }

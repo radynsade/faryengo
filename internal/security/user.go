@@ -1,7 +1,6 @@
 package security
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"net/mail"
@@ -17,7 +16,7 @@ import (
 // User ID
 //
 
-var ErrInvalidUserID = errors.New("invalid user ID")
+var ErrUserIDInvalid = errors.New("invalid user ID")
 
 type UserID uuid.UUID
 
@@ -25,7 +24,7 @@ func (id UserID) Validate() error {
 	var err error
 
 	if uuid.UUID(id) == uuid.Nil {
-		err = ErrInvalidUserID
+		err = ErrUserIDInvalid
 	}
 
 	return err
@@ -35,7 +34,7 @@ func (id UserID) Validate() error {
 // Email
 //
 
-var ErrInvalidEmail = errors.New("invalid email")
+var ErrEmailInvalid = errors.New("invalid email")
 
 type Email string
 
@@ -43,7 +42,7 @@ func (e Email) Validate() error {
 	address, err := mail.ParseAddress(string(e))
 
 	if err != nil || address.Address != string(e) {
-		return ErrInvalidEmail
+		return ErrEmailInvalid
 	}
 
 	return nil
@@ -54,7 +53,7 @@ func (e Email) Validate() error {
 //
 
 var (
-	ErrInvalidPhone = errors.New("invalid phone")
+	ErrPhoneInvalid = errors.New("invalid phone")
 	phonePattern    = regexp.MustCompile(`^\+[1-9][0-9]{1,14}$`)
 )
 
@@ -62,7 +61,7 @@ type Phone string
 
 func (p Phone) Validate() error {
 	if !phonePattern.MatchString(string(p)) {
-		return ErrInvalidPhone
+		return ErrPhoneInvalid
 	}
 
 	return nil
@@ -72,13 +71,13 @@ func (p Phone) Validate() error {
 // First name
 //
 
-const MaximumFirstNameLength = 100
+const MaxFirstNameLength = 100
 
 var (
-	ErrInvalidFirstName           = errors.New("invalid first name")
-	ErrEmptyFirstName             = errors.New("is empty")
-	ErrTooLongFirstName           = fmt.Errorf("exceeds the limit of %d characters", MaximumFirstNameLength)
-	ErrInvalidFirstNameCharacters = errors.New("invalid characters")
+	ErrFirstNameInvalid      = errors.New("invalid first name")
+	ErrFirstNameEmpty        = errors.New("is empty")
+	ErrFirstNameTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxFirstNameLength)
+	ErrFirstNameInvalidChars = errors.New("invalid characters")
 )
 
 type FirstName string
@@ -87,15 +86,15 @@ func (n FirstName) Validate() error {
 	var err error
 
 	if strings.TrimSpace(string(n)) == "" {
-		err = ErrEmptyFirstName
+		err = ErrFirstNameEmpty
 	} else if !utf8.ValidString(string(n)) {
-		err = ErrInvalidFirstNameCharacters
-	} else if utf8.RuneCountInString(string(n)) > MaximumFirstNameLength {
-		err = ErrTooLongFirstName
+		err = ErrFirstNameInvalidChars
+	} else if utf8.RuneCountInString(string(n)) > MaxFirstNameLength {
+		err = ErrFirstNameTooLong
 	}
 
 	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrInvalidFirstName, err)
+		err = fmt.Errorf("%w: %w", ErrFirstNameInvalid, err)
 	}
 
 	return err
@@ -105,13 +104,13 @@ func (n FirstName) Validate() error {
 // Last name
 //
 
-const MaximumLastNameLength = 100
+const MaxLastNameLength = 100
 
 var (
-	ErrInvalidLastName           = errors.New("invalid last name")
-	ErrEmptyLastName             = errors.New("is empty")
-	ErrTooLongLastName           = fmt.Errorf("exceeds the limit of %d characters", MaximumLastNameLength)
-	ErrInvalidLastNameCharacters = errors.New("invalid characters")
+	ErrLastNameInvalid      = errors.New("invalid last name")
+	ErrLastNameEmpty        = errors.New("is empty")
+	ErrLastNameTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxLastNameLength)
+	ErrLastNameInvalidChars = errors.New("invalid characters")
 )
 
 type LastName string
@@ -120,15 +119,15 @@ func (n LastName) Validate() error {
 	var err error
 
 	if strings.TrimSpace(string(n)) == "" {
-		err = ErrEmptyLastName
+		err = ErrLastNameEmpty
 	} else if !utf8.ValidString(string(n)) {
-		err = ErrInvalidLastNameCharacters
-	} else if utf8.RuneCountInString(string(n)) > MaximumLastNameLength {
-		err = ErrTooLongLastName
+		err = ErrLastNameInvalidChars
+	} else if utf8.RuneCountInString(string(n)) > MaxLastNameLength {
+		err = ErrLastNameTooLong
 	}
 
 	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrInvalidLastName, err)
+		err = fmt.Errorf("%w: %w", ErrLastNameInvalid, err)
 	}
 
 	return err
@@ -139,8 +138,8 @@ func (n LastName) Validate() error {
 //
 
 var (
-	ErrInvalidUser = errors.New("invalid user")
-	ErrNilUser     = errors.New("is nil")
+	ErrUserInvalid = errors.New("invalid user")
+	ErrUserNil     = errors.New("is nil")
 )
 
 type User struct {
@@ -192,7 +191,7 @@ func (u *User) Validate() error {
 	var err error
 
 	if u == nil {
-		err = ErrNilUser
+		err = ErrUserNil
 	} else {
 		err = u.ID.Validate()
 	}
@@ -222,44 +221,8 @@ func (u *User) Validate() error {
 	}
 
 	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrInvalidUser, err)
+		err = fmt.Errorf("%w: %w", ErrUserInvalid, err)
 	}
 
 	return err
-}
-
-//
-// User repository
-//
-
-var (
-	ErrUserNotFound      = errors.New("user not found")
-	ErrUserAlreadyExists = errors.New("user already exists")
-	ErrUserConflict      = errors.New("user changed since it was loaded")
-)
-
-type ErrUserCreateFailed interface {
-	error
-	User() *User
-	Unwrap() error
-}
-
-type ErrUserUpdateFailed interface {
-	error
-	User() *User
-	Unwrap() error
-}
-
-type ErrUserDeleteFailed interface {
-	error
-	UserID() UserID
-	Unwrap() error
-}
-
-type UserRepository interface {
-	Create(ctx context.Context, user *User) ErrUserCreateFailed
-	Update(ctx context.Context, user *User) ErrUserUpdateFailed
-	Delete(ctx context.Context, id UserID) ErrUserDeleteFailed
-	FindByID(ctx context.Context, id UserID) (*User, error)
-	FindByEmail(ctx context.Context, email Email) (*User, error)
 }
