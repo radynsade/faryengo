@@ -25,7 +25,7 @@ func TestPrincipalRepository(t *testing.T) {
 		{name: "super", super: true, permission: "view_user"},
 		{name: "missing", rowErr: pgx.ErrNoRows, want: security.ErrUserNotFound},
 		{name: "outage", rowErr: context.Canceled, want: context.Canceled},
-		{name: "invalid stored permission", permission: "unknown", want: security.ErrInvalidPermission},
+		{name: "invalid stored permission", permission: "unknown", want: security.ErrPermissionInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			db := &fakeSecurityDB{row: fakeSecurityRow{err: tt.rowErr, values: []any{

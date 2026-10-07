@@ -120,7 +120,7 @@ func parseDeleteRole(args []string) (security.RoleID, error) {
 	if len(args) != 3 || args[0] != "security" || args[1] != "delete-role" {
 		err = errInvalidCommand
 	} else {
-		parsed, parseErr := parseCommandUUID(args[2], security.ErrInvalidRoleID)
+		parsed, parseErr := parseCommandUUID(args[2], security.ErrRoleIDInvalid)
 
 		if parseErr != nil {
 			err = fmt.Errorf("validate delete-role ID: %w", parseErr)

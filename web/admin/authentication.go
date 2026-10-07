@@ -163,7 +163,7 @@ func authenticationError(ctx context.Context, err error) (int, string) {
 
 	if errors.Is(err, security.ErrInvalidCredentials) || invalidSession(err) {
 		status, message = http.StatusUnauthorized, admini18n.T(ctx, "errors.invalid_session")
-	} else if errors.Is(err, security.ErrPermissionDenied) || errors.Is(err, security.ErrInvalidPermission) {
+	} else if errors.Is(err, security.ErrPermissionDenied) || errors.Is(err, security.ErrPermissionInvalid) {
 		status, message = http.StatusForbidden, admini18n.T(ctx, "errors.access")
 	} else if errors.Is(err, errSignInThrottled) {
 		status, message = http.StatusTooManyRequests, admini18n.T(ctx, "errors.throttled")

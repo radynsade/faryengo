@@ -191,7 +191,7 @@ func TestRoleRepositoryCreate(t *testing.T) {
 		{name: "super", role: super, wantCommit: true},
 		{name: "duplicate", role: testRole(t), insertErr: pgx.ErrNoRows, wantErr: security.ErrRoleAlreadyExists},
 		{name: "nil role", wantErr: ErrNilRole},
-		{name: "invalid role", role: &security.Role{}, wantErr: security.ErrInvalidRoleID},
+		{name: "invalid role", role: &security.Role{}, wantErr: security.ErrRoleIDInvalid},
 		{name: "begin error", role: testRole(t), beginErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
 		{name: "translation error", role: testRole(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
 		{name: "missing language", role: testRole(t), execErr: missingLanguage, wantErr: languages.ErrLanguageNotFound},
@@ -276,7 +276,7 @@ func TestRoleRepositoryUpdate(t *testing.T) {
 		{name: "super", role: super, wantCommit: true},
 		{name: "not found", role: testRole(t), updateErr: pgx.ErrNoRows, wantErr: security.ErrRoleNotFound},
 		{name: "nil role", wantErr: ErrNilRole},
-		{name: "invalid role", role: &security.Role{}, wantErr: security.ErrInvalidRoleID},
+		{name: "invalid role", role: &security.Role{}, wantErr: security.ErrRoleIDInvalid},
 		{name: "begin error", role: testRole(t), beginErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
 		{name: "translation error", role: testRole(t), execErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded},
 		{name: "missing language", role: testRole(t), execErr: missingLanguage, wantErr: languages.ErrLanguageNotFound},
@@ -340,7 +340,7 @@ func TestRoleRepositoryDelete(t *testing.T) {
 		{name: "assigned restrict violation", id: security.RoleID{1}, storeErr: &pgconn.PgError{Code: "23001", ConstraintName: "user_role_id_fkey"}, want: security.ErrRoleAlreadyInUse},
 		{name: "unrelated constraint", id: security.RoleID{1}, storeErr: other, want: other},
 		{name: "canceled", id: security.RoleID{1}, storeErr: context.Canceled, want: context.Canceled},
-		{name: "invalid ID", want: security.ErrInvalidRoleID},
+		{name: "invalid ID", want: security.ErrRoleIDInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			db := &fakeSecurityDB{execTag: tt.tag, execErr: tt.storeErr}
@@ -388,10 +388,10 @@ func TestRoleRepositoryFindByID(t *testing.T) {
 		{name: "role permissions", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"manage_role", "view_role"}, []string{"en", "lv"}, []string{"Administrator", "Administrators"}, false}}, wantQuery: true, wantPermissions: []security.Permission{security.PermissionManageRole, security.PermissionViewRole}},
 		{name: "super", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{}, []string{"en", "lv"}, []string{"Administrator", "Administrators"}, true}}, wantQuery: true, wantSuper: true},
 		{name: "not found", id: security.RoleID{1}, row: fakeSecurityRow{err: pgx.ErrNoRows}, wantErr: security.ErrRoleNotFound, wantQuery: true},
-		{name: "invalid ID", wantErr: security.ErrInvalidRoleID},
+		{name: "invalid ID", wantErr: security.ErrRoleIDInvalid},
 		{name: "scan error", id: security.RoleID{1}, row: fakeSecurityRow{err: context.DeadlineExceeded}, wantErr: context.DeadlineExceeded, wantQuery: true},
-		{name: "invalid stored permission", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"unknown"}, []string{"en"}, []string{"Administrator"}, false}}, wantErr: security.ErrInvalidPermission, wantQuery: true},
-		{name: "missing translation", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{}, []string{}, []string{}, false}}, wantErr: languages.ErrInvalidText, wantQuery: true},
+		{name: "invalid stored permission", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{"unknown"}, []string{"en"}, []string{"Administrator"}, false}}, wantErr: security.ErrPermissionInvalid, wantQuery: true},
+		{name: "missing translation", id: security.RoleID{1}, row: fakeSecurityRow{values: []any{rowID, []string{}, []string{}, []string{}, false}}, wantErr: languages.ErrTextInvalid, wantQuery: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			db := &fakeSecurityDB{row: tt.row}

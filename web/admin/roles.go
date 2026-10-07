@@ -475,7 +475,7 @@ func roleID(request *http.Request) (security.RoleID, error) {
 	}
 
 	if err != nil {
-		err = fmt.Errorf("role ID: %w: %w", security.ErrInvalidRoleID, err)
+		err = fmt.Errorf("role ID: %w: %w", security.ErrRoleIDInvalid, err)
 	}
 
 	return id, err
@@ -557,7 +557,7 @@ func roleError(request *http.Request, err error) (int, string) {
 		status, message = http.StatusConflict, admini18n.T(request.Context(), "errors.role_used")
 	case errors.Is(err, security.ErrRoleAlreadyExists):
 		status, message = http.StatusConflict, admini18n.T(request.Context(), "errors.role_exists")
-	case errors.Is(err, security.ErrInvalidRoleID), errors.Is(err, errInvalidRoleForm):
+	case errors.Is(err, security.ErrRoleIDInvalid), errors.Is(err, errInvalidRoleForm):
 		status, message = http.StatusBadRequest, admini18n.T(request.Context(), "errors.role_form")
 	case errors.Is(err, security.ErrInvalidRoleQuery):
 		status, message = http.StatusBadRequest, admini18n.T(request.Context(), "errors.role_query")

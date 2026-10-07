@@ -1,5 +1,7 @@
 package domquery
 
+// Sort order
+
 type SortOrder bool
 
 const (
@@ -15,7 +17,16 @@ func (o SortOrder) IsDesc() bool {
 	return !bool(o)
 }
 
-type Query[FilterType any, SortType ~string] struct {
+// Filter
+
+type Filter interface {
+	IsApplied() bool
+	Count() int
+}
+
+// Query
+
+type Query[FilterType Filter, SortType ~string] struct {
 	filter    FilterType
 	sortOrder SortOrder
 	sortBy    SortType
@@ -23,8 +34,19 @@ type Query[FilterType any, SortType ~string] struct {
 	page      int
 }
 
-func NewQuery[F any, S ~string](filter F, sortBy S, sortOrder SortOrder, limit, page int) Query[F, S] {
-	return Query[F, S]{filter: filter, sortBy: sortBy, sortOrder: sortOrder, limit: limit, page: page}
+func NewQuery[FilterType Filter, SortType ~string](
+	filter FilterType,
+	sortBy SortType,
+	sortOrder SortOrder,
+	limit, page int,
+) Query[FilterType, SortType] {
+	return Query[FilterType, SortType]{
+		filter:    filter,
+		sortBy:    sortBy,
+		sortOrder: sortOrder,
+		limit:     limit,
+		page:      page,
+	}
 }
 
 func (q *Query[FilterType, SortType]) Filters() FilterType {

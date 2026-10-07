@@ -64,7 +64,7 @@ func parseCreateUser(args []string) (appinput.CreateUserInput, error) {
 		if len(positional) != 6 {
 			err = errInvalidCommand
 		} else {
-			roleID, roleErr := parseCommandUUID(positional[5], security.ErrInvalidRoleID)
+			roleID, roleErr := parseCommandUUID(positional[5], security.ErrRoleIDInvalid)
 
 			if roleErr != nil {
 				err = fmt.Errorf("validate create-user role ID: %w: %w", appinput.ErrInvalidCreateUserInput, roleErr)
@@ -113,7 +113,7 @@ func parseCommandUUID(value string, invalid error) (uuid.UUID, error) {
 
 	if len(value) != 36 {
 		err = invalid
-	} else if errors.Is(invalid, security.ErrInvalidRoleID) {
+	} else if errors.Is(invalid, security.ErrRoleIDInvalid) {
 		parsed, parseErr := security.NewRoleID(value)
 		id, err = uuid.UUID(parsed), parseErr
 	} else {

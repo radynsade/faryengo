@@ -21,8 +21,6 @@ import (
 
 var (
 	ErrNilPool             = errors.New("nil PostgreSQL pool")
-	ErrNilLanguage         = errors.New("nil language")
-	ErrNilTransaction      = errors.New("nil PostgreSQL transaction")
 	ErrTransactionRequired = errors.New("language locking requires a PostgreSQL transaction")
 )
 
@@ -125,23 +123,6 @@ func NewLanguageRepository(pool *pgxpool.Pool) (*LanguageRepository, error) {
 	return repository, err
 }
 
-// WithTx returns a repository whose reads and writes use tx. The caller owns
-// committing or rolling back the transaction; the original repository is unchanged.
-func (r *LanguageRepository) WithTx(tx pgx.Tx) (*LanguageRepository, error) {
-	var repository *LanguageRepository
-	var err error
-
-	if r == nil || r.pool == nil {
-		err = ErrNilPool
-	} else if tx == nil {
-		err = ErrNilTransaction
-	} else {
-		repository = &LanguageRepository{pool: tx}
-	}
-
-	return repository, err
-}
-
 // Create
 
 func (r *LanguageRepository) Create(
@@ -153,7 +134,7 @@ func (r *LanguageRepository) Create(
 	if r == nil || r.pool == nil {
 		err = newErrLanguageCreateFailed(language, ErrNilPool)
 	} else if language == nil {
-		err = newErrLanguageCreateFailed(language, ErrNilLanguage)
+		err = newErrLanguageCreateFailed(language, languages.ErrLanguageNil)
 	} else if validationErr := language.Validate(); validationErr != nil {
 		err = newErrLanguageCreateFailed(language, validationErr)
 	} else {
@@ -195,7 +176,7 @@ func (r *LanguageRepository) Update(
 	if r == nil || r.pool == nil {
 		err = newErrLanguageUpdateFailed(language, ErrNilPool)
 	} else if language == nil {
-		err = newErrLanguageUpdateFailed(language, ErrNilLanguage)
+		err = newErrLanguageUpdateFailed(language, languages.ErrLanguageNil)
 	} else if validationErr := language.Validate(); validationErr != nil {
 		err = newErrLanguageUpdateFailed(language, validationErr)
 	} else {
@@ -269,8 +250,10 @@ func (r *LanguageRepository) FindByCode(
 	ctx context.Context,
 	code languages.Code,
 ) (*languages.Language, error) {
-	var language *languages.Language
-	var err error
+	var (
+		language *languages.Language
+		err      error
+	)
 
 	if r == nil || r.pool == nil {
 		err = ErrNilPool
@@ -293,8 +276,10 @@ func (r *LanguageRepository) FindByCodeForUpdate(
 	ctx context.Context,
 	code languages.Code,
 ) (*languages.Language, error) {
-	var language *languages.Language
-	var err error
+	var (
+		language *languages.Language
+		err      error
+	)
 
 	if r == nil || r.pool == nil {
 		err = ErrNilPool
@@ -316,8 +301,10 @@ func (r *LanguageRepository) FindByCodeForUpdate(
 // Find the fallback language
 
 func (r *LanguageRepository) FindFallback(ctx context.Context) (*languages.Language, error) {
-	var language *languages.Language
-	var err error
+	var (
+		language *languages.Language
+		err      error
+	)
 
 	if r == nil || r.pool == nil {
 		err = ErrNilPool
@@ -335,8 +322,10 @@ func (r *LanguageRepository) FindFallback(ctx context.Context) (*languages.Langu
 // Find all languages ordered by a code
 
 func (r *LanguageRepository) FindAll(ctx context.Context) ([]*languages.Language, error) {
-	var result []*languages.Language
-	var err error
+	var (
+		result []*languages.Language
+		err    error
+	)
 
 	if r == nil || r.pool == nil {
 		err = ErrNilPool
@@ -395,8 +384,10 @@ func (r *LanguageRepository) find(
 	filter goqu.Ex,
 	forUpdate bool,
 ) (*languages.Language, error) {
-	var language *languages.Language
-	var err error
+	var (
+		language *languages.Language
+		err      error
+	)
 
 	dataset := goqu.Dialect("postgres").
 		From("language").
@@ -420,10 +411,12 @@ func (r *LanguageRepository) find(
 }
 
 func scanLanguage(row pgx.Row) (*languages.Language, error) {
-	var language *languages.Language
-	var err error
-	var code, english, native string
-	var fallback bool
+	var (
+		language              *languages.Language
+		err                   error
+		code, english, native string
+		fallback              bool
+	)
 
 	scanErr := row.Scan(&code, &english, &native, &fallback)
 

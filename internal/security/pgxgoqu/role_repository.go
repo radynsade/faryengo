@@ -601,12 +601,12 @@ func scanRole(row pgx.Row) (*security.Role, error) {
 
 			for index, code := range codes {
 				if _, duplicate := name[languages.Code(code)]; duplicate {
-					err = fmt.Errorf("decode role: duplicate translation: %w", languages.ErrInvalidText)
+					err = fmt.Errorf("decode role: duplicate translation: %w", languages.ErrTextInvalid)
 
 					break
 				}
 
-				name[languages.Code(code)] = languages.TranslationContent(contents[index])
+				name[languages.Code(code)] = languages.Translation(contents[index])
 			}
 
 			if err == nil {

@@ -54,10 +54,10 @@ func TestParseCreateUser(t *testing.T) {
 		{name: "blank password", args: changedUserArguments(5, "        "), wantErr: security.ErrInvalidPassword},
 		{name: "oversized password", args: changedUserArguments(5, strings.Repeat("x", security.MaxPasswordBytes+1)), wantErr: security.ErrInvalidPassword},
 		{name: "invalid phone", args: changedUserArguments(6, "12345678"), wantErr: security.ErrInvalidPhone},
-		{name: "invalid role UUID", args: changedUserArguments(7, "invalid-uuid"), wantErr: security.ErrInvalidRoleID},
-		{name: "nil role UUID", args: changedUserArguments(7, uuid.Nil.String()), wantErr: security.ErrInvalidRoleID},
-		{name: "compact UUID rejected", args: changedUserArguments(7, strings.ReplaceAll(testRoleUUID, "-", "")), wantErr: security.ErrInvalidRoleID},
-		{name: "URN UUID rejected", args: changedUserArguments(7, "urn:uuid:"+testRoleUUID), wantErr: security.ErrInvalidRoleID},
+		{name: "invalid role UUID", args: changedUserArguments(7, "invalid-uuid"), wantErr: security.ErrRoleIDInvalid},
+		{name: "nil role UUID", args: changedUserArguments(7, uuid.Nil.String()), wantErr: security.ErrRoleIDInvalid},
+		{name: "compact UUID rejected", args: changedUserArguments(7, strings.ReplaceAll(testRoleUUID, "-", "")), wantErr: security.ErrRoleIDInvalid},
+		{name: "URN UUID rejected", args: changedUserArguments(7, "urn:uuid:"+testRoleUUID), wantErr: security.ErrRoleIDInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			request, err := parseCreateUser(tt.args)

@@ -138,6 +138,11 @@ func (n LastName) Validate() error {
 // User
 //
 
+var (
+	ErrInvalidUser = errors.New("invalid user")
+	ErrNilUser     = errors.New("is nil")
+)
+
 type User struct {
 	ID                UserID
 	RoleID            RoleID
@@ -187,7 +192,7 @@ func (u *User) Validate() error {
 	var err error
 
 	if u == nil {
-		err = ErrInvalidUser
+		err = ErrNilUser
 	} else {
 		err = u.ID.Validate()
 	}
@@ -228,7 +233,6 @@ func (u *User) Validate() error {
 //
 
 var (
-	ErrInvalidUser       = errors.New("invalid user")
 	ErrUserNotFound      = errors.New("user not found")
 	ErrUserAlreadyExists = errors.New("user already exists")
 	ErrUserConflict      = errors.New("user changed since it was loaded")

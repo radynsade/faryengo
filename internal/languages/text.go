@@ -9,27 +9,27 @@ import (
 	"unicode/utf8"
 )
 
-// Translation content
+// Translation
 
-type TranslationContent string
+type Translation string
 
 var (
-	ErrInvalidTranslationContent           = errors.New("invalid translation content")
-	ErrInvalidTranslationContentCharacters = errors.New("invalid characters")
-	ErrEmptyTranslationContent             = errors.New("is empty")
+	ErrTranslationInvalid      = errors.New("invalid translation")
+	ErrTranslationInvalidChars = errors.New("invalid characters")
+	ErrTranslationEmpty        = errors.New("is empty")
 )
 
-func (tc TranslationContent) Validate() error {
+func (tc Translation) Validate() error {
 	var err error
 
 	if strings.TrimSpace(string(tc)) == "" {
-		err = ErrEmptyTranslationContent
+		err = ErrTranslationEmpty
 	} else if !utf8.ValidString(string(tc)) {
-		err = ErrInvalidTranslationContentCharacters
+		err = ErrTranslationInvalidChars
 	}
 
 	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrInvalidTranslationContent, err)
+		err = fmt.Errorf("%w: %w", ErrTranslationInvalid, err)
 	}
 
 	return err
@@ -37,24 +37,24 @@ func (tc TranslationContent) Validate() error {
 
 // Text
 
-type Text map[Code]TranslationContent
+type Text map[Code]Translation
 
 var (
-	ErrInvalidText           = errors.New("invalid text")
-	ErrNilText               = errors.New("is nil")
-	ErrTextHasNoTranslations = errors.New("there is no any translation")
+	ErrTextInvalid             = errors.New("invalid text")
+	ErrTextNil                 = errors.New("is nil")
+	ErrTextWithoutTranslations = errors.New("there is no any translation")
 )
 
 func (t Text) Validate() error {
 	var err error
 
 	if t == nil {
-		err = ErrNilText
+		err = ErrTextNil
 	}
 
 	if err == nil {
 		if len(t) == 0 {
-			err = ErrTextHasNoTranslations
+			err = ErrTextWithoutTranslations
 		} else {
 			for _, code := range slices.Sorted(maps.Keys(t)) {
 				err = code.Validate()
@@ -73,7 +73,7 @@ func (t Text) Validate() error {
 	}
 
 	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrInvalidText, err)
+		err = fmt.Errorf("%w: %w", ErrTextInvalid, err)
 	}
 
 	return err

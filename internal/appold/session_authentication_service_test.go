@@ -201,7 +201,7 @@ func TestAuthenticationMechanismsShareAuthorization(t *testing.T) {
 				want := security.ErrPermissionDenied
 
 				if permission.Validate() != nil {
-					want = security.ErrInvalidPermission
+					want = security.ErrPermissionInvalid
 				} else if tt.super || slices.Contains(tt.permissions, permission) {
 					want = nil
 				}

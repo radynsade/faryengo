@@ -88,7 +88,7 @@ func TestRoleIDTransportEncodings(t *testing.T) {
 				if err != nil || id.Validate() != nil {
 					t.Fatalf("roleID() = %v, %v", id, err)
 				}
-			} else if !errors.Is(err, security.ErrInvalidRoleID) || id != (security.RoleID{}) {
+			} else if !errors.Is(err, security.ErrRoleIDInvalid) || id != (security.RoleID{}) {
 				t.Fatalf("invalid roleID() = %v, %v", id, err)
 			}
 		})

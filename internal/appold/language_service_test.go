@@ -72,9 +72,9 @@ func TestLanguageServiceCreateLanguage(t *testing.T) {
 		wantCalls int
 	}{
 		{name: "created", input: valid, wantCalls: 1},
-		{name: "invalid code", input: appinput.CreateLanguageInput{Code: "LV", EnglishName: "Latvian", NativeName: "Latviešu"}, wantErr: languages.ErrInvalidCodeCharacters},
-		{name: "invalid English name", input: appinput.CreateLanguageInput{Code: "lv", NativeName: "Latviešu"}, wantErr: languages.ErrInvalidEnglishNameCharacters},
-		{name: "invalid native name", input: appinput.CreateLanguageInput{Code: "lv", EnglishName: "Latvian"}, wantErr: languages.ErrInvalidNativeName},
+		{name: "invalid code", input: appinput.CreateLanguageInput{Code: "LV", EnglishName: "Latvian", NativeName: "Latviešu"}, wantErr: languages.ErrCodeInvalidChars},
+		{name: "invalid English name", input: appinput.CreateLanguageInput{Code: "lv", NativeName: "Latviešu"}, wantErr: languages.ErrEnglishNameInvalidChars},
+		{name: "invalid native name", input: appinput.CreateLanguageInput{Code: "lv", EnglishName: "Latvian"}, wantErr: languages.ErrNativeNameInvalid},
 		{name: "duplicate", input: valid, createErr: languages.ErrLanguageAlreadyExists, wantErr: languages.ErrLanguageAlreadyExists, wantCalls: 1},
 		{name: "repository error", input: valid, createErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantCalls: 1},
 	} {
@@ -132,8 +132,8 @@ func TestLanguageServiceDeleteLanguage(t *testing.T) {
 		wantCalls int
 	}{
 		{name: "deleted", code: "lv", wantCalls: 1},
-		{name: "invalid code", code: "LV", wantErr: languages.ErrInvalidCodeCharacters},
-		{name: "missing code", wantErr: languages.ErrInvalidCodeCharacters},
+		{name: "invalid code", code: "LV", wantErr: languages.ErrCodeInvalidChars},
+		{name: "missing code", wantErr: languages.ErrCodeInvalidChars},
 		{name: "not found", code: "lv", deleteErr: languages.ErrLanguageNotFound, wantErr: languages.ErrLanguageNotFound, wantCalls: 1},
 		{name: "repository error", code: "lv", deleteErr: context.DeadlineExceeded, wantErr: context.DeadlineExceeded, wantCalls: 1},
 	} {

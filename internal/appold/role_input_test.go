@@ -20,8 +20,8 @@ func TestCreateRoleServiceDomainInputs(t *testing.T) {
 		{name: "role permissions", request: input.CreateRoleInput{Name: map[string]string{"en": "Role manager"}, Permissions: []security.Permission{security.PermissionManageRole, security.PermissionViewRole}}},
 		{name: "super", request: input.CreateRoleInput{Name: map[string]string{"en": "Super"}, IsSuper: true}},
 		{name: "missing name", want: []error{security.ErrInvalidRoleName}},
-		{name: "invalid translation", request: input.CreateRoleInput{Name: map[string]string{"EN": "Name", "lv": " "}, Permissions: []security.Permission{"unknown"}}, want: []error{languages.ErrInvalidCodeCharacters, languages.ErrInvalidTranslationContentCharacters, security.ErrInvalidPermission}},
-		{name: "invalid UTF8", request: input.CreateRoleInput{Name: map[string]string{"en": "\xff"}}, want: []error{languages.ErrInvalidTranslationContentCharacters}},
+		{name: "invalid translation", request: input.CreateRoleInput{Name: map[string]string{"EN": "Name", "lv": " "}, Permissions: []security.Permission{"unknown"}}, want: []error{languages.ErrCodeInvalidChars, languages.ErrTranslationInvalidChars, security.ErrPermissionInvalid}},
+		{name: "invalid UTF8", request: input.CreateRoleInput{Name: map[string]string{"en": "\xff"}}, want: []error{languages.ErrTranslationInvalidChars}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			stored, _ := roleFromInput(security.RoleID{1}, map[string]string{"en": "Old"}, nil, false)
@@ -52,9 +52,9 @@ func TestUpdateRoleServiceDomainInputs(t *testing.T) {
 		{name: "clear permissions", request: input.UpdateRoleInput{ID: security.RoleID{1}, Permissions: []security.Permission{}}},
 		{name: "role permissions", request: input.UpdateRoleInput{ID: security.RoleID{1}, Permissions: []security.Permission{security.PermissionManageRole, security.PermissionViewRole}}},
 		{name: "replace name", request: input.UpdateRoleInput{ID: security.RoleID{1}, Name: map[string]string{"lv": "Loma"}}},
-		{name: "invalid ID", want: security.ErrInvalidRoleID},
+		{name: "invalid ID", want: security.ErrRoleIDInvalid},
 		{name: "empty replacement", request: input.UpdateRoleInput{ID: security.RoleID{1}, Name: map[string]string{}}, want: security.ErrInvalidRoleName},
-		{name: "invalid permission", request: input.UpdateRoleInput{ID: security.RoleID{1}, Permissions: []security.Permission{"unknown"}}, want: security.ErrInvalidPermission},
+		{name: "invalid permission", request: input.UpdateRoleInput{ID: security.RoleID{1}, Permissions: []security.Permission{"unknown"}}, want: security.ErrPermissionInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			stored, _ := roleFromInput(security.RoleID{1}, map[string]string{"en": "Old"}, nil, false)

@@ -19,7 +19,7 @@ func TestUserServiceRejectsDomainPrimitivesWithoutTransport(t *testing.T) {
 		{name: "phone", change: func(r *input.CreateUserInput) { r.Phone = "37123456789" }, want: security.ErrInvalidPhone},
 		{name: "first name", change: func(r *input.CreateUserInput) { r.FirstName = " " }, want: security.ErrInvalidFirstName},
 		{name: "last name", change: func(r *input.CreateUserInput) { r.LastName = strings.Repeat("ā", 101) }, want: security.ErrInvalidLastName},
-		{name: "role ID", change: func(r *input.CreateUserInput) { r.RoleID = security.RoleID{} }, want: security.ErrInvalidRoleID},
+		{name: "role ID", change: func(r *input.CreateUserInput) { r.RoleID = security.RoleID{} }, want: security.ErrRoleIDInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			stored := validStoredUser(t)

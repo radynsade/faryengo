@@ -73,7 +73,7 @@ INSERT INTO "language" VALUES ('en', 'English', 'English', true), ('lv', 'Latvia
 		name := make(languages.Text)
 
 		for code, content := range data.names {
-			name[code] = languages.TranslationContent(content)
+			name[code] = languages.Translation(content)
 		}
 
 		role := security.NewRole(security.RoleID{data.id}, name, data.permissions, data.super)

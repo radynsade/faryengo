@@ -189,7 +189,7 @@ func TestRoleServiceFindAndDelete(t *testing.T) {
 		storeErr, want error
 	}{
 		{name: "valid ID", id: security.RoleID{1}},
-		{name: "invalid ID", want: security.ErrInvalidRoleID},
+		{name: "invalid ID", want: security.ErrRoleIDInvalid},
 		{name: "missing", id: security.RoleID{1}, storeErr: security.ErrRoleNotFound, want: security.ErrRoleNotFound},
 		{name: "assigned", id: security.RoleID{1}, storeErr: security.ErrRoleAlreadyInUse, want: security.ErrRoleAlreadyInUse},
 		{name: "storage failure", id: security.RoleID{1}, storeErr: context.Canceled, want: context.Canceled},
