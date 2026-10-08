@@ -19,9 +19,9 @@ import (
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/config"
 	languagepg "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
-	"github.com/radynsade/faryengo/internal/security/argon2id"
-	"github.com/radynsade/faryengo/internal/security/pgxgoqu"
-	securityredis "github.com/radynsade/faryengo/internal/security/redis"
+	"github.com/radynsade/faryengo/internal/users/argon2id"
+	"github.com/radynsade/faryengo/internal/users/pgxgoqu"
+	usersredis "github.com/radynsade/faryengo/internal/users/redis"
 	"github.com/radynsade/faryengo/middleware"
 	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
 	"github.com/radynsade/faryengo/web/admin"
@@ -94,13 +94,13 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("configure authorization roles: %w", err)
 	}
 
-	sessions, err := securityredis.NewSessionStore(client)
+	sessions, err := usersredis.NewSessionStore(client)
 
 	if err != nil {
 		return fmt.Errorf("configure session store: %w", err)
 	}
 
-	limiter, err := securityredis.NewRateLimiter(client)
+	limiter, err := usersredis.NewRateLimiter(client)
 
 	if err != nil {
 		return fmt.Errorf("configure sign-in limiter: %w", err)

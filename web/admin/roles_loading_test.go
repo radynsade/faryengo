@@ -11,7 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 )
 
 func TestRolesLazyLoading(t *testing.T) {
@@ -28,7 +28,7 @@ func TestRolesLazyLoading(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			mux, repository, _ := httpFixture(t)
 			cookies := login(t, mux)
-			role := addHTTPRole(t, repository, "Lazy loaded role", []security.Permission{security.PermissionViewRole}, false)
+			role := addHTTPRole(t, repository, "Lazy loaded role", []users.Permission{users.PermissionViewRole}, false)
 			query := url.Values{"name": {"Lazy loaded"}, "permissions": {"view_role", "view_role"}, "page": {"999"}, "size": {"1"}, "sort": {"name"}, "order": {"desc"}}
 			root := "/admin/" + tt.language + "/roles"
 			request := httptest.NewRequest(http.MethodGet, root+"?"+query.Encode(), nil)

@@ -18,7 +18,7 @@ in the Go guides.
 | [docs/go/style.md](docs/go/style.md) | Go code organization within a file, errors, control flow, naming, formatting, interfaces, and concurrency. |
 | [docs/go/tests.md](docs/go/tests.md) | Test placement, table-driven tests, goroutine leak detection, and test commands. |
 | [docs/domain/how-to-doc.md](docs/domain/how-to-doc.md) | Domain model documentation structure, schemas, field descriptions, and invariants. |
-| [docs/domain/security.md](docs/domain/security.md) | Users, roles, permissions, and security domain rules. |
+| [docs/domain/users.md](docs/domain/users.md) | Users, roles, permissions, and their domain rules. |
 | [docs/domain/languages.md](docs/domain/languages.md) | Language catalog, fallback languages, and translation rules. |
 | [docs/domain/budget.md](docs/domain/budget.md) | Budget concepts, relationships, calculations, and invariants. |
 | [docs/admin/design.md](docs/admin/design.md) | The admin panel's visual system, reusable components, styling conventions, layouts, accessibility, and rendering behavior. |

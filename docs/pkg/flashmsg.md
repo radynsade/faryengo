@@ -167,8 +167,8 @@ is missing, expired, or its generation no longer matches, both methods return
 
 ```go
 session := flashmsg.Session{
-	Key:           "faryen:security:{" + userID + "}:session:" + sessionID,
-	GenerationKey: "faryen:security:{" + userID + "}:generation",
+	Key:           "faryen:users:{" + userID + "}:session:" + sessionID,
+	GenerationKey: "faryen:users:{" + userID + "}:generation",
 }
 
 bag, err := store.Take(ctx, session, "") // Consume every type.
@@ -192,8 +192,8 @@ The admin uses these Redis names:
 
 | Purpose | Name | Meaning |
 | --- | --- | --- |
-| Authenticated `Session.Key` | `faryen:security:{userID}:session:sessionID` | Existing device-session hash, selected from the authenticated principal's user and session identities. |
-| Authenticated `Session.GenerationKey` | `faryen:security:{userID}:generation` | Current user-session generation; shares the device hash's `{userID}` Redis Cluster slot. |
+| Authenticated `Session.Key` | `faryen:users:{userID}:session:sessionID` | Existing device-session hash, selected from the authenticated principal's user and session identities. |
+| Authenticated `Session.GenerationKey` | `faryen:users:{userID}:generation` | Current user-session generation; shares the device hash's `{userID}` Redis Cluster slot. |
 | Anonymous `Session.Key` | `faryen:web:admin:session:{randomID}` | Separate admin session identified by a random UUIDv7; `GenerationKey` is empty. |
 | Message hash field | `admin:flashes` | JSON bag in either session hash; other applications use their own `<application>:flashes` field. |
 

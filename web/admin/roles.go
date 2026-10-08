@@ -18,7 +18,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/languages"
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
@@ -38,10 +38,10 @@ func (h *Handler) rolesTable(writer http.ResponseWriter, request *http.Request) 
 }
 
 func (h *Handler) roleList(writer http.ResponseWriter, request *http.Request, load bool) {
-	h.withPanel(writer, request, "roles", "", func(actor security.Principal, panel layouts.PanelProps) {
+	h.withPanel(writer, request, "roles", "", func(actor users.Principal, panel layouts.PanelProps) {
 		query, err := parseRoleQuery(request)
 		props := pages.RoleListProps{Panel: panel, Query: query, Loading: !load,
-			Page: security.RolePage{Page: query.Page, PageSize: query.PageSize}}
+			Page: users.RolePage{Page: query.Page, PageSize: query.PageSize}}
 		status := http.StatusOK
 		fragment := load && request.Header.Get("HX-Request") == "true" && request.Header.Get("HX-History-Restore-Request") != "true"
 
@@ -68,7 +68,7 @@ func (h *Handler) roleList(writer http.ResponseWriter, request *http.Request, lo
 			status, message = roleError(request, err)
 			var fields components.FieldErrors
 
-			if errors.Is(err, security.ErrInvalidRoleQuery) {
+			if errors.Is(err, users.ErrInvalidRoleQuery) {
 				fields = requestFieldErrors(request.Context(), err)
 			}
 
@@ -84,9 +84,9 @@ func (h *Handler) roleList(writer http.ResponseWriter, request *http.Request, lo
 				flashErr = h.addFlash(request.Context(), writer, request, flashmsg.Error, message)
 			}
 
-			props.InvalidQuery = errors.Is(err, security.ErrInvalidRoleQuery)
+			props.InvalidQuery = errors.Is(err, users.ErrInvalidRoleQuery)
 			props.Loading = false
-			props.Page = security.RolePage{Page: 1, PageSize: security.DefaultRolePageSize}
+			props.Page = users.RolePage{Page: 1, PageSize: users.DefaultRolePageSize}
 			props.Rows = nil
 
 			if flashErr == nil && fragment {
@@ -119,8 +119,8 @@ func (h *Handler) roleList(writer http.ResponseWriter, request *http.Request, lo
 	})
 }
 
-func parseRoleQuery(request *http.Request) (security.RoleQuery, error) {
-	dto := roleQueryRequest{Sort: string(security.RoleSortID), Page: 1, Size: security.DefaultRolePageSize, Language: request.PathValue("language")}
+func parseRoleQuery(request *http.Request) (users.RoleQuery, error) {
+	dto := roleQueryRequest{Sort: string(users.RoleSortID), Page: 1, Size: users.DefaultRolePageSize, Language: request.PathValue("language")}
 	values, err := url.ParseQuery(request.URL.RawQuery)
 
 	if err == nil {
@@ -129,7 +129,7 @@ func parseRoleQuery(request *http.Request) (security.RoleQuery, error) {
 
 		for _, key := range []string{"uuid", "name", "super", "sort", "order", "page", "size"} {
 			if len(values[key]) > 1 {
-				err = security.ErrInvalidRoleQuery
+				err = users.ErrInvalidRoleQuery
 			}
 		}
 
@@ -145,7 +145,7 @@ func parseRoleQuery(request *http.Request) (security.RoleQuery, error) {
 				number, parseErr := strconv.Atoi(value)
 
 				if parseErr != nil {
-					err = security.ErrInvalidRoleQuery
+					err = users.ErrInvalidRoleQuery
 				} else {
 					*parameter.target = number
 				}
@@ -157,12 +157,12 @@ func parseRoleQuery(request *http.Request) (security.RoleQuery, error) {
 		}
 	}
 
-	query := security.RoleQuery{Filters: security.RoleFilters{IDLike: dto.IDLike, NameLike: dto.NameLike},
-		Sort: security.RoleSort(dto.Sort), Descending: dto.Order == "desc", Page: dto.Page, PageSize: dto.Size, Language: languages.Code(dto.Language)}
+	query := users.RoleQuery{Filters: users.RoleFilters{IDLike: dto.IDLike, NameLike: dto.NameLike},
+		Sort: users.RoleSort(dto.Sort), Descending: dto.Order == "desc", Page: dto.Page, PageSize: dto.Size, Language: languages.Code(dto.Language)}
 
 	// Retain submitted filters for rendering even when validation failed.
 	for _, permission := range dto.Permissions {
-		query.Filters.Permissions = append(query.Filters.Permissions, security.Permission(permission))
+		query.Filters.Permissions = append(query.Filters.Permissions, users.Permission(permission))
 	}
 
 	if dto.Super == "true" || dto.Super == "false" {
@@ -171,7 +171,7 @@ func parseRoleQuery(request *http.Request) (security.RoleQuery, error) {
 	}
 
 	if err != nil {
-		err = fmt.Errorf("parse roles filters: %w: %w", security.ErrInvalidRoleQuery, err)
+		err = fmt.Errorf("parse roles filters: %w: %w", users.ErrInvalidRoleQuery, err)
 	}
 
 	return query, err
@@ -186,10 +186,10 @@ func (h *Handler) roleEdit(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, edit bool) {
-	h.withPanel(writer, request, "roles", "", func(actor security.Principal, panel layouts.PanelProps) {
+	h.withPanel(writer, request, "roles", "", func(actor users.Principal, panel layouts.PanelProps) {
 		catalog, err := h.languages.List(request.Context())
-		var role *security.Role
-		var id security.RoleID
+		var role *users.Role
+		var id users.RoleID
 
 		if err == nil && edit {
 			id, err = roleID(request)
@@ -203,7 +203,7 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 			h.renderRoleError(writer, request, panel, err)
 		} else {
 			props := pages.RoleFormProps{Panel: panel, Title: admini18n.T(request.Context(), "roles.create"), Action: panel.BasePath + "/roles/create"}
-			values := input.CreateRoleInput{Name: make(map[string]string), Permissions: []security.Permission{}}
+			values := input.CreateRoleInput{Name: make(map[string]string), Permissions: []users.Permission{}}
 
 			if edit {
 				props.ID = uuid.UUID(id).String()
@@ -326,10 +326,10 @@ func parseRoleForm(writer http.ResponseWriter, request *http.Request, catalog []
 		}
 	}
 
-	values := input.CreateRoleInput{Name: dto.Name, Permissions: []security.Permission{}, IsSuper: dto.IsSuper == "1"}
+	values := input.CreateRoleInput{Name: dto.Name, Permissions: []users.Permission{}, IsSuper: dto.IsSuper == "1"}
 
 	for _, permission := range dto.Permissions {
-		values.Permissions = append(values.Permissions, security.Permission(permission))
+		values.Permissions = append(values.Permissions, users.Permission(permission))
 	}
 
 	return values, err
@@ -360,9 +360,9 @@ func (h *Handler) roleDelete(writer http.ResponseWriter, request *http.Request) 
 }
 
 func (h *Handler) roleDetails(writer http.ResponseWriter, request *http.Request, deleteRole bool) {
-	h.withPanel(writer, request, "roles", "", func(actor security.Principal, panel layouts.PanelProps) {
+	h.withPanel(writer, request, "roles", "", func(actor users.Principal, panel layouts.PanelProps) {
 		id, err := roleID(request)
-		var role *security.Role
+		var role *users.Role
 		var catalog []*languages.Language
 
 		if err == nil {
@@ -466,16 +466,16 @@ func (h *Handler) renderRoleDeleteError(writer http.ResponseWriter, request *htt
 	}
 }
 
-func roleID(request *http.Request) (security.RoleID, error) {
-	var id security.RoleID
+func roleID(request *http.Request) (users.RoleID, error) {
+	var id users.RoleID
 	err := requestvalidation.Validate(request.Context(), roleIDRequest{ID: request.PathValue("role")})
 
 	if err == nil {
-		id, err = security.NewRoleID(request.PathValue("role"))
+		id, err = users.NewRoleID(request.PathValue("role"))
 	}
 
 	if err != nil {
-		err = fmt.Errorf("role ID: %w: %w", security.ErrRoleIDInvalid, err)
+		err = fmt.Errorf("role ID: %w: %w", users.ErrRoleIDInvalid, err)
 	}
 
 	return id, err
@@ -496,21 +496,21 @@ func roleNameTranslations(ctx context.Context, catalog []*languages.Language, na
 	return props
 }
 
-func permissionLabel(ctx context.Context, permission security.Permission) string {
+func permissionLabel(ctx context.Context, permission users.Permission) string {
 	return admini18n.T(ctx, "permissions."+string(permission))
 }
 
-func permissionOptions(ctx context.Context, selected []security.Permission) []pages.PermissionOption {
-	options := make([]pages.PermissionOption, 0, len(security.AllPermissions()))
+func permissionOptions(ctx context.Context, selected []users.Permission) []pages.PermissionOption {
+	options := make([]pages.PermissionOption, 0, len(users.AllPermissions()))
 
-	for _, permission := range security.AllPermissions() {
+	for _, permission := range users.AllPermissions() {
 		options = append(options, pages.PermissionOption{Value: permission, Label: permissionLabel(ctx, permission), Selected: slices.Contains(selected, permission)})
 	}
 
 	return options
 }
 
-func roleRow(ctx context.Context, role *security.Role, actor security.Principal, code languages.Code, catalog []*languages.Language) pages.RoleRow {
+func roleRow(ctx context.Context, role *users.Role, actor users.Principal, code languages.Code, catalog []*languages.Language) pages.RoleRow {
 	name := role.Name()
 	translation, found := name.Translation(code)
 
@@ -528,7 +528,7 @@ func roleRow(ctx context.Context, role *security.Role, actor security.Principal,
 
 	row := pages.RoleRow{ID: uuid.UUID(role.ID()).String(), Name: translation.Content(), IsSuper: role.IsSuper(), Current: role.ID() == actor.RoleID}
 
-	for _, permission := range security.AllPermissions() {
+	for _, permission := range users.AllPermissions() {
 		if slices.Contains(role.Permissions(), permission) {
 			row.Permissions = append(row.Permissions, permissionLabel(ctx, permission))
 		}
@@ -551,15 +551,15 @@ func roleError(request *http.Request, err error) (int, string) {
 	status, message := http.StatusInternalServerError, admini18n.T(request.Context(), "errors.roles")
 
 	switch {
-	case errors.Is(err, security.ErrRoleNotFound):
+	case errors.Is(err, users.ErrRoleNotFound):
 		status, message = http.StatusNotFound, admini18n.T(request.Context(), "errors.role_not_found")
-	case errors.Is(err, security.ErrRoleAlreadyInUse):
+	case errors.Is(err, users.ErrRoleAlreadyInUse):
 		status, message = http.StatusConflict, admini18n.T(request.Context(), "errors.role_used")
-	case errors.Is(err, security.ErrRoleAlreadyExists):
+	case errors.Is(err, users.ErrRoleAlreadyExists):
 		status, message = http.StatusConflict, admini18n.T(request.Context(), "errors.role_exists")
-	case errors.Is(err, security.ErrRoleIDInvalid), errors.Is(err, errInvalidRoleForm):
+	case errors.Is(err, users.ErrRoleIDInvalid), errors.Is(err, errInvalidRoleForm):
 		status, message = http.StatusBadRequest, admini18n.T(request.Context(), "errors.role_form")
-	case errors.Is(err, security.ErrInvalidRoleQuery):
+	case errors.Is(err, users.ErrInvalidRoleQuery):
 		status, message = http.StatusBadRequest, admini18n.T(request.Context(), "errors.role_query")
 	case errors.Is(err, requestvalidation.ErrInvalidRequest), errors.Is(err, input.ErrInvalidCreateRoleInput), errors.Is(err, input.ErrInvalidUpdateRoleInput):
 		status, message = http.StatusUnprocessableEntity, admini18n.T(request.Context(), "errors.role_values")

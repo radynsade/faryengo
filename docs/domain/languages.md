@@ -58,7 +58,7 @@ of its language and content.
 ### Translated text
 
 Translated text is a value owned by the domain concept it describes.
-[Role names](security.md#role) use this value with an additional length limit
+[Role names](users.md#role) use this value with an additional length limit
 for each translation.
 
 | Field | Domain value | Required | Meaning and rules |

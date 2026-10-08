@@ -15,7 +15,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/infra/pgxdb"
 	"github.com/radynsade/faryengo/internal/languages"
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/pkg/domquery"
 )
 
@@ -58,25 +58,25 @@ func TestConstructorsRejectNilPool(t *testing.T) {
 
 func TestMethodsRejectMissingPool(t *testing.T) {
 	ctx := context.Background()
-	userID := security.UserID(uuid.Must(uuid.NewV7()))
-	roleID := security.RoleID(uuid.Must(uuid.NewV7()))
+	userID := users.UserID(uuid.Must(uuid.NewV7()))
+	roleID := users.RoleID(uuid.Must(uuid.NewV7()))
 
 	tests := []struct {
 		name string
 		call func() error
 	}{
-		{"user create", func() error { return (&UserRepository{}).Create(ctx, &security.User{}) }},
-		{"user update", func() error { return (&UserRepository{}).Update(ctx, &security.User{}) }},
+		{"user create", func() error { return (&UserRepository{}).Create(ctx, &users.User{}) }},
+		{"user update", func() error { return (&UserRepository{}).Update(ctx, &users.User{}) }},
 		{"user delete", func() error { return (&UserRepository{}).Delete(ctx, userID) }},
 		{"user find by ID", func() error { _, err := (*UserRepository)(nil).FindByID(ctx, userID); return err }},
 		{"user find by email", func() error { _, err := (&UserRepository{}).FindByEmail(ctx, "a@b.c"); return err }},
-		{"role create", func() error { return (&RoleRepository{}).Create(ctx, &security.Role{}) }},
-		{"role update", func() error { return (&RoleRepository{}).Update(ctx, &security.Role{}) }},
+		{"role create", func() error { return (&RoleRepository{}).Create(ctx, &users.Role{}) }},
+		{"role update", func() error { return (&RoleRepository{}).Update(ctx, &users.Role{}) }},
 		{"role delete", func() error { return (&RoleRepository{}).Delete(ctx, roleID) }},
 		{"role find by ID", func() error { _, err := (&RoleRepository{}).FindByID(ctx, roleID); return err }},
 		{"role find by ID for update", func() error { _, err := (&RoleRepository{}).FindByIDForUpdate(ctx, roleID); return err }},
-		{"role find", func() error { _, err := (&RoleRepository{}).Find(ctx, security.RoleQuery{}); return err }},
-		{"role count", func() error { _, err := (&RoleRepository{}).Count(ctx, security.RoleFilter{}); return err }},
+		{"role find", func() error { _, err := (&RoleRepository{}).Find(ctx, users.RoleQuery{}); return err }},
+		{"role count", func() error { _, err := (&RoleRepository{}).Count(ctx, users.RoleFilter{}); return err }},
 	}
 
 	for _, test := range tests {
@@ -91,11 +91,11 @@ func TestMethodsRejectMissingPool(t *testing.T) {
 func TestMethodsValidateBeforeIO(t *testing.T) {
 	ctx := context.Background()
 	pool := newLazyPool(t)
-	users := &UserRepository{pool: pool}
+	userRepository := &UserRepository{pool: pool}
 	roles := &RoleRepository{pool: pool}
-	validRoleID := security.RoleID(uuid.Must(uuid.NewV7()))
-	unloadedUser := security.NewUser(
-		security.UserID(uuid.Must(uuid.NewV7())),
+	validRoleID := users.RoleID(uuid.Must(uuid.NewV7()))
+	unloadedUser := users.NewUser(
+		users.UserID(uuid.Must(uuid.NewV7())),
 		validRoleID,
 		"user@example.com",
 		time.Time{},
@@ -114,55 +114,55 @@ func TestMethodsValidateBeforeIO(t *testing.T) {
 		call func() error
 		want error
 	}{
-		{"user create nil", func() error { return users.Create(ctx, nil) }, security.ErrUserNil},
-		{"user create invalid", func() error { return users.Create(ctx, &security.User{}) }, security.ErrUserInvalid},
-		{"user update nil", func() error { return users.Update(ctx, nil) }, security.ErrUserNil},
-		{"user update invalid", func() error { return users.Update(ctx, &security.User{}) }, security.ErrUserInvalid},
+		{"user create nil", func() error { return userRepository.Create(ctx, nil) }, users.ErrUserNil},
+		{"user create invalid", func() error { return userRepository.Create(ctx, &users.User{}) }, users.ErrUserInvalid},
+		{"user update nil", func() error { return userRepository.Update(ctx, nil) }, users.ErrUserNil},
+		{"user update invalid", func() error { return userRepository.Update(ctx, &users.User{}) }, users.ErrUserInvalid},
 		{"user update without a loaded version", func() error {
-			return users.Update(ctx, unloadedUser)
-		}, security.ErrUserConflict},
-		{"user delete invalid ID", func() error { return users.Delete(ctx, security.UserID{}) }, security.ErrUserIDInvalid},
+			return userRepository.Update(ctx, unloadedUser)
+		}, users.ErrUserConflict},
+		{"user delete invalid ID", func() error { return userRepository.Delete(ctx, users.UserID{}) }, users.ErrUserIDInvalid},
 		{"user find by invalid ID", func() error {
-			_, err := users.FindByID(ctx, security.UserID{})
+			_, err := userRepository.FindByID(ctx, users.UserID{})
 			return err
-		}, security.ErrUserIDInvalid},
+		}, users.ErrUserIDInvalid},
 		{"user find by invalid email", func() error {
-			_, err := users.FindByEmail(ctx, "Ada <user@example.com>")
+			_, err := userRepository.FindByEmail(ctx, "Ada <user@example.com>")
 			return err
-		}, security.ErrEmailInvalid},
-		{"role create nil", func() error { return roles.Create(ctx, nil) }, security.ErrRoleNil},
-		{"role create invalid", func() error { return roles.Create(ctx, &security.Role{}) }, security.ErrRoleInvalid},
-		{"role update invalid", func() error { return roles.Update(ctx, &security.Role{}) }, security.ErrRoleInvalid},
-		{"role delete invalid ID", func() error { return roles.Delete(ctx, security.RoleID{}) }, security.ErrRoleIDInvalid},
+		}, users.ErrEmailInvalid},
+		{"role create nil", func() error { return roles.Create(ctx, nil) }, users.ErrRoleNil},
+		{"role create invalid", func() error { return roles.Create(ctx, &users.Role{}) }, users.ErrRoleInvalid},
+		{"role update invalid", func() error { return roles.Update(ctx, &users.Role{}) }, users.ErrRoleInvalid},
+		{"role delete invalid ID", func() error { return roles.Delete(ctx, users.RoleID{}) }, users.ErrRoleIDInvalid},
 		{"role find by invalid ID", func() error {
-			_, err := roles.FindByID(ctx, security.RoleID{})
+			_, err := roles.FindByID(ctx, users.RoleID{})
 			return err
-		}, security.ErrRoleIDInvalid},
+		}, users.ErrRoleIDInvalid},
 		{"role find by ID for update outside a transaction", func() error {
 			_, err := roles.FindByIDForUpdate(ctx, validRoleID)
 			return err
 		}, pgxdb.ErrTransactionRequired},
 		{"role find without sort", func() error {
-			_, err := roles.Find(ctx, security.RoleQuery{Limit: 10, Page: 1})
+			_, err := roles.Find(ctx, users.RoleQuery{Limit: 10, Page: 1})
 			return err
-		}, security.ErrInvalidRoleQuery},
+		}, users.ErrInvalidRoleQuery},
 		{"role find with zero page", func() error {
-			_, err := roles.Find(ctx, security.RoleQuery{SortBy: security.RoleSortID, Limit: 10})
+			_, err := roles.Find(ctx, users.RoleQuery{SortBy: users.RoleSortID, Limit: 10})
 			return err
-		}, security.ErrInvalidRoleQuery},
+		}, users.ErrInvalidRoleQuery},
 		{"role find with invalid filter", func() error {
-			_, err := roles.Find(ctx, security.RoleQuery{
-				Filter: security.RoleFilter{IDLike: "\x00"},
-				SortBy: security.RoleSortID,
+			_, err := roles.Find(ctx, users.RoleQuery{
+				Filter: users.RoleFilter{IDLike: "\x00"},
+				SortBy: users.RoleSortID,
 				Limit:  10,
 				Page:   1,
 			})
 			return err
-		}, security.ErrRoleFilterInvalid},
+		}, users.ErrRoleFilterInvalid},
 		{"role count with invalid filter", func() error {
-			_, err := roles.Count(ctx, security.RoleFilter{NameLike: strings.Repeat("a", security.MaxRoleFilterNameLikeLength+1)})
+			_, err := roles.Count(ctx, users.RoleFilter{NameLike: strings.Repeat("a", users.MaxRoleFilterNameLikeLength+1)})
 			return err
-		}, security.ErrRoleFilterInvalid},
+		}, users.ErrRoleFilterInvalid},
 	}
 
 	for _, test := range tests {
@@ -179,19 +179,19 @@ func TestRoleFindQuery(t *testing.T) {
 
 	tests := []struct {
 		name     string
-		query    security.RoleQuery
+		query    users.RoleQuery
 		wantSQL  []string
 		wantArgs []any
 	}{
 		{
 			name:     "sort by ID descending without a tie-breaker",
-			query:    security.RoleQuery{SortBy: security.RoleSortID, SortOrder: domquery.SortOrderDesc, Limit: 10, Page: 3},
+			query:    users.RoleQuery{SortBy: users.RoleSortID, SortOrder: domquery.SortOrderDesc, Limit: 10, Page: 3},
 			wantSQL:  []string{`ORDER BY "id" DESC LIMIT $1 OFFSET $2`},
 			wantArgs: []any{int64(10), int64(20)},
 		},
 		{
 			name:  "sort by name with the ID tie-breaker",
-			query: security.RoleQuery{SortBy: security.RoleSortName, SortOrder: domquery.SortOrderAsc, Limit: 5, Page: 1},
+			query: users.RoleQuery{SortBy: users.RoleSortName, SortOrder: domquery.SortOrderAsc, Limit: 5, Page: 1},
 			wantSQL: []string{
 				`ORDER BY l.is_fallback DESC, t.language_code LIMIT 1)) ASC, "id" ASC LIMIT $1`,
 			},
@@ -199,14 +199,14 @@ func TestRoleFindQuery(t *testing.T) {
 		},
 		{
 			name: "every filter",
-			query: security.RoleQuery{
-				Filter: security.RoleFilter{
+			query: users.RoleQuery{
+				Filter: users.RoleFilter{
 					IDLike:      "01_",
 					NameLike:    "50%",
-					Permissions: security.Permissions{security.PermissionViewUser, security.PermissionViewRole},
+					Permissions: users.Permissions{users.PermissionViewUser, users.PermissionViewRole},
 					IsSuper:     &isSuper,
 				},
-				SortBy: security.RoleSortIsSuper,
+				SortBy: users.RoleSortIsSuper,
 				Limit:  1,
 				Page:   1,
 			},
@@ -264,13 +264,13 @@ func TestMapErrors(t *testing.T) {
 		want    error
 		wantRaw bool
 	}{
-		{"role in use", mapRoleError, &pgconn.PgError{Code: "23503", ConstraintName: "user_role_id_fkey"}, security.ErrRoleAlreadyInUse, true},
-		{"role restricted", mapRoleError, &pgconn.PgError{Code: "23001", ConstraintName: "user_role_id_fkey"}, security.ErrRoleAlreadyInUse, true},
+		{"role in use", mapRoleError, &pgconn.PgError{Code: "23503", ConstraintName: "user_role_id_fkey"}, users.ErrRoleAlreadyInUse, true},
+		{"role restricted", mapRoleError, &pgconn.PgError{Code: "23001", ConstraintName: "user_role_id_fkey"}, users.ErrRoleAlreadyInUse, true},
 		{"role name language missing", mapRoleError, &pgconn.PgError{Code: "23503", ConstraintName: "translation_language_code_fkey"}, languages.ErrLanguageNotFound, true},
 		{"role unrelated", mapRoleError, cause, cause, false},
-		{"user role missing", mapUserError, &pgconn.PgError{Code: "23503", ConstraintName: "user_role_id_fkey"}, security.ErrRoleNotFound, true},
-		{"user ID taken", mapUserError, &pgconn.PgError{Code: "23505", ConstraintName: "user_pkey"}, security.ErrUserAlreadyExists, true},
-		{"user email taken", mapUserError, &pgconn.PgError{Code: "23505", ConstraintName: "user_email_unique_idx"}, security.ErrUserAlreadyExists, true},
+		{"user role missing", mapUserError, &pgconn.PgError{Code: "23503", ConstraintName: "user_role_id_fkey"}, users.ErrRoleNotFound, true},
+		{"user ID taken", mapUserError, &pgconn.PgError{Code: "23505", ConstraintName: "user_pkey"}, users.ErrUserAlreadyExists, true},
+		{"user email taken", mapUserError, &pgconn.PgError{Code: "23505", ConstraintName: "user_email_unique_idx"}, users.ErrUserAlreadyExists, true},
 		{"user unrelated", mapUserError, cause, cause, false},
 	}
 

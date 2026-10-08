@@ -8,16 +8,16 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/radynsade/faryengo/internal/languages"
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 )
 
-func (r *httpCredentials) Create(_ context.Context, role *security.Role) error {
+func (r *httpCredentials) Create(_ context.Context, role *users.Role) error {
 	r.roleWrites++
 	r.otherRoles = append(r.otherRoles, role)
 	return nil
 }
 
-func (r *httpCredentials) Update(_ context.Context, role *security.Role) error {
+func (r *httpCredentials) Update(_ context.Context, role *users.Role) error {
 	r.roleWrites++
 
 	if r.role.ID() == role.ID() {
@@ -33,25 +33,25 @@ func (r *httpCredentials) Update(_ context.Context, role *security.Role) error {
 	return nil
 }
 
-func (r *httpCredentials) Delete(_ context.Context, id security.RoleID) error {
+func (r *httpCredentials) Delete(_ context.Context, id users.RoleID) error {
 	r.roleWrites++
 	err := r.deleteErr
 
 	if err == nil && r.role.ID() == id {
-		err = security.ErrRoleAlreadyInUse
+		err = users.ErrRoleAlreadyInUse
 	}
 
 	if err == nil {
-		r.otherRoles = slices.DeleteFunc(r.otherRoles, func(role *security.Role) bool { return role.ID() == id })
+		r.otherRoles = slices.DeleteFunc(r.otherRoles, func(role *users.Role) bool { return role.ID() == id })
 	}
 
 	return err
 }
 
-func (r *httpCredentials) matchingRoles(filters security.RoleFilters) []*security.Role {
-	result := make([]*security.Role, 0)
+func (r *httpCredentials) matchingRoles(filters users.RoleFilters) []*users.Role {
+	result := make([]*users.Role, 0)
 
-	for _, role := range append([]*security.Role{r.role}, r.otherRoles...) {
+	for _, role := range append([]*users.Role{r.role}, r.otherRoles...) {
 		matches := strings.Contains(uuid.UUID(role.ID()).String(), strings.ToLower(filters.IDLike))
 		nameMatches := filters.NameLike == ""
 
@@ -73,20 +73,20 @@ func (r *httpCredentials) matchingRoles(filters security.RoleFilters) []*securit
 	return result
 }
 
-func (r *httpCredentials) Count(_ context.Context, filters security.RoleFilters) (int, error) {
+func (r *httpCredentials) Count(_ context.Context, filters users.RoleFilters) (int, error) {
 	r.roleReads++
 	r.lastFilters = filters
 	return len(r.matchingRoles(filters)), r.roleListErr
 }
 
-func (r *httpCredentials) Find(_ context.Context, query security.RoleQuery) ([]*security.Role, error) {
+func (r *httpCredentials) Find(_ context.Context, query users.RoleQuery) ([]*users.Role, error) {
 	r.roleReads++
 	r.lastQuery = query
 	result := r.matchingRoles(query.Filters)
-	slices.SortFunc(result, func(a, b *security.Role) int {
+	slices.SortFunc(result, func(a, b *users.Role) int {
 		order := strings.Compare(uuid.UUID(a.ID()).String(), uuid.UUID(b.ID()).String())
 
-		if query.Sort == security.RoleSortName {
+		if query.Sort == users.RoleSortName {
 			order = strings.Compare(a.Name().Translations()[0].Content(), b.Name().Translations()[0].Content())
 		}
 

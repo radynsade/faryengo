@@ -22,10 +22,10 @@ import (
 const usage = `Usage:
   bin/cli languages create-language <code> <englishName> <nativeName> [--fallback|-f]
   bin/cli languages delete-language <code>
-  bin/cli security create-user <email> <firstName> <lastName> <password> <phone> <roleUUID>
-  bin/cli security delete-user <userUUID>
-  bin/cli security create-role <nameTranslations> [--super|-s] [--permission|-p <permission>]...
-  bin/cli security delete-role <roleUUID>`
+  bin/cli users create-user <email> <firstName> <lastName> <password> <phone> <roleUUID>
+  bin/cli users delete-user <userUUID>
+  bin/cli users create-role <nameTranslations> [--super|-s] [--permission|-p <permission>]...
+  bin/cli users delete-role <roleUUID>`
 
 var errInvalidCommand = errors.New("invalid command")
 
@@ -94,7 +94,7 @@ func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
 	switch command.group {
 	case "languages":
 		err = runLanguageCommand(ctx, command.language, pool, stdout)
-	case "security":
+	case "users":
 		switch command.action {
 		case "create-user", "delete-user":
 			err = runUserCommand(ctx, command.user, pool, stdout)
@@ -123,7 +123,7 @@ func parseCommand(args []string) (cliCommand, error) {
 		switch command.group {
 		case "languages":
 			command.language, err = parseLanguageCommand(args)
-		case "security":
+		case "users":
 			switch command.action {
 			case "create-user", "delete-user":
 				command.user, err = parseUserCommand(args)

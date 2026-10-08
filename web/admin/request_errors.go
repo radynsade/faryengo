@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/radynsade/faryengo/internal/languages"
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
@@ -57,13 +57,13 @@ func requestFieldErrors(ctx context.Context, err error) components.FieldErrors {
 		// Domain/application errors with an unambiguous editable field also stay
 		// beside that field. Operational failures remain form-wide notifications.
 		switch {
-		case errors.Is(err, security.ErrInvalidRoleName):
+		case errors.Is(err, users.ErrInvalidRoleName):
 			fields = components.FieldErrors{"name": {admini18n.T(ctx, "validation.role_name")}}
 		case errors.Is(err, languages.ErrTranslationInvalidChars):
 			fields = components.FieldErrors{"name": {admini18n.T(ctx, "validation.invalid")}}
 		case errors.Is(err, languages.ErrLanguageNotFound):
 			fields = components.FieldErrors{"name": {admini18n.T(ctx, "errors.language_missing")}}
-		case errors.Is(err, security.ErrPermissionInvalid):
+		case errors.Is(err, users.ErrPermissionInvalid):
 			fields = components.FieldErrors{"permissions": {admini18n.T(ctx, "validation.invalid")}}
 		}
 	}

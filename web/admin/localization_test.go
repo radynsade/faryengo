@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 )
 
 func TestAdminLocalizedPages(t *testing.T) {
@@ -126,7 +126,7 @@ func TestAdminLocalizedMessages(t *testing.T) {
 				}
 			}
 
-			repository.deleteErr = security.ErrRoleAlreadyInUse
+			repository.deleteErr = users.ErrRoleAlreadyInUse
 			request := httptest.NewRequest(http.MethodPost, root+"/roles/"+uuid.UUID(repository.role.ID()).String()+"/delete", strings.NewReader("confirm=delete"))
 			request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 			request.Header.Set("HX-Request", "true")

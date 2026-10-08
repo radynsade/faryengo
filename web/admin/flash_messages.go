@@ -10,7 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
@@ -21,7 +21,7 @@ const anonymousFlashTTL = 15 * time.Minute
 type flashRequestKey struct{}
 
 type flashRequest struct {
-	principal *security.Principal
+	principal *users.Principal
 	guestID   uuid.UUID
 }
 
@@ -37,7 +37,7 @@ func (h *Handler) flashSession(request *http.Request, create bool) (flashmsg.Ses
 
 	if state.principal != nil {
 		principal := state.principal
-		prefix := "faryen:security:{" + uuid.UUID(principal.UserID).String() + "}"
+		prefix := "faryen:users:{" + uuid.UUID(principal.UserID).String() + "}"
 		session = flashmsg.Session{GenerationKey: prefix + ":generation", Key: prefix + ":session:" + principal.SessionID.String()}
 	} else {
 		if state.guestID == uuid.Nil {
@@ -66,7 +66,7 @@ func (h *Handler) addFlash(ctx context.Context, writer http.ResponseWriter, requ
 		err = h.flashStorage.Add(ctx, session, kind, message)
 
 		if errors.Is(err, flashredis.ErrSessionRevoked) {
-			err = security.ErrSessionRevoked
+			err = users.ErrSessionRevoked
 		}
 
 		if err == nil && session.GenerationKey == "" {
@@ -94,7 +94,7 @@ func (h *Handler) readFlashes(ctx context.Context, request *http.Request, kind s
 		bag, err = h.flashStorage.Take(ctx, session, kind)
 
 		if errors.Is(err, flashredis.ErrSessionRevoked) {
-			err = security.ErrSessionRevoked
+			err = users.ErrSessionRevoked
 		}
 	}
 

@@ -113,7 +113,7 @@ permission selections. Sorting and pagination retain filters in the URL.
 The list accepts `uuid`, `name`, repeated `permissions`, `super=true|false`,
 `sort=uuid|name|super`, `order=asc|desc`, `page`, and `size` query parameters.
 The default page size is 25; the maximum is 100. Invalid filters return a readable
-400 response. Filters live in `internal/security/role_filters.go`, and PostgreSQL
+400 response. Filters live in `internal/users/role_filters.go`, and PostgreSQL
 applies them through `RoleRepository.Find` and `Count`.
 
 Create and edit forms offer name fields for the configured languages, permissions,

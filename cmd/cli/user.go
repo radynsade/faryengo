@@ -11,22 +11,22 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app"
 	appinput "github.com/radynsade/faryengo/internal/app/input"
-	"github.com/radynsade/faryengo/internal/security"
-	"github.com/radynsade/faryengo/internal/security/argon2id"
-	"github.com/radynsade/faryengo/internal/security/pgxgoqu"
+	"github.com/radynsade/faryengo/internal/users"
+	"github.com/radynsade/faryengo/internal/users/argon2id"
+	"github.com/radynsade/faryengo/internal/users/pgxgoqu"
 )
 
 type userCommand struct {
 	action      string
 	createInput appinput.CreateUserInput
-	id          security.UserID
+	id          users.UserID
 }
 
 func parseUserCommand(args []string) (userCommand, error) {
 	var command userCommand
 	var err error
 
-	if len(args) < 2 || args[0] != "security" {
+	if len(args) < 2 || args[0] != "users" {
 		err = errInvalidCommand
 	} else {
 		command.action = args[1]
@@ -52,7 +52,7 @@ func parseCreateUser(args []string) (appinput.CreateUserInput, error) {
 	var request appinput.CreateUserInput
 	var err error
 
-	if len(args) < 2 || args[0] != "security" || args[1] != "create-user" {
+	if len(args) < 2 || args[0] != "users" || args[1] != "create-user" {
 		err = errInvalidCommand
 	} else {
 		positional := args[2:]
@@ -64,14 +64,14 @@ func parseCreateUser(args []string) (appinput.CreateUserInput, error) {
 		if len(positional) != 6 {
 			err = errInvalidCommand
 		} else {
-			roleID, roleErr := parseCommandUUID(positional[5], security.ErrRoleIDInvalid)
+			roleID, roleErr := parseCommandUUID(positional[5], users.ErrRoleIDInvalid)
 
 			if roleErr != nil {
 				err = fmt.Errorf("validate create-user role ID: %w: %w", appinput.ErrInvalidCreateUserInput, roleErr)
 			} else {
 				request = appinput.CreateUserInput{
 					Email: positional[0], FirstName: positional[1], LastName: positional[2],
-					Password: positional[3], Phone: positional[4], RoleID: security.RoleID(roleID),
+					Password: positional[3], Phone: positional[4], RoleID: users.RoleID(roleID),
 				}
 
 				if validationErr := userArgumentValues(request); validationErr != nil {
@@ -88,11 +88,11 @@ func parseCreateUser(args []string) (appinput.CreateUserInput, error) {
 	return request, err
 }
 
-func parseDeleteUser(args []string) (security.UserID, error) {
-	var id security.UserID
+func parseDeleteUser(args []string) (users.UserID, error) {
+	var id users.UserID
 	var err error
 
-	if len(args) != 3 || args[0] != "security" || args[1] != "delete-user" {
+	if len(args) != 3 || args[0] != "users" || args[1] != "delete-user" {
 		err = errInvalidCommand
 	} else {
 		parsed, parseErr := parseCommandUUID(args[2], appinput.ErrInvalidUserID)
@@ -100,7 +100,7 @@ func parseDeleteUser(args []string) (security.UserID, error) {
 		if parseErr != nil {
 			err = fmt.Errorf("validate delete-user ID: %w", parseErr)
 		} else {
-			id = security.UserID(parsed)
+			id = users.UserID(parsed)
 		}
 	}
 
@@ -113,11 +113,11 @@ func parseCommandUUID(value string, invalid error) (uuid.UUID, error) {
 
 	if len(value) != 36 {
 		err = invalid
-	} else if errors.Is(invalid, security.ErrRoleIDInvalid) {
-		parsed, parseErr := security.NewRoleID(value)
+	} else if errors.Is(invalid, users.ErrRoleIDInvalid) {
+		parsed, parseErr := users.NewRoleID(value)
 		id, err = uuid.UUID(parsed), parseErr
 	} else {
-		parsed, parseErr := security.NewUserID(value)
+		parsed, parseErr := users.NewUserID(value)
 		id, err = uuid.UUID(parsed), parseErr
 	}
 
@@ -169,11 +169,11 @@ func executeUserCommand(ctx context.Context, command userCommand, service *app.U
 
 // Validate primitive CLI arguments with domain constructors before connecting.
 func userArgumentValues(request appinput.CreateUserInput) error {
-	_, emailErr := security.NewEmail(request.Email)
-	_, phoneErr := security.NewPhone(request.Phone)
-	_, firstErr := security.NewFirstName(request.FirstName)
-	_, lastErr := security.NewLastName(request.LastName)
-	_, passwordErr := security.NewRegistrationPassword(request.Password)
+	_, emailErr := users.NewEmail(request.Email)
+	_, phoneErr := users.NewPhone(request.Phone)
+	_, firstErr := users.NewFirstName(request.FirstName)
+	_, lastErr := users.NewLastName(request.LastName)
+	_, passwordErr := users.NewRegistrationPassword(request.Password)
 	err := errors.Join(emailErr, phoneErr, firstErr, lastErr, passwordErr)
 
 	if err != nil {

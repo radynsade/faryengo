@@ -3,7 +3,7 @@ package admin
 import (
 	"github.com/google/uuid"
 
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 )
 
@@ -11,7 +11,7 @@ func init() {
 	// Domain mailbox syntax permits local domains that the built-in email tag
 	// excludes. Delegate instead of defining another email parser.
 	if err := requestvalidation.RegisterStringRule("mailbox", func(value string) bool {
-		_, err := security.NewEmail(value)
+		_, err := users.NewEmail(value)
 
 		return err == nil
 	}); err != nil {

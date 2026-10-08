@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 )
@@ -22,7 +22,7 @@ func TestRequestDTOs(t *testing.T) {
 		{name: "missing email", request: signInRequest{Password: "secret"}, field: "email"},
 		{name: "malformed email", request: signInRequest{Email: "Person <person@example.com>", Password: "secret"}, field: "email"},
 		{name: "missing password", request: signInRequest{Email: "person@example.com"}, field: "password"},
-		{name: "Unicode password bytes", request: signInRequest{Email: "person@example.com", Password: strings.Repeat("ā", security.MaxPasswordBytes/2+1)}, field: "password"},
+		{name: "Unicode password bytes", request: signInRequest{Email: "person@example.com", Password: strings.Repeat("ā", users.MaxPasswordBytes/2+1)}, field: "password"},
 		{name: "valid role", request: roleFormRequest{Name: map[string]string{"en": "Role"}}},
 		{name: "missing name", request: roleFormRequest{}, field: "name"},
 		{name: "malformed language", request: roleFormRequest{Name: map[string]string{"EN": "Role"}}, field: "name[EN]"},
@@ -88,7 +88,7 @@ func TestRoleIDTransportEncodings(t *testing.T) {
 				if err != nil || id.Validate() != nil {
 					t.Fatalf("roleID() = %v, %v", id, err)
 				}
-			} else if !errors.Is(err, security.ErrRoleIDInvalid) || id != (security.RoleID{}) {
+			} else if !errors.Is(err, users.ErrRoleIDInvalid) || id != (users.RoleID{}) {
 				t.Fatalf("invalid roleID() = %v, %v", id, err)
 			}
 		})

@@ -17,7 +17,7 @@ take precedence over these rules.
   package. That file holds the repository sentinels, the typed write-failure
   interfaces, the repository interface and, when needed, the
   `<Entity>Filter`, `<Entity>Sort` and `<Entity>Query` types
-  (`internal/security/role_repository.go:13-150`).
+  (`internal/users/role_repository.go:13-150`).
 - Put the PostgreSQL implementation in `<domain>/pgxgoqu/<entity>_repository.go`
   as a `<Entity>Repository` struct.
 
@@ -39,7 +39,7 @@ internal/catalog/
 - Exception, following [architecture.md](../architecture.md): a domain package
   declares the contracts that infrastructure implements. A repository
   interface (`<Entity>Repository`) or a domain service port
-  (`PasswordHasher`, `internal/security/password.go:79-82`) lives in the
+  (`PasswordHasher`, `internal/users/password.go:79-82`) lives in the
   domain package and lists every operation the domain exposes, however many
   that is (`internal/languages/language_repository.go:33-41`).
 - PostgreSQL repositories accept `pgxdb.DB` from `internal/infra/pgxdb/`

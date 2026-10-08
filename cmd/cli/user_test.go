@@ -13,8 +13,8 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app"
 	appinput "github.com/radynsade/faryengo/internal/app/input"
-	"github.com/radynsade/faryengo/internal/security"
-	"github.com/radynsade/faryengo/internal/security/argon2id"
+	"github.com/radynsade/faryengo/internal/users"
+	"github.com/radynsade/faryengo/internal/users/argon2id"
 )
 
 const (
@@ -24,7 +24,7 @@ const (
 )
 
 func createUserArguments() []string {
-	return []string{"security", "create-user", "person@example.com", "First Name", "Last Name", testPassword, "+37123456789", testRoleUUID}
+	return []string{"users", "create-user", "person@example.com", "First Name", "Last Name", testPassword, "+37123456789", testRoleUUID}
 }
 
 func changedUserArguments(index int, value string) []string {
@@ -40,24 +40,24 @@ func TestParseCreateUser(t *testing.T) {
 		wantErr error
 	}{
 		{name: "valid", args: createUserArguments()},
-		{name: "options separator", args: append([]string{"security", "create-user", "--"}, createUserArguments()[2:]...)},
+		{name: "options separator", args: append([]string{"users", "create-user", "--"}, createUserArguments()[2:]...)},
 		{name: "password starts with hyphen", args: changedUserArguments(5, "--secret-password")},
-		{name: "missing arguments", args: []string{"security", "create-user"}, wantErr: errInvalidCommand},
+		{name: "missing arguments", args: []string{"users", "create-user"}, wantErr: errInvalidCommand},
 		{name: "extra argument", args: append(createUserArguments(), "extra"), wantErr: errInvalidCommand},
-		{name: "old users group rejected", args: changedUserArguments(0, "users"), wantErr: errInvalidCommand},
+		{name: "old security group rejected", args: changedUserArguments(0, "security"), wantErr: errInvalidCommand},
 		{name: "wrong action", args: changedUserArguments(1, "create"), wantErr: errInvalidCommand},
 		{name: "missing command", wantErr: errInvalidCommand},
-		{name: "invalid email", args: changedUserArguments(2, "invalid-email"), wantErr: security.ErrEmailInvalid},
-		{name: "missing first name", args: changedUserArguments(3, ""), wantErr: security.ErrFirstNameInvalid},
-		{name: "missing last name", args: changedUserArguments(4, ""), wantErr: security.ErrLastNameInvalid},
-		{name: "short password", args: changedUserArguments(5, "1234567"), wantErr: security.ErrPasswordInvalid},
-		{name: "blank password", args: changedUserArguments(5, "        "), wantErr: security.ErrPasswordInvalid},
-		{name: "oversized password", args: changedUserArguments(5, strings.Repeat("x", security.MaxPasswordBytes+1)), wantErr: security.ErrPasswordInvalid},
-		{name: "invalid phone", args: changedUserArguments(6, "12345678"), wantErr: security.ErrPhoneInvalid},
-		{name: "invalid role UUID", args: changedUserArguments(7, "invalid-uuid"), wantErr: security.ErrRoleIDInvalid},
-		{name: "nil role UUID", args: changedUserArguments(7, uuid.Nil.String()), wantErr: security.ErrRoleIDInvalid},
-		{name: "compact UUID rejected", args: changedUserArguments(7, strings.ReplaceAll(testRoleUUID, "-", "")), wantErr: security.ErrRoleIDInvalid},
-		{name: "URN UUID rejected", args: changedUserArguments(7, "urn:uuid:"+testRoleUUID), wantErr: security.ErrRoleIDInvalid},
+		{name: "invalid email", args: changedUserArguments(2, "invalid-email"), wantErr: users.ErrEmailInvalid},
+		{name: "missing first name", args: changedUserArguments(3, ""), wantErr: users.ErrFirstNameInvalid},
+		{name: "missing last name", args: changedUserArguments(4, ""), wantErr: users.ErrLastNameInvalid},
+		{name: "short password", args: changedUserArguments(5, "1234567"), wantErr: users.ErrPasswordInvalid},
+		{name: "blank password", args: changedUserArguments(5, "        "), wantErr: users.ErrPasswordInvalid},
+		{name: "oversized password", args: changedUserArguments(5, strings.Repeat("x", users.MaxPasswordBytes+1)), wantErr: users.ErrPasswordInvalid},
+		{name: "invalid phone", args: changedUserArguments(6, "12345678"), wantErr: users.ErrPhoneInvalid},
+		{name: "invalid role UUID", args: changedUserArguments(7, "invalid-uuid"), wantErr: users.ErrRoleIDInvalid},
+		{name: "nil role UUID", args: changedUserArguments(7, uuid.Nil.String()), wantErr: users.ErrRoleIDInvalid},
+		{name: "compact UUID rejected", args: changedUserArguments(7, strings.ReplaceAll(testRoleUUID, "-", "")), wantErr: users.ErrRoleIDInvalid},
+		{name: "URN UUID rejected", args: changedUserArguments(7, "urn:uuid:"+testRoleUUID), wantErr: users.ErrRoleIDInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			request, err := parseCreateUser(tt.args)
@@ -96,15 +96,15 @@ func TestParseDeleteUser(t *testing.T) {
 		args    []string
 		wantErr error
 	}{
-		{name: "valid", args: []string{"security", "delete-user", testUserUUID}},
-		{name: "uppercase UUID", args: []string{"security", "delete-user", strings.ToUpper(testUserUUID)}},
-		{name: "missing ID", args: []string{"security", "delete-user"}, wantErr: errInvalidCommand},
-		{name: "extra argument", args: []string{"security", "delete-user", testUserUUID, "extra"}, wantErr: errInvalidCommand},
-		{name: "invalid ID", args: []string{"security", "delete-user", "invalid-uuid"}, wantErr: appinput.ErrInvalidUserID},
-		{name: "nil UUID", args: []string{"security", "delete-user", uuid.Nil.String()}, wantErr: appinput.ErrInvalidUserID},
-		{name: "compact UUID", args: []string{"security", "delete-user", strings.ReplaceAll(testUserUUID, "-", "")}, wantErr: appinput.ErrInvalidUserID},
-		{name: "old users group rejected", args: []string{"users", "delete-user", testUserUUID}, wantErr: errInvalidCommand},
-		{name: "wrong action", args: []string{"security", "delete", testUserUUID}, wantErr: errInvalidCommand},
+		{name: "valid", args: []string{"users", "delete-user", testUserUUID}},
+		{name: "uppercase UUID", args: []string{"users", "delete-user", strings.ToUpper(testUserUUID)}},
+		{name: "missing ID", args: []string{"users", "delete-user"}, wantErr: errInvalidCommand},
+		{name: "extra argument", args: []string{"users", "delete-user", testUserUUID, "extra"}, wantErr: errInvalidCommand},
+		{name: "invalid ID", args: []string{"users", "delete-user", "invalid-uuid"}, wantErr: appinput.ErrInvalidUserID},
+		{name: "nil UUID", args: []string{"users", "delete-user", uuid.Nil.String()}, wantErr: appinput.ErrInvalidUserID},
+		{name: "compact UUID", args: []string{"users", "delete-user", strings.ReplaceAll(testUserUUID, "-", "")}, wantErr: appinput.ErrInvalidUserID},
+		{name: "old security group rejected", args: []string{"security", "delete-user", testUserUUID}, wantErr: errInvalidCommand},
+		{name: "wrong action", args: []string{"users", "delete", testUserUUID}, wantErr: errInvalidCommand},
 		{name: "missing command", wantErr: errInvalidCommand},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -124,15 +124,15 @@ func TestParseCommandGroups(t *testing.T) {
 		wantErr     error
 	}{
 		{name: "languages", group: "languages", args: []string{"languages", "delete-language", "lv"}},
-		{name: "create user", group: "security", args: createUserArguments()},
-		{name: "delete user", group: "security", args: []string{"security", "delete-user", testUserUUID}},
-		{name: "create role", group: "security", args: []string{"security", "create-role", "en:Administrator", "--super"}},
-		{name: "delete role", group: "security", args: []string{"security", "delete-role", testRoleUUID}},
+		{name: "create user", group: "users", args: createUserArguments()},
+		{name: "delete user", group: "users", args: []string{"users", "delete-user", testUserUUID}},
+		{name: "create role", group: "users", args: []string{"users", "create-role", "en:Administrator", "--super"}},
+		{name: "delete role", group: "users", args: []string{"users", "delete-role", testRoleUUID}},
 		{name: "unknown group", args: []string{"unknown", "delete-user", testUserUUID}, wantErr: errInvalidCommand},
-		{name: "unknown user action", args: []string{"security", "update-user"}, wantErr: errInvalidCommand},
-		{name: "unknown role action", args: []string{"security", "update-role"}, wantErr: errInvalidCommand},
-		{name: "malformed role name", args: []string{"security", "create-role", "broken"}, wantErr: appinput.ErrInvalidStringTranslations},
-		{name: "missing action", args: []string{"security"}, wantErr: errInvalidCommand},
+		{name: "unknown user action", args: []string{"users", "update-user"}, wantErr: errInvalidCommand},
+		{name: "unknown role action", args: []string{"users", "update-role"}, wantErr: errInvalidCommand},
+		{name: "malformed role name", args: []string{"users", "create-role", "broken"}, wantErr: appinput.ErrInvalidStringTranslations},
+		{name: "missing action", args: []string{"users"}, wantErr: errInvalidCommand},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			command, err := parseCommand(tt.args)
@@ -150,32 +150,32 @@ func TestParseCommandGroups(t *testing.T) {
 
 type fakeCLIUserRepository struct {
 	ctx         context.Context
-	created     *security.User
-	deleted     security.UserID
+	created     *users.User
+	deleted     users.UserID
 	createErr   error
 	deleteErr   error
 	createCalls int
 	deleteCalls int
 }
 
-func (r *fakeCLIUserRepository) Create(ctx context.Context, user *security.User) error {
+func (r *fakeCLIUserRepository) Create(ctx context.Context, user *users.User) error {
 	r.ctx, r.created = ctx, user
 	r.createCalls++
 	return r.createErr
 }
 
-func (r *fakeCLIUserRepository) Delete(ctx context.Context, id security.UserID) error {
+func (r *fakeCLIUserRepository) Delete(ctx context.Context, id users.UserID) error {
 	r.ctx, r.deleted = ctx, id
 	r.deleteCalls++
 	return r.deleteErr
 }
 
-func (*fakeCLIUserRepository) Update(context.Context, *security.User) error {
-	return security.ErrUserNotFound
+func (*fakeCLIUserRepository) Update(context.Context, *users.User) error {
+	return users.ErrUserNotFound
 }
 
-func (*fakeCLIUserRepository) FindByID(context.Context, security.UserID) (*security.User, error) {
-	return nil, security.ErrUserNotFound
+func (*fakeCLIUserRepository) FindByID(context.Context, users.UserID) (*users.User, error) {
+	return nil, users.ErrUserNotFound
 }
 
 func TestCreateUserCommand(t *testing.T) {
@@ -184,8 +184,8 @@ func TestCreateUserCommand(t *testing.T) {
 		err  error
 	}{
 		{name: "created"},
-		{name: "duplicate email", err: security.ErrUserAlreadyExists},
-		{name: "missing role", err: security.ErrRoleNotFound},
+		{name: "duplicate email", err: users.ErrUserAlreadyExists},
+		{name: "missing role", err: users.ErrRoleNotFound},
 		{name: "database failure", err: context.DeadlineExceeded},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -246,11 +246,11 @@ func TestDeleteUserCommand(t *testing.T) {
 		err  error
 	}{
 		{name: "deleted"},
-		{name: "not found", err: security.ErrUserNotFound},
+		{name: "not found", err: users.ErrUserNotFound},
 		{name: "database failure", err: context.DeadlineExceeded},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			command, err := parseUserCommand([]string{"security", "delete-user", testUserUUID})
+			command, err := parseUserCommand([]string{"users", "delete-user", testUserUUID})
 
 			if err != nil {
 				t.Fatal(err)

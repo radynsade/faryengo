@@ -1,6 +1,6 @@
-# Security
+# Users
 
-The Security domain models users, their credentials, and the authority granted
+The Users domain models users, their credentials, and the authority granted
 through roles. Authentication establishes identity; authorization determines
 whether an action is permitted.
 

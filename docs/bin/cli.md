@@ -14,10 +14,10 @@ brackets are optional. Quote arguments containing spaces or shell separators.
 | `bin/cli help` | Display command syntax. Also available as `bin/cli -h` or `bin/cli --help`. |
 | `bin/cli languages create-language <code> <englishName> <nativeName> [--fallback]` | Create a language. |
 | `bin/cli languages delete-language <code>` | Delete a language. |
-| `bin/cli security create-role <nameTranslations> [--super] [--permission <permission>]...` | Create a role. |
-| `bin/cli security delete-role <roleUUID>` | Delete a role. |
-| `bin/cli security create-user <email> <firstName> <lastName> <password> <phone> <roleUUID>` | Create a user with an existing role. |
-| `bin/cli security delete-user <userUUID>` | Delete a user. |
+| `bin/cli users create-role <nameTranslations> [--super] [--permission <permission>]...` | Create a role. |
+| `bin/cli users delete-role <roleUUID>` | Delete a role. |
+| `bin/cli users create-user <email> <firstName> <lastName> <password> <phone> <roleUUID>` | Create a user with an existing role. |
+| `bin/cli users delete-user <userUUID>` | Delete a user. |
 
 ## Languages
 

@@ -15,7 +15,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/app/input"
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 )
@@ -86,7 +86,7 @@ func (h *Handler) allowSignIn(request *http.Request, email string) error {
 }
 
 // authenticate uses the same opaque cookie for SSR and HTMX requests.
-func (h *Handler) authenticate(writer http.ResponseWriter, request *http.Request) (security.Principal, error) {
+func (h *Handler) authenticate(writer http.ResponseWriter, request *http.Request) (users.Principal, error) {
 	raw := h.cookie(request, "session")
 	principal, err := h.service.Authenticate(request.Context(), raw)
 
@@ -98,7 +98,7 @@ func (h *Handler) authenticate(writer http.ResponseWriter, request *http.Request
 }
 
 func invalidSession(err error) bool {
-	return errors.Is(err, security.ErrSessionRevoked) || errors.Is(err, security.ErrInvalidSession)
+	return errors.Is(err, users.ErrSessionRevoked) || errors.Is(err, users.ErrInvalidSession)
 }
 
 func (h *Handler) signOut(writer http.ResponseWriter, request *http.Request) {
@@ -134,7 +134,7 @@ func (h *Handler) cookie(request *http.Request, kind string) string {
 	return value
 }
 
-func (h *Handler) setSession(writer http.ResponseWriter, session security.SessionGrant) {
+func (h *Handler) setSession(writer http.ResponseWriter, session users.SessionGrant) {
 	lifetime := int(time.Until(session.ExpiresAt).Seconds())
 	http.SetCookie(writer, &http.Cookie{Name: h.cookieName("session"), Value: session.ID,
 		Path: "/", HttpOnly: true, Secure: h.secureCookies, SameSite: http.SameSiteStrictMode,
@@ -161,9 +161,9 @@ func (h *Handler) signInError(writer http.ResponseWriter, request *http.Request,
 func authenticationError(ctx context.Context, err error) (int, string) {
 	status, message := http.StatusServiceUnavailable, admini18n.T(ctx, "errors.sign_in_unavailable")
 
-	if errors.Is(err, security.ErrInvalidCredentials) || invalidSession(err) {
+	if errors.Is(err, users.ErrInvalidCredentials) || invalidSession(err) {
 		status, message = http.StatusUnauthorized, admini18n.T(ctx, "errors.invalid_session")
-	} else if errors.Is(err, security.ErrPermissionDenied) || errors.Is(err, security.ErrPermissionInvalid) {
+	} else if errors.Is(err, users.ErrPermissionDenied) || errors.Is(err, users.ErrPermissionInvalid) {
 		status, message = http.StatusForbidden, admini18n.T(ctx, "errors.access")
 	} else if errors.Is(err, errSignInThrottled) {
 		status, message = http.StatusTooManyRequests, admini18n.T(ctx, "errors.throttled")

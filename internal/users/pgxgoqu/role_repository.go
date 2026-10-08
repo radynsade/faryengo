@@ -18,7 +18,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/infra/pgxdb"
 	"github.com/radynsade/faryengo/internal/languages"
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 )
 
 //
@@ -26,11 +26,11 @@ import (
 //
 
 type errRoleWriteFailed struct {
-	role *security.Role
+	role *users.Role
 	err  error
 }
 
-func (e errRoleWriteFailed) Role() *security.Role {
+func (e errRoleWriteFailed) Role() *users.Role {
 	return e.role
 }
 
@@ -38,13 +38,13 @@ func (e errRoleWriteFailed) Unwrap() error {
 	return e.err
 }
 
-// Implementation of security.ErrRoleCreateFailed
+// Implementation of users.ErrRoleCreateFailed
 
 type errRoleCreateFailed struct {
 	errRoleWriteFailed
 }
 
-func newErrRoleCreateFailed(role *security.Role, err error) *errRoleCreateFailed {
+func newErrRoleCreateFailed(role *users.Role, err error) *errRoleCreateFailed {
 	return &errRoleCreateFailed{
 		errRoleWriteFailed: errRoleWriteFailed{role, err},
 	}
@@ -54,13 +54,13 @@ func (e *errRoleCreateFailed) Error() string {
 	return "failed to create a role"
 }
 
-// Implementation of security.ErrRoleUpdateFailed
+// Implementation of users.ErrRoleUpdateFailed
 
 type errRoleUpdateFailed struct {
 	errRoleWriteFailed
 }
 
-func newErrRoleUpdateFailed(role *security.Role, err error) *errRoleUpdateFailed {
+func newErrRoleUpdateFailed(role *users.Role, err error) *errRoleUpdateFailed {
 	return &errRoleUpdateFailed{
 		errRoleWriteFailed: errRoleWriteFailed{role, err},
 	}
@@ -70,18 +70,18 @@ func (e *errRoleUpdateFailed) Error() string {
 	return "failed to update a role"
 }
 
-// Implementation of security.ErrRoleDeleteFailed
+// Implementation of users.ErrRoleDeleteFailed
 
 type errRoleDeleteFailed struct {
-	id  security.RoleID
+	id  users.RoleID
 	err error
 }
 
-func newErrRoleDeleteFailed(id security.RoleID, err error) *errRoleDeleteFailed {
+func newErrRoleDeleteFailed(id users.RoleID, err error) *errRoleDeleteFailed {
 	return &errRoleDeleteFailed{id, err}
 }
 
-func (e errRoleDeleteFailed) RoleID() security.RoleID {
+func (e errRoleDeleteFailed) RoleID() users.RoleID {
 	return e.id
 }
 
@@ -101,7 +101,7 @@ type RoleRepository struct {
 	pool pgxdb.DB
 }
 
-var _ security.RoleRepository = (*RoleRepository)(nil)
+var _ users.RoleRepository = (*RoleRepository)(nil)
 
 func NewRoleRepository(pool pgxdb.DB) (*RoleRepository, error) {
 	var (
@@ -123,14 +123,14 @@ func NewRoleRepository(pool pgxdb.DB) (*RoleRepository, error) {
 
 func (r *RoleRepository) Create(
 	ctx context.Context,
-	role *security.Role,
-) security.ErrRoleCreateFailed {
-	var err security.ErrRoleCreateFailed
+	role *users.Role,
+) users.ErrRoleCreateFailed {
+	var err users.ErrRoleCreateFailed
 
 	if r == nil || r.pool == nil {
 		err = newErrRoleCreateFailed(role, pgxdb.ErrNilDB)
 	} else if role == nil {
-		err = newErrRoleCreateFailed(role, security.ErrRoleNil)
+		err = newErrRoleCreateFailed(role, users.ErrRoleNil)
 	} else if validationErr := role.Validate(); validationErr != nil {
 		err = newErrRoleCreateFailed(role, validationErr)
 	} else if createErr := r.create(ctx, role); createErr != nil {
@@ -145,14 +145,14 @@ func (r *RoleRepository) Create(
 
 func (r *RoleRepository) Update(
 	ctx context.Context,
-	role *security.Role,
-) security.ErrRoleUpdateFailed {
-	var err security.ErrRoleUpdateFailed
+	role *users.Role,
+) users.ErrRoleUpdateFailed {
+	var err users.ErrRoleUpdateFailed
 
 	if r == nil || r.pool == nil {
 		err = newErrRoleUpdateFailed(role, pgxdb.ErrNilDB)
 	} else if role == nil {
-		err = newErrRoleUpdateFailed(role, security.ErrRoleNil)
+		err = newErrRoleUpdateFailed(role, users.ErrRoleNil)
 	} else if validationErr := role.Validate(); validationErr != nil {
 		err = newErrRoleUpdateFailed(role, validationErr)
 	} else if updateErr := r.update(ctx, role); updateErr != nil {
@@ -168,9 +168,9 @@ func (r *RoleRepository) Update(
 
 func (r *RoleRepository) Delete(
 	ctx context.Context,
-	id security.RoleID,
-) security.ErrRoleDeleteFailed {
-	var err security.ErrRoleDeleteFailed
+	id users.RoleID,
+) users.ErrRoleDeleteFailed {
+	var err users.ErrRoleDeleteFailed
 
 	if r == nil || r.pool == nil {
 		err = newErrRoleDeleteFailed(id, pgxdb.ErrNilDB)
@@ -191,7 +191,7 @@ func (r *RoleRepository) Delete(
 			if execErr != nil {
 				err = newErrRoleDeleteFailed(id, mapRoleError(execErr))
 			} else if tag.RowsAffected() == 0 {
-				err = newErrRoleDeleteFailed(id, security.ErrRoleNotFound)
+				err = newErrRoleDeleteFailed(id, users.ErrRoleNotFound)
 			}
 		}
 	}
@@ -203,10 +203,10 @@ func (r *RoleRepository) Delete(
 
 func (r *RoleRepository) FindByID(
 	ctx context.Context,
-	id security.RoleID,
-) (*security.Role, error) {
+	id users.RoleID,
+) (*users.Role, error) {
 	var (
-		role *security.Role
+		role *users.Role
 		err  error
 	)
 
@@ -232,10 +232,10 @@ func (r *RoleRepository) FindByID(
 
 func (r *RoleRepository) FindByIDForUpdate(
 	ctx context.Context,
-	id security.RoleID,
-) (*security.Role, error) {
+	id users.RoleID,
+) (*users.Role, error) {
 	var (
-		role *security.Role
+		role *users.Role
 		err  error
 	)
 
@@ -261,10 +261,10 @@ func (r *RoleRepository) FindByIDForUpdate(
 
 func (r *RoleRepository) Find(
 	ctx context.Context,
-	query security.RoleQuery,
-) ([]*security.Role, error) {
+	query users.RoleQuery,
+) ([]*users.Role, error) {
 	var (
-		result []*security.Role
+		result []*users.Role
 		err    error
 	)
 
@@ -291,10 +291,10 @@ func (r *RoleRepository) Find(
 			} else {
 				defer rows.Close()
 
-				result = make([]*security.Role, 0, query.Limit)
+				result = make([]*users.Role, 0, query.Limit)
 
 				for rows.Next() {
-					var role *security.Role
+					var role *users.Role
 					role, err = scanRole(rows)
 
 					if err != nil {
@@ -323,7 +323,7 @@ func (r *RoleRepository) Find(
 
 func (r *RoleRepository) Count(
 	ctx context.Context,
-	filter security.RoleFilter,
+	filter users.RoleFilter,
 ) (int, error) {
 	var (
 		total int
@@ -358,9 +358,9 @@ func (r *RoleRepository) find(
 	ctx context.Context,
 	filter goqu.Ex,
 	forUpdate bool,
-) (*security.Role, error) {
+) (*users.Role, error) {
 	var (
-		role *security.Role
+		role *users.Role
 		err  error
 	)
 
@@ -387,7 +387,7 @@ func (r *RoleRepository) find(
 
 func (r *RoleRepository) create(
 	ctx context.Context,
-	role *security.Role,
+	role *users.Role,
 ) error {
 	err := pgxdb.InTransaction(ctx, r.pool, func(ctx context.Context) error {
 		var nameID int64
@@ -411,7 +411,7 @@ func (r *RoleRepository) create(
 
 func (r *RoleRepository) update(
 	ctx context.Context,
-	role *security.Role,
+	role *users.Role,
 ) error {
 	err := pgxdb.InTransaction(ctx, r.pool, func(ctx context.Context) error {
 		db := pgxdb.FromContext(ctx, r.pool)
@@ -434,7 +434,7 @@ func (r *RoleRepository) update(
 func insertRole(
 	ctx context.Context,
 	db pgxdb.DB,
-	role *security.Role,
+	role *users.Role,
 	nameID int64,
 ) error {
 	query, args, err := goqu.Dialect("postgres").
@@ -455,7 +455,7 @@ func insertRole(
 		tag, err = db.Exec(ctx, query, args...)
 
 		if err == nil && tag.RowsAffected() == 0 {
-			err = security.ErrRoleAlreadyExists
+			err = users.ErrRoleAlreadyExists
 		}
 	}
 
@@ -465,7 +465,7 @@ func insertRole(
 func updateRole(
 	ctx context.Context,
 	db pgxdb.DB,
-	role *security.Role,
+	role *users.Role,
 ) (int64, error) {
 	var nameID int64
 
@@ -484,7 +484,7 @@ func updateRole(
 		err = db.QueryRow(ctx, query, args...).Scan(&nameID)
 
 		if errors.Is(err, pgx.ErrNoRows) {
-			err = security.ErrRoleNotFound
+			err = users.ErrRoleNotFound
 		}
 	}
 
@@ -495,7 +495,7 @@ func insertRoleName(
 	ctx context.Context,
 	db pgxdb.DB,
 	nameID int64,
-	name security.RoleName,
+	name users.RoleName,
 ) error {
 	rows := make([]any, 0, len(name))
 
@@ -531,7 +531,7 @@ func roleColumns() []any {
 	}
 }
 
-func roleFilterDataset(filter security.RoleFilter) *goqu.SelectDataset {
+func roleFilterDataset(filter users.RoleFilter) *goqu.SelectDataset {
 	dataset := goqu.Dialect("postgres").From("role")
 
 	if filter.IDLike != "" {
@@ -564,16 +564,16 @@ func roleFilterDataset(filter security.RoleFilter) *goqu.SelectDataset {
 // alphabetically first translation when the fallback one is missing. The ID is
 // the tie-breaker for every sort.
 
-func roleOrder(query security.RoleQuery) []exp.OrderedExpression {
+func roleOrder(query users.RoleQuery) []exp.OrderedExpression {
 	var sort exp.Orderable = goqu.C("id")
 
 	switch query.SortBy {
-	case security.RoleSortName:
+	case users.RoleSortName:
 		sort = goqu.L(`lower((SELECT t.content FROM "translation" AS t ` +
 			`JOIN "language" AS l ON l.code = t.language_code ` +
 			`WHERE t.text_id = "role".name_id ` +
 			`ORDER BY l.is_fallback DESC, t.language_code LIMIT 1))`)
-	case security.RoleSortIsSuper:
+	case users.RoleSortIsSuper:
 		sort = goqu.C("is_super")
 	}
 
@@ -583,14 +583,14 @@ func roleOrder(query security.RoleQuery) []exp.OrderedExpression {
 		order[0] = sort.Desc()
 	}
 
-	if query.SortBy != security.RoleSortID {
+	if query.SortBy != users.RoleSortID {
 		order = append(order, goqu.C("id").Asc())
 	}
 
 	return order
 }
 
-func validateRoleQuery(query security.RoleQuery) error {
+func validateRoleQuery(query users.RoleQuery) error {
 	err := query.Validate()
 
 	if err == nil {
@@ -598,7 +598,7 @@ func validateRoleQuery(query security.RoleQuery) error {
 	}
 
 	if err == nil && (query.Limit == 0 || query.Page == 0) {
-		err = security.ErrInvalidRoleQuery
+		err = users.ErrInvalidRoleQuery
 	}
 
 	return err
@@ -608,7 +608,7 @@ func likeSubstring(value string) string {
 	return "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(value) + "%"
 }
 
-func rolePermissionsArray(permissions security.Permissions) exp.LiteralExpression {
+func rolePermissionsArray(permissions users.Permissions) exp.LiteralExpression {
 	placeholders := make([]string, len(permissions))
 	values := make([]any, len(permissions))
 
@@ -620,9 +620,9 @@ func rolePermissionsArray(permissions security.Permissions) exp.LiteralExpressio
 	return goqu.L("ARRAY["+strings.Join(placeholders, ",")+"]::permission[]", values...)
 }
 
-func scanRole(row pgx.Row) (*security.Role, error) {
+func scanRole(row pgx.Row) (*users.Role, error) {
 	var (
-		role                         *security.Role
+		role                         *users.Role
 		err                          error
 		id                           pgtype.UUID
 		codes, contents, permissions []string
@@ -632,25 +632,25 @@ func scanRole(row pgx.Row) (*security.Role, error) {
 	scanErr := row.Scan(&id, &codes, &contents, &permissions, &isSuper)
 
 	if errors.Is(scanErr, pgx.ErrNoRows) {
-		err = security.ErrRoleNotFound
+		err = users.ErrRoleNotFound
 	} else if scanErr != nil {
 		err = fmt.Errorf("scan role: %w", scanErr)
 	} else if len(codes) != len(contents) {
 		err = errors.New("failed to decode a role: mismatched name translations")
 	} else {
-		name := make(security.RoleName, len(codes))
+		name := make(users.RoleName, len(codes))
 
 		for index, code := range codes {
 			name[languages.Code(code)] = languages.Translation(contents[index])
 		}
 
-		rolePermissions := make(security.Permissions, len(permissions))
+		rolePermissions := make(users.Permissions, len(permissions))
 
 		for index, permission := range permissions {
-			rolePermissions[index] = security.Permission(permission)
+			rolePermissions[index] = users.Permission(permission)
 		}
 
-		role = security.NewRole(security.RoleID(id.Bytes), name, rolePermissions, isSuper)
+		role = users.NewRole(users.RoleID(id.Bytes), name, rolePermissions, isSuper)
 		err = role.Validate()
 
 		if err != nil {
@@ -669,7 +669,7 @@ func mapRoleError(err error) error {
 		switch {
 		case (postgresErr.Code == "23503" || postgresErr.Code == "23001") &&
 			postgresErr.ConstraintName == "user_role_id_fkey":
-			result = errors.Join(security.ErrRoleAlreadyInUse, err)
+			result = errors.Join(users.ErrRoleAlreadyInUse, err)
 		case postgresErr.Code == "23503" && postgresErr.ConstraintName == "translation_language_code_fkey":
 			result = errors.Join(languages.ErrLanguageNotFound, err)
 		}

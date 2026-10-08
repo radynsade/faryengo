@@ -15,13 +15,13 @@ import (
 	"github.com/google/uuid"
 	redislib "github.com/redis/go-redis/v9"
 
-	"github.com/radynsade/faryengo/internal/security"
-	securityredis "github.com/radynsade/faryengo/internal/security/redis"
+	"github.com/radynsade/faryengo/internal/users"
+	usersredis "github.com/radynsade/faryengo/internal/users/redis"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
 )
 
-func flashFixture(t *testing.T) (*Handler, *miniredis.Miniredis, *securityredis.SessionStore, security.Principal) {
+func flashFixture(t *testing.T) (*Handler, *miniredis.Miniredis, *usersredis.SessionStore, users.Principal) {
 	t.Helper()
 	mini := miniredis.RunT(t)
 	client := redislib.NewClient(&redislib.Options{Addr: mini.Addr(), MaxRetries: -1, DialTimeout: 100 * time.Millisecond})
@@ -30,14 +30,14 @@ func flashFixture(t *testing.T) (*Handler, *miniredis.Miniredis, *securityredis.
 			t.Error(err)
 		}
 	})
-	store, err := securityredis.NewSessionStore(client)
+	store, err := usersredis.NewSessionStore(client)
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	principal := security.Principal{UserID: security.UserID(newTestUUID(t)), SessionID: newTestUUID(t)}
-	session := security.Session{ID: principal.SessionID, UserID: principal.UserID, AuthenticationSnapshotVersion: newTestUUID(t), ExpiresAt: time.Now().Add(time.Hour)}
+	principal := users.Principal{UserID: users.UserID(newTestUUID(t)), SessionID: newTestUUID(t)}
+	session := users.Session{ID: principal.SessionID, UserID: principal.UserID, AuthenticationSnapshotVersion: newTestUUID(t), ExpiresAt: time.Now().Add(time.Hour)}
 
 	if err := store.CreateSession(t.Context(), session, strings.Repeat("a", 64)); err != nil {
 		t.Fatal(err)
@@ -52,7 +52,7 @@ func flashFixture(t *testing.T) (*Handler, *miniredis.Miniredis, *securityredis.
 	return &Handler{flashStorage: flashes, secureCookies: true}, mini, store, principal
 }
 
-func requestWithFlashState(ctx context.Context, principal *security.Principal) *http.Request {
+func requestWithFlashState(ctx context.Context, principal *users.Principal) *http.Request {
 	request := httptest.NewRequest(http.MethodGet, "/admin/en", nil)
 	return request.WithContext(context.WithValue(ctx, flashRequestKey{}, &flashRequest{principal: principal}))
 }
@@ -174,11 +174,11 @@ func TestFlashRevokedSessionTransport(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if err := handler.addFlash(t.Context(), httptest.NewRecorder(), request, flashmsg.Error, "Revoked"); !errors.Is(err, security.ErrSessionRevoked) {
+	if err := handler.addFlash(t.Context(), httptest.NewRecorder(), request, flashmsg.Error, "Revoked"); !errors.Is(err, users.ErrSessionRevoked) {
 		t.Fatalf("revoked flash add = %v", err)
 	}
 
-	if _, err := handler.readFlashes(t.Context(), request, ""); !errors.Is(err, security.ErrSessionRevoked) {
+	if _, err := handler.readFlashes(t.Context(), request, ""); !errors.Is(err, users.ErrSessionRevoked) {
 		t.Fatalf("revoked flash read = %v", err)
 	}
 }

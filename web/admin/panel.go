@@ -6,7 +6,7 @@ import (
 	"github.com/a-h/templ"
 
 	"github.com/radynsade/faryengo/internal/app"
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
@@ -18,11 +18,11 @@ func (h *Handler) home(writer http.ResponseWriter, request *http.Request) {
 }
 
 func (h *Handler) users(writer http.ResponseWriter, request *http.Request) {
-	h.panel(writer, request, "users", security.PermissionViewUser)
+	h.panel(writer, request, "users", users.PermissionViewUser)
 }
 
-func (h *Handler) panel(writer http.ResponseWriter, request *http.Request, section string, permission security.Permission) {
-	h.withPanel(writer, request, section, permission, func(_ security.Principal, props layouts.PanelProps) {
+func (h *Handler) panel(writer http.ResponseWriter, request *http.Request, section string, permission users.Permission) {
+	h.withPanel(writer, request, section, permission, func(_ users.Principal, props layouts.PanelProps) {
 		content := pages.Home(props)
 
 		if section != "" {
@@ -33,7 +33,7 @@ func (h *Handler) panel(writer http.ResponseWriter, request *http.Request, secti
 	})
 }
 
-func (h *Handler) withPanel(writer http.ResponseWriter, request *http.Request, section string, permission security.Permission, handle func(security.Principal, layouts.PanelProps)) {
+func (h *Handler) withPanel(writer http.ResponseWriter, request *http.Request, section string, permission users.Permission, handle func(users.Principal, layouts.PanelProps)) {
 	principal, err := h.authenticate(writer, request)
 
 	if invalidSession(err) {

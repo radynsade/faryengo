@@ -14,8 +14,8 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/app/input"
-	securityjwt "github.com/radynsade/faryengo/internal/security/jwt"
-	securityredis "github.com/radynsade/faryengo/internal/security/redis"
+	usersjwt "github.com/radynsade/faryengo/internal/users/jwt"
+	usersredis "github.com/radynsade/faryengo/internal/users/redis"
 )
 
 func TestAdminSessionRequests(t *testing.T) {
@@ -84,7 +84,7 @@ func TestAdminUsesOnlyOpaqueSessionCookies(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	tokens, err := securityjwt.NewManager(securityjwt.Config{PrivateKey: key, KeyID: "test", Issuer: "faryen", AccessAudience: "admin", RefreshAudience: "refresh", AccessTTL: 5 * time.Minute})
+	tokens, err := usersjwt.NewManager(usersjwt.Config{PrivateKey: key, KeyID: "test", Issuer: "faryen", AccessAudience: "admin", RefreshAudience: "refresh", AccessTTL: 5 * time.Minute})
 
 	if err != nil {
 		t.Fatal(err)
@@ -96,7 +96,7 @@ func TestAdminUsesOnlyOpaqueSessionCookies(t *testing.T) {
 			t.Error(err)
 		}
 	})
-	store, err := securityredis.NewSessionStore(client)
+	store, err := usersredis.NewSessionStore(client)
 
 	if err != nil {
 		t.Fatal(err)

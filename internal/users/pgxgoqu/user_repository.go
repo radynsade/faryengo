@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/radynsade/faryengo/internal/infra/pgxdb"
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 )
 
 //
@@ -23,11 +23,11 @@ import (
 //
 
 type errUserWriteFailed struct {
-	user *security.User
+	user *users.User
 	err  error
 }
 
-func (e errUserWriteFailed) User() *security.User {
+func (e errUserWriteFailed) User() *users.User {
 	return e.user
 }
 
@@ -35,13 +35,13 @@ func (e errUserWriteFailed) Unwrap() error {
 	return e.err
 }
 
-// Implementation of security.ErrUserCreateFailed
+// Implementation of users.ErrUserCreateFailed
 
 type errUserCreateFailed struct {
 	errUserWriteFailed
 }
 
-func newErrUserCreateFailed(user *security.User, err error) *errUserCreateFailed {
+func newErrUserCreateFailed(user *users.User, err error) *errUserCreateFailed {
 	return &errUserCreateFailed{
 		errUserWriteFailed: errUserWriteFailed{user, err},
 	}
@@ -51,13 +51,13 @@ func (e *errUserCreateFailed) Error() string {
 	return "failed to create a user"
 }
 
-// Implementation of security.ErrUserUpdateFailed
+// Implementation of users.ErrUserUpdateFailed
 
 type errUserUpdateFailed struct {
 	errUserWriteFailed
 }
 
-func newErrUserUpdateFailed(user *security.User, err error) *errUserUpdateFailed {
+func newErrUserUpdateFailed(user *users.User, err error) *errUserUpdateFailed {
 	return &errUserUpdateFailed{
 		errUserWriteFailed: errUserWriteFailed{user, err},
 	}
@@ -67,18 +67,18 @@ func (e *errUserUpdateFailed) Error() string {
 	return "failed to update a user"
 }
 
-// Implementation of security.ErrUserDeleteFailed
+// Implementation of users.ErrUserDeleteFailed
 
 type errUserDeleteFailed struct {
-	id  security.UserID
+	id  users.UserID
 	err error
 }
 
-func newErrUserDeleteFailed(id security.UserID, err error) *errUserDeleteFailed {
+func newErrUserDeleteFailed(id users.UserID, err error) *errUserDeleteFailed {
 	return &errUserDeleteFailed{id, err}
 }
 
-func (e errUserDeleteFailed) UserID() security.UserID {
+func (e errUserDeleteFailed) UserID() users.UserID {
 	return e.id
 }
 
@@ -98,7 +98,7 @@ type UserRepository struct {
 	pool pgxdb.DB
 }
 
-var _ security.UserRepository = (*UserRepository)(nil)
+var _ users.UserRepository = (*UserRepository)(nil)
 
 func NewUserRepository(pool pgxdb.DB) (*UserRepository, error) {
 	var (
@@ -119,14 +119,14 @@ func NewUserRepository(pool pgxdb.DB) (*UserRepository, error) {
 
 func (r *UserRepository) Create(
 	ctx context.Context,
-	user *security.User,
-) security.ErrUserCreateFailed {
-	var err security.ErrUserCreateFailed
+	user *users.User,
+) users.ErrUserCreateFailed {
+	var err users.ErrUserCreateFailed
 
 	if r == nil || r.pool == nil {
 		err = newErrUserCreateFailed(user, pgxdb.ErrNilDB)
 	} else if user == nil {
-		err = newErrUserCreateFailed(user, security.ErrUserNil)
+		err = newErrUserCreateFailed(user, users.ErrUserNil)
 	} else if validationErr := user.Validate(); validationErr != nil {
 		err = newErrUserCreateFailed(user, validationErr)
 	} else {
@@ -163,18 +163,18 @@ func (r *UserRepository) Create(
 
 func (r *UserRepository) Update(
 	ctx context.Context,
-	user *security.User,
-) security.ErrUserUpdateFailed {
-	var err security.ErrUserUpdateFailed
+	user *users.User,
+) users.ErrUserUpdateFailed {
+	var err users.ErrUserUpdateFailed
 
 	if r == nil || r.pool == nil {
 		err = newErrUserUpdateFailed(user, pgxdb.ErrNilDB)
 	} else if user == nil {
-		err = newErrUserUpdateFailed(user, security.ErrUserNil)
+		err = newErrUserUpdateFailed(user, users.ErrUserNil)
 	} else if validationErr := user.Validate(); validationErr != nil {
 		err = newErrUserUpdateFailed(user, validationErr)
 	} else if user.UpdatedAt.IsZero() {
-		err = newErrUserUpdateFailed(user, security.ErrUserConflict)
+		err = newErrUserUpdateFailed(user, users.ErrUserConflict)
 	} else {
 		query, args, buildErr := goqu.Dialect("postgres").
 			Update("user").
@@ -213,9 +213,9 @@ func (r *UserRepository) Update(
 
 func (r *UserRepository) Delete(
 	ctx context.Context,
-	id security.UserID,
-) security.ErrUserDeleteFailed {
-	var err security.ErrUserDeleteFailed
+	id users.UserID,
+) users.ErrUserDeleteFailed {
+	var err users.ErrUserDeleteFailed
 
 	if r == nil || r.pool == nil {
 		err = newErrUserDeleteFailed(id, pgxdb.ErrNilDB)
@@ -236,7 +236,7 @@ func (r *UserRepository) Delete(
 			if execErr != nil {
 				err = newErrUserDeleteFailed(id, mapUserError(execErr))
 			} else if tag.RowsAffected() == 0 {
-				err = newErrUserDeleteFailed(id, security.ErrUserNotFound)
+				err = newErrUserDeleteFailed(id, users.ErrUserNotFound)
 			}
 		}
 	}
@@ -248,10 +248,10 @@ func (r *UserRepository) Delete(
 
 func (r *UserRepository) FindByID(
 	ctx context.Context,
-	id security.UserID,
-) (*security.User, error) {
+	id users.UserID,
+) (*users.User, error) {
 	var (
-		user *security.User
+		user *users.User
 		err  error
 	)
 
@@ -275,10 +275,10 @@ func (r *UserRepository) FindByID(
 
 func (r *UserRepository) FindByEmail(
 	ctx context.Context,
-	email security.Email,
-) (*security.User, error) {
+	email users.Email,
+) (*users.User, error) {
 	var (
-		user *security.User
+		user *users.User
 		err  error
 	)
 
@@ -304,9 +304,9 @@ func (r *UserRepository) FindByEmail(
 func (r *UserRepository) find(
 	ctx context.Context,
 	filter exp.Expression,
-) (*security.User, error) {
+) (*users.User, error) {
 	var (
-		user *security.User
+		user *users.User
 		err  error
 	)
 
@@ -325,7 +325,7 @@ func (r *UserRepository) find(
 		scanErr := pgxdb.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(record.targets()...)
 
 		if errors.Is(scanErr, pgx.ErrNoRows) {
-			err = security.ErrUserNotFound
+			err = users.ErrUserNotFound
 		} else if scanErr != nil {
 			err = fmt.Errorf("scan user: %w", scanErr)
 		} else {
@@ -341,13 +341,13 @@ func (r *UserRepository) find(
 
 func (r *UserRepository) explainMissedUpdate(
 	ctx context.Context,
-	id security.UserID,
+	id users.UserID,
 ) error {
 	_, err := r.find(ctx, goqu.Ex{"id": uuid.UUID(id).String()})
 
 	if err == nil {
-		err = security.ErrUserConflict
-	} else if !errors.Is(err, security.ErrUserNotFound) {
+		err = users.ErrUserConflict
+	} else if !errors.Is(err, users.ErrUserNotFound) {
 		err = fmt.Errorf("check the user after a missed update: %w", err)
 	}
 
@@ -371,7 +371,7 @@ func userColumns() []any {
 	}
 }
 
-func userEmailPredicate(column string, email security.Email) exp.Expression {
+func userEmailPredicate(column string, email users.Email) exp.Expression {
 	return goqu.L("lower(?) = lower(?)", goqu.I(column), string(email))
 }
 
@@ -398,18 +398,18 @@ func (u *userRecord) targets() []any {
 	}
 }
 
-func (u *userRecord) user() (*security.User, error) {
-	user := security.NewUser(
-		security.UserID(u.id.Bytes),
-		security.RoleID(u.roleID.Bytes),
-		security.Email(u.email),
+func (u *userRecord) user() (*users.User, error) {
+	user := users.NewUser(
+		users.UserID(u.id.Bytes),
+		users.RoleID(u.roleID.Bytes),
+		users.Email(u.email),
 		u.emailChangedAt,
-		security.Phone(u.phone),
+		users.Phone(u.phone),
 		u.phoneChangedAt,
-		security.PasswordHash(u.passwordHash),
+		users.PasswordHash(u.passwordHash),
 		u.passwordChangedAt,
-		security.FirstName(u.firstName),
-		security.LastName(u.lastName),
+		users.FirstName(u.firstName),
+		users.LastName(u.lastName),
 		u.updatedAt,
 		u.createdAt,
 	)
@@ -430,11 +430,11 @@ func mapUserError(err error) error {
 	if postgresErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		switch {
 		case postgresErr.Code == "23503" && postgresErr.ConstraintName == "user_role_id_fkey":
-			result = errors.Join(security.ErrRoleNotFound, err)
+			result = errors.Join(users.ErrRoleNotFound, err)
 		case postgresErr.Code == "23505" && postgresErr.ConstraintName == "user_pkey":
-			result = errors.Join(security.ErrUserAlreadyExists, err)
+			result = errors.Join(users.ErrUserAlreadyExists, err)
 		case postgresErr.Code == "23505" && postgresErr.ConstraintName == "user_email_unique_idx":
-			result = errors.Join(security.ErrUserAlreadyExists, err)
+			result = errors.Join(users.ErrUserAlreadyExists, err)
 		}
 	}
 

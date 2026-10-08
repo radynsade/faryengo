@@ -19,8 +19,8 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/languages"
-	"github.com/radynsade/faryengo/internal/security"
-	securityredis "github.com/radynsade/faryengo/internal/security/redis"
+	"github.com/radynsade/faryengo/internal/users"
+	usersredis "github.com/radynsade/faryengo/internal/users/redis"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
 )
@@ -28,46 +28,46 @@ import (
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 
 type httpCredentials struct {
-	credentials security.Credentials
-	role        *security.Role
-	otherRoles  []*security.Role
+	credentials users.Credentials
+	role        *users.Role
+	otherRoles  []*users.Role
 	roleErr     error
 	roleListErr error
 	deleteErr   error
-	lastQuery   security.RoleQuery
-	lastFilters security.RoleFilters
+	lastQuery   users.RoleQuery
+	lastFilters users.RoleFilters
 	roleWrites  int
 	roleReads   int
 }
 
-func (r *httpCredentials) FindByEmail(_ context.Context, email security.Email) (*security.Credentials, error) {
-	var credentials *security.Credentials
+func (r *httpCredentials) FindByEmail(_ context.Context, email users.Email) (*users.Credentials, error) {
+	var credentials *users.Credentials
 	var err error
 
 	if strings.EqualFold(string(email), string(r.credentials.User.Email())) {
 		copy := r.credentials
 		credentials = &copy
 	} else {
-		err = security.ErrUserNotFound
+		err = users.ErrUserNotFound
 	}
 
 	return credentials, err
 }
-func (r *httpCredentials) FindByUserID(_ context.Context, id security.UserID) (*security.Credentials, error) {
-	var credentials *security.Credentials
+func (r *httpCredentials) FindByUserID(_ context.Context, id users.UserID) (*users.Credentials, error) {
+	var credentials *users.Credentials
 	var err error
 
 	if id == r.credentials.User.ID() {
 		copy := r.credentials
 		credentials = &copy
 	} else {
-		err = security.ErrUserNotFound
+		err = users.ErrUserNotFound
 	}
 
 	return credentials, err
 }
-func (r *httpCredentials) FindByID(_ context.Context, id security.RoleID) (*security.Role, error) {
-	var role *security.Role
+func (r *httpCredentials) FindByID(_ context.Context, id users.RoleID) (*users.Role, error) {
+	var role *users.Role
 	var err error
 	if r.roleErr != nil {
 		err = r.roleErr
@@ -80,7 +80,7 @@ func (r *httpCredentials) FindByID(_ context.Context, id security.RoleID) (*secu
 			}
 		}
 		if role == nil {
-			err = security.ErrRoleNotFound
+			err = users.ErrRoleNotFound
 		}
 	}
 	return role, err
@@ -88,8 +88,8 @@ func (r *httpCredentials) FindByID(_ context.Context, id security.RoleID) (*secu
 
 type httpHasher struct{}
 
-func (httpHasher) Hash(context.Context, string) (security.PasswordHash, error) { return "dummy", nil }
-func (httpHasher) Verify(_ context.Context, password string, hash security.PasswordHash) (bool, error) {
+func (httpHasher) Hash(context.Context, string) (users.PasswordHash, error) { return "dummy", nil }
+func (httpHasher) Verify(_ context.Context, password string, hash users.PasswordHash) (bool, error) {
 	return password == "correct" && hash == "stored", nil
 }
 
@@ -111,8 +111,8 @@ func httpFixtureWithFlashStorage(t *testing.T, secure bool, flashStorage flashms
 
 func httpFixtureWithInstances(t *testing.T, secure bool, flashStorage flashmsg.FlashSessionStorage, count int) ([]*http.ServeMux, *httpCredentials, *miniredis.Miniredis) {
 	t.Helper()
-	roleID := security.RoleID(newTestUUID(t))
-	user, err := security.NewUser(security.UserID(newTestUUID(t)), roleID, "person@example.com", "+37123456789", "stored", "First", "Last")
+	roleID := users.RoleID(newTestUUID(t))
+	user, err := users.NewUser(users.UserID(newTestUUID(t)), roleID, "person@example.com", "+37123456789", "stored", "First", "Last")
 
 	if err != nil {
 		t.Fatal(err)
@@ -124,13 +124,13 @@ func httpFixtureWithInstances(t *testing.T, secure bool, flashStorage flashmsg.F
 		t.Fatal(err)
 	}
 
-	role, err := security.NewRole(roleID, languages.Text{"en": translation}, []security.Permission{security.PermissionViewUser})
+	role, err := users.NewRole(roleID, languages.Text{"en": translation}, []users.Permission{users.PermissionViewUser})
 
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	repository := &httpCredentials{credentials: security.Credentials{User: user, Version: newTestUUID(t)}, role: role}
+	repository := &httpCredentials{credentials: users.Credentials{User: user, Version: newTestUUID(t)}, role: role}
 	mini := miniredis.RunT(t)
 
 	var instances []*http.ServeMux
@@ -142,13 +142,13 @@ func httpFixtureWithInstances(t *testing.T, secure bool, flashStorage flashmsg.F
 				t.Error(err)
 			}
 		})
-		sessions, err := securityredis.NewSessionStore(client)
+		sessions, err := usersredis.NewSessionStore(client)
 
 		if err != nil {
 			t.Fatal(err)
 		}
 
-		limiter, err := securityredis.NewRateLimiter(client)
+		limiter, err := usersredis.NewRateLimiter(client)
 
 		if err != nil {
 			t.Fatal(err)
@@ -535,13 +535,13 @@ func TestAdminInvalidHandlerConfig(t *testing.T) {
 	}
 }
 
-func (r *httpCredentials) Invalidate(ctx context.Context, id security.UserID) error {
+func (r *httpCredentials) Invalidate(ctx context.Context, id users.UserID) error {
 	var err error
 
 	if contextErr := ctx.Err(); contextErr != nil {
 		err = contextErr
 	} else if id != r.credentials.User.ID() {
-		err = security.ErrUserNotFound
+		err = users.ErrUserNotFound
 	} else {
 		r.credentials.Version, err = uuid.NewV7()
 

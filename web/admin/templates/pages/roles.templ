@@ -1,7 +1,7 @@
 package pages
 
 import (
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
@@ -124,14 +124,14 @@ templ RolesTable(props RoleListProps) {
 				<caption class="visually-hidden">{ admini18n.T(ctx, "roles.caption") }</caption>
 				<thead>
 					<tr>
-						<th scope="col" aria-sort={ props.SortDirection(security.RoleSortID) }>
-							@RoleSortLink(props, security.RoleSortID, admini18n.T(ctx, "fields.uuid"))
+						<th scope="col" aria-sort={ props.SortDirection(users.RoleSortID) }>
+							@RoleSortLink(props, users.RoleSortID, admini18n.T(ctx, "fields.uuid"))
 						</th>
-						<th scope="col" aria-sort={ props.SortDirection(security.RoleSortName) }>
-							@RoleSortLink(props, security.RoleSortName, admini18n.T(ctx, "fields.name"))
+						<th scope="col" aria-sort={ props.SortDirection(users.RoleSortName) }>
+							@RoleSortLink(props, users.RoleSortName, admini18n.T(ctx, "fields.name"))
 						</th>
-						<th scope="col" aria-sort={ props.SortDirection(security.RoleSortSuper) }>
-							@RoleSortLink(props, security.RoleSortSuper, admini18n.T(ctx, "fields.super"))
+						<th scope="col" aria-sort={ props.SortDirection(users.RoleSortSuper) }>
+							@RoleSortLink(props, users.RoleSortSuper, admini18n.T(ctx, "fields.super"))
 						</th>
 						<th scope="col">{ admini18n.T(ctx, "fields.permissions") }</th>
 						<th scope="col" class="data-table__actions"><span class="visually-hidden">{ admini18n.T(ctx, "fields.actions") }</span></th>
@@ -224,7 +224,7 @@ templ RolesTable(props RoleListProps) {
 	</div>
 }
 
-templ RoleSortLink(props RoleListProps, sort security.RoleSort, label string) {
+templ RoleSortLink(props RoleListProps, sort users.RoleSort, label string) {
 	@components.ActionLink(props.SortURL(sort), "table-sort", admini18n.T(ctx, "actions.sort_by", map[string]any{"Label": label})) {
 		{ label }
 		if props.Query.Sort == sort {

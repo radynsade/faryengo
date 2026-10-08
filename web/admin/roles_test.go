@@ -12,10 +12,10 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/radynsade/faryengo/internal/languages"
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 )
 
-func addHTTPRole(t *testing.T, repository *httpCredentials, name string, permissions []security.Permission, super bool) *security.Role {
+func addHTTPRole(t *testing.T, repository *httpCredentials, name string, permissions []users.Permission, super bool) *users.Role {
 	t.Helper()
 	translation, err := languages.NewTranslation("en", name)
 
@@ -23,7 +23,7 @@ func addHTTPRole(t *testing.T, repository *httpCredentials, name string, permiss
 		t.Fatal(err)
 	}
 
-	role, err := security.NewRole(security.RoleID(newTestUUID(t)), languages.Text{"en": translation}, permissions)
+	role, err := users.NewRole(users.RoleID(newTestUUID(t)), languages.Text{"en": translation}, permissions)
 
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestRolesCRUD(t *testing.T) {
 		t.Fatal("GET deletion must be unavailable and must not change roles")
 	}
 
-	repository.deleteErr = security.ErrRoleAlreadyInUse
+	repository.deleteErr = users.ErrRoleAlreadyInUse
 	response = httpRequest(mux, http.MethodPost, path+"/delete", "confirm=delete", cookies)
 
 	if response.Code != http.StatusConflict || len(repository.otherRoles) != 1 || !strings.Contains(response.Body.String(), "piešķiriet šiem lietotājiem citu lomu") {
@@ -260,13 +260,13 @@ func TestRoleSuccessDialog(t *testing.T) {
 func TestRolesAuthenticatedAccess(t *testing.T) {
 	for _, tt := range []struct {
 		name                               string
-		permissions                        []security.Permission
+		permissions                        []users.Permission
 		super, targetSuper, own, anonymous bool
 	}{
 		{name: "no permissions"},
-		{name: "viewer", permissions: []security.Permission{security.PermissionViewRole}},
-		{name: "manage without view", permissions: []security.Permission{security.PermissionManageRole}},
-		{name: "manager", permissions: []security.Permission{security.PermissionManageRole, security.PermissionViewRole}},
+		{name: "viewer", permissions: []users.Permission{users.PermissionViewRole}},
+		{name: "manage without view", permissions: []users.Permission{users.PermissionManageRole}},
+		{name: "manager", permissions: []users.Permission{users.PermissionManageRole, users.PermissionViewRole}},
 		{name: "super", super: true, targetSuper: true},
 		{name: "own role", own: true},
 		{name: "super target", targetSuper: true},
@@ -280,7 +280,7 @@ func TestRolesAuthenticatedAccess(t *testing.T) {
 			}
 
 			repository.role.SetIsSuper(tt.super)
-			role := addHTTPRole(t, repository, "Reader", []security.Permission{security.PermissionManageUser}, tt.targetSuper)
+			role := addHTTPRole(t, repository, "Reader", []users.Permission{users.PermissionManageUser}, tt.targetSuper)
 
 			if tt.own {
 				role = repository.role
@@ -344,7 +344,7 @@ func TestRoleDeleteModal(t *testing.T) {
 		{name: "missing confirmation", body: "", status: http.StatusBadRequest, message: "Submit a valid role form"},
 		{name: "wrong confirmation", body: "confirm=other", status: http.StatusBadRequest, message: "Submit a valid role form"},
 		{name: "duplicate confirmation", body: "confirm=delete&confirm=delete", status: http.StatusBadRequest, message: "Submit a valid role form"},
-		{name: "assigned role", body: "confirm=delete", deleteErr: security.ErrRoleAlreadyInUse, status: http.StatusConflict, message: "Reassign those users"},
+		{name: "assigned role", body: "confirm=delete", deleteErr: users.ErrRoleAlreadyInUse, status: http.StatusConflict, message: "Reassign those users"},
 		{name: "missing role", body: "confirm=delete", roleMissing: true, status: http.StatusNotFound, message: "Role not found"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -417,12 +417,12 @@ func TestRoleDeleteModal(t *testing.T) {
 func TestRoleMutationsWithoutAuthorization(t *testing.T) {
 	for _, tt := range []struct {
 		name             string
-		permissions      []security.Permission
+		permissions      []users.Permission
 		own, targetSuper bool
 	}{
 		{name: "no permissions"},
-		{name: "view only", permissions: []security.Permission{security.PermissionViewRole}},
-		{name: "manage only", permissions: []security.Permission{security.PermissionManageRole}},
+		{name: "view only", permissions: []users.Permission{users.PermissionViewRole}},
+		{name: "manage only", permissions: []users.Permission{users.PermissionManageRole}},
 		{name: "own role", own: true},
 		{name: "super target", targetSuper: true},
 	} {
@@ -438,7 +438,7 @@ func TestRoleMutationsWithoutAuthorization(t *testing.T) {
 					role := repository.role
 
 					if !tt.own {
-						role = addHTTPRole(t, repository, "Stronger role", []security.Permission{security.PermissionManageUser}, tt.targetSuper)
+						role = addHTTPRole(t, repository, "Stronger role", []users.Permission{users.PermissionManageUser}, tt.targetSuper)
 					}
 
 					path := "/admin/en/roles/create"
@@ -470,7 +470,7 @@ func TestRoleMutationsWithoutAuthorization(t *testing.T) {
 							written = repository.otherRoles[len(repository.otherRoles)-1]
 						}
 
-						if written.Name()["en"].Content() != "Changed" || !written.IsSuper() || !slices.Equal(written.Permissions(), []security.Permission{security.PermissionManageUser}) {
+						if written.Name()["en"].Content() != "Changed" || !written.IsSuper() || !slices.Equal(written.Permissions(), []users.Permission{users.PermissionManageUser}) {
 							t.Fatal("common role service did not save all submitted values")
 						}
 					} else if !tt.own && len(repository.otherRoles) != 0 {
@@ -512,7 +512,7 @@ func TestRoleFormValidation(t *testing.T) {
 func TestRolesFiltersAndFragments(t *testing.T) {
 	mux, repository, _ := httpFixture(t)
 	cookies := login(t, mux)
-	role := addHTTPRole(t, repository, "Review <script>alert(1)</script>", []security.Permission{security.PermissionViewRole}, false)
+	role := addHTTPRole(t, repository, "Review <script>alert(1)</script>", []users.Permission{users.PermissionViewRole}, false)
 	name := role.Name()
 	translation, err := languages.NewTranslation("lv", "Pārskatītāji")
 
@@ -542,7 +542,7 @@ func TestRolesFiltersAndFragments(t *testing.T) {
 		t.Fatalf("filter fragment = %d %s", response.Code, body)
 	}
 
-	if repository.lastQuery.Page != 1 || repository.lastQuery.PageSize != 1 || repository.lastQuery.Language != "lv" || repository.lastQuery.Sort != security.RoleSortName || !repository.lastQuery.Descending || repository.lastFilters.IsSuper == nil || *repository.lastFilters.IsSuper {
+	if repository.lastQuery.Page != 1 || repository.lastQuery.PageSize != 1 || repository.lastQuery.Language != "lv" || repository.lastQuery.Sort != users.RoleSortName || !repository.lastQuery.Descending || repository.lastFilters.IsSuper == nil || *repository.lastFilters.IsSuper {
 		t.Fatalf("filters did not reach repository: %+v", repository.lastQuery)
 	}
 

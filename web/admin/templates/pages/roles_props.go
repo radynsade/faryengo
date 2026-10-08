@@ -6,14 +6,14 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 )
 
 type PermissionOption struct {
-	Value    security.Permission
+	Value    users.Permission
 	Label    string
 	Selected bool
 }
@@ -29,8 +29,8 @@ type RoleRow struct {
 type RoleListProps struct {
 	Panel        layouts.PanelProps
 	Rows         []RoleRow
-	Query        security.RoleQuery
-	Page         security.RolePage
+	Query        users.RoleQuery
+	Page         users.RolePage
 	Permissions  []PermissionOption
 	InvalidQuery bool
 	Loading      bool
@@ -42,7 +42,7 @@ func (p RoleListProps) TableURL() string {
 	return strings.Replace(p.URL(p.Query.Page, p.Query.Sort, p.Query.Descending), "/roles?", "/roles/table?", 1)
 }
 
-func (p RoleListProps) URL(page int, sort security.RoleSort, descending bool) string {
+func (p RoleListProps) URL(page int, sort users.RoleSort, descending bool) string {
 	values := url.Values{"page": {strconv.Itoa(page)}, "size": {strconv.Itoa(p.Query.PageSize)}, "sort": {string(sort)}, "order": {"asc"}}
 
 	if descending {
@@ -68,11 +68,11 @@ func (p RoleListProps) URL(page int, sort security.RoleSort, descending bool) st
 	return p.Panel.BasePath + "/roles?" + values.Encode()
 }
 
-func (p RoleListProps) SortURL(sort security.RoleSort) string {
+func (p RoleListProps) SortURL(sort users.RoleSort) string {
 	return p.URL(1, sort, p.Query.Sort == sort && !p.Query.Descending)
 }
 
-func (p RoleListProps) SortDirection(sort security.RoleSort) string {
+func (p RoleListProps) SortDirection(sort users.RoleSort) string {
 	direction := "none"
 
 	if p.Query.Sort == sort {

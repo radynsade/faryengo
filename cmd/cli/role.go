@@ -12,21 +12,21 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app"
 	appinput "github.com/radynsade/faryengo/internal/app/input"
-	"github.com/radynsade/faryengo/internal/security"
-	"github.com/radynsade/faryengo/internal/security/pgxgoqu"
+	"github.com/radynsade/faryengo/internal/users"
+	"github.com/radynsade/faryengo/internal/users/pgxgoqu"
 )
 
 type roleCommand struct {
 	action      string
 	createInput appinput.CreateRoleInput
-	id          security.RoleID
+	id          users.RoleID
 }
 
 func parseRoleCommand(args []string) (roleCommand, error) {
 	var command roleCommand
 	var err error
 
-	if len(args) < 2 || args[0] != "security" {
+	if len(args) < 2 || args[0] != "users" {
 		err = errInvalidCommand
 	} else {
 		command.action = args[1]
@@ -52,7 +52,7 @@ func parseCreateRole(args []string) (appinput.CreateRoleInput, error) {
 	var request appinput.CreateRoleInput
 	var err error
 
-	if len(args) < 2 || args[0] != "security" || args[1] != "create-role" {
+	if len(args) < 2 || args[0] != "users" || args[1] != "create-role" {
 		err = errInvalidCommand
 	} else {
 		var positional []string
@@ -71,10 +71,10 @@ func parseCreateRole(args []string) (appinput.CreateRoleInput, error) {
 					err = errInvalidCommand
 				} else {
 					index++
-					request.Permissions = append(request.Permissions, security.Permission(args[index]))
+					request.Permissions = append(request.Permissions, users.Permission(args[index]))
 				}
 			case parseOptions && strings.HasPrefix(argument, "--permission="):
-				request.Permissions = append(request.Permissions, security.Permission(strings.TrimPrefix(argument, "--permission=")))
+				request.Permissions = append(request.Permissions, users.Permission(strings.TrimPrefix(argument, "--permission=")))
 			case parseOptions && strings.HasPrefix(argument, "-"):
 				err = errInvalidCommand
 			default:
@@ -95,8 +95,8 @@ func parseCreateRole(args []string) (appinput.CreateRoleInput, error) {
 				if err != nil {
 					err = fmt.Errorf("parse create-role name: %w", err)
 				} else {
-					_, nameErr := security.NewRoleName(request.Name)
-					_, permissionErr := security.NewPermissions(request.Permissions)
+					_, nameErr := users.NewRoleName(request.Name)
+					_, permissionErr := users.NewPermissions(request.Permissions)
 
 					if valueErr := errors.Join(nameErr, permissionErr); valueErr != nil {
 						err = fmt.Errorf("create-role arguments: %w: %w", appinput.ErrInvalidCreateRoleInput, valueErr)
@@ -113,19 +113,19 @@ func parseCreateRole(args []string) (appinput.CreateRoleInput, error) {
 	return request, err
 }
 
-func parseDeleteRole(args []string) (security.RoleID, error) {
-	var id security.RoleID
+func parseDeleteRole(args []string) (users.RoleID, error) {
+	var id users.RoleID
 	var err error
 
-	if len(args) != 3 || args[0] != "security" || args[1] != "delete-role" {
+	if len(args) != 3 || args[0] != "users" || args[1] != "delete-role" {
 		err = errInvalidCommand
 	} else {
-		parsed, parseErr := parseCommandUUID(args[2], security.ErrRoleIDInvalid)
+		parsed, parseErr := parseCommandUUID(args[2], users.ErrRoleIDInvalid)
 
 		if parseErr != nil {
 			err = fmt.Errorf("validate delete-role ID: %w", parseErr)
 		} else {
-			id = security.RoleID(parsed)
+			id = users.RoleID(parsed)
 		}
 	}
 

@@ -69,15 +69,15 @@ func TestRunWithoutDatabase(t *testing.T) {
 		{name: "missing connection for delete", args: []string{"languages", "delete-language", "lv"}, wantError: "DATABASE_URL"},
 		{name: "delete with missing code", args: []string{"languages", "delete-language"}, wantError: "invalid command"},
 		{name: "missing connection for user creation", args: createUserArguments(), wantError: "DATABASE_URL"},
-		{name: "missing connection for user deletion", args: []string{"security", "delete-user", testUserUUID}, wantError: "DATABASE_URL"},
+		{name: "missing connection for user deletion", args: []string{"users", "delete-user", testUserUUID}, wantError: "DATABASE_URL"},
 		{name: "invalid user before connection", args: changedUserArguments(2, "invalid-email"), wantError: "invalid email"},
-		{name: "invalid user UUID before connection", args: []string{"security", "delete-user", "invalid-uuid"}, wantError: "invalid user ID"},
-		{name: "missing connection for role creation", args: []string{"security", "create-role", "en:Administrator", "--super"}, wantError: "DATABASE_URL"},
-		{name: "missing connection for role deletion", args: []string{"security", "delete-role", testRoleUUID}, wantError: "DATABASE_URL"},
-		{name: "malformed role name before connection", args: []string{"security", "create-role", "broken"}, wantError: "invalid string translations"},
-		{name: "invalid role code before connection", args: []string{"security", "create-role", "EN:Administrator"}, wantError: "invalid language code"},
-		{name: "invalid permission before connection", args: []string{"security", "create-role", "en:Administrator", "-p", "unknown"}, wantError: "invalid permission"},
-		{name: "invalid role UUID before connection", args: []string{"security", "delete-role", "invalid-uuid"}, wantError: "invalid role ID"},
+		{name: "invalid user UUID before connection", args: []string{"users", "delete-user", "invalid-uuid"}, wantError: "invalid user ID"},
+		{name: "missing connection for role creation", args: []string{"users", "create-role", "en:Administrator", "--super"}, wantError: "DATABASE_URL"},
+		{name: "missing connection for role deletion", args: []string{"users", "delete-role", testRoleUUID}, wantError: "DATABASE_URL"},
+		{name: "malformed role name before connection", args: []string{"users", "create-role", "broken"}, wantError: "invalid string translations"},
+		{name: "invalid role code before connection", args: []string{"users", "create-role", "EN:Administrator"}, wantError: "invalid language code"},
+		{name: "invalid permission before connection", args: []string{"users", "create-role", "en:Administrator", "-p", "unknown"}, wantError: "invalid permission"},
+		{name: "invalid role UUID before connection", args: []string{"users", "delete-role", "invalid-uuid"}, wantError: "invalid role ID"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout bytes.Buffer

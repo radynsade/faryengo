@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 )
 
 func TestAdminPanel(t *testing.T) {
@@ -67,18 +67,18 @@ func TestAdminPanel(t *testing.T) {
 func TestAdminPanelSections(t *testing.T) {
 	for _, tt := range []struct {
 		name, section string
-		permissions   []security.Permission
+		permissions   []users.Permission
 		isSuper       bool
 		anonymous     bool
 		status        int
 	}{
-		{name: "users allowed", section: "users", permissions: []security.Permission{security.PermissionViewUser}, status: http.StatusOK},
-		{name: "roles allowed", section: "roles", permissions: []security.Permission{security.PermissionViewRole}, status: http.StatusOK},
+		{name: "users allowed", section: "users", permissions: []users.Permission{users.PermissionViewUser}, status: http.StatusOK},
+		{name: "roles allowed", section: "roles", permissions: []users.Permission{users.PermissionViewRole}, status: http.StatusOK},
 		{name: "users denied", section: "users", status: http.StatusForbidden},
-		{name: "roles without role permissions", section: "roles", permissions: []security.Permission{security.PermissionViewUser}, status: http.StatusOK},
+		{name: "roles without role permissions", section: "roles", permissions: []users.Permission{users.PermissionViewUser}, status: http.StatusOK},
 		{name: "roles without any permissions", section: "roles", status: http.StatusOK},
-		{name: "manage user does not grant view", section: "users", permissions: []security.Permission{security.PermissionManageUser}, status: http.StatusForbidden},
-		{name: "roles with manage only", section: "roles", permissions: []security.Permission{security.PermissionManageRole}, status: http.StatusOK},
+		{name: "manage user does not grant view", section: "users", permissions: []users.Permission{users.PermissionManageUser}, status: http.StatusForbidden},
+		{name: "roles with manage only", section: "roles", permissions: []users.Permission{users.PermissionManageRole}, status: http.StatusOK},
 		{name: "super users", section: "users", isSuper: true, status: http.StatusOK},
 		{name: "super roles", section: "roles", isSuper: true, status: http.StatusOK},
 		{name: "anonymous users", section: "users", anonymous: true, status: http.StatusSeeOther},
@@ -133,15 +133,15 @@ func TestAdminPanelCurrentIdentity(t *testing.T) {
 		{name: "escaped", first: "<script>alert(1)</script>", last: "O'Connor & Co", email: "o'connor&co@example.com"},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			if err := repository.credentials.User.SetFirstName(security.FirstName(tt.first)); err != nil {
+			if err := repository.credentials.User.SetFirstName(users.FirstName(tt.first)); err != nil {
 				t.Fatal(err)
 			}
 
-			if err := repository.credentials.User.SetLastName(security.LastName(tt.last)); err != nil {
+			if err := repository.credentials.User.SetLastName(users.LastName(tt.last)); err != nil {
 				t.Fatal(err)
 			}
 
-			if err := repository.credentials.User.SetEmail(security.Email(tt.email)); err != nil {
+			if err := repository.credentials.User.SetEmail(users.Email(tt.email)); err != nil {
 				t.Fatal(err)
 			}
 
