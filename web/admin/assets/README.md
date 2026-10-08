@@ -137,7 +137,7 @@ Admin success and error notifications are stored and read in `web/admin` using
 the existing Redis/Dragonfly session storage. Errors still retain submitted form
 values and their HTTP status; deletion errors stay in the confirmation dialog.
 Sign-in errors use a short-lived anonymous flash session. See
-[flash messages](../../../docs/flash-messages.md) for the generic bag API, storage
+[flash messages](../../../docs/pkg/flashmsg.md) for the generic bag API, storage
 scope, and consumption behavior.
 
 Permissions in filters and create/edit forms use the shared `MultiSelect`

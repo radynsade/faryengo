@@ -7,10 +7,11 @@ The `pkg/flashmsg/redis` subpackage implements atomic storage in Redis session
 hashes.
 
 Applications own everything around the bag: they choose the session key, set
-cookies, pick the storage, and decide when messages are consumed. For how the
-admin panel presents and persists flash messages, see
-[flash-messages.md](../flash-messages.md) and
-[`web/admin/flash_messages.go`](../../web/admin/flash_messages.go).
+cookies, pick the storage, and decide when messages are consumed. The admin
+integration in [`web/admin/flash_messages.go`](../../web/admin/flash_messages.go)
+selects sessions, manages anonymous cookies, and maps storage errors to HTTP
+responses. `cmd/server` constructs the store with the authentication Redis
+client and passes it to `admin.NewHandler` through `FlashSessionStorage`.
 
 Imports:
 
@@ -26,6 +27,8 @@ import (
 `Bag` groups messages by type. Types are arbitrary strings; `flashmsg.Success`,
 `flashmsg.Error`, `flashmsg.Info`, and `flashmsg.Warning` are conventional
 labels. The zero value is ready to use, and `New()` returns an empty bag.
+Messages remain available until consumed, following
+[Symfony's flash-message behavior](https://symfony.com/doc/current/session.html#flash-messages).
 
 | Method | Behavior |
 | --- | --- |
@@ -39,8 +42,8 @@ labels. The zero value is ready to use, and `New()` returns an empty bag.
 ```go
 bag := flashmsg.New()
 bag.Add(flashmsg.Success, "Role created.")
-bag.Add(flashmsg.Error, "Enter a name.")
-bag.Add(flashmsg.Error, "Choose at least one permission.")
+bag.Add(flashmsg.Error, "Unable to load roles.")
+bag.Add(flashmsg.Error, "Unable to delete the role.")
 
 bag.Types()               // ["error", "success"]
 bag.Peek(flashmsg.Error)  // Both errors; the bag still holds them.
@@ -58,7 +61,7 @@ freely. A bag belongs to one request and must not be shared between goroutines.
 leaves the bag's previous contents intact.
 
 ```go
-data, err := json.Marshal(bag) // {"error":["Enter a name."]}
+data, err := json.Marshal(bag)
 if err != nil {
 	return err
 }
@@ -146,7 +149,7 @@ session returns an empty bag without creating a key, and reads never extend the
 lifetime. Use keys that are unique per application.
 
 ```go
-session := flashmsg.Session{Key: "admin:flash:" + anonymousID}
+session := flashmsg.Session{Key: "faryen:web:admin:session:{" + anonymousID + "}"}
 
 if err := store.Add(ctx, session, flashmsg.Error, "Invalid email or password."); err != nil {
 	return fmt.Errorf("store notification: %w", err)
@@ -164,8 +167,8 @@ is missing, expired, or its generation no longer matches, both methods return
 
 ```go
 session := flashmsg.Session{
-	Key:           "sessions:{" + userID + "}:session:" + sessionID,
-	GenerationKey: "sessions:{" + userID + "}:generation",
+	Key:           "faryen:security:{" + userID + "}:session:" + sessionID,
+	GenerationKey: "faryen:security:{" + userID + "}:generation",
 }
 
 bag, err := store.Take(ctx, session, "") // Consume every type.
@@ -177,25 +180,94 @@ if errors.Is(err, flashredis.ErrSessionRevoked) {
 A blank `Key` returns `flashredis.ErrInvalidSession`. All errors wrap their
 causes for `errors.Is` and `errors.As`.
 
+## Usage conventions
+
+Flash handling belongs to the transport layer. Domain and application services
+do not depend on flashes. The conventions below describe the project's usage;
+the generic bag does not enforce them.
+
+### Session naming and lifetime
+
+The admin uses these Redis names:
+
+| Purpose | Name | Meaning |
+| --- | --- | --- |
+| Authenticated `Session.Key` | `faryen:security:{userID}:session:sessionID` | Existing device-session hash, selected from the authenticated principal's user and session identities. |
+| Authenticated `Session.GenerationKey` | `faryen:security:{userID}:generation` | Current user-session generation; shares the device hash's `{userID}` Redis Cluster slot. |
+| Anonymous `Session.Key` | `faryen:web:admin:session:{randomID}` | Separate admin session identified by a random UUIDv7; `GenerationKey` is empty. |
+| Message hash field | `admin:flashes` | JSON bag in either session hash; other applications use their own `<application>:flashes` field. |
+
+Replace `userID`, `sessionID`, and `randomID` with their identifier values;
+the braces are literal Redis hash tags, not placeholder delimiters. The
+authenticated session identity is the internal device ID, not the opaque
+authentication cookie value. The storage accepts application-selected keys;
+these prefixes are admin conventions.
+
+Select an authenticated device session from the request's verified identity,
+never from URL parameters. Do not use `notice` or `notice_name` query parameters
+to supply notifications. Flashes survive navigation and form submissions with
+the existing opaque session cookie; no extra authenticated cookie is needed.
+They share the session's TTL. Each storage operation checks generation and
+absolute expiration without extending the lifetime or recreating a missing,
+expired, or revoked session. Authentication still checks durable credentials
+and current permissions before protected handlers run.
+
+Before sign-in, use a separate anonymous session with an opaque HttpOnly cookie
+named `faryen_flash`, or `__Host-faryen_flash` with secure cookies. The admin uses
+SameSite Strict, its Secure policy, and a 15-minute TTL. Only adding a message
+creates the session; reading an empty guest page creates nothing. Anonymous
+sessions cannot access authenticated messages. Never store authentication
+tokens, submitted passwords, email addresses, or other submitted form values
+in flashes.
+
+### Choosing and consuming messages
+
+| Situation | Convention |
+| --- | --- |
+| Successful role creation, update, or deletion | Store a success message after the change succeeds, then redirect to a clean view or list URL. The next rendered admin page consumes it; group multiple successes in the existing success dialog. |
+| Authentication, authorization, operational, malformed-request, or loading failure | Store and consume an error in the response displaying it. Preserve the HTTP status and submitted form values, except passwords. |
+| Editable field validation | Pass localized errors directly to the form, without flash storage or a notification banner. Mark invalid controls with labels and borders and show messages beneath them. Never render or persist submitted passwords. |
+| Deletion failure | Stay in the confirmation dialog and consume only errors, leaving pending successes for a normal page render. |
+
+Consume messages server-side for both full documents and HTMX fragments. A
+consumed message must not reappear on Reload or Back, even without JavaScript.
+Escape notification text with templ and send admin responses with `Cache-Control: no-store`.
+Use atomic additions and consumption; disable automatic storage retries because
+replaying an ambiguous operation can duplicate or lose messages.
+
+### Failure handling
+
+Use direct HTTP errors for transport rejections, including rejected cross-origin
+requests, and when flash storage is unavailable. Storage failures return 503
+without exposing storage errors or reporting a false success.
+
+If a change succeeded but storing its confirmation failed, that change remains
+committed. Tell the user to reload before submitting again; do not imply that
+the change was rolled back.
+
 ## Post/Redirect/Get example
 
 A handler stores a message before redirecting; middleware on the next request
-consumes the messages and attaches them to the context for rendering.
+consumes the messages and attaches them to the context for rendering. The
+application-specific `renderRoleFailure` helper stores and consumes errors in
+the current response, preserving the status and form values as described above.
 
 ```go
 func (h *Handler) saveRole(writer http.ResponseWriter, request *http.Request) {
 	session := h.flashSession(request)
 	err := h.roles.Save(request.Context(), role)
 
-	if err == nil {
-		err = h.flashes.Add(request.Context(), session, flashmsg.Success, "Role saved.")
+	if err != nil {
+		h.renderRoleFailure(writer, request, err)
+		return
 	}
 
-	if err != nil {
-		http.Error(writer, "internal error", http.StatusInternalServerError)
-	} else {
-		http.Redirect(writer, request, "/roles", http.StatusSeeOther)
+	if err := h.flashes.Add(request.Context(), session, flashmsg.Success, "Role saved."); err != nil {
+		http.Error(writer, "Changes were saved, but the confirmation could not be stored. Reload before submitting again.", http.StatusServiceUnavailable)
+		return
 	}
+
+	http.Redirect(writer, request, "/roles", http.StatusSeeOther)
 }
 
 func (h *Handler) withFlashes(next http.Handler) http.Handler {
@@ -203,7 +275,8 @@ func (h *Handler) withFlashes(next http.Handler) http.Handler {
 		bag, err := h.flashes.Take(request.Context(), h.flashSession(request), "")
 
 		if err != nil {
-			bag = flashmsg.New()
+			http.Error(writer, "Unable to load notifications.", http.StatusServiceUnavailable)
+			return
 		}
 
 		next.ServeHTTP(writer, request.WithContext(flashmsg.WithBag(request.Context(), bag)))
@@ -211,5 +284,5 @@ func (h *Handler) withFlashes(next http.Handler) http.Handler {
 }
 ```
 
-To show only one type on a page, such as validation errors next to a form, pass
-that type to `Take` and leave the others for a later request.
+For an error response or deletion confirmation, pass `flashmsg.Error` to `Take`
+and leave the other types for a later page render.

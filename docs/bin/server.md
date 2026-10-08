@@ -1,0 +1,39 @@
+# Server
+
+Use `bin/server` to serve the admin application. Set configuration in the
+environment or an optional `.env` file in the working directory. Existing
+environment values take precedence over the file.
+
+PostgreSQL and Redis-compatible storage must be available. An operator must
+apply the database migrations before starting the server.
+
+## Available command
+
+| Command | Purpose |
+| --- | --- |
+| `bin/server` | Start the HTTP server and keep it running until stopped. |
+
+Run the command without arguments; configure it through environment settings.
+
+## Configuration
+
+| Setting | Use | Default |
+| --- | --- | --- |
+| `DATABASE_URL` | PostgreSQL connection URL. Required. | None |
+| `REDIS_URL` | Redis-compatible storage connection URL. | `redis://127.0.0.1:6379/0` |
+| `HTTP_ADDRESS` | Listening address in `<host>:<port>` format. An omitted host listens on all interfaces. | `:8080` |
+| `SESSION_TTL` | Browser session lifetime, from `1s` to `2160h`. | `168h` |
+| `AUTH_COOKIE_SECURE` | Require HTTPS for authentication cookies. | `true` |
+
+Keep `AUTH_COOKIE_SECURE=true` in production and provide HTTPS through a trusted
+reverse proxy. For local use over plain HTTP, set `AUTH_COOKIE_SECURE=false`.
+
+## Access and shutdown
+
+Create the initial language, role, and user with the [CLI](cli.md). Open
+`/admin/<language>/sign-in` on the server's public address, replacing
+`<language>` with a supported interface language code, and sign in with the
+user's email and password.
+
+Press Ctrl+C or send SIGTERM to stop the server gracefully. Startup and runtime
+failures are reported with a nonzero exit status.

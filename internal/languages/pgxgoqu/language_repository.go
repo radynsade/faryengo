@@ -96,14 +96,8 @@ func (e *errLanguageDeleteFailed) Error() string {
 // Repository
 //
 
-type languageDB interface {
-	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
-	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
-	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
-}
-
 type LanguageRepository struct {
-	pool languageDB
+	pool *pgxpool.Pool
 }
 
 var _ languages.LanguageRepository = (*LanguageRepository)(nil)
@@ -285,14 +279,8 @@ func (r *LanguageRepository) FindByCodeForUpdate(
 		err = ErrNilPool
 	} else if validationErr := code.Validate(); validationErr != nil {
 		err = fmt.Errorf("failed to find a language by code for update: %w", validationErr)
-	} else if _, transactional := r.pool.(pgx.Tx); !transactional {
-		err = ErrTransactionRequired
 	} else {
-		language, err = r.find(ctx, goqu.Ex{"code": string(code)}, true)
-
-		if err != nil {
-			err = fmt.Errorf("failed to find a language %s for update: %w", code, err)
-		}
+		err = ErrTransactionRequired
 	}
 
 	return language, err
