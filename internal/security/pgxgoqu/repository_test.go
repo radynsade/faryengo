@@ -43,8 +43,6 @@ func TestConstructorsRejectNilPool(t *testing.T) {
 	}{
 		{"user", func() error { _, err := NewUserRepository(nil); return err }},
 		{"role", func() error { _, err := NewRoleRepository(nil); return err }},
-		{"authentication snapshot", func() error { _, err := NewAuthenticationSnapshotRepository(nil); return err }},
-		{"principal", func() error { _, err := NewPrincipalRepository(nil); return err }},
 		{"typed nil pool", func() error { _, err := NewUserRepository((*pgxpool.Pool)(nil)); return err }},
 		{"typed nil connection", func() error { _, err := NewRoleRepository((*pgx.Conn)(nil)); return err }},
 	}
@@ -79,20 +77,6 @@ func TestMethodsRejectMissingPool(t *testing.T) {
 		{"role find by ID for update", func() error { _, err := (&RoleRepository{}).FindByIDForUpdate(ctx, roleID); return err }},
 		{"role find", func() error { _, err := (&RoleRepository{}).Find(ctx, security.RoleQuery{}); return err }},
 		{"role count", func() error { _, err := (&RoleRepository{}).Count(ctx, security.RoleFilter{}); return err }},
-		{"snapshot find by email", func() error {
-			_, err := (&AuthenticationSnapshotRepository{}).FindByEmail(ctx, "a@b.c")
-			return err
-		}},
-		{"snapshot find by user ID", func() error {
-			_, err := (&AuthenticationSnapshotRepository{}).FindByUserID(ctx, userID)
-			return err
-		}},
-		{"snapshot invalidate", func() error { return (&AuthenticationSnapshotRepository{}).Invalidate(ctx, userID) }},
-		{"principal find by email", func() error { _, err := (&PrincipalRepository{}).FindByEmail(ctx, "a@b.c"); return err }},
-		{"principal find by user ID", func() error {
-			_, err := (&PrincipalRepository{}).FindByUserID(ctx, userID)
-			return err
-		}},
 	}
 
 	for _, test := range tests {
@@ -109,8 +93,6 @@ func TestMethodsValidateBeforeIO(t *testing.T) {
 	pool := newLazyPool(t)
 	users := &UserRepository{pool: pool}
 	roles := &RoleRepository{pool: pool}
-	snapshots := &AuthenticationSnapshotRepository{pool: pool}
-	principals := &PrincipalRepository{pool: pool}
 	validRoleID := security.RoleID(uuid.Must(uuid.NewV7()))
 	unloadedUser := security.NewUser(
 		security.UserID(uuid.Must(uuid.NewV7())),
@@ -181,25 +163,6 @@ func TestMethodsValidateBeforeIO(t *testing.T) {
 			_, err := roles.Count(ctx, security.RoleFilter{NameLike: strings.Repeat("a", security.MaxRoleFilterNameLikeLength+1)})
 			return err
 		}, security.ErrRoleFilterInvalid},
-		{"snapshot find by invalid email", func() error {
-			_, err := snapshots.FindByEmail(ctx, "")
-			return err
-		}, security.ErrEmailInvalid},
-		{"snapshot find by invalid user ID", func() error {
-			_, err := snapshots.FindByUserID(ctx, security.UserID{})
-			return err
-		}, security.ErrUserIDInvalid},
-		{"snapshot invalidate invalid user ID", func() error {
-			return snapshots.Invalidate(ctx, security.UserID{})
-		}, security.ErrUserIDInvalid},
-		{"principal find by invalid email", func() error {
-			_, err := principals.FindByEmail(ctx, "")
-			return err
-		}, security.ErrEmailInvalid},
-		{"principal find by invalid user ID", func() error {
-			_, err := principals.FindByUserID(ctx, security.UserID{})
-			return err
-		}, security.ErrUserIDInvalid},
 	}
 
 	for _, test := range tests {
