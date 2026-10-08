@@ -12,7 +12,9 @@ in the Go code style guide.
 | --- | --- |
 | [docs/architecture.md](docs/architecture.md) | Project organization, component responsibilities, dependency boundaries, and architectural conventions. |
 | [docs/go-code-style.md](docs/go-code-style.md) | How Go code is written: file layout, errors, control flow, concurrency, interfaces, repositories, naming, formatting, comments, and tests. |
-| [docs/domain.md](docs/domain.md) | Domain concepts, relationships, business rules, and invariants. |
+| [docs/domain/security.md](docs/domain/security.md) | Users, roles, permissions, and security domain rules. |
+| [docs/domain/languages.md](docs/domain/languages.md) | Language catalog, fallback languages, and translation rules. |
+| [docs/domain/budget.md](docs/domain/budget.md) | Budget concepts, relationships, calculations, and invariants. |
 | [docs/authentication.md](docs/authentication.md) | Identity verification, access control, session lifecycles, and security policies. |
 | [docs/admin-design.md](docs/admin-design.md) | The admin panel's visual system, reusable components, styling conventions, layouts, accessibility, and rendering behavior. |
 | [docs/admin-i18n.md](docs/admin-i18n.md) | Admin interface translation catalogs, locale handling, language switching, pluralization, and localized messages. |
