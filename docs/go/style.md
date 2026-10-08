@@ -28,8 +28,9 @@ in that order. Domain repository files that define query types use `Filter`,
 | Adapter repository | Struct, compile-time contract check, constructor, methods in contract order. |
 | Adapter helpers | Private lookup and write helpers, column definitions, query builders, row mapping, error mapping. |
 
-A local adapter interface, when needed, precedes the struct that uses it. A
-database wrapper interface is not required merely to hold a connection pool.
+A local adapter interface, when needed, precedes the struct that uses it.
+Interfaces shared by several domains' adapters, such as `pgxdb.DB`, live in
+`internal/infra/` instead.
 
 ### Sub-headers
 
@@ -177,9 +178,9 @@ methods are the exception: they return their domain's typed failure contract
 so callers can inspect the operation's input without depending on the adapter.
 Verify adapter conformance to its domain contract at compile time.
 
-Repository connection fields may use a concrete pool directly. Introduce a
-narrow adapter interface only when the adapter needs an abstraction; do not
-require one for every repository.
+PostgreSQL repository connection fields use `pgxdb.DB`, which accepts a pool,
+a connection, or a transaction. Introduce any other adapter interface only when
+the adapter needs an abstraction; do not require one for every repository.
 
 ## Repository methods and helpers
 
@@ -193,9 +194,12 @@ and operation preconditions before I/O, in that order. Validate reconstituted
 domain values before returning them.
 
 Keep query construction parameterized and separate from domain behavior.
-Multi-step writes use explicit transactions, with cleanup registered when the
-transaction starts and commit as the final successful step. Operations needing
-a transaction must reject connections that cannot provide one.
+Resolve the database handle with `pgxdb.FromContext(ctx, r.pool)` for every
+statement, never by calling `r.pool` directly, so the operation joins the
+caller's transaction. Multi-step writes run their statements inside
+`pgxdb.InTransaction` rather than calling `Begin`, `Commit`, or `Rollback` by
+hand. Operations needing a transaction, such as row locks, check the resolved
+handle and reject one that cannot provide a transaction.
 
 Respect database-owned timestamps and established concurrency checks. A
 concurrent change must not be silently overwritten where the aggregate's
@@ -204,6 +208,39 @@ contract requires conflict detection.
 Use named, validated filter, sort, and query values. Keep optional criteria
 explicit, apply the same filters to counts and results, and use a stable
 tie-breaker for ordered results.
+
+## Transactions
+
+Application code makes several repository operations atomic with
+`app.Transactor`:
+
+```go
+err := s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+	role, err := s.roles.FindByIDForUpdate(ctx, id)
+
+	if err == nil {
+		err = s.roles.Update(ctx, role)
+	}
+
+	return err
+})
+```
+
+- The transaction commits when the function returns nil and rolls back when it
+  returns an error or panics. A panic keeps propagating after the rollback.
+- When rollback fails too, the returned error joins the function's error with
+  the rollback failure, so both remain inspectable with `errors.Is`.
+- Inside the function, pass only the function's `ctx` to repositories. The
+  transaction travels in that context; an operation given an outer context runs
+  outside the transaction.
+- A nested `InTransaction` call runs in a savepoint. Its failure rolls back
+  only the savepoint and returns the error to the enclosing function, which
+  decides whether to recover or return it. Only the outermost call commits.
+- A transaction belongs to the database handle it was opened on. Repositories
+  built on another handle, including an explicit `pgx.Tx`, keep using their
+  own handle.
+- Do not start goroutines that use the transaction's context: a transaction
+  runs on one connection and is not safe for concurrent use.
 
 ## Concurrency and resource lifetime
 

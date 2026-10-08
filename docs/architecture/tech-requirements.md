@@ -59,6 +59,11 @@ validation responsibilities are defined in
 - Enforce persistent uniqueness and reference constraints atomically. Checks
   performed before a write do not replace database guarantees.
 - Use transactions when a use case must persist several changes atomically.
+  Application code runs such work through the application layer's
+  transaction contract, never through a database handle; repositories join
+  the transaction through the operation's context. A nested transaction is a
+  savepoint: its failure undoes only its own work, and only the outermost
+  transaction commits.
 - Preserve established conflict detection for concurrent changes; stale writes
   must not silently overwrite newer state where that protection is required.
 - Respect database-owned timestamps and other database-maintained values.

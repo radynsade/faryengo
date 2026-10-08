@@ -10,19 +10,14 @@ import (
 	"github.com/doug-martin/goqu/v9/exp"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/radynsade/faryengo/internal/infra/pgxdb"
 	"github.com/radynsade/faryengo/internal/languages"
 )
 
 //
 // Errors
 //
-
-var (
-	ErrNilPool             = errors.New("nil PostgreSQL pool")
-	ErrTransactionRequired = errors.New("language locking requires a PostgreSQL transaction")
-)
 
 type errLanguageWriteFailed struct {
 	language *languages.Language
@@ -97,19 +92,19 @@ func (e *errLanguageDeleteFailed) Error() string {
 //
 
 type LanguageRepository struct {
-	pool *pgxpool.Pool
+	pool pgxdb.DB
 }
 
 var _ languages.LanguageRepository = (*LanguageRepository)(nil)
 
-func NewLanguageRepository(pool *pgxpool.Pool) (*LanguageRepository, error) {
+func NewLanguageRepository(pool pgxdb.DB) (*LanguageRepository, error) {
 	var (
 		repository *LanguageRepository
 		err        error
 	)
 
-	if pool == nil {
-		err = ErrNilPool
+	if pgxdb.IsNil(pool) {
+		err = pgxdb.ErrNilDB
 	} else {
 		repository = &LanguageRepository{pool: pool}
 	}
@@ -126,7 +121,7 @@ func (r *LanguageRepository) Create(
 	var err languages.ErrLanguageCreateFailed
 
 	if r == nil || r.pool == nil {
-		err = newErrLanguageCreateFailed(language, ErrNilPool)
+		err = newErrLanguageCreateFailed(language, pgxdb.ErrNilDB)
 	} else if language == nil {
 		err = newErrLanguageCreateFailed(language, languages.ErrLanguageNil)
 	} else if validationErr := language.Validate(); validationErr != nil {
@@ -148,7 +143,7 @@ func (r *LanguageRepository) Create(
 		if buildErr != nil {
 			err = newErrLanguageCreateFailed(language, buildErr)
 		} else {
-			_, execErr := r.pool.Exec(ctx, query, args...)
+			_, execErr := pgxdb.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 
 			if execErr != nil {
 				err = newErrLanguageCreateFailed(language, mapLanguageError(execErr))
@@ -168,7 +163,7 @@ func (r *LanguageRepository) Update(
 	var err languages.ErrLanguageUpdateFailed
 
 	if r == nil || r.pool == nil {
-		err = newErrLanguageUpdateFailed(language, ErrNilPool)
+		err = newErrLanguageUpdateFailed(language, pgxdb.ErrNilDB)
 	} else if language == nil {
 		err = newErrLanguageUpdateFailed(language, languages.ErrLanguageNil)
 	} else if validationErr := language.Validate(); validationErr != nil {
@@ -190,7 +185,7 @@ func (r *LanguageRepository) Update(
 		if buildErr != nil {
 			err = newErrLanguageUpdateFailed(language, buildErr)
 		} else {
-			tag, execErr := r.pool.Exec(ctx, query, args...)
+			tag, execErr := pgxdb.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 
 			if execErr != nil {
 				err = newErrLanguageUpdateFailed(language, mapLanguageError(execErr))
@@ -212,7 +207,7 @@ func (r *LanguageRepository) Delete(
 	var err languages.ErrLanguageDeleteFailed
 
 	if r == nil || r.pool == nil {
-		err = newErrLanguageDeleteFailed(code, ErrNilPool)
+		err = newErrLanguageDeleteFailed(code, pgxdb.ErrNilDB)
 	} else if validationErr := code.Validate(); validationErr != nil {
 		err = newErrLanguageDeleteFailed(code, validationErr)
 	} else {
@@ -225,7 +220,7 @@ func (r *LanguageRepository) Delete(
 		if buildErr != nil {
 			err = newErrLanguageDeleteFailed(code, buildErr)
 		} else {
-			tag, execErr := r.pool.Exec(ctx, query, args...)
+			tag, execErr := pgxdb.FromContext(ctx, r.pool).Exec(ctx, query, args...)
 
 			if execErr != nil {
 				err = newErrLanguageDeleteFailed(code, mapLanguageError(execErr))
@@ -250,7 +245,7 @@ func (r *LanguageRepository) FindByCode(
 	)
 
 	if r == nil || r.pool == nil {
-		err = ErrNilPool
+		err = pgxdb.ErrNilDB
 	} else if validationErr := code.Validate(); validationErr != nil {
 		err = fmt.Errorf("failed to find a language by code: %w", validationErr)
 	} else {
@@ -264,7 +259,9 @@ func (r *LanguageRepository) FindByCode(
 	return language, err
 }
 
-// Find by a code with a pessimistic row lock
+// A row lock lasts only until its transaction ends, so locking requires a
+// repository built on a pgx.Tx; a pool or a bare connection is rejected before
+// I/O.
 
 func (r *LanguageRepository) FindByCodeForUpdate(
 	ctx context.Context,
@@ -276,11 +273,17 @@ func (r *LanguageRepository) FindByCodeForUpdate(
 	)
 
 	if r == nil || r.pool == nil {
-		err = ErrNilPool
+		err = pgxdb.ErrNilDB
 	} else if validationErr := code.Validate(); validationErr != nil {
 		err = fmt.Errorf("failed to find a language by code for update: %w", validationErr)
+	} else if !pgxdb.IsTransaction(pgxdb.FromContext(ctx, r.pool)) {
+		err = pgxdb.ErrTransactionRequired
 	} else {
-		err = ErrTransactionRequired
+		language, err = r.find(ctx, goqu.Ex{"code": string(code)}, true)
+
+		if err != nil {
+			err = fmt.Errorf("failed to find a language %s for update: %w", code, err)
+		}
 	}
 
 	return language, err
@@ -295,7 +298,7 @@ func (r *LanguageRepository) FindFallback(ctx context.Context) (*languages.Langu
 	)
 
 	if r == nil || r.pool == nil {
-		err = ErrNilPool
+		err = pgxdb.ErrNilDB
 	} else {
 		language, err = r.find(ctx, goqu.Ex{"is_fallback": true}, false)
 
@@ -316,7 +319,7 @@ func (r *LanguageRepository) FindAll(ctx context.Context) ([]*languages.Language
 	)
 
 	if r == nil || r.pool == nil {
-		err = ErrNilPool
+		err = pgxdb.ErrNilDB
 	} else {
 		query, args, buildErr := goqu.Dialect("postgres").
 			From("language").
@@ -328,7 +331,7 @@ func (r *LanguageRepository) FindAll(ctx context.Context) ([]*languages.Language
 		if buildErr != nil {
 			err = fmt.Errorf("failed to build the list languages query: %w", buildErr)
 		} else {
-			rows, queryErr := r.pool.Query(ctx, query, args...)
+			rows, queryErr := pgxdb.FromContext(ctx, r.pool).Query(ctx, query, args...)
 
 			if queryErr != nil {
 				err = fmt.Errorf("failed to list languages: %w", queryErr)
@@ -392,7 +395,7 @@ func (r *LanguageRepository) find(
 	if buildErr != nil {
 		err = fmt.Errorf("failed to build the language lookup query: %w", buildErr)
 	} else {
-		language, err = scanLanguage(r.pool.QueryRow(ctx, query, args...))
+		language, err = scanLanguage(pgxdb.FromContext(ctx, r.pool).QueryRow(ctx, query, args...))
 	}
 
 	return language, err

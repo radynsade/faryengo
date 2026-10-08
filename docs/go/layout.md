@@ -42,9 +42,16 @@ internal/catalog/
   (`PasswordHasher`, `internal/security/password.go:79-82`) lives in the
   domain package and lists every operation the domain exposes, however many
   that is (`internal/languages/language_repository.go:33-41`).
-- Adapter database interfaces are optional. A repository may hold a concrete
-  connection pool directly. Keep any needed adapter-specific contracts within
-  the adapter package.
+- PostgreSQL repositories accept `pgxdb.DB` from `internal/infra/pgxdb/`
+  rather than a concrete pool, so callers can pass a pool or a transaction.
+  Keep any other adapter-specific contracts within the adapter package, and
+  move one to `internal/infra/<implementation_name>/` only when several
+  domains' adapters need it.
+
+- The application layer's transaction contract, `Transactor`, lives in
+  `internal/app/`, its consumer. Its PostgreSQL implementation lives in
+  `internal/infra/pgxdb/` and must not import `internal/app/`; wiring in
+  `main()` checks conformance at compile time.
 
 See [interface return types](style.md#interfaces) for constructor results and
 typed repository write failures.

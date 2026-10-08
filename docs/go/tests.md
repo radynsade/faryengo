@@ -33,9 +33,11 @@ named `mock.<Entity>Repository`. Implement every operation with the contract's
 original parameter and return types, including its typed failure contracts;
 do not substitute a partial interface tailored to one test.
 
-For example, keep `pgxgoqu.LanguageRepository` accepting `*pgxpool.Pool`
-directly. Unit tests of its callers use `mock.LanguageRepository`, implementing
-the complete `languages.LanguageRepository` interface.
+For example, `pgxgoqu.LanguageRepository` accepts a `pgxdb.DB`, which exists
+so production code can pass a pool or a transaction. Tests never implement
+`pgxdb.DB` with a fake; unit tests of the repository's callers use
+`mock.LanguageRepository`, implementing the complete
+`languages.LanguageRepository` interface.
 
 When integration testing resumes, use real implementations of domain
 interfaces connected to real infrastructure services. Infrastructure

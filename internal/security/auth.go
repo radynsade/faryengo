@@ -142,7 +142,7 @@ func (p *Principal) Validate() error {
 		}
 
 		if err == nil {
-			err = validatePermissions(p.Permissions)
+			err = Permissions(p.Permissions).Validate()
 		}
 
 		if err != nil {
