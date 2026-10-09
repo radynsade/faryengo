@@ -6,17 +6,37 @@ import (
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 )
 
+// SignInFormID names the region a failed in-page submission replaces.
+const SignInFormID = "sign-in-form"
+
 type SignInProps struct {
 	Action             string
 	RestorePasswordURL string
 	Email              string
+	Errors             []string
 	FieldErrors        components.FieldErrors
 }
 
-// SignIn submits credentials using a native form, including without JavaScript.
 templ SignIn(props SignInProps) {
 	@layouts.AuthLayout(admini18n.T(ctx, "actions.sign_in"), admini18n.T(ctx, "auth.description")) {
-		<form class="form-stack" method="post" action={ templ.URL(props.Action) }>
+		@SignInForm(props)
+		<p class="auth-panel__footer">
+			@components.PageLink(props.RestorePasswordURL) {
+				{ admini18n.T(ctx, "auth.forgot") }
+			}
+		</p>
+	}
+}
+
+// SignInForm is the region a failed submission replaces in place: the
+// form-wide errors and the form. The password is never rendered back, even
+// after a failed attempt.
+templ SignInForm(props SignInProps) {
+	<div id={ SignInFormID }>
+		for _, message := range props.Errors {
+			<p class="form-error" role="alert">{ message }</p>
+		}
+		<form class="form-stack" method="post" action={ templ.URL(props.Action) } { components.FormAttributes()... }>
 			@components.TextInput(components.TextInputProps{
 				ID:           "email",
 				Name:         "email",
@@ -42,10 +62,5 @@ templ SignIn(props SignInProps) {
 				{ admini18n.T(ctx, "actions.sign_in") }
 			}
 		</form>
-		<p class="auth-panel__footer">
-			@components.PageLink(props.RestorePasswordURL) {
-				{ admini18n.T(ctx, "auth.forgot") }
-			}
-		</p>
-	}
+	</div>
 }

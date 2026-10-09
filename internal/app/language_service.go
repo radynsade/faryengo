@@ -9,105 +9,249 @@ import (
 	"github.com/radynsade/faryengo/internal/languages"
 )
 
-var ErrNilLanguageRepository = errors.New("nil language repository")
+//
+// Language service
+//
+
+// Every write runs in a transaction, so it is atomic on its own and joins a
+// transaction already carried by the caller's context.
+
+var (
+	ErrTransactorNil         = errors.New("transactor is nil")
+	ErrLanguageRepositoryNil = errors.New("language repository is nil")
+)
 
 type LanguageService struct {
+	transactor Transactor
 	repository languages.LanguageRepository
 }
 
-func (s *LanguageService) List(ctx context.Context) ([]*languages.Language, error) {
-	var result []*languages.Language
-	var err error
+func NewLanguageService(
+	transactor Transactor,
+	repository languages.LanguageRepository,
+) (*LanguageService, error) {
+	var (
+		service *LanguageService
+		err     error
+	)
+
+	if transactor == nil {
+		err = ErrTransactorNil
+	} else if repository == nil {
+		err = ErrLanguageRepositoryNil
+	} else {
+		service = &LanguageService{transactor: transactor, repository: repository}
+	}
+
+	return service, err
+}
+
+// Create
+
+func (s *LanguageService) Create(
+	ctx context.Context,
+	request input.CreateLanguageInput,
+) (*languages.Language, error) {
+	var (
+		language *languages.Language
+		err      error
+	)
+
+	if err = s.check(); err == nil {
+		language, err = newLanguage(request.Code, request.EnglishName, request.NativeName, request.IsFallback)
+
+		if err != nil {
+			err = fmt.Errorf("create language: %w: %w", input.ErrCreateLanguageInputInvalid, err)
+		} else {
+			err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+				var err error
+
+				if createErr := s.repository.Create(ctx, language); createErr != nil {
+					err = createErr
+				}
+
+				return err
+			})
+
+			if err != nil {
+				err = fmt.Errorf("create language %s: %w", language.Code, err)
+			}
+		}
+	}
+
+	if err != nil {
+		language = nil
+	}
+
+	return language, err
+}
+
+// Find by a code
+
+func (s *LanguageService) FindByCode(ctx context.Context, code string) (*languages.Language, error) {
+	var (
+		language *languages.Language
+		err      error
+	)
 
 	if s == nil || s.repository == nil {
-		err = ErrNilLanguageRepository
+		err = ErrLanguageRepositoryNil
+	} else if validationErr := languages.Code(code).Validate(); validationErr != nil {
+		err = fmt.Errorf("find language: %w", validationErr)
+	} else {
+		language, err = s.repository.FindByCode(ctx, languages.Code(code))
+
+		if err != nil {
+			err = fmt.Errorf("find language %s: %w", code, err)
+		}
+	}
+
+	if err != nil {
+		language = nil
+	}
+
+	return language, err
+}
+
+// List all languages ordered by a code
+
+func (s *LanguageService) List(ctx context.Context) ([]*languages.Language, error) {
+	var (
+		result []*languages.Language
+		err    error
+	)
+
+	if s == nil || s.repository == nil {
+		err = ErrLanguageRepositoryNil
 	} else {
 		result, err = s.repository.FindAll(ctx)
 
 		if err != nil {
 			err = fmt.Errorf("list languages: %w", err)
+			result = nil
 		}
 	}
 
 	return result, err
 }
 
-func NewLanguageService(repository languages.LanguageRepository) (*LanguageService, error) {
-	var service *LanguageService
-	var err error
+// The update replaces every field of the Language identified by the code. The
+// Language is locked first, so a missing one is reported as ErrLanguageNotFound
+// and concurrent updates apply one after another.
 
-	if repository == nil {
-		err = ErrNilLanguageRepository
-	} else {
-		service = &LanguageService{repository: repository}
+func (s *LanguageService) Update(
+	ctx context.Context,
+	request input.UpdateLanguageInput,
+) (*languages.Language, error) {
+	var (
+		language *languages.Language
+		err      error
+	)
+
+	if err = s.check(); err == nil {
+		language, err = newLanguage(request.Code, request.EnglishName, request.NativeName, request.IsFallback)
+
+		if err != nil {
+			err = fmt.Errorf("update language: %w: %w", input.ErrUpdateLanguageInputInvalid, err)
+		} else {
+			err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+				_, err := s.repository.FindByCodeForUpdate(ctx, language.Code)
+
+				if err == nil {
+					if updateErr := s.repository.Update(ctx, language); updateErr != nil {
+						err = updateErr
+					}
+				}
+
+				return err
+			})
+
+			if err != nil {
+				err = fmt.Errorf("update language %s: %w", language.Code, err)
+			}
+		}
 	}
 
-	return service, err
-}
-
-func (s *LanguageService) Create(ctx context.Context, request input.CreateLanguageInput) (*languages.Language, error) {
-	var language *languages.Language
-	var err error
-
-	if s == nil || s.repository == nil {
-		err = ErrNilLanguageRepository
-	} else {
-		code, codeErr := languages.NewLanguageCode(request.Code)
-		english, englishErr := languages.NewLanguageEnglishName(request.EnglishName)
-		native, nativeErr := languages.NewLanguageNativeName(request.NativeName)
-		err = errors.Join(fieldError("code", codeErr), fieldError("english name", englishErr), fieldError("native name", nativeErr))
-
-		if err == nil {
-			language, err = languages.NewLanguage(code, english, native, request.IsFallback)
-		}
-
-		if err != nil {
-			err = fmt.Errorf("create language: %w: %w", input.ErrInvalidCreateLanguageInput, err)
-		} else if language.IsFallback() {
-			fallback, findErr := s.repository.FindFallback(ctx)
-
-			if findErr != nil && !errors.Is(findErr, languages.ErrLanguageNotFound) {
-				err = fmt.Errorf("find fallback language: %w", findErr)
-			} else if fallback != nil {
-				err = fmt.Errorf("create fallback language %s: %w", request.Code, languages.ErrFallbackLanguageAlreadyExists)
-			}
-		}
-
-		if err == nil {
-			if createErr := s.repository.Create(ctx, language); createErr != nil {
-				err = fmt.Errorf("create language %s: %w", request.Code, createErr)
-			}
-		}
-
-		if err != nil {
-			language = nil
-		}
+	if err != nil {
+		language = nil
 	}
 
 	return language, err
 }
 
-func (s *LanguageService) Delete(ctx context.Context, code string) error {
-	var err error
+// Delete
 
-	if s == nil || s.repository == nil {
-		err = ErrNilLanguageRepository
-	} else {
-		languageCode, validationErr := languages.NewLanguageCode(code)
-		if validationErr != nil {
-			err = fmt.Errorf("delete language: %w", validationErr)
-		} else if deleteErr := s.repository.Delete(ctx, languageCode); deleteErr != nil {
-			err = fmt.Errorf("delete language %s: %w", code, deleteErr)
+func (s *LanguageService) Delete(ctx context.Context, code string) error {
+	err := s.check()
+
+	if err == nil {
+		err = languages.Code(code).Validate()
+
+		if err != nil {
+			err = fmt.Errorf("delete language: %w", err)
+		}
+	}
+
+	if err == nil {
+		err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+			var err error
+
+			if deleteErr := s.repository.Delete(ctx, languages.Code(code)); deleteErr != nil {
+				err = deleteErr
+			}
+
+			return err
+		})
+
+		if err != nil {
+			err = fmt.Errorf("delete language %s: %w", code, err)
 		}
 	}
 
 	return err
 }
 
-func fieldError(field string, err error) error {
-	if err != nil {
-		err = fmt.Errorf("%s: %w", field, err)
+//
+// Helpers
+//
+
+func (s *LanguageService) check() error {
+	var err error
+
+	if s == nil || s.repository == nil {
+		err = ErrLanguageRepositoryNil
+	} else if s.transactor == nil {
+		err = ErrTransactorNil
 	}
 
 	return err
+}
+
+// Every field is validated, rather than stopping at the first failure, so a
+// caller can report all invalid fields at once.
+
+func newLanguage(
+	code string,
+	englishName string,
+	nativeName string,
+	isFallback bool,
+) (*languages.Language, error) {
+	language := languages.NewLanguage(
+		languages.Code(code),
+		languages.EnglishName(englishName),
+		languages.NativeName(nativeName),
+		isFallback,
+	)
+
+	err := errors.Join(
+		language.Code.Validate(),
+		language.EnglishName.Validate(),
+		language.NativeName.Validate(),
+	)
+
+	if err != nil {
+		language = nil
+	}
+
+	return language, err
 }

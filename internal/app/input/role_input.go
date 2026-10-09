@@ -3,25 +3,35 @@ package input
 import (
 	"errors"
 
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 )
 
-var (
-	ErrInvalidCreateRoleInput = errors.New("invalid create role input")
-	ErrInvalidUpdateRoleInput = errors.New("invalid update role input")
-)
+//
+// Create role input
+//
+
+// Name maps language codes to translations.
+
+var ErrCreateRoleInputInvalid = errors.New("invalid create role input")
 
 type CreateRoleInput struct {
 	Name        map[string]string
-	Permissions []security.Permission
+	Permissions []string
 	IsSuper     bool
 }
 
-// UpdateRoleInput leaves fields unchanged when nil. A non-nil Name replaces
-// all translations, and a non-nil empty Permissions slice clears permissions.
+//
+// Update role input
+//
+
+// The update replaces every field of the Role; an empty Permissions clears
+// them.
+
+var ErrUpdateRoleInputInvalid = errors.New("invalid update role input")
+
 type UpdateRoleInput struct {
-	ID          security.RoleID
+	ID          users.RoleID
 	Name        map[string]string
-	Permissions []security.Permission
-	IsSuper     *bool
+	Permissions []string
+	IsSuper     bool
 }

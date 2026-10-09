@@ -10,262 +10,278 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/radynsade/faryengo/internal/app"
-	appinput "github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/config"
+	"github.com/radynsade/faryengo/internal/infra/pgxdb"
 	"github.com/radynsade/faryengo/internal/languages"
 	languagespgxgoqu "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
+	"github.com/radynsade/faryengo/internal/users"
+	"github.com/radynsade/faryengo/internal/users/argon2id"
+	userspgxgoqu "github.com/radynsade/faryengo/internal/users/pgxgoqu"
 )
 
+//
+// Usage
+//
+
 const usage = `Usage:
+  bin/cli help
   bin/cli languages create-language <code> <englishName> <nativeName> [--fallback|-f]
   bin/cli languages delete-language <code>
-  bin/cli security create-user <email> <firstName> <lastName> <password> <phone> <roleUUID>
-  bin/cli security delete-user <userUUID>
-  bin/cli security create-role <nameTranslations> [--super|-s] [--permission|-p <permission>]...
-  bin/cli security delete-role <roleUUID>`
+  bin/cli users create-role <nameTranslations> [--super|-s] [--permission|-p <permission>]...
+  bin/cli users delete-role <roleUUID>
+  bin/cli users create-user <email> <firstName> <lastName> <password> <phone> <roleUUID>
+  bin/cli users delete-user <userUUID>`
 
-var errInvalidCommand = errors.New("invalid command")
+var (
+	ErrCommandInvalid     = errors.New("invalid command")
+	ErrUUIDInvalid        = errors.New("invalid UUID: use the hyphenated format")
+	ErrDatabaseURLMissing = errors.New("PostgreSQL connection string is required: set DATABASE_URL or add it to .env")
+)
 
-type cliCommand struct {
-	group    string
-	action   string
-	language languageCommand
-	user     userCommand
-	role     roleCommand
+//
+// Command
+//
+
+type services struct {
+	languages *app.LanguageService
+	roles     *app.RoleService
+	users     *app.UserService
 }
 
-type languageCommand struct {
-	action      string
-	createInput appinput.CreateLanguageInput
-	code        string
+type command interface {
+	execute(ctx context.Context, services services, stdout io.Writer) error
 }
+
+func parseCommand(args []string) (command, error) {
+	var (
+		result command
+		err    error
+	)
+
+	if len(args) < 2 {
+		err = ErrCommandInvalid
+	} else {
+		switch {
+		case args[0] == languagesGroup:
+			result, err = asCommand(parseLanguageCommand(args))
+		case args[0] == usersGroup && (args[1] == createRoleCommand || args[1] == deleteRoleCommand):
+			result, err = asCommand(parseRoleCommand(args))
+		case args[0] == usersGroup:
+			result, err = asCommand(parseUserCommand(args))
+		default:
+			err = ErrCommandInvalid
+		}
+	}
+
+	if err != nil {
+		result = nil
+	}
+
+	return result, err
+}
+
+func asCommand[Command command](parsed Command, err error) (command, error) {
+	return parsed, err
+}
+
+//
+// Entry point
+//
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	err := run(ctx, os.Args[1:], os.Stdout, os.Stderr)
 
-	if err := run(ctx, os.Args[1:], os.Stdout, os.Stderr); err != nil {
+	stop()
+
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func run(ctx context.Context, args []string, stdout, stderr io.Writer) error {
-	if len(args) == 1 && (args[0] == "help" || args[0] == "-h" || args[0] == "--help") {
-		_, err := fmt.Fprintln(stdout, usage)
-		if err != nil {
-			err = fmt.Errorf("write CLI usage: %w", err)
-		}
+// Arguments are parsed before configuration is read, so a malformed command
+// fails without a database connection.
 
-		return err
-	}
-
-	command, err := parseCommand(args)
-	if err != nil {
-		if _, writeErr := fmt.Fprintln(stderr, usage); writeErr != nil {
-			return fmt.Errorf("write CLI usage: %w", writeErr)
-		}
-
-		return fmt.Errorf("parse CLI command: %w", err)
-	}
-
-	settings, err := config.Load()
-	if err != nil {
-		return fmt.Errorf("read configuration: %w", err)
-	}
-
-	if strings.TrimSpace(settings.DatabaseURL) == "" {
-		return errors.New("PostgreSQL connection string is required: set DATABASE_URL or add it to .env")
-	}
-
-	pool, err := pgxpool.New(ctx, settings.DatabaseURL)
-	if err != nil {
-		return fmt.Errorf("configure PostgreSQL connection: %w", err)
-	}
-	defer pool.Close()
-
-	if err := pool.Ping(ctx); err != nil {
-		return fmt.Errorf("connect to PostgreSQL: %w", err)
-	}
-
-	switch command.group {
-	case "languages":
-		err = runLanguageCommand(ctx, command.language, pool, stdout)
-	case "security":
-		switch command.action {
-		case "create-user", "delete-user":
-			err = runUserCommand(ctx, command.user, pool, stdout)
-		case "create-role", "delete-role":
-			err = runRoleCommand(ctx, command.role, pool, stdout)
-		default:
-			err = errInvalidCommand
-		}
-	default:
-		err = errInvalidCommand
-	}
-
-	return err
-}
-
-func parseCommand(args []string) (cliCommand, error) {
-	var command cliCommand
+func run(
+	ctx context.Context,
+	args []string,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
 	var err error
 
-	if len(args) < 2 {
-		err = errInvalidCommand
+	if isHelp(args) {
+		if _, writeErr := fmt.Fprintln(stdout, usage); writeErr != nil {
+			err = fmt.Errorf("write usage: %w", writeErr)
+		}
 	} else {
-		command.group = args[0]
-		command.action = args[1]
+		parsed, parseErr := parseCommand(args)
 
-		switch command.group {
-		case "languages":
-			command.language, err = parseLanguageCommand(args)
-		case "security":
-			switch command.action {
-			case "create-user", "delete-user":
-				command.user, err = parseUserCommand(args)
-			case "create-role", "delete-role":
-				command.role, err = parseRoleCommand(args)
-			default:
-				err = errInvalidCommand
+		if parseErr != nil {
+			err = fmt.Errorf("parse command: %w", parseErr)
+
+			if _, writeErr := fmt.Fprintln(stderr, usage); writeErr != nil {
+				err = errors.Join(err, fmt.Errorf("write usage: %w", writeErr))
 			}
-		default:
-			err = errInvalidCommand
-		}
-	}
-
-	if err != nil {
-		command = cliCommand{}
-	}
-
-	return command, err
-}
-
-func runLanguageCommand(ctx context.Context, command languageCommand, pool *pgxpool.Pool, stdout io.Writer) error {
-	repository, err := languagespgxgoqu.NewLanguageRepository(pool)
-	if err != nil {
-		return fmt.Errorf("configure language repository: %w", err)
-	}
-
-	service, err := app.NewLanguageService(repository)
-	if err != nil {
-		return fmt.Errorf("configure language service: %w", err)
-	}
-
-	return executeLanguageCommand(ctx, command, service, stdout)
-}
-
-func executeLanguageCommand(ctx context.Context, command languageCommand, service *app.LanguageService, stdout io.Writer) error {
-	var err error
-
-	switch command.action {
-	case "create-language":
-		var languageCode string
-		language, createErr := service.Create(ctx, command.createInput)
-		if createErr != nil {
-			err = fmt.Errorf("run create-language command: %w", createErr)
 		} else {
-			languageCode = string(language.Code())
-			if _, writeErr := fmt.Fprintf(stdout, "created language %s\n", languageCode); writeErr != nil {
-				err = fmt.Errorf("write create-language result: %w", writeErr)
-			}
+			err = runCommand(ctx, parsed, stdout)
 		}
-	case "delete-language":
-		if deleteErr := service.Delete(ctx, command.code); deleteErr != nil {
-			err = fmt.Errorf("run delete-language command: %w", deleteErr)
-		} else if _, writeErr := fmt.Fprintf(stdout, "deleted language %s\n", command.code); writeErr != nil {
-			err = fmt.Errorf("write delete-language result: %w", writeErr)
-		}
-	default:
-		err = errInvalidCommand
 	}
 
 	return err
 }
 
-func parseLanguageCommand(args []string) (languageCommand, error) {
-	var command languageCommand
-	var err error
+func runCommand(
+	ctx context.Context,
+	parsed command,
+	stdout io.Writer,
+) error {
+	var (
+		settings config.Config
+		pool     *pgxpool.Pool
+		err      error
+	)
 
-	if len(args) < 2 || args[0] != "languages" {
-		err = errInvalidCommand
+	settings, err = config.Load()
+
+	if err != nil {
+		err = fmt.Errorf("read configuration: %w", err)
+	} else if strings.TrimSpace(settings.DatabaseURL) == "" {
+		err = ErrDatabaseURLMissing
 	} else {
-		switch args[1] {
-		case "create-language":
-			command.createInput, err = parseCreateLanguage(args)
-			command.action = "create-language"
-		case "delete-language":
-			command.code, err = parseDeleteLanguage(args)
-			command.action = "delete-language"
-		default:
-			err = errInvalidCommand
+		pool, err = pgxpool.New(ctx, settings.DatabaseURL)
+
+		if err != nil {
+			err = fmt.Errorf("configure PostgreSQL connection: %w", err)
+		} else {
+			defer pool.Close()
+
+			err = pool.Ping(ctx)
+
+			if err != nil {
+				err = fmt.Errorf("connect to PostgreSQL: %w", err)
+			}
 		}
 	}
 
-	return command, err
-}
+	if err == nil {
+		var wired services
 
-func parseCreateLanguage(args []string) (appinput.CreateLanguageInput, error) {
-	var input appinput.CreateLanguageInput
-	var err error
-
-	if len(args) < 2 || args[0] != "languages" || args[1] != "create-language" {
-		err = errInvalidCommand
-	} else {
-		var positional []string
-		parseOptions := true
-
-		for _, argument := range args[2:] {
-			switch {
-			case parseOptions && argument == "--":
-				parseOptions = false
-			case parseOptions && (argument == "--fallback" || argument == "-f"):
-				input.IsFallback = true
-			case parseOptions && strings.HasPrefix(argument, "-"):
-				err = errInvalidCommand
-			default:
-				positional = append(positional, argument)
-			}
-		}
+		wired, err = wireServices(pool)
 
 		if err == nil {
-			if len(positional) != 3 {
-				err = errInvalidCommand
-			} else {
-				input.Code = positional[0]
-				input.EnglishName = positional[1]
-				input.NativeName = positional[2]
-
-				_, codeErr := languages.NewLanguageCode(input.Code)
-				_, englishErr := languages.NewLanguageEnglishName(input.EnglishName)
-				_, nativeErr := languages.NewLanguageNativeName(input.NativeName)
-
-				if valueErr := errors.Join(codeErr, englishErr, nativeErr); valueErr != nil {
-					err = fmt.Errorf("create-language arguments: %w: %w", appinput.ErrInvalidCreateLanguageInput, valueErr)
-				}
-			}
+			err = parsed.execute(ctx, wired, stdout)
 		}
 	}
 
-	if err != nil {
-		input = appinput.CreateLanguageInput{}
-	}
-
-	return input, err
+	return err
 }
 
-func parseDeleteLanguage(args []string) (string, error) {
-	var code string
-	var err error
+//
+// Helpers
+//
 
-	if len(args) != 3 || args[0] != "languages" || args[1] != "delete-language" {
-		err = errInvalidCommand
-	} else {
-		code = args[2]
+func isHelp(args []string) bool {
+	return len(args) == 1 && (args[0] == "help" || args[0] == "-h" || args[0] == "--help")
+}
+
+func wireServices(pool *pgxpool.Pool) (services, error) {
+	var (
+		wired              services
+		transactor         *pgxdb.Transactor
+		languageRepository *languagespgxgoqu.LanguageRepository
+		roleRepository     *userspgxgoqu.RoleRepository
+		userRepository     *userspgxgoqu.UserRepository
+		err                error
+	)
+
+	transactor, err = pgxdb.NewTransactor(pool)
+
+	if err == nil {
+		languageRepository, err = languagespgxgoqu.NewLanguageRepository(pool)
 	}
 
-	return code, err
+	if err == nil {
+		roleRepository, err = userspgxgoqu.NewRoleRepository(pool)
+	}
+
+	if err == nil {
+		userRepository, err = userspgxgoqu.NewUserRepository(pool)
+	}
+
+	if err == nil {
+		wired.languages, err = app.NewLanguageService(transactor, languageRepository)
+	}
+
+	if err == nil {
+		wired.roles, err = app.NewRoleService(transactor, roleRepository, languageRepository)
+	}
+
+	if err == nil {
+		wired.users, err = app.NewUserService(transactor, userRepository, argon2id.NewPasswordHasher())
+	}
+
+	if err != nil {
+		err = fmt.Errorf("configure services: %w", err)
+		wired = services{}
+	}
+
+	return wired, err
+}
+
+// Only the canonical 36-character form is accepted; uuid.Parse alone also
+// accepts URN, braced, and unhyphenated forms.
+
+func parseUUID(argument string) (uuid.UUID, error) {
+	var (
+		id  uuid.UUID
+		err error
+	)
+
+	if len(argument) != 36 {
+		err = ErrUUIDInvalid
+	} else {
+		id, err = uuid.Parse(argument)
+
+		if err != nil {
+			err = fmt.Errorf("%w: %w", ErrUUIDInvalid, err)
+			id = uuid.Nil
+		}
+	}
+
+	return id, err
+}
+
+// Repository write failures hide their causes from their messages, so known
+// domain conflicts are named explicitly while infrastructure causes stay
+// hidden.
+
+func describeError(err error) error {
+	result := err
+
+	for _, conflict := range []error{
+		languages.ErrLanguageNotFound,
+		languages.ErrLanguageAlreadyExists,
+		languages.ErrFallbackLanguageAlreadyExists,
+		languages.ErrFallbackLanguageAlreadyInUse,
+		languages.ErrLanguageInUse,
+		users.ErrRoleNotFound,
+		users.ErrRoleAlreadyExists,
+		users.ErrRoleAlreadyInUse,
+		users.ErrUserNotFound,
+		users.ErrUserAlreadyExists,
+	} {
+		if errors.Is(err, conflict) {
+			result = fmt.Errorf("%w: %w", err, conflict)
+
+			break
+		}
+	}
+
+	return result
 }

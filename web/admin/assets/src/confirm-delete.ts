@@ -1,5 +1,7 @@
 import htmx from 'htmx.org';
 
+// The trigger carries the entity's complete, localized dialog title, rendered
+// by the server, so the script never builds user-facing text.
 document.addEventListener('click', (event) => {
 	const trigger =
 		event.target instanceof Element
@@ -14,25 +16,12 @@ document.addEventListener('click', (event) => {
 			const error = dialog.querySelector<HTMLElement>('[data-confirm-error]')!;
 			form.action = trigger.dataset.confirmAction!;
 			form.setAttribute('hx-post', trigger.dataset.confirmAction!);
-			dialog.querySelector<HTMLElement>('[data-confirm-name]')!.textContent =
-				trigger.dataset.confirmName ?? '';
+			dialog.querySelector<HTMLElement>('[data-confirm-title]')!.textContent =
+				trigger.dataset.confirmTitle ?? '';
 			error.hidden = true;
 			error.textContent = '';
 			htmx.process(form);
 			dialog.showModal();
 		}
-	}
-});
-
-// Failed deletions replace only the dialog, keeping the underlying page in place.
-document.addEventListener('htmx:beforeSwap', (event) => {
-	const detail = (event as CustomEvent).detail;
-
-	if (
-		detail.target instanceof HTMLDialogElement
-		&& detail.xhr.getResponseHeader('HX-Retarget') === `#${detail.target.id}`
-	) {
-		detail.shouldSwap = true;
-		detail.isError = false;
 	}
 });

@@ -1,0 +1,57 @@
+package components
+
+// PageTarget is the region that every in-page navigation morphs.
+const PageTarget = "#page-content"
+
+// NavigationAttributes wire a link for in-page navigation. The browser keeps
+// the native href, so links work without JavaScript and in new tabs.
+func NavigationAttributes() templ.Attributes {
+	return templ.Attributes{
+		"hx-boost":   "true",
+		"hx-target":  PageTarget,
+		"hx-swap":    "morph:outerHTML show:none",
+		"hx-sync":    "body:replace",
+		"hx-params":  "none",
+	}
+}
+
+// FormAttributes wire a form for in-page submission. A pending submission
+// drops repeated ones, and the redirect target of a successful one becomes
+// the new address.
+func FormAttributes() templ.Attributes {
+	return templ.Attributes{
+		"hx-boost":        "true",
+		"hx-target":       PageTarget,
+		"hx-swap":         "morph:outerHTML show:none",
+		"hx-sync":         "this:drop",
+		"hx-disabled-elt": "find button[type='submit']",
+	}
+}
+
+// ActionLink shares the page navigation behavior with styled actions.
+templ ActionLink(href string, className string, label string) {
+	<a class={ className } href={ templ.URL(href) } aria-label={ label } { NavigationAttributes()... }>
+		{ children... }
+	</a>
+}
+
+// PageLink is an inline text link with page navigation behavior.
+templ PageLink(href string) {
+	<a class="text-link" href={ templ.URL(href) } { NavigationAttributes()... }>
+		{ children... }
+	</a>
+}
+
+// PanelLink marks the active sidebar section.
+templ PanelLink(href string, active bool) {
+	<a
+		class="panel-menu__link"
+		href={ templ.URL(href) }
+		if active {
+			aria-current="page"
+		}
+		{ NavigationAttributes()... }
+	>
+		{ children... }
+	</a>
+}

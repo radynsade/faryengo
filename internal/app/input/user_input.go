@@ -2,19 +2,19 @@ package input
 
 import (
 	"errors"
+	"time"
 
-	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 )
 
-var (
-	ErrInvalidCreateUserInput = errors.New("invalid create user input")
-	ErrInvalidUpdateUserInput = errors.New("invalid update user input")
-	// ErrInvalidUserID preserves compatibility; identity validity belongs to security.
-	ErrInvalidUserID = security.ErrInvalidUserID
-)
+//
+// Create user input
+//
+
+var ErrCreateUserInputInvalid = errors.New("invalid create user input")
 
 type CreateUserInput struct {
-	RoleID    security.RoleID
+	RoleID    users.RoleID
 	Email     string
 	Phone     string
 	Password  string
@@ -22,12 +22,23 @@ type CreateUserInput struct {
 	LastName  string
 }
 
+//
+// Update user input
+//
+
+// A nil Password keeps the current password. UpdatedAt is the moment of the
+// User's latest change that the caller saw; an update based on an older one is
+// rejected as a conflict.
+
+var ErrUpdateUserInputInvalid = errors.New("invalid update user input")
+
 type UpdateUserInput struct {
-	ID        security.UserID
-	RoleID    security.RoleID
+	ID        users.UserID
+	RoleID    users.RoleID
 	Email     string
 	Phone     string
-	Password  *string // nil keeps the existing password hash
+	Password  *string
 	FirstName string
 	LastName  string
+	UpdatedAt time.Time
 }

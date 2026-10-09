@@ -5,19 +5,35 @@ Go 1.26.
 ## Documentation guides
 
 The guides describe the project's functional areas and conventions. The
-architecture guide takes precedence over conflicting guidance in this file.
+architecture guides take precedence over conflicting guidance in this file and
+in the Go guides.
 
 | Guide | Description |
 | --- | --- |
-| [docs/architecture.md](docs/architecture.md) | Project organization, component responsibilities, dependency boundaries, and architectural conventions. |
-| [docs/domain.md](docs/domain.md) | Domain concepts, relationships, business rules, and invariants. |
-| [docs/authentication.md](docs/authentication.md) | Identity verification, access control, session lifecycles, and security policies. |
-| [docs/admin-design.md](docs/admin-design.md) | The admin panel's visual system, reusable components, styling conventions, layouts, accessibility, and rendering behavior. |
-| [docs/admin-i18n.md](docs/admin-i18n.md) | Admin interface translation catalogs, locale handling, language switching, pluralization, and localized messages. |
-| [docs/assets.md](docs/assets.md) | Application asset building, packaging, resolution, and delivery. |
-| [docs/flash-messages.md](docs/flash-messages.md) | Temporary user notifications and their lifecycle, persistence, and presentation. |
-| [docs/migrations.md](docs/migrations.md) | Database schema evolution, migration workflows, and rollback procedures. |
-| [docs/cli.md](docs/cli.md) | Command-line interface conventions, argument handling, and output behavior. |
+| [docs/how-to-doc.md](docs/how-to-doc.md) | General documentation writing conventions. |
+| [docs/architecture/layout.md](docs/architecture/layout.md) | Project organization, directory responsibilities, and dependency boundaries. |
+| [docs/architecture/tech-requirements.md](docs/architecture/tech-requirements.md) | Shared architectural requirements for identity, validation, persistence, security, builds, and verification. |
+| [docs/architecture/tech-stack.md](docs/architecture/tech-stack.md) | Infrastructure services, libraries, and development tools used in the project. |
+| [docs/go/layout.md](docs/go/layout.md) | Go file and package organization, declaration ownership, and dependency wiring. |
+| [docs/go/style.md](docs/go/style.md) | Go code organization within a file, errors, control flow, naming, formatting, interfaces, and concurrency. |
+| [docs/go/usages.md](docs/go/usages.md) | Usage of the project's existing abstractions and utilities: database handles and transactions. |
+| [docs/go/tests.md](docs/go/tests.md) | Test placement, table-driven tests, goroutine leak detection, and test commands. |
+| [docs/domain/how-to-doc.md](docs/domain/how-to-doc.md) | Domain model documentation structure, schemas, field descriptions, and invariants. |
+| [docs/domain/users.md](docs/domain/users.md) | Users, roles, permissions, and their domain rules. |
+| [docs/domain/security.md](docs/domain/security.md) | Sessions, authenticated access, and how access ends. |
+| [docs/domain/languages.md](docs/domain/languages.md) | Language catalog, fallback languages, and translation rules. |
+| [docs/domain/budget.md](docs/domain/budget.md) | Budget concepts, relationships, calculations, and invariants. |
+| [docs/admin/design.md](docs/admin/design.md) | The admin panel's visual system, reusable components, styling conventions, layouts, accessibility, and rendering behavior. |
+| [docs/admin/i18n.md](docs/admin/i18n.md) | Admin interface translation catalogs, locale handling, language switching, pluralization, and localized messages. |
+| [docs/admin/tech-requirements.md](docs/admin/tech-requirements.md) | Admin navigation, DOM updates, response minimization, and translatable interface text. |
+| [docs/bin/cli.md](docs/bin/cli.md) | CLI commands, arguments, and options for managing languages, roles, and users. |
+| [docs/bin/migrate.md](docs/bin/migrate.md) | Migration commands, database configuration, and the rule that only humans run migrations. |
+| [docs/bin/server.md](docs/bin/server.md) | Server startup, environment settings, admin access, and shutdown. |
+| [docs/pkg/how-to-doc.md](docs/pkg/how-to-doc.md) | Package documentation writing guide. |
+| [docs/pkg/domquery.md](docs/pkg/domquery.md) | Shared filtering, sorting, and pagination query types. |
+| [docs/pkg/flashmsg.md](docs/pkg/flashmsg.md) | Flash message API, session naming, persistence, lifecycle, and usage conventions. |
+| [docs/pkg/staticast.md](docs/pkg/staticast.md) | Static asset loading, URL resolution, and HTTP delivery. |
+| [docs/pkg/viteast.md](docs/pkg/viteast.md) | Vite manifest loading, compiled asset URL resolution, and HTTP delivery. |
 
 ## Commands
 
@@ -29,37 +45,11 @@ architecture guide takes precedence over conflicting guidance in this file.
 `-race` is always on and `-count=1` disables caching. Do not remove either to
 make the suite faster.
 
-## Errors
+## Code style
 
-- Wrap with context and %w: `fmt.Errorf("load user %s: %w", id, err)`.
-  Never %v — it silently breaks errors.Is for every caller.
-- Compare with errors.Is / errors.As, never ==.
-- Handle once: add context and return. Do not log and return the same error.
-- No naked returns. No panic outside main() and package init.
-
-## Concurrency
-
-- Every goroutine needs a guaranteed exit path. If it can block on a send,
-  buffer the channel or give it a context.
-- Prefer errgroup.WithContext over WaitGroup + channels by hand.
-- context.Context is the first parameter of anything doing I/O, and is
-  actually plumbed through — not accepted and dropped.
-- TestMain calls goleak.VerifyTestMain.
-- Never range a map to produce output. Sort the keys.
-
-## Style the linter cannot enforce
-
-- Interfaces are declared by the CONSUMER, in the consumer's package, and are
-  small. One or two methods. Return concrete types.
-- Table-driven tests with t.Run subtests.
-- Use the current stdlib: os.ReadFile not ioutil, any not interface{},
-  slices/maps packages, log/slog not logrus, math/rand/v2.
-- No dependency injection framework. Wire it explicitly in main().
-- Put a blank line between multiline operations (statements ending in `;`) at
-  the same indentation level.
-- Separate control-flow statements (`if`, `for`, `switch`, `select`, etc.) from
-  nearby statements with blank lines when they are at the same indentation level.
-- Avoid early returns; prefer explicit control flow.
+Follow [file layout](docs/go/layout.md), [code style](docs/go/style.md),
+[usages](docs/go/usages.md), and [test conventions](docs/go/tests.md) for all
+Go code.
 
 ## Landmines
 

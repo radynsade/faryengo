@@ -1,7 +1,6 @@
 package languages
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -9,127 +8,153 @@ import (
 	"unicode/utf8"
 )
 
+//
+// Alpha-2 code
+//
+
+type Code string
+
 var (
-	ErrInvalidLanguageCode           = errors.New("invalid language code")
-	ErrInvalidLanguageEnglishName    = errors.New("invalid language English name")
-	ErrInvalidLanguageNativeName     = errors.New("invalid language native name")
-	ErrLanguageNotFound              = errors.New("language not found")
-	ErrLanguageAlreadyExists         = errors.New("language already exists")
-	ErrFallbackLanguageAlreadyExists = errors.New("fallback language already exists")
-	ErrFallbackLanguageAlreadyInUse  = errors.New("fallback language already in use")
+	ErrCodeInvalid      = errors.New("invalid language code")
+	ErrCodeInvalidChars = errors.New("invalid characters")
+	ErrCodeWrongLength  = errors.New("is not 2 characters long")
+	codePattern         = regexp.MustCompile(`^[a-z]{2}$`)
 )
 
-var languageCodePattern = regexp.MustCompile(`^[a-z]{2}$`)
+func (c Code) Validate() error {
+	var err error
 
-type LanguageCode string
-
-func NewLanguageCode(value string) (LanguageCode, error) {
-	code := LanguageCode(value)
-
-	if err := code.Validate(); err != nil {
-		return LanguageCode(""), err
+	if !utf8.ValidString(string(c)) || !codePattern.MatchString(string(c)) {
+		err = ErrCodeInvalidChars
+	} else if utf8.RuneCountInString(string(c)) != 2 {
+		err = ErrCodeWrongLength
 	}
 
-	return code, nil
-}
-
-func (c LanguageCode) Validate() error {
-	if !languageCodePattern.MatchString(string(c)) {
-		return ErrInvalidLanguageCode
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrCodeInvalid, err)
 	}
 
-	return nil
+	return err
 }
 
-type LanguageEnglishName string
+//
+// English name
+//
 
-func NewLanguageEnglishName(value string) (LanguageEnglishName, error) {
-	name := LanguageEnglishName(value)
+type EnglishName string
 
-	if err := name.Validate(); err != nil {
-		return LanguageEnglishName(""), err
+const MaxEnglishNameLength = 100
+
+var (
+	ErrEnglishNameInvalid      = errors.New("invalid English name")
+	ErrEnglishNameInvalidChars = errors.New("invalid characters")
+	ErrEnglishNameEmpty        = errors.New("is empty")
+	ErrEnglishNameTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxEnglishNameLength)
+)
+
+func (n EnglishName) Validate() error {
+	var err error
+
+	if strings.TrimSpace(string(n)) == "" {
+		err = ErrEnglishNameEmpty
+	} else if !utf8.ValidString(string(n)) {
+		err = ErrEnglishNameInvalidChars
+	} else if utf8.RuneCountInString(string(n)) > MaxEnglishNameLength {
+		err = ErrEnglishNameTooLong
 	}
 
-	return name, nil
-}
-
-func (n LanguageEnglishName) Validate() error {
-	if strings.TrimSpace(string(n)) == "" || !utf8.ValidString(string(n)) || utf8.RuneCountInString(string(n)) > 100 {
-		return ErrInvalidLanguageEnglishName
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrEnglishNameInvalid, err)
 	}
 
-	return nil
+	return err
 }
 
-type LanguageNativeName string
+//
+// Native name
+//
 
-func NewLanguageNativeName(value string) (LanguageNativeName, error) {
-	name := LanguageNativeName(value)
+type NativeName string
 
-	if err := name.Validate(); err != nil {
-		return LanguageNativeName(""), err
+const MaxNativeNameLength = 100
+
+var (
+	ErrNativeNameInvalid      = errors.New("invalid English name")
+	ErrNativeNameInvalidChars = errors.New("invalid characters")
+	ErrNativeNameEmpty        = errors.New("is empty")
+	ErrNativeNameTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxNativeNameLength)
+)
+
+func (n NativeName) Validate() error {
+	var err error
+
+	if strings.TrimSpace(string(n)) == "" {
+		err = ErrNativeNameEmpty
+	} else if !utf8.ValidString(string(n)) {
+		err = ErrNativeNameInvalidChars
+	} else if utf8.RuneCountInString(string(n)) > MaxEnglishNameLength {
+		err = ErrNativeNameTooLong
 	}
 
-	return name, nil
-}
-
-func (n LanguageNativeName) Validate() error {
-	if strings.TrimSpace(string(n)) == "" || !utf8.ValidString(string(n)) || utf8.RuneCountInString(string(n)) > 100 {
-		return ErrInvalidLanguageNativeName
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrNativeNameInvalid, err)
 	}
 
-	return nil
+	return err
 }
+
+//
+// Language
+//
 
 type Language struct {
-	code        LanguageCode
-	englishName LanguageEnglishName
-	nativeName  LanguageNativeName
-	isFallback  bool
+	Code        Code
+	EnglishName EnglishName
+	NativeName  NativeName
+	IsFallback  bool
 }
 
-func NewLanguage(code LanguageCode, englishName LanguageEnglishName, nativeName LanguageNativeName, isFallback bool) (*Language, error) {
-	if err := code.Validate(); err != nil {
-		return nil, fmt.Errorf("create language: %w", err)
+var (
+	ErrLanguageInvalid = errors.New("invalid language")
+	ErrLanguageNil     = errors.New("is nil")
+)
+
+func NewLanguage(
+	code Code,
+	englishName EnglishName,
+	nativeName NativeName,
+	isFallback bool,
+) *Language {
+	return &Language{
+		Code:        code,
+		EnglishName: englishName,
+		NativeName:  nativeName,
+		IsFallback:  isFallback,
+	}
+}
+
+func (l *Language) Validate() error {
+	var err error
+
+	if l == nil {
+		err = ErrLanguageNil
 	}
 
-	if err := englishName.Validate(); err != nil {
-		return nil, fmt.Errorf("create language: %w", err)
+	if err == nil {
+		err = l.Code.Validate()
 	}
 
-	if err := nativeName.Validate(); err != nil {
-		return nil, fmt.Errorf("create language: %w", err)
+	if err == nil {
+		err = l.EnglishName.Validate()
 	}
 
-	return &Language{code: code, englishName: englishName, nativeName: nativeName, isFallback: isFallback}, nil
-}
+	if err == nil {
+		err = l.NativeName.Validate()
+	}
 
-func (l *Language) Code() LanguageCode {
-	return l.code
-}
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrLanguageInvalid, err)
+	}
 
-func (l *Language) EnglishName() LanguageEnglishName {
-	return l.englishName
-}
-
-func (l *Language) NativeName() LanguageNativeName {
-	return l.nativeName
-}
-
-func (l *Language) IsFallback() bool {
-	return l.isFallback
-}
-
-func (l *Language) SetIsFallback(isFallback bool) {
-	l.isFallback = isFallback
-}
-
-// LanguageRepository stores and retrieves languages.
-type LanguageRepository interface {
-	Create(ctx context.Context, language *Language) error
-	Update(ctx context.Context, language *Language) error
-	Delete(ctx context.Context, code LanguageCode) error
-	FindByCode(ctx context.Context, code LanguageCode) (*Language, error)
-	FindFallback(ctx context.Context) (*Language, error)
-	FindAll(ctx context.Context) ([]*Language, error)
+	return err
 }

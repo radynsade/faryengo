@@ -1,0 +1,7 @@
+interface:
+  display_name: "Faryen"
+  short_description: "Faryen project guidance and application routing"
+  default_prompt: "Use $faryen-base to apply its project instructions."
+
+policy:
+  allow_implicit_invocation: false

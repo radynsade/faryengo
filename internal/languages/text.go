@@ -9,121 +9,72 @@ import (
 	"unicode/utf8"
 )
 
+// Translation
+
+type Translation string
+
 var (
-	ErrInvalidTranslationContent   = errors.New("invalid translation content")
-	ErrDuplicateTranslation        = errors.New("duplicate translation language code")
-	ErrTranslationLanguageMismatch = errors.New("translation language code does not match text key")
+	ErrTranslationInvalid      = errors.New("invalid translation")
+	ErrTranslationInvalidChars = errors.New("invalid characters")
+	ErrTranslationEmpty        = errors.New("is empty")
 )
 
-type Translation struct {
-	languageCode LanguageCode
-	content      string
-}
+func (tc Translation) Validate() error {
+	var err error
 
-func NewTranslation(languageCode LanguageCode, content string) (Translation, error) {
-	translation := Translation{languageCode: languageCode, content: content}
-	err := translation.Validate()
-
-	if err != nil {
-		translation = Translation{}
-		err = fmt.Errorf("create translation: %w", err)
+	if strings.TrimSpace(string(tc)) == "" {
+		err = ErrTranslationEmpty
+	} else if !utf8.ValidString(string(tc)) {
+		err = ErrTranslationInvalidChars
 	}
 
-	return translation, err
-}
-
-func (t Translation) Validate() error {
-	err := t.languageCode.Validate()
-
 	if err != nil {
-		err = fmt.Errorf("validate translation language code: %w", err)
-	} else if strings.TrimSpace(t.content) == "" || !utf8.ValidString(t.content) {
-		err = ErrInvalidTranslationContent
+		err = fmt.Errorf("%w: %w", ErrTranslationInvalid, err)
 	}
 
 	return err
 }
 
-func (t Translation) LanguageCode() LanguageCode {
-	return t.languageCode
-}
+// Text
 
-func (t Translation) Content() string {
-	return t.content
-}
+type Text map[Code]Translation
 
-type Text map[LanguageCode]Translation
-
-func NewText(translations []Translation) (Text, error) {
-	text := make(Text, len(translations))
-	var err error
-
-	for _, translation := range translations {
-		err = translation.Validate()
-
-		if err != nil {
-			err = fmt.Errorf("validate text translation: %w", err)
-			break
-		}
-
-		code := translation.LanguageCode()
-
-		if _, exists := text[code]; exists {
-			err = ErrDuplicateTranslation
-			break
-		}
-
-		text[code] = translation
-	}
-
-	if err != nil {
-		text = nil
-		err = fmt.Errorf("create text: %w", err)
-	}
-
-	return text, err
-}
+var (
+	ErrTextInvalid             = errors.New("invalid text")
+	ErrTextNil                 = errors.New("is nil")
+	ErrTextWithoutTranslations = errors.New("there is no any translation")
+)
 
 func (t Text) Validate() error {
 	var err error
 
-	for _, code := range slices.Sorted(maps.Keys(t)) {
-		err = code.Validate()
+	if t == nil {
+		err = ErrTextNil
+	}
 
-		if err != nil {
-			err = fmt.Errorf("validate text key: %w", err)
-			break
+	if err == nil {
+		if len(t) == 0 {
+			err = ErrTextWithoutTranslations
+		} else {
+			for _, code := range slices.Sorted(maps.Keys(t)) {
+				err = code.Validate()
+
+				if err != nil {
+					break
+				}
+
+				err = t[code].Validate()
+
+				if err != nil {
+					break
+				}
+			}
 		}
+	}
 
-		translation := t[code]
-
-		if translation.LanguageCode() != code {
-			err = ErrTranslationLanguageMismatch
-			break
-		}
-
-		err = translation.Validate()
-
-		if err != nil {
-			err = fmt.Errorf("validate text translation: %w", err)
-			break
-		}
+	if err != nil {
+		err = fmt.Errorf("%w: %w", ErrTextInvalid, err)
 	}
 
 	return err
-}
-
-func (t Text) Translation(languageCode LanguageCode) (Translation, bool) {
-	translation, found := t[languageCode]
-	return translation, found
-}
-
-func (t Text) Translations() []Translation {
-	translations := make([]Translation, 0, len(t))
-
-	for _, code := range slices.Sorted(maps.Keys(t)) {
-		translations = append(translations, t[code])
-	}
-
-	return translations
 }

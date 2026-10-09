@@ -6,9 +6,14 @@ import (
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 )
 
-// AuthLayout centers a compact panel and allows its contents to grow on small screens.
+// AuthLayout centers a compact panel for pages used before signing in.
 templ AuthLayout(title string, description string) {
-	<main id="page-content" class="auth-layout" data-ui-language={ admini18n.Language(ctx) } data-navigation-error={ admini18n.T(ctx, "navigation.error") }>
+	<main
+		id="page-content"
+		class="auth-layout"
+		data-ui-language={ admini18n.Language(ctx) }
+		data-navigation-error={ admini18n.T(ctx, "navigation.error") }
+	>
 		<section class="auth-panel" aria-labelledby="auth-title">
 			<div class="auth-panel__brand">
 				@components.Brand()

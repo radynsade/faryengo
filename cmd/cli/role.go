@@ -8,36 +8,48 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/radynsade/faryengo/internal/app"
-	appinput "github.com/radynsade/faryengo/internal/app/input"
-	"github.com/radynsade/faryengo/internal/security"
-	"github.com/radynsade/faryengo/internal/security/pgxgoqu"
+	"github.com/radynsade/faryengo/internal/app/input"
+	"github.com/radynsade/faryengo/internal/users"
 )
+
+//
+// Role command
+//
+
+const (
+	usersGroup        = "users"
+	createRoleCommand = "create-role"
+	deleteRoleCommand = "delete-role"
+)
+
+var ErrTranslationsInvalid = errors.New(`invalid translations: use "<languageCode>:<name>|<languageCode>:<name>"`)
 
 type roleCommand struct {
 	action      string
-	createInput appinput.CreateRoleInput
-	id          security.RoleID
+	createInput input.CreateRoleInput
+	id          users.RoleID
 }
 
 func parseRoleCommand(args []string) (roleCommand, error) {
-	var command roleCommand
-	var err error
+	var (
+		command roleCommand
+		err     error
+	)
 
-	if len(args) < 2 || args[0] != "security" {
-		err = errInvalidCommand
+	if len(args) < 2 || args[0] != usersGroup {
+		err = ErrCommandInvalid
 	} else {
 		command.action = args[1]
 
 		switch command.action {
-		case "create-role":
-			command.createInput, err = parseCreateRole(args)
-		case "delete-role":
-			command.id, err = parseDeleteRole(args)
+		case createRoleCommand:
+			command.createInput, err = parseCreateRole(args[2:])
+		case deleteRoleCommand:
+			command.id, err = parseDeleteRole(args[2:])
 		default:
-			err = errInvalidCommand
+			err = ErrCommandInvalid
 		}
 	}
 
@@ -48,129 +60,141 @@ func parseRoleCommand(args []string) (roleCommand, error) {
 	return command, err
 }
 
-func parseCreateRole(args []string) (appinput.CreateRoleInput, error) {
-	var request appinput.CreateRoleInput
+// Executing a command
+
+func (c roleCommand) execute(
+	ctx context.Context,
+	services services,
+	stdout io.Writer,
+) error {
+	return executeRoleCommand(ctx, c, services.roles, stdout)
+}
+
+func executeRoleCommand(
+	ctx context.Context,
+	command roleCommand,
+	service *app.RoleService,
+	stdout io.Writer,
+) error {
 	var err error
 
-	if len(args) < 2 || args[0] != "security" || args[1] != "create-role" {
-		err = errInvalidCommand
-	} else {
-		var positional []string
-		parseOptions := true
+	switch command.action {
+	case createRoleCommand:
+		role, createErr := service.Create(ctx, command.createInput)
 
-		for index := 2; index < len(args); index++ {
-			argument := args[index]
-
-			switch {
-			case parseOptions && argument == "--":
-				parseOptions = false
-			case parseOptions && (argument == "--super" || argument == "-s"):
-				request.IsSuper = true
-			case parseOptions && (argument == "--permission" || argument == "-p"):
-				if index+1 >= len(args) || strings.HasPrefix(args[index+1], "-") {
-					err = errInvalidCommand
-				} else {
-					index++
-					request.Permissions = append(request.Permissions, security.Permission(args[index]))
-				}
-			case parseOptions && strings.HasPrefix(argument, "--permission="):
-				request.Permissions = append(request.Permissions, security.Permission(strings.TrimPrefix(argument, "--permission=")))
-			case parseOptions && strings.HasPrefix(argument, "-"):
-				err = errInvalidCommand
-			default:
-				positional = append(positional, argument)
-			}
-
-			if err != nil {
-				break
-			}
+		if createErr != nil {
+			err = describeError(createErr)
+		} else if _, writeErr := fmt.Fprintf(stdout, "created role %s\n", uuid.UUID(role.ID)); writeErr != nil {
+			err = fmt.Errorf("write create-role result: %w", writeErr)
 		}
+	case deleteRoleCommand:
+		if deleteErr := service.Delete(ctx, command.id); deleteErr != nil {
+			err = describeError(deleteErr)
+		} else if _, writeErr := fmt.Fprintf(stdout, "deleted role %s\n", uuid.UUID(command.id)); writeErr != nil {
+			err = fmt.Errorf("write delete-role result: %w", writeErr)
+		}
+	default:
+		err = ErrCommandInvalid
+	}
 
-		if err == nil {
-			if len(positional) != 1 {
-				err = errInvalidCommand
+	return err
+}
+
+//
+// Helpers
+//
+
+// Options may appear anywhere around the name until "--" ends option parsing.
+
+func parseCreateRole(args []string) (input.CreateRoleInput, error) {
+	var (
+		request    input.CreateRoleInput
+		positional []string
+		err        error
+	)
+
+	parseOptions := true
+
+	for index := 0; index < len(args) && err == nil; index++ {
+		argument := args[index]
+
+		switch {
+		case parseOptions && argument == "--":
+			parseOptions = false
+		case parseOptions && (argument == "--super" || argument == "-s"):
+			request.IsSuper = true
+		case parseOptions && (argument == "--permission" || argument == "-p"):
+			if index+1 >= len(args) {
+				err = ErrCommandInvalid
 			} else {
-				request.Name, err = appinput.ParseStringTranslations(positional[0])
-
-				if err != nil {
-					err = fmt.Errorf("parse create-role name: %w", err)
-				} else {
-					_, nameErr := security.NewRoleName(request.Name)
-					_, permissionErr := security.NewPermissions(request.Permissions)
-
-					if valueErr := errors.Join(nameErr, permissionErr); valueErr != nil {
-						err = fmt.Errorf("create-role arguments: %w: %w", appinput.ErrInvalidCreateRoleInput, valueErr)
-					}
-				}
+				index++
+				request.Permissions = append(request.Permissions, args[index])
 			}
+		case parseOptions && strings.HasPrefix(argument, "-"):
+			err = ErrCommandInvalid
+		default:
+			positional = append(positional, argument)
 		}
 	}
 
+	if err == nil && len(positional) != 1 {
+		err = ErrCommandInvalid
+	}
+
+	if err == nil {
+		request.Name, err = parseTranslations(positional[0])
+	}
+
 	if err != nil {
-		request = appinput.CreateRoleInput{}
+		request = input.CreateRoleInput{}
 	}
 
 	return request, err
 }
 
-func parseDeleteRole(args []string) (security.RoleID, error) {
-	var id security.RoleID
-	var err error
+func parseDeleteRole(args []string) (users.RoleID, error) {
+	var (
+		id  uuid.UUID
+		err error
+	)
 
-	if len(args) != 3 || args[0] != "security" || args[1] != "delete-role" {
-		err = errInvalidCommand
+	if len(args) != 1 {
+		err = ErrCommandInvalid
 	} else {
-		parsed, parseErr := parseCommandUUID(args[2], security.ErrInvalidRoleID)
-
-		if parseErr != nil {
-			err = fmt.Errorf("validate delete-role ID: %w", parseErr)
-		} else {
-			id = security.RoleID(parsed)
-		}
+		id, err = parseUUID(args[0])
 	}
 
-	return id, err
+	return users.RoleID(id), err
 }
 
-func runRoleCommand(ctx context.Context, command roleCommand, pool *pgxpool.Pool, stdout io.Writer) error {
-	repository, err := pgxgoqu.NewRoleRepository(pool)
+// Each entry holds exactly one colon, so names cannot contain ":" or "|".
+// Codes and names are trimmed and left to the service to validate; a repeated
+// code is rejected rather than silently replacing the earlier name.
+
+func parseTranslations(encoded string) (map[string]string, error) {
+	var err error
+
+	entries := strings.Split(encoded, "|")
+	translations := make(map[string]string, len(entries))
+
+	for _, entry := range entries {
+		code, name, found := strings.Cut(entry, ":")
+		code = strings.TrimSpace(code)
+
+		if _, repeated := translations[code]; !found || strings.Contains(name, ":") || repeated {
+			err = ErrTranslationsInvalid
+		} else {
+			translations[code] = strings.TrimSpace(name)
+		}
+
+		if err != nil {
+			break
+		}
+	}
 
 	if err != nil {
-		err = fmt.Errorf("configure role repository: %w", err)
-	} else {
-		service, serviceErr := app.NewRoleService(repository)
-
-		if serviceErr != nil {
-			err = fmt.Errorf("configure role service: %w", serviceErr)
-		} else {
-			err = executeRoleCommand(ctx, command, service, stdout)
-		}
+		translations = nil
 	}
 
-	return err
-}
-
-func executeRoleCommand(ctx context.Context, command roleCommand, service *app.RoleService, stdout io.Writer) error {
-	var err error
-
-	switch command.action {
-	case "create-role":
-		role, createErr := service.Create(ctx, command.createInput)
-
-		if createErr != nil {
-			err = fmt.Errorf("run create-role command: %w", createErr)
-		} else if _, writeErr := fmt.Fprintf(stdout, "created role %s\n", uuid.UUID(role.ID())); writeErr != nil {
-			err = fmt.Errorf("write create-role result: %w", writeErr)
-		}
-	case "delete-role":
-		if deleteErr := service.Delete(ctx, command.id); deleteErr != nil {
-			err = fmt.Errorf("run delete-role command: %w", deleteErr)
-		} else if _, writeErr := fmt.Fprintf(stdout, "deleted role %s\n", uuid.UUID(command.id)); writeErr != nil {
-			err = fmt.Errorf("write delete-role result: %w", writeErr)
-		}
-	default:
-		err = errInvalidCommand
-	}
-
-	return err
+	return translations, err
 }

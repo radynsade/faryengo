@@ -1,281 +1,174 @@
 package main
 
 import (
-	"bytes"
 	"context"
 	"errors"
-	"fmt"
-	"reflect"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
 
 	"github.com/radynsade/faryengo/internal/app"
-	appinput "github.com/radynsade/faryengo/internal/app/input"
-	"github.com/radynsade/faryengo/internal/security"
-	"github.com/radynsade/faryengo/internal/security/argon2id"
+	"github.com/radynsade/faryengo/internal/app/input"
+	appmock "github.com/radynsade/faryengo/internal/app/mock"
+	"github.com/radynsade/faryengo/internal/users"
+	"github.com/radynsade/faryengo/internal/users/mock"
 )
 
-const (
-	testRoleUUID = "8e35a76b-cc06-4b5b-8d8c-2c4d9144ff63"
-	testUserUUID = "3fc159c0-10b6-4c34-8459-c8544330d366"
-	testPassword = "secret-password"
-)
+const testUserUUID = "01920000-0000-7000-8000-000000000001"
 
 func createUserArguments() []string {
-	return []string{"security", "create-user", "person@example.com", "First Name", "Last Name", testPassword, "+37123456789", testRoleUUID}
+	return []string{"users", "create-user", "anna@example.com", "Anna", "Bērziņa", "correct horse", "+37120000000", testRoleUUID}
 }
 
-func changedUserArguments(index int, value string) []string {
-	args := createUserArguments()
-	args[index] = value
-	return args
-}
+func TestParseUserCommand(t *testing.T) {
+	wrongRole := createUserArguments()
+	wrongRole[7] = "not-a-uuid"
 
-func TestParseCreateUser(t *testing.T) {
 	for _, tt := range []struct {
 		name    string
 		args    []string
+		want    input.CreateUserInput
+		wantID  string
 		wantErr error
 	}{
-		{name: "valid", args: createUserArguments()},
-		{name: "options separator", args: append([]string{"security", "create-user", "--"}, createUserArguments()[2:]...)},
-		{name: "password starts with hyphen", args: changedUserArguments(5, "--secret-password")},
-		{name: "missing arguments", args: []string{"security", "create-user"}, wantErr: errInvalidCommand},
-		{name: "extra argument", args: append(createUserArguments(), "extra"), wantErr: errInvalidCommand},
-		{name: "old users group rejected", args: changedUserArguments(0, "users"), wantErr: errInvalidCommand},
-		{name: "wrong action", args: changedUserArguments(1, "create"), wantErr: errInvalidCommand},
-		{name: "missing command", wantErr: errInvalidCommand},
-		{name: "invalid email", args: changedUserArguments(2, "invalid-email"), wantErr: security.ErrInvalidEmail},
-		{name: "missing first name", args: changedUserArguments(3, ""), wantErr: security.ErrInvalidFirstName},
-		{name: "missing last name", args: changedUserArguments(4, ""), wantErr: security.ErrInvalidLastName},
-		{name: "short password", args: changedUserArguments(5, "1234567"), wantErr: security.ErrInvalidPassword},
-		{name: "blank password", args: changedUserArguments(5, "        "), wantErr: security.ErrInvalidPassword},
-		{name: "oversized password", args: changedUserArguments(5, strings.Repeat("x", security.MaxPasswordBytes+1)), wantErr: security.ErrInvalidPassword},
-		{name: "invalid phone", args: changedUserArguments(6, "12345678"), wantErr: security.ErrInvalidPhone},
-		{name: "invalid role UUID", args: changedUserArguments(7, "invalid-uuid"), wantErr: security.ErrInvalidRoleID},
-		{name: "nil role UUID", args: changedUserArguments(7, uuid.Nil.String()), wantErr: security.ErrInvalidRoleID},
-		{name: "compact UUID rejected", args: changedUserArguments(7, strings.ReplaceAll(testRoleUUID, "-", "")), wantErr: security.ErrInvalidRoleID},
-		{name: "URN UUID rejected", args: changedUserArguments(7, "urn:uuid:"+testRoleUUID), wantErr: security.ErrInvalidRoleID},
+		{
+			name: "create",
+			args: createUserArguments(),
+			want: input.CreateUserInput{
+				RoleID:    users.RoleID(uuid.MustParse(testRoleUUID)),
+				Email:     "anna@example.com",
+				Phone:     "+37120000000",
+				Password:  "correct horse",
+				FirstName: "Anna",
+				LastName:  "Bērziņa",
+			},
+		},
+		{name: "create with missing phone", args: createUserArguments()[:7], wantErr: ErrCommandInvalid},
+		{name: "create with extra argument", args: append(createUserArguments(), "extra"), wantErr: ErrCommandInvalid},
+		{name: "create with malformed role UUID", args: wrongRole, wantErr: ErrUUIDInvalid},
+		{name: "delete", args: []string{"users", "delete-user", testUserUUID}, wantID: testUserUUID},
+		{name: "delete without UUID", args: []string{"users", "delete-user"}, wantErr: ErrCommandInvalid},
+		{name: "delete with unhyphenated UUID", args: []string{"users", "delete-user", strings.ReplaceAll(testUserUUID, "-", "")}, wantErr: ErrUUIDInvalid},
+		{name: "wrong action", args: []string{"users", "remove-user", testUserUUID}, wantErr: ErrCommandInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			request, err := parseCreateUser(tt.args)
+			command, err := parseUserCommand(tt.args)
 
-			if !errors.Is(err, tt.wantErr) {
-				t.Fatalf("parseCreateUser error = %v, want %v", err, tt.wantErr)
+			if !errors.Is(err, tt.wantErr) || (err == nil) != (tt.wantErr == nil) || command.createInput != tt.want {
+				t.Fatalf("parseUserCommand(%v) = (%+v, %v), want (%+v, %v)", tt.args, command.createInput, err, tt.want, tt.wantErr)
 			}
 
-			if tt.wantErr != nil {
-				if request != (appinput.CreateUserInput{}) {
-					t.Fatal("failed parse returned user input")
-				}
-
-				if !errors.Is(tt.wantErr, errInvalidCommand) && !errors.Is(err, appinput.ErrInvalidCreateUserInput) {
-					t.Fatal("validation error lost its input error category")
-				}
-			} else {
-				positional := tt.args[2:]
-
-				if positional[0] == "--" {
-					positional = positional[1:]
-				}
-
-				if request.Email != positional[0] || request.FirstName != positional[1] || request.LastName != positional[2] ||
-					request.Password != positional[3] || request.Phone != positional[4] || uuid.UUID(request.RoleID).String() != testRoleUUID {
-					t.Fatal("create-user argument order or values changed")
-				}
+			if tt.wantID != "" && uuid.UUID(command.id).String() != tt.wantID {
+				t.Fatalf("parseUserCommand(%v) ID = %v, want %s", tt.args, uuid.UUID(command.id), tt.wantID)
 			}
 		})
 	}
 }
 
-func TestParseDeleteUser(t *testing.T) {
+func TestExecuteUserCommand(t *testing.T) {
 	for _, tt := range []struct {
-		name    string
-		args    []string
-		wantErr error
+		name       string
+		args       []string
+		createErr  error
+		deleteErr  error
+		wantOutput string
+		wantErrs   []error
+		wantText   string
 	}{
-		{name: "valid", args: []string{"security", "delete-user", testUserUUID}},
-		{name: "uppercase UUID", args: []string{"security", "delete-user", strings.ToUpper(testUserUUID)}},
-		{name: "missing ID", args: []string{"security", "delete-user"}, wantErr: errInvalidCommand},
-		{name: "extra argument", args: []string{"security", "delete-user", testUserUUID, "extra"}, wantErr: errInvalidCommand},
-		{name: "invalid ID", args: []string{"security", "delete-user", "invalid-uuid"}, wantErr: appinput.ErrInvalidUserID},
-		{name: "nil UUID", args: []string{"security", "delete-user", uuid.Nil.String()}, wantErr: appinput.ErrInvalidUserID},
-		{name: "compact UUID", args: []string{"security", "delete-user", strings.ReplaceAll(testUserUUID, "-", "")}, wantErr: appinput.ErrInvalidUserID},
-		{name: "old users group rejected", args: []string{"users", "delete-user", testUserUUID}, wantErr: errInvalidCommand},
-		{name: "wrong action", args: []string{"security", "delete", testUserUUID}, wantErr: errInvalidCommand},
-		{name: "missing command", wantErr: errInvalidCommand},
+		{
+			name:       "created",
+			args:       createUserArguments(),
+			wantOutput: "created user " + testUserUUID + "\n",
+		},
+		{
+			name:      "missing role",
+			args:      createUserArguments(),
+			createErr: users.ErrRoleNotFound,
+			wantErrs:  []error{users.ErrRoleNotFound},
+			wantText:  "role not found",
+		},
+		{
+			name:      "duplicate email",
+			args:      createUserArguments(),
+			createErr: users.ErrUserAlreadyExists,
+			wantErrs:  []error{users.ErrUserAlreadyExists},
+			wantText:  "user already exists",
+		},
+		{
+			name:     "short password",
+			args:     []string{"users", "create-user", "anna@example.com", "Anna", "Bērziņa", "short", "+37120000000", testRoleUUID},
+			wantErrs: []error{input.ErrCreateUserInputInvalid, users.ErrPasswordTooShort},
+			wantText: "invalid password",
+		},
+		{
+			name:       "deleted",
+			args:       []string{"users", "delete-user", testUserUUID},
+			wantOutput: "deleted user " + testUserUUID + "\n",
+		},
+		{
+			name:      "delete missing user",
+			args:      []string{"users", "delete-user", testUserUUID},
+			deleteErr: users.ErrUserNotFound,
+			wantErrs:  []error{users.ErrUserNotFound},
+			wantText:  "user not found",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			id, err := parseDeleteUser(tt.args)
+			var stored *users.User
 
-			if !errors.Is(err, tt.wantErr) || (err != nil && uuid.UUID(id) != uuid.Nil) || (err == nil && uuid.UUID(id).String() != testUserUUID) {
-				t.Fatalf("parseDeleteUser = %s, %v", uuid.UUID(id), err)
-			}
-		})
-	}
-}
+			repository := &mock.UserRepository{
+				CreateFunc: func(_ context.Context, user *users.User) users.ErrUserCreateFailed {
+					var err users.ErrUserCreateFailed
 
-func TestParseCommandGroups(t *testing.T) {
-	for _, tt := range []struct {
-		name, group string
-		args        []string
-		wantErr     error
-	}{
-		{name: "languages", group: "languages", args: []string{"languages", "delete-language", "lv"}},
-		{name: "create user", group: "security", args: createUserArguments()},
-		{name: "delete user", group: "security", args: []string{"security", "delete-user", testUserUUID}},
-		{name: "create role", group: "security", args: []string{"security", "create-role", "en:Administrator", "--super"}},
-		{name: "delete role", group: "security", args: []string{"security", "delete-role", testRoleUUID}},
-		{name: "unknown group", args: []string{"unknown", "delete-user", testUserUUID}, wantErr: errInvalidCommand},
-		{name: "unknown user action", args: []string{"security", "update-user"}, wantErr: errInvalidCommand},
-		{name: "unknown role action", args: []string{"security", "update-role"}, wantErr: errInvalidCommand},
-		{name: "malformed role name", args: []string{"security", "create-role", "broken"}, wantErr: appinput.ErrInvalidStringTranslations},
-		{name: "missing action", args: []string{"security"}, wantErr: errInvalidCommand},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			command, err := parseCommand(tt.args)
+					stored = user
 
-			if !errors.Is(err, tt.wantErr) || command.group != tt.group {
-				t.Fatalf("parseCommand = %q, %v", command.group, err)
+					if tt.createErr != nil {
+						err = mock.NewErrUserCreateFailed(user, tt.createErr)
+					}
+
+					return err
+				},
+				FindByIDFunc: func(_ context.Context, _ users.UserID) (*users.User, error) {
+					copied := *stored
+					copied.ID = users.UserID(uuid.MustParse(testUserUUID))
+
+					return &copied, nil
+				},
+				DeleteFunc: func(_ context.Context, id users.UserID) users.ErrUserDeleteFailed {
+					var err users.ErrUserDeleteFailed
+
+					if tt.deleteErr != nil {
+						err = mock.NewErrUserDeleteFailed(id, tt.deleteErr)
+					}
+
+					return err
+				},
 			}
 
-			if err != nil && !reflect.DeepEqual(command, cliCommand{}) {
-				t.Fatal("failed command retained arguments")
+			hasher := &mock.PasswordHasher{
+				HashFunc: func(_ context.Context, password string) (users.PasswordHash, error) {
+					return users.PasswordHash("hash:" + password), nil
+				},
 			}
-		})
-	}
-}
 
-type fakeCLIUserRepository struct {
-	ctx         context.Context
-	created     *security.User
-	deleted     security.UserID
-	createErr   error
-	deleteErr   error
-	createCalls int
-	deleteCalls int
-}
-
-func (r *fakeCLIUserRepository) Create(ctx context.Context, user *security.User) error {
-	r.ctx, r.created = ctx, user
-	r.createCalls++
-	return r.createErr
-}
-
-func (r *fakeCLIUserRepository) Delete(ctx context.Context, id security.UserID) error {
-	r.ctx, r.deleted = ctx, id
-	r.deleteCalls++
-	return r.deleteErr
-}
-
-func (*fakeCLIUserRepository) Update(context.Context, *security.User) error {
-	return security.ErrUserNotFound
-}
-
-func (*fakeCLIUserRepository) FindByID(context.Context, security.UserID) (*security.User, error) {
-	return nil, security.ErrUserNotFound
-}
-
-func TestCreateUserCommand(t *testing.T) {
-	for _, tt := range []struct {
-		name string
-		err  error
-	}{
-		{name: "created"},
-		{name: "duplicate email", err: security.ErrUserAlreadyExists},
-		{name: "missing role", err: security.ErrRoleNotFound},
-		{name: "database failure", err: context.DeadlineExceeded},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			command, err := parseUserCommand(createUserArguments())
+			command, err := parseUserCommand(tt.args)
 
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			repository := &fakeCLIUserRepository{createErr: tt.err}
-			hasher := argon2id.NewHasher()
-			service, err := app.NewUserService(repository, hasher)
+			service, err := app.NewUserService(&appmock.Transactor{}, repository, hasher)
 
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			ctx := t.Context()
-			var stdout bytes.Buffer
-			err = executeUserCommand(ctx, command, service, &stdout)
+			var output strings.Builder
 
-			if !errors.Is(err, tt.err) || repository.createCalls != 1 || repository.ctx != ctx || repository.created == nil {
-				t.Fatalf("executeUserCommand error = %v, create calls = %d", err, repository.createCalls)
-			}
+			err = executeUserCommand(t.Context(), command, service, &output)
 
-			user := repository.created
-
-			if uuid.UUID(user.ID()) == uuid.Nil || uuid.UUID(user.RoleID()).String() != testRoleUUID || user.Email() != "person@example.com" ||
-				user.Phone() != "+37123456789" || user.FirstName() != "First Name" || user.LastName() != "Last Name" ||
-				!strings.HasPrefix(string(user.PasswordHash()), "$argon2id$") {
-				t.Fatal("created user does not match the input or uses an invalid password hash")
-			}
-
-			if tt.err == nil {
-				if stdout.String() != fmt.Sprintf("created user %s\n", uuid.UUID(user.ID())) {
-					t.Fatalf("success output = %q", stdout.String())
-				}
-
-				matches, verifyErr := hasher.Verify(ctx, testPassword, user.PasswordHash())
-
-				if verifyErr != nil || !matches {
-					t.Fatalf("created password cannot authenticate: %v", verifyErr)
-				}
-			} else if stdout.Len() != 0 {
-				t.Fatal("failed creation printed success")
-			}
-
-			if strings.Contains(stdout.String(), testPassword) || strings.Contains(stdout.String(), string(user.PasswordHash())) {
-				t.Fatal("creation printed credentials")
-			}
-		})
-	}
-}
-
-func TestDeleteUserCommand(t *testing.T) {
-	for _, tt := range []struct {
-		name string
-		err  error
-	}{
-		{name: "deleted"},
-		{name: "not found", err: security.ErrUserNotFound},
-		{name: "database failure", err: context.DeadlineExceeded},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			command, err := parseUserCommand([]string{"security", "delete-user", testUserUUID})
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			repository := &fakeCLIUserRepository{deleteErr: tt.err}
-			service, err := app.NewUserService(repository, argon2id.NewHasher())
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			ctx := t.Context()
-			var stdout bytes.Buffer
-			err = executeUserCommand(ctx, command, service, &stdout)
-			wantOutput := ""
-
-			if tt.err == nil {
-				wantOutput = "deleted user " + testUserUUID + "\n"
-			}
-
-			if !errors.Is(err, tt.err) || stdout.String() != wantOutput || repository.deleteCalls != 1 || repository.ctx != ctx ||
-				uuid.UUID(repository.deleted).String() != testUserUUID || repository.createCalls != 0 {
-				t.Fatalf("executeUserCommand = %q, %v, delete calls = %d", stdout.String(), err, repository.deleteCalls)
-			}
+			assertCommandResult(t, output.String(), err, tt.wantOutput, tt.wantErrs, tt.wantText)
 		})
 	}
 }

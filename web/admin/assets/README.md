@@ -113,7 +113,7 @@ permission selections. Sorting and pagination retain filters in the URL.
 The list accepts `uuid`, `name`, repeated `permissions`, `super=true|false`,
 `sort=uuid|name|super`, `order=asc|desc`, `page`, and `size` query parameters.
 The default page size is 25; the maximum is 100. Invalid filters return a readable
-400 response. Filters live in `internal/security/role_filters.go`, and PostgreSQL
+400 response. Filters live in `internal/users/role_filters.go`, and PostgreSQL
 applies them through `RoleRepository.Find` and `Count`.
 
 Create and edit forms offer name fields for the configured languages, permissions,
@@ -137,7 +137,7 @@ Admin success and error notifications are stored and read in `web/admin` using
 the existing Redis/Dragonfly session storage. Errors still retain submitted form
 values and their HTTP status; deletion errors stay in the confirmation dialog.
 Sign-in errors use a short-lived anonymous flash session. See
-[flash messages](../../../docs/flash-messages.md) for the generic bag API, storage
+[flash messages](../../../docs/pkg/flashmsg.md) for the generic bag API, storage
 scope, and consumption behavior.
 
 Permissions in filters and create/edit forms use the shared `MultiSelect`
