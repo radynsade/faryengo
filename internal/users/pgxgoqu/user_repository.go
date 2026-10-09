@@ -297,6 +297,107 @@ func (r *UserRepository) FindByEmail(
 	return user, err
 }
 
+// Find users matching a query; Page is 1-based
+
+func (r *UserRepository) Find(
+	ctx context.Context,
+	query users.UserQuery,
+) ([]*users.User, error) {
+	var (
+		result []*users.User
+		err    error
+	)
+
+	if r == nil || r.pool == nil {
+		err = pgxdb.ErrNilDB
+	} else if validationErr := query.Validate(); validationErr != nil {
+		err = fmt.Errorf("failed to find users: %w", validationErr)
+	} else {
+		sql, args, buildErr := userFilterDataset(query.Filter).
+			Select(userColumns()...).
+			Order(userOrder(query)...).
+			Limit(query.Limit).
+			Offset((query.Page - 1) * query.Limit).
+			Prepared(true).
+			ToSQL()
+
+		if buildErr != nil {
+			err = fmt.Errorf("failed to build the find users query: %w", buildErr)
+		} else {
+			rows, queryErr := pgxdb.FromContext(ctx, r.pool).Query(ctx, sql, args...)
+
+			if queryErr != nil {
+				err = fmt.Errorf("failed to find users: %w", queryErr)
+			} else {
+				defer rows.Close()
+
+				result = make([]*users.User, 0, query.Limit)
+
+				for rows.Next() {
+					var (
+						record userRecord
+						user   *users.User
+					)
+
+					err = rows.Scan(record.targets()...)
+
+					if err == nil {
+						user, err = record.user()
+					}
+
+					if err != nil {
+						break
+					}
+
+					result = append(result, user)
+				}
+
+				if err == nil {
+					err = rows.Err()
+				}
+
+				if err != nil {
+					err = fmt.Errorf("failed to read users: %w", err)
+					result = nil
+				}
+			}
+		}
+	}
+
+	return result, err
+}
+
+// Count users matching a filter
+
+func (r *UserRepository) Count(
+	ctx context.Context,
+	filter users.UserFilter,
+) (int, error) {
+	var (
+		total int
+		err   error
+	)
+
+	if r == nil || r.pool == nil {
+		err = pgxdb.ErrNilDB
+	} else if validationErr := filter.Validate(); validationErr != nil {
+		err = fmt.Errorf("failed to count users: %w", validationErr)
+	} else {
+		query, args, buildErr := userFilterDataset(filter).
+			Select(goqu.COUNT("*")).
+			Prepared(true).
+			ToSQL()
+
+		if buildErr != nil {
+			err = fmt.Errorf("failed to build the count users query: %w", buildErr)
+		} else if scanErr := pgxdb.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(&total); scanErr != nil {
+			err = fmt.Errorf("failed to count users: %w", scanErr)
+		}
+	}
+
+	return total, err
+}
+
 //
 // Helpers
 //
@@ -373,6 +474,60 @@ func userColumns() []any {
 
 func userEmailPredicate(column string, email users.Email) exp.Expression {
 	return goqu.L("lower(?) = lower(?)", goqu.I(column), string(email))
+}
+
+func userFilterDataset(filter users.UserFilter) *goqu.SelectDataset {
+	dataset := goqu.Dialect("postgres").From("user")
+
+	if filter.IDLike != "" {
+		dataset = dataset.Where(goqu.L(`"user".id::text ILIKE ?`, likeSubstring(filter.IDLike)))
+	}
+
+	if filter.EmailLike != "" {
+		dataset = dataset.Where(goqu.L(`"user".email ILIKE ?`, likeSubstring(filter.EmailLike)))
+	}
+
+	if filter.NameLike != "" {
+		dataset = dataset.Where(goqu.L(
+			`("user".first_name || ' ' || "user".last_name) ILIKE ?`,
+			likeSubstring(filter.NameLike),
+		))
+	}
+
+	if filter.RoleID != nil {
+		dataset = dataset.Where(goqu.Ex{"role_id": uuid.UUID(*filter.RoleID).String()})
+	}
+
+	return dataset
+}
+
+// Text sorts ignore letter case. The ID is the tie-breaker for every sort.
+
+func userOrder(query users.UserQuery) []exp.OrderedExpression {
+	var sort exp.Orderable = goqu.C("id")
+
+	switch query.SortBy {
+	case users.UserSortEmail:
+		sort = goqu.L(`lower("user".email)`)
+	case users.UserSortFirstName:
+		sort = goqu.L(`lower("user".first_name)`)
+	case users.UserSortLastName:
+		sort = goqu.L(`lower("user".last_name)`)
+	case users.UserSortCreatedAt:
+		sort = goqu.C("created_at")
+	}
+
+	order := []exp.OrderedExpression{sort.Asc()}
+
+	if query.SortOrder.IsDesc() {
+		order[0] = sort.Desc()
+	}
+
+	if query.SortBy != users.UserSortID {
+		order = append(order, goqu.C("id").Asc())
+	}
+
+	return order
 }
 
 type userRecord struct {

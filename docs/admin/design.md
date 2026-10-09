@@ -54,6 +54,7 @@ styles/
     _panel.scss             Sidebar, account, navigation, main area
   pages/
     _roles.scss             Role-page composition and UUID column width
+    _users.scss             User-page composition and column widths
   utilities/
     _accessibility.scss     Visually hidden accessible text
 ```
@@ -151,14 +152,15 @@ unknown tokens, breakpoints, and button variants fail compilation.
 Use block, element, and modifier classes (`block`, `block__element`,
 `block--modifier`). A class describes visual ownership; `data-*` attributes,
 IDs, ARIA state, and form attributes describe behavior. Keep HTMX targets and
-JavaScript hooks stable during styling changes. The `role-filters` class remains
-an existing JavaScript hook alongside the generic `filter-menu` class.
+JavaScript hooks stable during styling changes. The filter script closes any open
+`filter-menu` on an outside click; `role-filters` and `user-filters` remain as
+page hooks alongside it.
 
 | Pattern | Shared classes and usage |
 | --- | --- |
 | Text buttons | `.button` with `--primary`, `--secondary`, or `--danger`; optional `--compact` |
 | Icon actions | `.icon-button`; use `--danger` for destructive row actions and accessible labels for icon-only controls |
-| Forms | `.form-stack`, `.form-field`, `__label`, `__input`, `.form-checkbox`, `.form-fieldset` |
+| Forms | `.form-stack`, `.form-field`, `__label`, `__input`, `__help`, `.form-checkbox`, `.form-fieldset`; `TextInput` renders optional help text linked through `aria-describedby` |
 | Cards | `.card`, `__eyebrow`, `__links`; page content owns its heading and paragraphs |
 | Page titles | `.page-title`, `__heading`, `.breadcrumbs`, `__list`, `__item`, `__link`, `__separator`; `PageTitle` renders the title and an ordered breadcrumb list |
 | Collection layout | `.list-toolbar`, `__controls`, `.action-group`, `.tag-list`, `.pagination`, `__current` |
@@ -304,9 +306,26 @@ Compact control tokens and widget spacing are scoped to `.role-form`. The shared
 confirmation dialog stays outside the edit form; deletion submits only the
 confirmation form and uses the persisted, localized role name. The create page
 uses Create and List in its toolbar, with no View or Delete action until a role
-exists. Shared component rules belong in `components/`, even when Roles is
-currently their only consumer. Future Users
-pages should compose these components without importing Roles styles.
+exists. Shared component rules belong in `components/`, even when one section
+is currently their only consumer.
+
+`pages/_users.scss` mirrors the role pages for Users without importing Roles
+styles. The user table declares UUID, Name, Email, Phone, Role, Created, and actions
+columns, with the UUID column sized like the role table's, and keeps a wider minimum width than the shared table so its headers
+never overlap; it scrolls horizontally instead. The list loads `/users/table`
+after the initial render, exactly as roles do, and filters by UUID, name, email,
+and Role. View, create, and edit pages use Admin → Users → current-page
+breadcrumbs. `.user-form` pairs first and last name, email and phone, and Role
+and password in two-column rows that collapse to one column at the panel
+breakpoint. The password field is never prefilled; on editing it is optional and
+its help text says that a blank value keeps the current password and that
+changing the email or password ends the user's sessions. The edit form carries
+the user's `updated_at` moment in a hidden field, so saving over a newer change
+is rejected with a conflict message instead of overwriting it. Role names link
+to the role view only for users with the view-roles permission. Viewing needs
+the view-users permission; Create, Edit, Delete, and the confirmation dialog
+appear only with the manage-users permission. No page offers deleting the
+signed-in user's own account, and the server refuses such a request.
 
 ## Accessibility and interaction rules
 

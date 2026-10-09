@@ -205,9 +205,6 @@
   "home.description": {
     "other": "Jūs esat pieslēdzies. Izmantojiet navigācijas izvēlni, lai piekļūtu lietotājiem un lomām."
   },
-  "home.users_soon": {
-    "other": "Lietotāju pārvaldība drīzumā būs pieejama."
-  },
   "roles.create": {
     "other": "Izveidot lomu"
   },
@@ -371,5 +368,138 @@
   },
   "roles.name_help_fallback": {
     "other": "Tulkojums rezerves valodā ({{.Language}}) ir obligāts. Pārējie tulkojumi nav obligāti; atstājiet tos tukšus, lai tos izlaistu."
+  },
+  "pagination.users": {
+    "other": "Lietotāju saraksta lapas"
+  },
+  "fields.full_name": {
+    "other": "Vārds, uzvārds"
+  },
+  "fields.full_name_contains": {
+    "other": "Vārds vai uzvārds satur"
+  },
+  "fields.email_contains": {
+    "other": "E-pasts satur"
+  },
+  "fields.first_name": {
+    "other": "Vārds"
+  },
+  "fields.last_name": {
+    "other": "Uzvārds"
+  },
+  "fields.phone": {
+    "other": "Tālrunis"
+  },
+  "fields.phone_placeholder": {
+    "other": "+37120000000"
+  },
+  "fields.role": {
+    "other": "Loma"
+  },
+  "fields.select_role": {
+    "other": "Izvēlieties lomu"
+  },
+  "fields.created_at": {
+    "other": "Izveidots"
+  },
+  "fields.updated_at": {
+    "other": "Atjaunināts"
+  },
+  "fields.new_password": {
+    "other": "Jaunā parole"
+  },
+  "users.create": {
+    "other": "Izveidot lietotāju"
+  },
+  "users.edit": {
+    "other": "Rediģēt lietotāju"
+  },
+  "users.edit_title": {
+    "other": "Rediģēt lietotāju «{{.Name}}»"
+  },
+  "users.delete": {
+    "other": "Dzēst lietotāju"
+  },
+  "users.delete_title": {
+    "other": "Dzēst lietotāju «{{.Name}}»"
+  },
+  "users.delete_message": {
+    "other": "Vai tiešām vēlaties dzēst lietotāju? To nebūs iespējams atjaunot."
+  },
+  "users.table": {
+    "other": "Lietotāju tabula"
+  },
+  "users.caption": {
+    "other": "Lietotāji un viņu lomas"
+  },
+  "users.loading": {
+    "other": "Ielādē lietotājus…"
+  },
+  "users.empty": {
+    "other": "Lietotāji nav atrasti. Mēģiniet mainīt vai atiestatīt filtrus."
+  },
+  "users.you": {
+    "other": "Jūs"
+  },
+  "users.created": {
+    "other": "Lietotājs «{{.Name}}» veiksmīgi izveidots."
+  },
+  "users.updated": {
+    "other": "Lietotājs «{{.Name}}» veiksmīgi atjaunināts."
+  },
+  "users.deleted": {
+    "other": "Lietotājs «{{.Name}}» veiksmīgi dzēsts."
+  },
+  "users.phone_help": {
+    "other": "Starptautiskais formāts: plusa zīme un cipari bez atstarpēm."
+  },
+  "users.password_keep_help": {
+    "other": "Atstājiet tukšu, lai saglabātu pašreizējo paroli. Mainot e-pastu vai paroli, lietotājs tiek izrakstīts visās ierīcēs."
+  },
+  "errors.users": {
+    "other": "Lietotāji īslaicīgi nav pieejami. Lūdzu, mēģiniet vēlreiz."
+  },
+  "errors.user_not_found": {
+    "other": "Lietotājs nav atrasts."
+  },
+  "errors.user_conflict": {
+    "other": "Šo lietotāju ir mainījis kāds cits. Pārlādējiet veidlapu un mēģiniet vēlreiz."
+  },
+  "errors.user_exists": {
+    "other": "Šis lietotājs jau pastāv."
+  },
+  "errors.user_form": {
+    "other": "Iesniedziet derīgu lietotāja veidlapu."
+  },
+  "errors.user_query": {
+    "other": "Pārbaudiet filtrus, kārtošanas secību un lapas numuru."
+  },
+  "errors.user_values": {
+    "other": "Pārbaudiet lietotāja datus un mēģiniet vēlreiz."
+  },
+  "validation.email_taken": {
+    "other": "Šī e-pasta adrese jau pieder citam lietotājam."
+  },
+  "validation.phone": {
+    "other": "Ievadiet tālruņa numuru starptautiskā formātā, piemēram, +37120000000."
+  },
+  "validation.role": {
+    "other": "Izvēlieties lomu."
+  },
+  "validation.role_missing": {
+    "other": "Izvēlētā loma vairs nepastāv. Izvēlieties citu lomu."
+  },
+  "users.password_help": {
+    "zero": "Izmantojiet vismaz {{.Count}} rakstzīmes.",
+    "one": "Izmantojiet vismaz {{.Count}} rakstzīmi.",
+    "other": "Izmantojiet vismaz {{.Count}} rakstzīmes."
+  },
+  "validation.password_short": {
+    "zero": "Parolei jābūt vismaz {{.Count}} rakstzīmes garai.",
+    "one": "Parolei jābūt vismaz {{.Count}} rakstzīmi garai.",
+    "other": "Parolei jābūt vismaz {{.Count}} rakstzīmes garai."
+  },
+  "errors.user_delete_self": {
+    "other": "Jūs nevarat dzēst savu kontu."
   }
 }

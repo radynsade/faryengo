@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/users/mock"
+	"github.com/radynsade/faryengo/pkg/domquery"
 )
 
 var (
@@ -273,6 +275,92 @@ func TestUserServiceFindByID(t *testing.T) {
 	}
 }
 
+func TestUserServiceList(t *testing.T) {
+	found := []*users.User{testUser()}
+	withoutPage := validUserQuery()
+	withoutPage.Page = 0
+	unknownSort := validUserQuery()
+	unknownSort.SortBy = "phone"
+	longFilter := validUserQuery()
+	longFilter.Filter.EmailLike = strings.Repeat("a", users.MaxUserFilterEmailLikeLength+1)
+	nilRole := validUserQuery()
+	nilRole.Filter.RoleID = &users.RoleID{}
+
+	for _, tt := range []struct {
+		name       string
+		query      users.UserQuery
+		countErr   error
+		findErr    error
+		wantErrs   []error
+		wantCalls  int
+		wantResult UserList
+	}{
+		{name: "listed", query: validUserQuery(), wantCalls: 2, wantResult: UserList{Users: found, Total: 7}},
+		{name: "missing page", query: withoutPage, wantErrs: []error{users.ErrInvalidUserQuery}},
+		{name: "unknown sort", query: unknownSort, wantErrs: []error{users.ErrInvalidUserQuery}},
+		{name: "invalid filter", query: longFilter, wantErrs: []error{users.ErrUserFilterInvalid, users.ErrUserFilterEmailLikeTooLong}},
+		{name: "nil role filter", query: nilRole, wantErrs: []error{users.ErrUserFilterInvalid, users.ErrRoleIDInvalid}},
+		{
+			name:      "count failure",
+			query:     validUserQuery(),
+			countErr:  context.DeadlineExceeded,
+			wantErrs:  []error{context.DeadlineExceeded},
+			wantCalls: 1,
+		},
+		{
+			name:      "find failure",
+			query:     validUserQuery(),
+			findErr:   context.DeadlineExceeded,
+			wantErrs:  []error{context.DeadlineExceeded},
+			wantCalls: 2,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := t.Context()
+			calls := 0
+
+			repository := &mock.UserRepository{
+				CountFunc: func(callCtx context.Context, filter users.UserFilter) (int, error) {
+					calls++
+
+					if callCtx != ctx || filter.EmailLike != tt.query.Filter.EmailLike {
+						t.Errorf("Count() called with (%v, %+v)", callCtx, filter)
+					}
+
+					return 7, tt.countErr
+				},
+				FindFunc: func(callCtx context.Context, query users.UserQuery) ([]*users.User, error) {
+					calls++
+
+					if callCtx != ctx || query.Page != tt.query.Page || query.SortBy != tt.query.SortBy {
+						t.Errorf("Find() called with (%v, %+v)", callCtx, query)
+					}
+
+					return found, tt.findErr
+				},
+			}
+
+			service, err := NewUserService(&appmock.Transactor{}, repository, &mock.PasswordHasher{})
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			list, err := service.List(ctx, tt.query)
+
+			if calls != tt.wantCalls {
+				t.Fatalf("List() repository calls = %d, want %d", calls, tt.wantCalls)
+			}
+
+			assertErrors(t, err, tt.wantErrs)
+
+			if list.Total != tt.wantResult.Total || len(list.Users) != len(tt.wantResult.Users) {
+				t.Fatalf("List() = %+v, want %+v", list, tt.wantResult)
+			}
+		})
+	}
+}
+
 func TestUserServiceUpdate(t *testing.T) {
 	newPassword := "new password"
 	shortPassword := "short"
@@ -485,6 +573,62 @@ func TestUserServiceDelete(t *testing.T) {
 
 			assertErrors(t, err, tt.wantErrs)
 		})
+	}
+}
+
+func TestUserServiceDeleteAsUser(t *testing.T) {
+	otherID := users.UserID(uuid.MustParse("01920000-0000-7000-8000-000000000003"))
+
+	for _, tt := range []struct {
+		name      string
+		actorID   users.UserID
+		id        users.UserID
+		wantErrs  []error
+		wantCalls int
+	}{
+		{name: "another user", actorID: otherID, id: testUserID, wantCalls: 1},
+		{name: "own account", actorID: testUserID, id: testUserID, wantErrs: []error{input.ErrDeleteOwnUser}},
+		{name: "missing actor", id: testUserID, wantErrs: []error{users.ErrUserIDInvalid}},
+		{name: "invalid ID", actorID: otherID, wantErrs: []error{users.ErrUserIDInvalid}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			calls := 0
+			repository := &mock.UserRepository{
+				DeleteFunc: func(_ context.Context, id users.UserID) users.ErrUserDeleteFailed {
+					calls++
+
+					if id != tt.id {
+						t.Errorf("Delete() called with %v, want %v", id, tt.id)
+					}
+
+					return nil
+				},
+			}
+
+			service, err := NewUserService(&appmock.Transactor{}, repository, &mock.PasswordHasher{})
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			err = service.DeleteAsUser(t.Context(), tt.actorID, tt.id)
+
+			if calls != tt.wantCalls {
+				t.Fatalf("DeleteAsUser() repository calls = %d, want %d", calls, tt.wantCalls)
+			}
+
+			assertErrors(t, err, tt.wantErrs)
+		})
+	}
+}
+
+func validUserQuery() users.UserQuery {
+	return users.UserQuery{
+		Filter:    users.UserFilter{EmailLike: "example"},
+		SortOrder: domquery.SortOrderAsc,
+		SortBy:    users.UserSortEmail,
+		Limit:     20,
+		Page:      1,
 	}
 }
 

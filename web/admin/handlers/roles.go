@@ -88,7 +88,7 @@ func (h *Handler) roleDelete(writer http.ResponseWriter, request *http.Request) 
 		props, err := h.roleViewProps(request, current, panel)
 
 		if err == nil {
-			err = utils.ParseRoleDeleteForm(writer, request)
+			err = utils.ParseDeleteForm(writer, request)
 		}
 
 		if err == nil {

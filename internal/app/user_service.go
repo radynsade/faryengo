@@ -13,6 +13,15 @@ import (
 )
 
 //
+// User list
+//
+
+type UserList struct {
+	Users []*users.User
+	Total int
+}
+
+//
 // User service
 //
 
@@ -161,6 +170,39 @@ func (s *UserService) FindByID(ctx context.Context, id users.UserID) (*users.Use
 	return user, err
 }
 
+// List one page of the Users matching a query, with the total number of
+// matching Users
+
+func (s *UserService) List(ctx context.Context, query users.UserQuery) (UserList, error) {
+	var (
+		list UserList
+		err  error
+	)
+
+	if err = s.check(); err == nil {
+		err = query.Validate()
+
+		if err != nil {
+			err = fmt.Errorf("list users: %w", err)
+		}
+	}
+
+	if err == nil {
+		list.Total, err = s.repository.Count(ctx, query.Filter)
+
+		if err == nil {
+			list.Users, err = s.repository.Find(ctx, query)
+		}
+
+		if err != nil {
+			err = fmt.Errorf("list users: %w", err)
+			list = UserList{}
+		}
+	}
+
+	return list, err
+}
+
 // The update replaces the User's account details and Role, and its password
 // only when a new one is given. The request's UpdatedAt guards against
 // overwriting a newer change, which the repository reports as
@@ -279,6 +321,34 @@ func (s *UserService) Delete(ctx context.Context, id users.UserID) error {
 		if err != nil {
 			err = fmt.Errorf("delete user %s: %w", uuid.UUID(id), err)
 		}
+	}
+
+	return err
+}
+
+// A User acting through the application cannot delete their own account.
+// An operator acting outside any account, such as through the CLI, uses
+// Delete.
+
+func (s *UserService) DeleteAsUser(
+	ctx context.Context,
+	actorID users.UserID,
+	id users.UserID,
+) error {
+	err := s.check()
+
+	if err == nil {
+		err = actorID.Validate()
+
+		if err != nil {
+			err = fmt.Errorf("delete user as a user: %w", err)
+		} else if actorID == id {
+			err = fmt.Errorf("delete user %s: %w", uuid.UUID(id), input.ErrDeleteOwnUser)
+		}
+	}
+
+	if err == nil {
+		err = s.Delete(ctx, id)
 	}
 
 	return err

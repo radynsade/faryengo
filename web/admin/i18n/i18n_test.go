@@ -86,7 +86,7 @@ func TestCatalogsDefinePluralForms(t *testing.T) {
 }
 
 var messageIDPattern = regexp.MustCompile(
-	`"((?:common|document|navigation|actions|clipboard|pagination|fields|multiselect|auth|home|roles|permissions|errors|validation)\.[a-z_]+)"`,
+	`"((?:common|document|navigation|actions|clipboard|pagination|fields|multiselect|auth|home|roles|permissions|errors|validation|users)\.[a-z_]+)"`,
 )
 
 func TestReferencedMessagesExist(t *testing.T) {

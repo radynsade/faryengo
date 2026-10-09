@@ -5,7 +5,7 @@ document.addEventListener('click', (event) => {
 		const path = event.composedPath();
 
 		for (const panel of document.querySelectorAll<HTMLDetailsElement>(
-			'details.role-filters[open]',
+			'details.filter-menu[open]',
 		)) {
 			if (!path.includes(panel)) {
 				panel.open = false;

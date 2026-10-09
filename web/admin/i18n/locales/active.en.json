@@ -204,9 +204,6 @@
   "home.description": {
     "other": "You are signed in. Use the navigation menu to access users and roles."
   },
-  "home.users_soon": {
-    "other": "Users management is coming soon."
-  },
   "roles.create": {
     "other": "Create role"
   },
@@ -369,5 +366,136 @@
   },
   "roles.name_help_fallback": {
     "other": "The translation in the fallback language ({{.Language}}) is required. Other translations are optional; leave them blank to omit them."
+  },
+  "pagination.users": {
+    "other": "Users pages"
+  },
+  "fields.full_name": {
+    "other": "Name"
+  },
+  "fields.full_name_contains": {
+    "other": "Name contains"
+  },
+  "fields.email_contains": {
+    "other": "Email contains"
+  },
+  "fields.first_name": {
+    "other": "First name"
+  },
+  "fields.last_name": {
+    "other": "Last name"
+  },
+  "fields.phone": {
+    "other": "Phone"
+  },
+  "fields.phone_placeholder": {
+    "other": "+37120000000"
+  },
+  "fields.role": {
+    "other": "Role"
+  },
+  "fields.select_role": {
+    "other": "Select a role"
+  },
+  "fields.created_at": {
+    "other": "Created"
+  },
+  "fields.updated_at": {
+    "other": "Updated"
+  },
+  "fields.new_password": {
+    "other": "New password"
+  },
+  "users.create": {
+    "other": "Create user"
+  },
+  "users.edit": {
+    "other": "Edit user"
+  },
+  "users.edit_title": {
+    "other": "Edit user \"{{.Name}}\""
+  },
+  "users.delete": {
+    "other": "Delete user"
+  },
+  "users.delete_title": {
+    "other": "Delete user \"{{.Name}}\""
+  },
+  "users.delete_message": {
+    "other": "Are you sure you want to delete the user? You will not be able to restore it."
+  },
+  "users.table": {
+    "other": "Users table"
+  },
+  "users.caption": {
+    "other": "Users and their roles"
+  },
+  "users.loading": {
+    "other": "Loading users…"
+  },
+  "users.empty": {
+    "other": "No users found. Try changing or resetting your filters."
+  },
+  "users.you": {
+    "other": "You"
+  },
+  "users.created": {
+    "other": "User \"{{.Name}}\" created successfully."
+  },
+  "users.updated": {
+    "other": "User \"{{.Name}}\" updated successfully."
+  },
+  "users.deleted": {
+    "other": "User \"{{.Name}}\" deleted successfully."
+  },
+  "users.phone_help": {
+    "other": "International format: a plus sign followed by digits, without spaces."
+  },
+  "users.password_keep_help": {
+    "other": "Leave blank to keep the current password. Changing the email or password signs the user out everywhere."
+  },
+  "errors.users": {
+    "other": "Users are temporarily unavailable. Please try again."
+  },
+  "errors.user_not_found": {
+    "other": "User not found."
+  },
+  "errors.user_conflict": {
+    "other": "This user was changed by someone else. Reload the form and try again."
+  },
+  "errors.user_exists": {
+    "other": "This user already exists."
+  },
+  "errors.user_form": {
+    "other": "Submit a valid user form."
+  },
+  "errors.user_query": {
+    "other": "Check the filters, sort order, and page number."
+  },
+  "errors.user_values": {
+    "other": "Check the user's details and try again."
+  },
+  "validation.email_taken": {
+    "other": "Another user already has this email address."
+  },
+  "validation.phone": {
+    "other": "Enter a phone number in international format, such as +37120000000."
+  },
+  "validation.role": {
+    "other": "Select a role."
+  },
+  "validation.role_missing": {
+    "other": "The selected role no longer exists. Select another role."
+  },
+  "users.password_help": {
+    "one": "Use at least {{.Count}} character.",
+    "other": "Use at least {{.Count}} characters."
+  },
+  "validation.password_short": {
+    "one": "The password must be at least {{.Count}} character long.",
+    "other": "The password must be at least {{.Count}} characters long."
+  },
+  "errors.user_delete_self": {
+    "other": "You cannot delete your own account."
   }
 }

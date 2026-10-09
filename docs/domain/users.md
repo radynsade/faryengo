@@ -48,6 +48,9 @@ own lifecycle and is outside the User aggregate.
 | Created at | Moment | Yes | Records when the account was created. |
 | Updated at | Moment | Yes | Records the latest account change; an update based on outdated details must not overwrite a newer change. |
 
+A User cannot delete their own account; another User with the authority to
+manage Users, or an operator, must delete it.
+
 Changing names, phone, or Role does not require changing the password.
 Changing the email or password replaces the User's credentials version, which
 ends the User's existing [Sessions](security.md#session).

@@ -4,7 +4,6 @@ import (
 	"net/http"
 
 	"github.com/radynsade/faryengo/internal/security"
-
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
@@ -22,16 +21,6 @@ import (
 func (h *Handler) home(writer http.ResponseWriter, request *http.Request) {
 	h.withPanel(writer, request, layouts.SectionHome, "", func(_ *security.Identity, panel layouts.PanelProps) {
 		h.render(writer, request, http.StatusOK, panel.Title, pages.Home(panel))
-	})
-}
-
-// Users page
-
-func (h *Handler) usersPage(writer http.ResponseWriter, request *http.Request) {
-	h.withPanel(writer, request, layouts.SectionUsers, users.PermissionViewUser, func(_ *security.Identity, panel layouts.PanelProps) {
-		message := admini18n.T(request.Context(), "home.users_soon")
-
-		h.render(writer, request, http.StatusOK, panel.Title, pages.PanelSection(panel, message))
 	})
 }
 

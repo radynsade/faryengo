@@ -42,3 +42,9 @@ type UpdateUserInput struct {
 	LastName  string
 	UpdatedAt time.Time
 }
+
+//
+// Delete user
+//
+
+var ErrDeleteOwnUser = errors.New("a user cannot delete their own account")

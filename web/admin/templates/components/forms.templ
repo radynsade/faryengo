@@ -9,6 +9,7 @@ type TextInputProps struct {
 	Type         string
 	Label        string
 	Placeholder  string
+	Help         string
 	Autocomplete string
 	Value        string
 	Required     bool
@@ -45,6 +46,20 @@ templ FieldMessages(id string, messages []string) {
 	}
 }
 
+func textInputDescription(props TextInputProps) string {
+	var help, errors string
+
+	if props.Help != "" {
+		help = props.ID + "-help"
+	}
+
+	if len(props.Errors) > 0 {
+		errors = props.ID + "-errors"
+	}
+
+	return describedBy(help, errors)
+}
+
 templ TextInput(props TextInputProps) {
 	<div class={ "form-field", templ.KV("form-field--invalid", len(props.Errors) > 0) }>
 		<label class="form-field__label" for={ props.ID }>{ props.Label }</label>
@@ -62,9 +77,14 @@ templ TextInput(props TextInputProps) {
 			}
 			if len(props.Errors) > 0 {
 				aria-invalid="true"
-				aria-describedby={ props.ID + "-errors" }
+			}
+			if textInputDescription(props) != "" {
+				aria-describedby={ textInputDescription(props) }
 			}
 		/>
+		if props.Help != "" {
+			<p class="form-field__help" id={ props.ID + "-help" }>{ props.Help }</p>
+		}
 		@FieldMessages(props.ID+"-errors", props.Errors)
 	</div>
 }

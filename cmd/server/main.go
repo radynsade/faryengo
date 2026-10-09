@@ -221,6 +221,7 @@ func wireAdmin(
 		sessions           *sessionid.Authenticator
 		identities         *security.IdentityResolver
 		languages          *app.LanguageService
+		userService        *app.UserService
 		roles              *app.RoleService
 		flashes            *flashredis.Store
 		err                error
@@ -266,6 +267,10 @@ func wireAdmin(
 	}
 
 	if err == nil {
+		userService, err = app.NewUserService(transactor, userRepository, hasher)
+	}
+
+	if err == nil {
 		roles, err = app.NewRoleService(transactor, roleRepository, languageRepository)
 	}
 
@@ -274,7 +279,7 @@ func wireAdmin(
 	}
 
 	if err == nil {
-		handler, err = adminhandlers.NewHandler(passwords, sessions, identities, roles, languages, flashes, settings.AuthCookieSecure)
+		handler, err = adminhandlers.NewHandler(passwords, sessions, identities, userService, roles, languages, flashes, settings.AuthCookieSecure)
 	}
 
 	if err != nil {

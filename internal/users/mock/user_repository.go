@@ -88,6 +88,8 @@ type UserRepository struct {
 	DeleteFunc      func(ctx context.Context, id users.UserID) users.ErrUserDeleteFailed
 	FindByIDFunc    func(ctx context.Context, id users.UserID) (*users.User, error)
 	FindByEmailFunc func(ctx context.Context, email users.Email) (*users.User, error)
+	FindFunc        func(ctx context.Context, query users.UserQuery) ([]*users.User, error)
+	CountFunc       func(ctx context.Context, filter users.UserFilter) (int, error)
 }
 
 var _ users.UserRepository = (*UserRepository)(nil)
@@ -177,4 +179,40 @@ func (r *UserRepository) FindByEmail(
 	}
 
 	return user, err
+}
+
+// Find users matching a query
+
+func (r *UserRepository) Find(
+	ctx context.Context,
+	query users.UserQuery,
+) ([]*users.User, error) {
+	var (
+		result []*users.User
+		err    = ErrNotConfigured
+	)
+
+	if r.FindFunc != nil {
+		result, err = r.FindFunc(ctx, query)
+	}
+
+	return result, err
+}
+
+// Count users matching a filter
+
+func (r *UserRepository) Count(
+	ctx context.Context,
+	filter users.UserFilter,
+) (int, error) {
+	var (
+		total int
+		err   = ErrNotConfigured
+	)
+
+	if r.CountFunc != nil {
+		total, err = r.CountFunc(ctx, filter)
+	}
+
+	return total, err
 }

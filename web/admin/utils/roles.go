@@ -144,6 +144,10 @@ func SanitizeRoleQuery(query users.RoleQuery) users.RoleQuery {
 // to load the list says nothing about the submitted filters.
 
 func FilterFieldErrors(ctx context.Context, err error) components.FieldErrors {
+	return filterFieldErrors(ctx, err, roleFilterFields)
+}
+
+func filterFieldErrors(ctx context.Context, err error, keys []string) components.FieldErrors {
 	var (
 		fields   components.FieldErrors
 		all      components.FieldErrors
@@ -154,7 +158,7 @@ func FilterFieldErrors(ctx context.Context, err error) components.FieldErrors {
 		all = FieldErrors(ctx, failures)
 	}
 
-	for _, key := range roleFilterFields {
+	for _, key := range keys {
 		if len(all[key]) > 0 {
 			if fields == nil {
 				fields = make(components.FieldErrors)

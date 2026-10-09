@@ -27,6 +27,12 @@
 		gap: var(--space-1);
 	}
 
+	&__help {
+		margin: 0;
+		color: var(--color-muted);
+		font-size: var(--font-size-small);
+	}
+
 	&__error {
 		margin: 0;
 		color: var(--color-danger);

@@ -17,10 +17,14 @@ import (
 
 func panelPages(f *fixture) []string {
 	base := "/admin/en/roles/" + roleID(f.role)
+	user := "/admin/en/users/" + userID(f.user)
 
 	return []string{
 		"/admin/en",
 		"/admin/en/users",
+		"/admin/en/users/create",
+		user + "/view",
+		user + "/edit",
 		"/admin/en/roles",
 		"/admin/en/roles/create",
 		base + "/view",
@@ -86,7 +90,7 @@ var (
 func TestLinksAndFormsUpdateInPlace(t *testing.T) {
 	f := newFixture(t, nil, true)
 	cookies := f.signIn(t)
-	paths := append(panelPages(f), "/admin/en/roles/table")
+	paths := append(panelPages(f), "/admin/en/roles/table", "/admin/en/users/table")
 	guest := []string{"/admin/en/sign-in", "/admin/en/restore-password"}
 
 	check := func(path, body string) {
@@ -292,6 +296,8 @@ func TestPagesUseOnlyTheirLanguage(t *testing.T) {
 
 			bodies = append(bodies, f.do(request{path: base + "/roles/table", cookies: cookies}).Body.String())
 			bodies = append(bodies, f.do(request{method: http.MethodPost, path: base + "/roles/create", body: "name[en]=+", cookies: cookies}).Body.String())
+			bodies = append(bodies, f.do(request{path: base + "/users/table", cookies: cookies}).Body.String())
+			bodies = append(bodies, f.do(request{method: http.MethodPost, path: base + "/users/create", body: "first_name=+&password=abc", cookies: cookies}).Body.String())
 
 			for id, message := range english {
 				if strings.Contains(message, "{{") || message == translated[id] || len(message) < 4 {
@@ -347,6 +353,8 @@ func TestFailedSubmissionsReplaceOnlyTheForm(t *testing.T) {
 		{"invalid email", "/admin/en/sign-in", "email=nope&password=x", false, http.StatusUnprocessableEntity, `<div id="sign-in-form">`, "Enter a valid email address."},
 		{"role field error", "/admin/en/roles/create", "name[en]=+", true, http.StatusUnprocessableEntity, `<section id="role-form"`, "This translation is required."},
 		{"role form error", "/admin/en/roles/create", "name[de]=Redakteur", true, http.StatusBadRequest, `<section id="role-form"`, "Submit a valid role form."},
+		{"user field error", "/admin/en/users/create", "email=nope", true, http.StatusUnprocessableEntity, `<section id="user-form"`, "Enter a valid email address."},
+		{"user form error", "/admin/en/users/create", "nickname=ada", true, http.StatusBadRequest, `<section id="user-form"`, "Submit a valid user form."},
 	}
 
 	for _, tt := range tests {

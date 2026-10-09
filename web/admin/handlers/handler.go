@@ -30,6 +30,7 @@ type Handler struct {
 	passwords  *emailpass.Authenticator
 	sessions   *sessionid.Authenticator
 	identities *security.IdentityResolver
+	users      *app.UserService
 	roles      *app.RoleService
 	languages  *app.LanguageService
 	flashes    *utils.Flashes
@@ -40,6 +41,7 @@ func NewHandler(
 	passwords *emailpass.Authenticator,
 	sessions *sessionid.Authenticator,
 	identities *security.IdentityResolver,
+	userService *app.UserService,
 	roles *app.RoleService,
 	languages *app.LanguageService,
 	flashStorage flashmsg.FlashSessionStorage,
@@ -53,7 +55,7 @@ func NewHandler(
 
 	cookies := utils.Cookies{Secure: secureCookies}
 
-	if passwords == nil || sessions == nil || identities == nil || roles == nil || languages == nil {
+	if passwords == nil || sessions == nil || identities == nil || userService == nil || roles == nil || languages == nil {
 		err = ErrHandlerConfigInvalid
 	} else if flashes, err = utils.NewFlashes(flashStorage, cookies); err != nil {
 		err = fmt.Errorf("%w: %w", ErrHandlerConfigInvalid, err)
@@ -62,6 +64,7 @@ func NewHandler(
 			passwords:  passwords,
 			sessions:   sessions,
 			identities: identities,
+			users:      userService,
 			roles:      roles,
 			languages:  languages,
 			flashes:    flashes,
@@ -96,6 +99,13 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"GET /admin/{language}/restore-password", h.restorePasswordPage},
 			{"GET /admin/{language}", h.home},
 			{"GET /admin/{language}/users", h.usersPage},
+			{"GET /admin/{language}/users/table", h.usersTable},
+			{"GET /admin/{language}/users/create", h.userCreate},
+			{"POST /admin/{language}/users/create", h.userCreate},
+			{"GET /admin/{language}/users/{user}/view", h.userView},
+			{"GET /admin/{language}/users/{user}/edit", h.userEdit},
+			{"POST /admin/{language}/users/{user}/edit", h.userEdit},
+			{"POST /admin/{language}/users/{user}/delete", h.userDelete},
 			{"GET /admin/{language}/roles", h.rolesPage},
 			{"GET /admin/{language}/roles/table", h.rolesTable},
 			{"GET /admin/{language}/roles/create", h.roleCreate},
