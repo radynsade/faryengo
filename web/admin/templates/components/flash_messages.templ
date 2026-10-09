@@ -2,12 +2,14 @@ package components
 
 import "github.com/radynsade/faryengo/pkg/flashmsg"
 
-// FlashMessages consumes a request's bag after the application reads its session.
+// FlashMessages renders the messages the handler consumed for this response.
+// Successes open the success dialog; other kinds render as notices.
 templ FlashMessages(bag *flashmsg.Bag, class string) {
 	@SuccessDialog(bag.Get(flashmsg.Success))
 	for _, kind := range bag.Types() {
 		for _, message := range bag.Get(kind) {
-			<p class={ class, templ.KV("notice--error", class == "notice" && kind == flashmsg.Error) }
+			<p
+				class={ class, templ.KV("notice--error", class == "notice" && kind == flashmsg.Error) }
 				if kind == flashmsg.Error {
 					role="alert"
 				} else {

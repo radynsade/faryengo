@@ -13,17 +13,3 @@ document.addEventListener('click', (event) => {
 		}
 	}
 });
-
-// Role-loading and filter errors display the server's localized feedback.
-document.addEventListener('htmx:beforeSwap', (event) => {
-	const detail = (event as CustomEvent).detail;
-
-	if (
-		detail.target instanceof HTMLElement
-		&& ['roles-list-table', 'page-content'].includes(detail.target.id)
-		&& detail.xhr.getResponseHeader('HX-Retarget') === `#${detail.target.id}`
-	) {
-		detail.shouldSwap = true;
-		detail.isError = false;
-	}
-});

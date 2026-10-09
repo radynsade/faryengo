@@ -51,7 +51,50 @@ document.addEventListener('htmx:beforeRequest', () =>
 	showNavigationError(false),
 );
 
-document.addEventListener('htmx:afterSettle', (event) => {
+// The server answers failed validation and rejected actions with rendered
+// HTML, which replaces its target like any other result. Other error
+// responses keep the current page and show the translated navigation error.
+document.addEventListener('htmx:beforeSwap', (event) => {
+	const detail = (event as CustomEvent).detail;
+	const type = detail.xhr?.getResponseHeader('Content-Type') ?? '';
+
+	if (detail.isError && type.startsWith('text/html')) {
+		detail.shouldSwap = true;
+		detail.isError = false;
+	}
+
+	if (
+		detail.shouldSwap
+		&& detail.target instanceof HTMLElement
+		&& detail.target.id === 'page-content'
+	) {
+		// A modal dialog left open would stay in the top layer after the page
+		// content around it is morphed.
+		for (const dialog of document.querySelectorAll<HTMLDialogElement>(
+			'dialog[open]',
+		)) {
+			dialog.close();
+		}
+
+		// htmx reports the swap on the element that sent the request. When
+		// the new page replaced that element, such as a sign-out form, the
+		// event fires on a detached node and never reaches the document, so
+		// the head merge and focus handling would not run. The swap itself
+		// runs synchronously after this event, so a task queued here sees
+		// its result and relays the event from the body.
+		const requester = detail.elt;
+
+		setTimeout(() => {
+			if (requester instanceof Element && !requester.isConnected) {
+				document.body.dispatchEvent(
+					new CustomEvent('htmx:afterSwap', { bubbles: true, detail }),
+				);
+			}
+		});
+	}
+});
+
+document.addEventListener('htmx:afterSwap', (event) => {
 	const detail = (event as CustomEvent).detail;
 
 	if (

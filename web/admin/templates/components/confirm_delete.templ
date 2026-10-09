@@ -1,40 +1,46 @@
 package components
 
-import admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+import (
+	"strings"
 
-import "strings"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+)
+
+const ConfirmDeleteID = "confirm-delete"
 
 type ConfirmDeleteProps struct {
-	ID      string
 	Title   string
-	Name    string
 	Message string
 	Action  string
 	Errors  []string
 }
 
-templ DeleteButton(dialogID, action, name, className, label string) {
+// DeleteButton opens the shared confirmation dialog for one entity. The
+// server renders the complete localized title, so the script only copies it.
+templ DeleteButton(action, title, className, label string) {
 	<button
 		type="button"
 		class={ className }
 		aria-label={ label }
 		aria-haspopup="dialog"
-		aria-controls={ dialogID }
-		data-confirm-delete={ dialogID }
+		aria-controls={ ConfirmDeleteID }
+		data-confirm-delete={ ConfirmDeleteID }
 		data-confirm-action={ action }
-		data-confirm-name={ name }
+		data-confirm-title={ title }
 	>
 		{ children... }
 	</button>
 }
 
+// ConfirmDelete is a self-contained dialog; a failed deletion replaces it
+// with the same dialog showing the error.
 templ ConfirmDelete(props ConfirmDeleteProps) {
 	<dialog
-		id={ props.ID }
+		id={ ConfirmDeleteID }
 		class="admin-dialog confirm-delete"
 		role="alertdialog"
-		aria-labelledby={ props.ID + "-title" }
-		aria-describedby={ props.ID + "-message" }
+		aria-labelledby={ ConfirmDeleteID + "-title" }
+		aria-describedby={ ConfirmDeleteID + "-message" }
 		data-dialog
 		if len(props.Errors) > 0 {
 			data-dialog-open
@@ -46,9 +52,9 @@ templ ConfirmDelete(props ConfirmDeleteProps) {
 		<div class="confirm-delete__body">
 			<div class="confirm-delete__header">
 				<i class="ti ti-alert-triangle confirm-delete__icon" aria-hidden="true"></i>
-				<h2 id={ props.ID + "-title" } class="confirm-delete__title">{ props.Title }{ " \"" }<span data-confirm-name>{ props.Name }</span>{ "\"" }</h2>
+				<h2 id={ ConfirmDeleteID + "-title" } class="confirm-delete__title" data-confirm-title>{ props.Title }</h2>
 			</div>
-			<p id={ props.ID + "-message" } class="confirm-delete__message">{ props.Message }</p>
+			<p id={ ConfirmDeleteID + "-message" } class="confirm-delete__message">{ props.Message }</p>
 			<p class="confirm-delete__error" role="alert" hidden?={ len(props.Errors) == 0 } data-confirm-error>{ strings.Join(props.Errors, " ") }</p>
 		</div>
 		<form
@@ -58,8 +64,9 @@ templ ConfirmDelete(props ConfirmDeleteProps) {
 			if props.Action != "" {
 				hx-post={ props.Action }
 			}
-			hx-target={ "#" + props.ID }
+			hx-target={ "#" + ConfirmDeleteID }
 			hx-swap="outerHTML"
+			hx-push-url="false"
 			hx-sync="this:drop"
 			hx-disabled-elt="find button[type='submit']"
 		>

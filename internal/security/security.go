@@ -55,6 +55,16 @@ func (s *Session) Validate() error {
 	return err
 }
 
+type Identity struct {
+	Session *Session
+	User    *users.User
+	Role    *users.Role
+}
+
+func (i *Identity) Can(permission users.Permission) bool {
+	return i != nil && i.Role.Grants(permission)
+}
+
 type Authenticator[CredentialsType any] interface {
 	SignIn(ctx context.Context, credentials CredentialsType) (*Session, error)
 	SignOut(ctx context.Context, session *Session, all bool) error

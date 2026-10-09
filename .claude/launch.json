@@ -1,0 +1,12 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "admin",
+      "runtimeExecutable": "env",
+      "runtimeArgs": ["AUTH_COOKIE_SECURE=false", "bin/server"],
+      "port": 8080,
+      "url": "http://localhost:8080"
+    }
+  ]
+}

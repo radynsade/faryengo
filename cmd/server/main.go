@@ -18,155 +18,119 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/config"
-	languagepg "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
+	"github.com/radynsade/faryengo/internal/infra/pgxdb"
+	languagespgxgoqu "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
+	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/security/emailpass"
+	"github.com/radynsade/faryengo/internal/security/sessionid"
+	sessionidredis "github.com/radynsade/faryengo/internal/security/sessionid/redis"
 	"github.com/radynsade/faryengo/internal/users/argon2id"
-	"github.com/radynsade/faryengo/internal/users/pgxgoqu"
-	usersredis "github.com/radynsade/faryengo/internal/users/redis"
+	userspgxgoqu "github.com/radynsade/faryengo/internal/users/pgxgoqu"
 	"github.com/radynsade/faryengo/middleware"
 	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
-	"github.com/radynsade/faryengo/web/admin"
+	adminhandlers "github.com/radynsade/faryengo/web/admin/handlers"
 )
+
+//
+// Entry point
+//
+
+const (
+	connectTimeout  = 5 * time.Second
+	shutdownTimeout = 10 * time.Second
+	flashTTL        = 15 * time.Minute
+)
+
+var ErrDatabaseURLMissing = errors.New("DATABASE_URL is required")
 
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
-	defer stop()
+	err := run(ctx)
 
-	if err := run(ctx); err != nil {
+	stop()
+
+	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
 func run(ctx context.Context) error {
-	settings, err := config.Load()
+	var (
+		settings config.Config
+		pool     *pgxpool.Pool
+		client   *redislib.Client
+		handler  *adminhandlers.Handler
+		err      error
+	)
+
+	settings, err = config.Load()
 
 	if err != nil {
-		return fmt.Errorf("load server configuration: %w", err)
-	}
+		err = fmt.Errorf("load server configuration: %w", err)
+	} else if strings.TrimSpace(settings.DatabaseURL) == "" {
+		err = ErrDatabaseURLMissing
+	} else {
+		pool, err = pgxpool.New(ctx, settings.DatabaseURL)
 
-	if strings.TrimSpace(settings.DatabaseURL) == "" {
-		return errors.New("DATABASE_URL is required")
-	}
-
-	pool, err := pgxpool.New(ctx, settings.DatabaseURL)
-
-	if err != nil {
-		return fmt.Errorf("configure PostgreSQL: %w", err)
-	}
-
-	defer pool.Close()
-	redisOptions, err := redislib.ParseURL(settings.RedisURL)
-
-	if err != nil {
-		return errors.New("invalid REDIS_URL")
-	}
-
-	redisOptions.ContextTimeoutEnabled = true
-	// A timed-out refresh rotation must not be automatically replayed.
-	redisOptions.MaxRetries = -1
-	client := redislib.NewClient(redisOptions)
-	defer func() {
-		if closeErr := client.Close(); closeErr != nil {
-			slog.ErrorContext(ctx, "close Redis", "error", closeErr)
+		if err != nil {
+			err = fmt.Errorf("configure PostgreSQL: %w", err)
+		} else {
+			defer pool.Close()
 		}
-	}()
-
-	connectCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-	defer cancel()
-
-	if err := pool.Ping(connectCtx); err != nil {
-		return fmt.Errorf("connect to PostgreSQL: %w", err)
 	}
 
-	if err := client.Ping(connectCtx).Err(); err != nil {
-		return fmt.Errorf("connect to Redis: %w", err)
+	if err == nil {
+		client, err = newRedisClient(settings.RedisURL)
+
+		if err == nil {
+			defer closeRedis(ctx, client)
+		}
 	}
 
-	credentials, err := pgxgoqu.NewCredentialRepository(pool)
-
-	if err != nil {
-		return fmt.Errorf("configure credential repository: %w", err)
+	if err == nil {
+		err = ping(ctx, pool, client)
 	}
 
-	roles, err := pgxgoqu.NewRoleRepository(pool)
-
-	if err != nil {
-		return fmt.Errorf("configure authorization roles: %w", err)
+	if err == nil {
+		handler, err = wireAdmin(ctx, settings, pool, client)
 	}
 
-	sessions, err := usersredis.NewSessionStore(client)
+	if err == nil {
+		mux := http.NewServeMux()
 
-	if err != nil {
-		return fmt.Errorf("configure session store: %w", err)
+		err = handler.RegisterHandlers(mux)
+
+		if err != nil {
+			err = fmt.Errorf("register admin handlers: %w", err)
+		} else {
+			err = serve(ctx, &http.Server{
+				Addr:              settings.HTTPAddress,
+				Handler:           middleware.RedirectTrailingSlash(mux),
+				ReadHeaderTimeout: 5 * time.Second,
+				ReadTimeout:       15 * time.Second,
+				WriteTimeout:      30 * time.Second,
+				IdleTimeout:       60 * time.Second,
+			})
+		}
 	}
 
-	limiter, err := usersredis.NewRateLimiter(client)
-
-	if err != nil {
-		return fmt.Errorf("configure sign-in limiter: %w", err)
-	}
-
-	service, err := app.NewAuthenticationService(ctx, app.AuthenticationDependencies{Credentials: credentials, Invalidator: credentials,
-		Roles: roles, Hasher: argon2id.NewHasher(), Revoker: sessions})
-
-	if err != nil {
-		return fmt.Errorf("configure authentication: %w", err)
-	}
-
-	browserSessions, err := app.NewSessionAuthenticationService(service, sessions, settings.SessionTTL)
-
-	if err != nil {
-		return fmt.Errorf("configure browser authentication: %w", err)
-	}
-
-	roleService, err := app.NewRoleService(roles)
-
-	if err != nil {
-		return fmt.Errorf("configure role management: %w", err)
-	}
-
-	languageRepository, err := languagepg.NewLanguageRepository(pool)
-
-	if err != nil {
-		return fmt.Errorf("configure language repository: %w", err)
-	}
-
-	languageService, err := app.NewLanguageService(languageRepository)
-
-	if err != nil {
-		return fmt.Errorf("configure language service: %w", err)
-	}
-
-	flashes, err := flashredis.NewStore(client, "admin", 15*time.Minute)
-
-	if err != nil {
-		return fmt.Errorf("configure admin flash store: %w", err)
-	}
-
-	adminHandler, err := admin.NewHandler(browserSessions, roleService, languageService, limiter, flashes, settings.AuthCookieSecure)
-
-	if err != nil {
-		return fmt.Errorf("configure admin transport: %w", err)
-	}
-
-	mux := http.NewServeMux()
-
-	if err := adminHandler.RegisterHandlers(mux); err != nil {
-		return fmt.Errorf("register admin handlers: %w", err)
-	}
-
-	server := &http.Server{Addr: settings.HTTPAddress, Handler: middleware.RedirectTrailingSlash(mux),
-		ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 15 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second}
-	return serve(ctx, server)
+	return err
 }
+
+// The server stops accepting connections when the context ends and gives
+// in-flight requests a bounded time to finish.
 
 func serve(ctx context.Context, server *http.Server) error {
 	serveCtx, stop := context.WithCancel(ctx)
 	defer stop()
+
 	group, groupCtx := errgroup.WithContext(serveCtx)
+
 	group.Go(func() error {
-		defer stop()
 		var err error
+
+		defer stop()
 
 		if serveErr := server.ListenAndServe(); serveErr != nil && !errors.Is(serveErr, http.ErrServerClosed) {
 			err = fmt.Errorf("serve HTTP: %w", serveErr)
@@ -174,19 +138,149 @@ func serve(ctx context.Context, server *http.Server) error {
 
 		return err
 	})
+
 	group.Go(func() error {
 		<-groupCtx.Done()
-		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+
+		shutdownCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), shutdownTimeout)
 		defer cancel()
+
 		err := server.Shutdown(shutdownCtx)
 
+		// A timed-out shutdown forces the remaining connections closed, so
+		// the serving goroutine exits.
 		if err != nil {
-			// Shutdown timed out; force closure so the serving goroutine exits.
-			closeErr := server.Close()
-			err = fmt.Errorf("shut down HTTP: %w", errors.Join(err, closeErr))
+			err = fmt.Errorf("shut down HTTP: %w", errors.Join(err, server.Close()))
 		}
 
 		return err
 	})
+
 	return group.Wait()
+}
+
+//
+// Helpers
+//
+
+// Redis holds Sessions and flash messages, whose writes must never be
+// replayed after an ambiguous failure, so automatic retries are off.
+
+func newRedisClient(redisURL string) (*redislib.Client, error) {
+	var client *redislib.Client
+
+	options, err := redislib.ParseURL(redisURL)
+
+	if err != nil {
+		err = errors.New("invalid REDIS_URL")
+	} else {
+		options.ContextTimeoutEnabled = true
+		options.MaxRetries = -1
+		client = redislib.NewClient(options)
+	}
+
+	return client, err
+}
+
+func closeRedis(ctx context.Context, client *redislib.Client) {
+	if err := client.Close(); err != nil {
+		slog.ErrorContext(ctx, "close Redis", "error", err)
+	}
+}
+
+func ping(ctx context.Context, pool *pgxpool.Pool, client *redislib.Client) error {
+	connectCtx, cancel := context.WithTimeout(ctx, connectTimeout)
+	defer cancel()
+
+	err := pool.Ping(connectCtx)
+
+	if err != nil {
+		err = fmt.Errorf("connect to PostgreSQL: %w", err)
+	} else if pingErr := client.Ping(connectCtx).Err(); pingErr != nil {
+		err = fmt.Errorf("connect to Redis: %w", pingErr)
+	}
+
+	return err
+}
+
+func wireAdmin(
+	ctx context.Context,
+	settings config.Config,
+	pool *pgxpool.Pool,
+	client *redislib.Client,
+) (*adminhandlers.Handler, error) {
+	var (
+		handler            *adminhandlers.Handler
+		transactor         *pgxdb.Transactor
+		languageRepository *languagespgxgoqu.LanguageRepository
+		roleRepository     *userspgxgoqu.RoleRepository
+		userRepository     *userspgxgoqu.UserRepository
+		credentials        *userspgxgoqu.CredentialsSnapshotRepository
+		sessionStorage     *sessionidredis.SessionStorage
+		passwords          *emailpass.Authenticator
+		sessions           *sessionid.Authenticator
+		identities         *security.IdentityResolver
+		languages          *app.LanguageService
+		roles              *app.RoleService
+		flashes            *flashredis.Store
+		err                error
+	)
+
+	hasher := argon2id.NewPasswordHasher()
+	transactor, err = pgxdb.NewTransactor(pool)
+
+	if err == nil {
+		languageRepository, err = languagespgxgoqu.NewLanguageRepository(pool)
+	}
+
+	if err == nil {
+		roleRepository, err = userspgxgoqu.NewRoleRepository(pool)
+	}
+
+	if err == nil {
+		userRepository, err = userspgxgoqu.NewUserRepository(pool)
+	}
+
+	if err == nil {
+		credentials, err = userspgxgoqu.NewCredentialsRepository(pool)
+	}
+
+	if err == nil {
+		sessionStorage, err = sessionidredis.NewSessionStorage(client)
+	}
+
+	if err == nil {
+		passwords, err = emailpass.NewAuthenticator(ctx, credentials, hasher, settings.SessionTTL)
+	}
+
+	if err == nil {
+		sessions, err = sessionid.NewAuthenticator(sessionStorage, credentials)
+	}
+
+	if err == nil {
+		identities, err = security.NewIdentityResolver(credentials, userRepository, roleRepository)
+	}
+
+	if err == nil {
+		languages, err = app.NewLanguageService(transactor, languageRepository)
+	}
+
+	if err == nil {
+		roles, err = app.NewRoleService(transactor, roleRepository)
+	}
+
+	if err == nil {
+		flashes, err = flashredis.NewStore(client, "admin", flashTTL)
+	}
+
+	if err == nil {
+		handler, err = adminhandlers.NewHandler(passwords, sessions, identities, roles, languages, flashes, settings.AuthCookieSecure)
+	}
+
+	if err != nil {
+		handler = nil
+		err = fmt.Errorf("configure the admin application: %w", err)
+	}
+
+	return handler, err
 }

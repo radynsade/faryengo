@@ -11,12 +11,17 @@ accounts, roles, and permissions that authorization evaluates.
 | --- | --- | --- |
 | Session | Entity and aggregate root | Represents one device's authenticated access; references one [User](users.md#user) and the [credentials version](users.md#account-and-authority-values) accepted at sign-in. |
 | Session identity | Value object | Identifies one Session independently of its other fields. |
+| Authenticated identity | Derived value | Derived from one valid Session; combines it with the referenced [User](users.md#user) and that User's current [Role](users.md#role). |
 
 ```mermaid
 flowchart LR
     Session[Session aggregate] -->|belongs to one| User[User aggregate]
     Session -->|captures| Version[Credentials version]
     User -->|has one current| Version
+    User -->|assigned to one| Role[Role aggregate]
+    Identity[Authenticated identity] -.->|derived from one| Session
+    Identity -.->|current account details| User
+    Identity -.->|current authority| Role
 ```
 
 ## Aggregates and entities
@@ -44,6 +49,35 @@ Session's identity alone does not establish authentication.
 | --- | --- | --- |
 | Session identity | Identity value | Nonempty identity of one Session. |
 
+## Derived values
+
+### Authenticated identity
+
+An authenticated identity describes who is acting through a Session and with
+what authority. It is derived from the Session each time it is needed and has no
+identity or lifecycle of its own. Holding an authenticated identity does not
+replace the Session: the identity is only as valid as the Session it was
+derived from.
+
+| Field | Domain value | Meaning and rules |
+| --- | --- | --- |
+| Session | [Session](#session) | The Session through which the User acts; it must authenticate its User at the moment of derivation. |
+| User | [User](users.md#user) | The Session's User with their current account details: names, email, phone, and Role. Contains no password credential. |
+| Role | [Role](users.md#role) | The User's current Role, whose permissions and super designation determine the identity's authority. |
+
+An authenticated identity can be derived only while its Session authenticates
+the User: the Session is unexpired, has not been ended, and holds the User's
+current [credentials version](users.md#account-and-authority-values), and the
+User still exists. The User's Role is read anew at each derivation, so changes
+to the Role, its permissions, or its super designation apply to existing
+Sessions from the next derivation on.
+
+The identity permits an action when its Role grants the corresponding
+[permission](users.md#account-and-authority-values): a Role with the super
+designation grants every defined permission, and an ordinary Role grants only
+its assigned permissions. Permissions are independent, so permission to manage
+something does not imply permission to view it.
+
 ## Invariants
 
 - A Session authenticates its User only while it is unexpired, has not been
@@ -60,3 +94,5 @@ Session's identity alone does not establish authentication.
   the User signs in again; signing in always begins a new Session.
 - Changes to a User's Role, its permissions, or its super designation affect
   authority during existing Sessions without ending them.
+- An authenticated identity exists only for a Session that authenticates its
+  User, and always carries that User's current Role.

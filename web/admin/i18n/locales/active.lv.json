@@ -33,6 +33,8 @@
     "other": "Navigācijas ceļš"
   },
   "common.total_found": {
+    "zero": "Kopā atrasts: {{.Count}}",
+    "one": "Kopā atrasts: {{.Count}}",
     "other": "Kopā atrasts: {{.Count}}"
   },
   "navigation.users": {
@@ -176,9 +178,6 @@
   "fields.languages": {
     "other": "{{.Label}} valodas"
   },
-  "fields.name_language": {
-    "other": "Nosaukums ({{.Language}})"
-  },
   "multiselect.empty": {
     "other": "Nav atbilstošu opciju."
   },
@@ -272,9 +271,6 @@
   "permissions.view_role": {
     "other": "Skatīt lomas"
   },
-  "errors.sign_in_form": {
-    "other": "Lai turpinātu, iesniedziet pieslēgšanās veidlapu."
-  },
   "errors.credentials_form": {
     "other": "Ievadiet derīgu e-pasta adresi un paroli."
   },
@@ -284,14 +280,8 @@
   "errors.invalid_session": {
     "other": "E-pasts, parole vai sesija nav derīga. Lūdzu, pieslēdzieties vēlreiz."
   },
-  "errors.access": {
-    "other": "Jums nav atļaujas piekļūt šai lapai."
-  },
   "errors.section": {
     "other": "Jums nav atļaujas skatīt šo sadaļu."
-  },
-  "errors.throttled": {
-    "other": "Pārāk daudz pieslēgšanās mēģinājumu. Mēģiniet vēlreiz pēc 15 minūtēm."
   },
   "errors.notifications": {
     "other": "Paziņojumi īslaicīgi nav pieejami. Pirms atkārtotas iesniegšanas pārlādējiet lapu."
@@ -343,13 +333,37 @@
   "validation.uuid": {
     "other": "Ievadiet derīgu UUID."
   },
-  "validation.phone": {
-    "other": "Ievadiet derīgu tālruņa numuru."
-  },
   "validation.too_long": {
     "other": "Šī vērtība ir pārāk gara."
   },
   "validation.role_name": {
     "other": "Ievadiet nosaukumu vismaz vienā valodā."
+  },
+  "document.title": {
+    "other": "{{.Page}} · Faryen administrācija"
+  },
+  "roles.delete_title": {
+    "other": "Dzēst lomu «{{.Name}}»"
+  },
+  "common.total_unknown": {
+    "other": "Kopā atrasts: –"
+  },
+  "pagination.current": {
+    "other": "{{.Page}} / {{.Pages}}"
+  },
+  "pagination.current_unknown": {
+    "other": "{{.Page}} / –"
+  },
+  "fields.translation": {
+    "other": "{{.Label}} ({{.Language}})"
+  },
+  "errors.sign_in_busy": {
+    "other": "Pašlaik tiek apstrādāts pārāk daudz pieslēgšanās mēģinājumu. Lūdzu, mēģiniet vēlreiz pēc brīža."
+  },
+  "common.full_name": {
+    "other": "{{.FirstName}} {{.LastName}}"
+  },
+  "errors.sign_out": {
+    "other": "Neizdevās izrakstīties. Lūdzu, mēģiniet vēlreiz."
   }
 }

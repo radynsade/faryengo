@@ -99,7 +99,7 @@ templ TranslationsInput(props TranslationsInputProps) {
 					hidden?={ field.Code != initialLanguage }
 				>
 					<label class={ "form-field", templ.KV("form-field--invalid", len(field.Errors) > 0 || len(props.Errors) > 0) } for={ props.ID + "-" + field.Code }>
-						<span class="form-field__label">{ props.Label } (<span lang={ field.Code }>{ field.Language }</span>)</span>
+						<span class="form-field__label">{ admini18n.T(ctx, "fields.translation", map[string]any{"Label": props.Label, "Language": field.Language}) }</span>
 						<input
 							class="form-field__input"
 							id={ props.ID + "-" + field.Code }

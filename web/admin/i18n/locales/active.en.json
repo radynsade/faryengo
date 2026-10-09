@@ -33,6 +33,7 @@
     "other": "Breadcrumbs"
   },
   "common.total_found": {
+    "one": "Total found: {{.Count}}",
     "other": "Total found: {{.Count}}"
   },
   "navigation.users": {
@@ -176,9 +177,6 @@
   "fields.languages": {
     "other": "{{.Label}} languages"
   },
-  "fields.name_language": {
-    "other": "Name ({{.Language}})"
-  },
   "multiselect.empty": {
     "other": "No matching options."
   },
@@ -272,9 +270,6 @@
   "permissions.view_role": {
     "other": "View roles"
   },
-  "errors.sign_in_form": {
-    "other": "Submit the sign-in form to continue."
-  },
   "errors.credentials_form": {
     "other": "Enter a valid email address and password."
   },
@@ -284,14 +279,8 @@
   "errors.invalid_session": {
     "other": "The email, password, or session is invalid. Please sign in again."
   },
-  "errors.access": {
-    "other": "You do not have permission to access this page."
-  },
   "errors.section": {
     "other": "You do not have permission to view this section."
-  },
-  "errors.throttled": {
-    "other": "Too many sign-in attempts. Please try again in 15 minutes."
   },
   "errors.notifications": {
     "other": "Notifications are temporarily unavailable. Please reload before submitting again."
@@ -342,13 +331,37 @@
   "validation.uuid": {
     "other": "Enter a valid UUID."
   },
-  "validation.phone": {
-    "other": "Enter a valid phone number."
-  },
   "validation.too_long": {
     "other": "This value is too long."
   },
   "validation.role_name": {
     "other": "Enter a name in at least one language."
+  },
+  "document.title": {
+    "other": "{{.Page}} · Faryen Admin"
+  },
+  "roles.delete_title": {
+    "other": "Delete role \"{{.Name}}\""
+  },
+  "common.total_unknown": {
+    "other": "Total found: –"
+  },
+  "pagination.current": {
+    "other": "{{.Page}} / {{.Pages}}"
+  },
+  "pagination.current_unknown": {
+    "other": "{{.Page}} / –"
+  },
+  "fields.translation": {
+    "other": "{{.Label}} ({{.Language}})"
+  },
+  "errors.sign_in_busy": {
+    "other": "Too many sign-in attempts are being processed. Please try again in a moment."
+  },
+  "common.full_name": {
+    "other": "{{.FirstName}} {{.LastName}}"
+  },
+  "errors.sign_out": {
+    "other": "Unable to sign out. Please try again."
   }
 }

@@ -6,7 +6,8 @@ import (
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 )
 
-// Home is the authenticated workspace landing page.
+// Home is the authenticated landing page; it links only to sections the
+// user may view.
 templ Home(props layouts.PanelProps) {
 	@layouts.Panel(props) {
 		<div class="panel-page">
@@ -14,26 +15,35 @@ templ Home(props layouts.PanelProps) {
 				<p class="card__eyebrow">{ admini18n.T(ctx, "common.your_workspace") }</p>
 				<h1 id="welcome-title">{ admini18n.T(ctx, "home.welcome", map[string]any{"Name": props.FirstName}) }</h1>
 				<p>{ admini18n.T(ctx, "home.description") }</p>
-				<div class="card__links">
-					@components.PageLink(props.BasePath + "/users") {
-						{ admini18n.T(ctx, "navigation.users") }
-					}
-					@components.PageLink(props.BasePath + "/roles") {
-						{ admini18n.T(ctx, "navigation.roles") }
-					}
-				</div>
+				if props.CanViewUsers || props.CanViewRoles {
+					<div class="card__links">
+						if props.CanViewUsers {
+							@components.PageLink(props.BasePath + "/users") {
+								{ admini18n.T(ctx, "navigation.users") }
+							}
+						}
+						if props.CanViewRoles {
+							@components.PageLink(props.BasePath + "/roles") {
+								{ admini18n.T(ctx, "navigation.roles") }
+							}
+						}
+					</div>
+				}
 			</section>
 		</div>
 	}
 }
 
-// PanelSection provides a destination for the sidebar until management screens exist.
+// PanelSection is a destination for sections without their own pages and for
+// errors that leave no other content to show.
 templ PanelSection(props layouts.PanelProps, message string) {
 	@layouts.Panel(props) {
-		<div class="panel-page">
-			<section class="card">
-				<p>{ message }</p>
-			</section>
-		</div>
+		if message != "" {
+			<div class="panel-page">
+				<section class="card">
+					<p>{ message }</p>
+				</section>
+			</div>
+		}
 	}
 }

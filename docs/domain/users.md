@@ -11,7 +11,6 @@ authenticated access is modeled in the [Security](security.md) domain.
 | User | Entity and aggregate root | Owns account details and a password credential; references one Role. |
 | Role | Entity and aggregate root | Owns a translated name, assigned permissions, and a super designation; may be referenced by many Users. |
 | Credentials snapshot | Domain snapshot | Combines a User with the current credentials version used to determine [Session](security.md#session) validity. |
-| Authenticated identity | Derived value object | Describes the current User and authority established through a valid [Session](security.md#session). |
 | User and role identities | Value objects | Identify their respective entities independently of mutable details. |
 | Email, phone, personal names, password, password credential | Value objects | Describe account values and their individual validity rules. |
 | Role name, permission, credentials version | Value objects | Describe translated naming, allowed actions, and the validity of existing credentials. |
@@ -24,8 +23,6 @@ flowchart LR
     User -->|has one current| Version[Credentials version]
     Snapshot[Credentials snapshot] -.->|captures| User
     Snapshot -.->|captures| Version
-    Identity[Authenticated identity] -.->|current account details| User
-    Identity -.->|current authority| Role
 ```
 
 ## Aggregates and entities
@@ -97,23 +94,13 @@ their content rather than a separate entity identity.
 Permissions are independent. Permission to manage Users or Roles does not
 implicitly grant permission to view them, and a Role's name grants no authority.
 
-### Authenticated identity
+### Authority during authenticated access
 
-An authenticated identity is a derived value describing the User and current
-authority, established through a valid [Session](security.md#session). It has
-no independent lifecycle and contains no password credential.
-Account details alone do not establish authentication.
-
-| Field | Domain value | Meaning and rules |
-| --- | --- | --- |
-| User | User identity | Identifies the authenticated User. |
-| Role | Role identity | Identifies the User's current Role. |
-| Permissions | Collection of permissions | Contains the Role's currently assigned permissions. |
-| Super designation | Yes or no | Reflects the Role's current designation; grants every defined permission when yes. |
-| First name | First name | Carries the User's current first name. |
-| Last name | Last name | Carries the User's current last name. |
-| Email | Email address | Carries the User's current mailbox address. |
-| Phone | Phone number | Carries the User's current contact number. |
+Who is acting through a [Session](security.md#session), and with what
+authority, is described by the Security domain's
+[authenticated identity](security.md#authenticated-identity). It carries the
+User's current account details and current Role; account details alone do not
+establish authentication.
 
 ## Credentials snapshot
 

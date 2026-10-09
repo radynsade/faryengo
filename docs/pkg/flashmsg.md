@@ -8,10 +8,11 @@ hashes.
 
 Applications own everything around the bag: they choose the session key, set
 cookies, pick the storage, and decide when messages are consumed. The admin
-integration in [`web/admin/flash_messages.go`](../../web/admin/flash_messages.go)
-selects sessions, manages anonymous cookies, and maps storage errors to HTTP
-responses. `cmd/server` constructs the store with the authentication Redis
-client and passes it to `admin.NewHandler` through `FlashSessionStorage`.
+integration in [`web/admin/utils/flashes.go`](../../web/admin/utils/flashes.go)
+selects sessions, manages guest cookies, and maps storage errors to HTTP
+responses. `cmd/server` constructs the store with the shared Redis client and
+passes it to `handlers.NewHandler` in `web/admin/handlers` as a
+`FlashSessionStorage`.
 
 Imports:
 
@@ -192,33 +193,33 @@ The admin uses these Redis names:
 
 | Purpose | Name | Meaning |
 | --- | --- | --- |
-| Authenticated `Session.Key` | `faryen:users:{userID}:session:sessionID` | Existing device-session hash, selected from the authenticated principal's user and session identities. |
-| Authenticated `Session.GenerationKey` | `faryen:users:{userID}:generation` | Current user-session generation; shares the device hash's `{userID}` Redis Cluster slot. |
-| Anonymous `Session.Key` | `faryen:web:admin:session:{randomID}` | Separate admin session identified by a random UUIDv7; `GenerationKey` is empty. |
-| Message hash field | `admin:flashes` | JSON bag in either session hash; other applications use their own `<application>:flashes` field. |
+| Signed-in `Session.Key` | `faryen:web:admin:flashes:session:{sessionID}` | Messages of one device Session, selected from the verified Session's internal identity. |
+| Guest `Session.Key` | `faryen:web:admin:flashes:guest:{randomID}` | Messages of a visitor who has not signed in, identified by a random UUIDv7. |
+| Message hash field | `admin:flashes` | JSON bag in the flash hash; other applications use their own `<application>:flashes` field. |
 
-Replace `userID`, `sessionID`, and `randomID` with their identifier values;
-the braces are literal Redis hash tags, not placeholder delimiters. The
-authenticated session identity is the internal device ID, not the opaque
-authentication cookie value. The storage accepts application-selected keys;
-these prefixes are admin conventions.
+Replace `sessionID` and `randomID` with their identifier values; the braces are
+literal Redis hash tags, not placeholder delimiters. The Session identity is the
+internal device ID, never the opaque authentication cookie value. Both kinds of
+flash session use the store's anonymous mode, so `GenerationKey` stays empty and
+each addition renews a 15-minute TTL. The distinct prefixes keep a guest cookie
+from ever naming a device Session's messages. The storage accepts
+application-selected keys; these prefixes are admin conventions.
 
-Select an authenticated device session from the request's verified identity,
-never from URL parameters. Do not use `notice` or `notice_name` query parameters
-to supply notifications. Flashes survive navigation and form submissions with
-the existing opaque session cookie; no extra authenticated cookie is needed.
-They share the session's TTL. Each storage operation checks generation and
-absolute expiration without extending the lifetime or recreating a missing,
-expired, or revoked session. Authentication still checks durable credentials
-and current permissions before protected handlers run.
+Select a signed-in flash session from the request's verified identity, never
+from URL parameters. Do not use `notice` or `notice_name` query parameters to
+supply notifications. Flashes survive navigation and form submissions with the
+existing opaque session cookie; no extra authenticated cookie is needed.
+Authentication runs before a signed-in flash session is used, so the messages of
+an ended, expired, or revoked Session can no longer be read, and they expire
+with their TTL.
 
-Before sign-in, use a separate anonymous session with an opaque HttpOnly cookie
+Before sign-in, use a separate guest session with an opaque HttpOnly cookie
 named `faryen_flash`, or `__Host-faryen_flash` with secure cookies. The admin uses
 SameSite Strict, its Secure policy, and a 15-minute TTL. Only adding a message
-creates the session; reading an empty guest page creates nothing. Anonymous
-sessions cannot access authenticated messages. Never store authentication
-tokens, submitted passwords, email addresses, or other submitted form values
-in flashes.
+creates the session; reading an empty guest page creates nothing. Guest
+sessions cannot access signed-in messages. Never store authentication tokens,
+submitted passwords, email addresses, or other submitted form values in
+flashes.
 
 ### Choosing and consuming messages
 

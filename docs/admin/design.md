@@ -254,6 +254,10 @@ rows, with muted label cells and permission badges matching the list. It retains
 copyable Name and UUID values, the shared super-role badge, and the delete
 confirmation dialog. These styles are scoped to `.role-view`; the role list,
 sidebar, typography, and color tokens are unchanged.
+Actions follow the user's authority: viewing the list and role details needs the
+view-roles permission, and the Create, Edit, and Delete actions, together with the
+confirmation dialog, appear only with the manage-roles permission. The sidebar and
+home page link only to sections the user may view.
 The roles collection initially renders its controls and a single loading row,
 with unknown totals and disabled pagination. HTMX loads `/roles/table` after
 the initial render and replaces only `#roles-list-table` with the populated

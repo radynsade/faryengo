@@ -32,6 +32,7 @@ Session lifetime, revocation, and outage behavior are described in
 | go-playground/validator | Structural validation of transport requests before they become application inputs. Domain validation remains separate. |
 | go-i18n | Admin interface message catalogs, localized messages, fallback translations, and pluralization. |
 | golang.org/x/text | Language identifiers used by interface localization. |
+| tdewolff/minify | Minimizes rendered admin HTML, both documents and partial responses, without changing attributes or behavior. |
 | google/uuid | Identity parsing and UUIDv7 generation. |
 | golang.org/x/crypto | Argon2id password hashing and verification. |
 | golang-jwt/jwt | JWT access and refresh token signing and verification with Ed25519. JWT support is separate from the admin's opaque browser sessions. |

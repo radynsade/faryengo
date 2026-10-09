@@ -58,3 +58,24 @@ func TestSessionValidate(t *testing.T) {
 		})
 	}
 }
+
+func TestIdentityCan(t *testing.T) {
+	tests := []struct {
+		name     string
+		identity *Identity
+		want     bool
+	}{
+		{"nil identity", nil, false},
+		{"granted", &Identity{Role: &users.Role{Permissions: users.Permissions{users.PermissionViewRole}}}, true},
+		{"not granted", &Identity{Role: &users.Role{}}, false},
+		{"super role", &Identity{Role: &users.Role{IsSuper: true}}, true},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := test.identity.Can(users.PermissionViewRole); got != test.want {
+				t.Fatalf("got %t, want %t", got, test.want)
+			}
+		})
+	}
+}

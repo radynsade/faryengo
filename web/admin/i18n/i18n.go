@@ -1,4 +1,3 @@
-// Package admini18n owns the admin interface catalogs, independently of domain translations.
 package admini18n
 
 import (
@@ -6,7 +5,6 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
 
@@ -14,28 +12,31 @@ import (
 	"golang.org/x/text/language"
 )
 
+//
+// Catalogs
+//
+
+// The catalogs are embedded, so a deployed binary needs no translation files.
+// English is the fallback for unknown locales and missing messages.
+
+const DefaultLanguage = "en"
+
 //go:embed locales/*.json
 var catalogs embed.FS
 
-var bundle = goi18n.NewBundle(language.English)
+var (
+	bundle    = goi18n.NewBundle(language.English)
+	supported = []supportedLanguage{
+		{code: "en", name: "English"},
+		{code: "lv", name: "Latviešu"},
+		{code: "ru", name: "Русский"},
+	}
+)
 
-type contextKey struct{}
-
-type requestLocale struct {
-	code      string
-	path      string
-	query     string
-	localizer *goi18n.Localizer
+type supportedLanguage struct {
+	code string
+	name string
 }
-
-type LanguageLink struct {
-	Code   string
-	Name   string
-	Href   string
-	Active bool
-}
-
-var supported = []struct{ code, name string }{{"en", "English"}, {"lv", "Latviešu"}, {"ru", "Русский"}}
 
 func init() {
 	bundle.RegisterUnmarshalFunc("json", json.Unmarshal)
@@ -47,37 +48,62 @@ func init() {
 	}
 }
 
-// WithRequest selects the interface locale from the route; unknown locales use English.
-func WithRequest(request *http.Request) context.Context {
-	code := "en"
+func Languages() []string {
+	codes := make([]string, 0, len(supported))
 
 	for _, item := range supported {
-		if item.code == request.PathValue("language") {
-			code = item.code
+		codes = append(codes, item.code)
+	}
+
+	return codes
+}
+
+//
+// Request locale
+//
+
+type contextKey struct{}
+
+type requestLocale struct {
+	code      string
+	path      string
+	query     string
+	localizer *goi18n.Localizer
+}
+
+// The locale keeps the request's path and query, so language links can point
+// to the same page.
+
+func WithLocale(ctx context.Context, code string, requestURL *url.URL) context.Context {
+	selected := DefaultLanguage
+
+	for _, item := range supported {
+		if item.code == code {
+			selected = item.code
 		}
 	}
 
-	return context.WithValue(request.Context(), contextKey{}, requestLocale{
-		code: code, path: request.URL.Path, query: request.URL.RawQuery,
-		localizer: goi18n.NewLocalizer(bundle, code),
-	})
-}
-
-func fromContext(ctx context.Context) requestLocale {
-	locale, found := ctx.Value(contextKey{}).(requestLocale)
-
-	if !found {
-		locale = requestLocale{code: "en", path: "/admin/en/sign-in", localizer: goi18n.NewLocalizer(bundle, "en")}
+	locale := requestLocale{
+		code:      selected,
+		path:      "/admin/" + selected + "/sign-in",
+		localizer: goi18n.NewLocalizer(bundle, selected),
 	}
 
-	return locale
+	if requestURL != nil {
+		locale.path, locale.query = requestURL.Path, requestURL.RawQuery
+	}
+
+	return context.WithValue(ctx, contextKey{}, locale)
 }
 
 func Language(ctx context.Context) string {
 	return fromContext(ctx).code
 }
 
-// T formats a catalog message, with optional named template values.
+//
+// Messages
+//
+
 func T(ctx context.Context, id string, data ...map[string]any) string {
 	config := &goi18n.LocalizeConfig{MessageID: id}
 
@@ -88,22 +114,31 @@ func T(ctx context.Context, id string, data ...map[string]any) string {
 	return translate(ctx, config)
 }
 
+// Count selects the plural form for the count and passes it to the message as
+// Count.
+
 func Count(ctx context.Context, id string, count int) string {
-	return translate(ctx, &goi18n.LocalizeConfig{MessageID: id, PluralCount: count, TemplateData: map[string]any{"Count": count}})
+	return translate(ctx, &goi18n.LocalizeConfig{
+		MessageID:    id,
+		PluralCount:  count,
+		TemplateData: map[string]any{"Count": count},
+	})
 }
 
-func translate(ctx context.Context, config *goi18n.LocalizeConfig) string {
-	text, err := fromContext(ctx).localizer.Localize(config)
+//
+// Language links
+//
 
-	// go-i18n can return the English fallback together with a missing-translation error.
-	if err != nil && text == "" {
-		text = config.MessageID
-	}
-
-	return text
+type LanguageLink struct {
+	Code   string
+	Name   string
+	Href   string
+	Active bool
 }
 
-// LanguageLinks preserves route parameters and filters, using only navigable GET routes.
+// Mutation-only routes have no page of their own, so their links lead to the
+// page the mutation started from.
+
 func LanguageLinks(ctx context.Context) []LanguageLink {
 	locale := fromContext(ctx)
 	parts := strings.Split(locale.path, "/")
@@ -126,8 +161,45 @@ func LanguageLinks(ctx context.Context) []LanguageLink {
 	for _, item := range supported {
 		parts[2] = item.code
 		href := (&url.URL{Path: strings.Join(parts, "/"), RawQuery: locale.query}).String()
-		links = append(links, LanguageLink{Code: item.code, Name: item.name, Href: href, Active: item.code == locale.code})
+
+		links = append(links, LanguageLink{
+			Code:   item.code,
+			Name:   item.name,
+			Href:   href,
+			Active: item.code == locale.code,
+		})
 	}
 
 	return links
+}
+
+//
+// Helpers
+//
+
+func fromContext(ctx context.Context) requestLocale {
+	locale, found := ctx.Value(contextKey{}).(requestLocale)
+
+	if !found {
+		locale = requestLocale{
+			code:      DefaultLanguage,
+			path:      "/admin/" + DefaultLanguage + "/sign-in",
+			localizer: goi18n.NewLocalizer(bundle, DefaultLanguage),
+		}
+	}
+
+	return locale
+}
+
+// go-i18n can return the fallback text together with a missing-translation
+// error, so only an empty result falls back to the message ID.
+
+func translate(ctx context.Context, config *goi18n.LocalizeConfig) string {
+	text, err := fromContext(ctx).localizer.Localize(config)
+
+	if err != nil && text == "" {
+		text = config.MessageID
+	}
+
+	return text
 }

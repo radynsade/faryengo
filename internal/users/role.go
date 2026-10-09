@@ -161,3 +161,10 @@ func (r *Role) Validate() error {
 
 	return err
 }
+
+// A super Role grants every permission; an ordinary Role grants only its
+// assigned permissions.
+
+func (r *Role) Grants(permission Permission) bool {
+	return r != nil && (r.IsSuper || slices.Contains(r.Permissions, permission))
+}

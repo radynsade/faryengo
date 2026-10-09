@@ -33,6 +33,9 @@
     "other": "Навигационная цепочка"
   },
   "common.total_found": {
+    "one": "Всего найдено: {{.Count}}",
+    "few": "Всего найдено: {{.Count}}",
+    "many": "Всего найдено: {{.Count}}",
     "other": "Всего найдено: {{.Count}}"
   },
   "navigation.users": {
@@ -176,9 +179,6 @@
   "fields.languages": {
     "other": "Языки поля «{{.Label}}»"
   },
-  "fields.name_language": {
-    "other": "Название ({{.Language}})"
-  },
   "multiselect.empty": {
     "other": "Нет подходящих вариантов."
   },
@@ -272,9 +272,6 @@
   "permissions.view_role": {
     "other": "Просматривать роли"
   },
-  "errors.sign_in_form": {
-    "other": "Чтобы продолжить, отправьте форму входа."
-  },
   "errors.credentials_form": {
     "other": "Введите корректный адрес электронной почты и пароль."
   },
@@ -284,14 +281,8 @@
   "errors.invalid_session": {
     "other": "Электронная почта, пароль или сеанс недействительны. Войдите ещё раз."
   },
-  "errors.access": {
-    "other": "У вас нет разрешения на доступ к этой странице."
-  },
   "errors.section": {
     "other": "У вас нет разрешения на просмотр этого раздела."
-  },
-  "errors.throttled": {
-    "other": "Слишком много попыток входа. Попробуйте через 15 минут."
   },
   "errors.notifications": {
     "other": "Уведомления временно недоступны. Обновите страницу перед повторной отправкой."
@@ -344,13 +335,37 @@
   "validation.uuid": {
     "other": "Введите корректный UUID."
   },
-  "validation.phone": {
-    "other": "Введите корректный номер телефона."
-  },
   "validation.too_long": {
     "other": "Это значение слишком длинное."
   },
   "validation.role_name": {
     "other": "Введите название хотя бы на одном языке."
+  },
+  "document.title": {
+    "other": "{{.Page}} · Администрирование Faryen"
+  },
+  "roles.delete_title": {
+    "other": "Удалить роль «{{.Name}}»"
+  },
+  "common.total_unknown": {
+    "other": "Всего найдено: –"
+  },
+  "pagination.current": {
+    "other": "{{.Page}} / {{.Pages}}"
+  },
+  "pagination.current_unknown": {
+    "other": "{{.Page}} / –"
+  },
+  "fields.translation": {
+    "other": "{{.Label}} ({{.Language}})"
+  },
+  "errors.sign_in_busy": {
+    "other": "Сейчас обрабатывается слишком много попыток входа. Попробуйте ещё раз чуть позже."
+  },
+  "common.full_name": {
+    "other": "{{.FirstName}} {{.LastName}}"
+  },
+  "errors.sign_out": {
+    "other": "Не удалось выйти. Попробуйте ещё раз."
   }
 }

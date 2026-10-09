@@ -20,6 +20,12 @@ Use [code style](style.md) for organization within a file and
   (`internal/users/role_repository.go:13-150`).
 - Put the PostgreSQL implementation in `<domain>/pgxgoqu/<entity>_repository.go`
   as a `<Entity>Repository` struct.
+- Put a domain service in `<service>.go`, named after the service, as a
+  concrete struct with a `New<Service>` constructor that accepts the domain
+  contracts it needs (`internal/security/identity_resolver.go`). A domain
+  service holds domain rules that span several aggregates and depends on no
+  infrastructure or authentication mechanism; callers use it directly rather
+  than through each mechanism that produces its input.
 
 The following tree illustrates these rules with an imaginary catalog domain:
 

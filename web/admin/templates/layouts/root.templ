@@ -1,9 +1,12 @@
 package layouts
 
-import admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+import (
+	"github.com/radynsade/faryengo/web/admin/assets"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+)
 
-import "github.com/radynsade/faryengo/web/admin/assets"
-
+// Root is the complete document for first loads, history restoration without
+// a cache, and browsers without JavaScript.
 templ Root(title string) {
 	<!DOCTYPE html>
 	<html lang={ admini18n.Language(ctx) }>
@@ -17,14 +20,15 @@ templ Root(title string) {
 	</html>
 }
 
-// Head is shared by full documents and fragments so navigation preserves common assets.
+// Head is shared by documents and partial responses, so a navigation merges
+// the head: shared assets stay and only page-specific elements change.
 templ Head(title string) {
 	<head hx-head="merge">
 		<meta charset="UTF-8"/>
 		<meta name="robots" content="noindex, nofollow"/>
 		<meta name="viewport" content="width=device-width, initial-scale=1"/>
 		<meta name="color-scheme" content="light"/>
-		<title id="page-title">{ title }</title>
+		<title>{ title }</title>
 		for _, asset := range assets.Preloads() {
 			if asset.As == "font" {
 				<link rel="preload" href={ templ.URL(asset.URL) } as="font" type={ asset.Type } crossorigin="anonymous"/>
@@ -37,14 +41,14 @@ templ Head(title string) {
 	</head>
 }
 
-// Page renders a full document for direct browser navigation.
 templ Page(title string, content templ.Component) {
 	@Root(title) {
 		@content
 	}
 }
 
-// PageFragment supplies the head and page content for an HTMX navigation swap.
+// PageFragment is the partial form of a page: its head and its content
+// region, without the document shell.
 templ PageFragment(title string, content templ.Component) {
 	@Head(title)
 	@content
