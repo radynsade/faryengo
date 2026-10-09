@@ -1,8 +1,8 @@
 # Users
 
 The Users domain models users, their credentials, and the authority granted
-through roles. Authentication establishes identity; authorization determines
-whether an action is permitted.
+through roles. Authorization determines whether an action is permitted;
+authenticated access is modeled in the [Security](security.md) domain.
 
 ## Model structure
 
@@ -10,20 +10,20 @@ whether an action is permitted.
 | --- | --- | --- |
 | User | Entity and aggregate root | Owns account details and a password credential; references one Role. |
 | Role | Entity and aggregate root | Owns a translated name, assigned permissions, and a super designation; may be referenced by many Users. |
-| Session | Entity and aggregate root | Represents one device's authenticated access; references one User and the credential revision accepted at sign-in. |
-| Authentication state | Domain snapshot | Combines a User with the current credential revision used to determine session validity. |
-| Authenticated identity | Derived value object | Describes the current User and authority established through a valid Session. |
-| User, role, and session identities | Value objects | Identify their respective entities independently of mutable details. |
+| Credentials snapshot | Domain snapshot | Combines a User with the current credentials version used to determine [Session](security.md#session) validity. |
+| Authenticated identity | Derived value object | Describes the current User and authority established through a valid [Session](security.md#session). |
+| User and role identities | Value objects | Identify their respective entities independently of mutable details. |
 | Email, phone, personal names, password, password credential | Value objects | Describe account values and their individual validity rules. |
-| Role name, permission, credential revision | Value objects | Describe translated naming, allowed actions, and the validity of existing credentials. |
+| Role name, permission, credentials version | Value objects | Describe translated naming, allowed actions, and the validity of existing credentials. |
 
 ```mermaid
 flowchart LR
     User[User aggregate] -->|assigned to one| Role[Role aggregate]
     Role -->|owns| Name[Translated role name]
     Role -->|grants| Permission[Permissions]
-    Session[Session aggregate] -->|belongs to one| User
-    Session -->|captures| Revision[Credential revision]
+    User -->|has one current| Version[Credentials version]
+    Snapshot[Credentials snapshot] -.->|captures| User
+    Snapshot -.->|captures| Version
     Identity[Authenticated identity] -.->|current account details| User
     Identity -.->|current authority| Role
 ```
@@ -52,6 +52,8 @@ own lifecycle and is outside the User aggregate.
 | Updated at | Moment | Yes | Records the latest account change; an update based on outdated details must not overwrite a newer change. |
 
 Changing names, phone, or Role does not require changing the password.
+Changing the email or password replaces the User's credentials version, which
+ends the User's existing [Sessions](security.md#session).
 
 ### Role
 
@@ -68,25 +70,8 @@ is limited to 100 characters.
 
 A Role assigned to any User cannot be deleted. An ordinary Role grants only its
 assigned permissions. Changes to a User's Role, its permissions, or its super
-designation affect authority during existing Sessions.
-
-### Session
-
-A Session represents one User's authenticated access from a device. A User may
-have multiple Sessions. Ending one Session does not end the User's other
-Sessions; ending all Sessions invalidates all existing access for that User.
-
-| Field | Domain value | Required | Meaning and rules |
-| --- | --- | --- | --- |
-| Identity | Session identity | Yes | Distinguishes this device Session from other Sessions; nonempty. |
-| User | User identity | Yes | References the User whose identity was established at sign-in. |
-| Credential revision | Credential revision | Yes | Captures the account's credential revision at sign-in; must match the current revision for authentication. |
-| Expires at | Moment | Yes | Defines the deadline after which the Session cannot authenticate the User. |
-
-A Session must be unexpired and unrevoked to establish an authenticated
-identity. A missing or deleted User cannot be authenticated. Changes to email
-or password and account-wide sign-out invalidate existing Sessions. Signing in
-again does not restore an invalidated Session.
+designation affect authority during existing
+[Sessions](security.md#session).
 
 ## Value objects
 
@@ -99,7 +84,6 @@ their content rather than a separate entity identity.
 | --- | --- | --- |
 | User identity | Identity value | Nonempty identity of one User. |
 | Role identity | Identity value | Nonempty identity of one Role. |
-| Session identity | Identity value | Nonempty identity of one Session. |
 | Email address | Mailbox address | Identifies exactly one mailbox; no display name or surrounding whitespace. |
 | Phone number | International number | A plus sign followed by 2 to 15 digits; first digit nonzero; no spaces or punctuation. |
 | First name | Name text | Valid text with a non-whitespace character; at most 100 characters. |
@@ -108,7 +92,7 @@ their content rather than a separate entity identity.
 | Password credential | Verification value | Nonempty value used to verify a password; distinct from the password supplied by the User. |
 | Role name | Translated text | At least one translation; each is nonblank and at most 100 characters. |
 | Permission | Authorized action | One of managing Users, viewing Users, managing Roles, or viewing Roles. |
-| Credential revision | Revision identity | Nonempty value identifying the account's current authentication state; a changed revision invalidates Sessions holding the previous value. |
+| Credentials version | Version identity | Nonempty value identifying the current state of the User's email and password; replaced whenever either changes or all of the User's Sessions end, and never reused. A replaced version invalidates [Sessions](security.md#session) holding it. |
 
 Permissions are independent. Permission to manage Users or Roles does not
 implicitly grant permission to view them, and a Role's name grants no authority.
@@ -116,7 +100,8 @@ implicitly grant permission to view them, and a Role's name grants no authority.
 ### Authenticated identity
 
 An authenticated identity is a derived value describing the User and current
-authority. It has no independent lifecycle and contains no password credential.
+authority, established through a valid [Session](security.md#session). It has
+no independent lifecycle and contains no password credential.
 Account details alone do not establish authentication.
 
 | Field | Domain value | Meaning and rules |
@@ -130,13 +115,15 @@ Account details alone do not establish authentication.
 | Email | Email address | Carries the User's current mailbox address. |
 | Phone | Phone number | Carries the User's current contact number. |
 
-## Authentication state
+## Credentials snapshot
 
-Authentication state describes the account and credential revision against
-which a Session is evaluated. It is a snapshot of the User, not another User
-entity, and knowing it alone does not establish authentication.
+A credentials snapshot describes a User together with the credentials version
+current at the same moment, so the password credential it carries is the one
+that version describes. It is a snapshot of the User, not another User entity,
+and knowing it alone does not establish authentication. A Session begun from a
+snapshot captures its credentials version.
 
 | Field | Domain value | Meaning and rules |
 | --- | --- | --- |
 | User | User | Describes the account whose credentials are being checked. |
-| Credential revision | Credential revision | Identifies the current authentication state; Sessions with another revision are invalid. |
+| Credentials version | Credentials version | Identifies the state of the User's email and password at the moment of the snapshot; Sessions with another version are invalid. |

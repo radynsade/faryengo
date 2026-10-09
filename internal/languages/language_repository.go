@@ -10,6 +10,7 @@ var (
 	ErrLanguageAlreadyExists         = errors.New("language already exists")
 	ErrFallbackLanguageAlreadyExists = errors.New("fallback language already exists")
 	ErrFallbackLanguageAlreadyInUse  = errors.New("fallback language already in use")
+	ErrLanguageInUse                 = errors.New("language is used by translations")
 )
 
 type ErrLanguageCreateFailed interface {

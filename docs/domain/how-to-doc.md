@@ -5,8 +5,8 @@ of a domain. It must explain what those concepts mean and what makes them valid
 independently of the software used to implement them.
 
 Use these conventions for domain guides in this directory. The
-[Users](users.md), [Languages](languages.md), and [Budget](budget.md)
-documents follow this structure.
+[Users](users.md), [Security](security.md), [Languages](languages.md), and
+[Budget](budget.md) documents follow this structure.
 
 ## Scope and language
 

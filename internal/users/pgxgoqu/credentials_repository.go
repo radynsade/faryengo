@@ -97,7 +97,8 @@ func (r *CredentialsSnapshotRepository) FindVersionByUserID(
 }
 
 // The database generates the new version, so it is never chosen by the caller
-// and never repeats an earlier one.
+// and never repeats an earlier one. The rotation keeps updated_at, so it never
+// conflicts with a concurrent update of the user.
 
 func (r *CredentialsSnapshotRepository) RotateVersion(
 	ctx context.Context,

@@ -20,6 +20,7 @@ in the Go guides.
 | [docs/go/tests.md](docs/go/tests.md) | Test placement, table-driven tests, goroutine leak detection, and test commands. |
 | [docs/domain/how-to-doc.md](docs/domain/how-to-doc.md) | Domain model documentation structure, schemas, field descriptions, and invariants. |
 | [docs/domain/users.md](docs/domain/users.md) | Users, roles, permissions, and their domain rules. |
+| [docs/domain/security.md](docs/domain/security.md) | Sessions, authenticated access, and how access ends. |
 | [docs/domain/languages.md](docs/domain/languages.md) | Language catalog, fallback languages, and translation rules. |
 | [docs/domain/budget.md](docs/domain/budget.md) | Budget concepts, relationships, calculations, and invariants. |
 | [docs/admin/design.md](docs/admin/design.md) | The admin panel's visual system, reusable components, styling conventions, layouts, accessibility, and rendering behavior. |

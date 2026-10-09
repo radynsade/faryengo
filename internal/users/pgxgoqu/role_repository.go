@@ -270,7 +270,7 @@ func (r *RoleRepository) Find(
 
 	if r == nil || r.pool == nil {
 		err = pgxdb.ErrNilDB
-	} else if validationErr := validateRoleQuery(query); validationErr != nil {
+	} else if validationErr := query.Validate(); validationErr != nil {
 		err = fmt.Errorf("failed to find roles: %w", validationErr)
 	} else {
 		sql, args, buildErr := roleFilterDataset(query.Filter).
@@ -588,20 +588,6 @@ func roleOrder(query users.RoleQuery) []exp.OrderedExpression {
 	}
 
 	return order
-}
-
-func validateRoleQuery(query users.RoleQuery) error {
-	err := query.Validate()
-
-	if err == nil {
-		err = query.SortBy.Validate()
-	}
-
-	if err == nil && (query.Limit == 0 || query.Page == 0) {
-		err = users.ErrInvalidRoleQuery
-	}
-
-	return err
 }
 
 func likeSubstring(value string) string {

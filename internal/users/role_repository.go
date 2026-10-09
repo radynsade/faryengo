@@ -107,8 +107,20 @@ var ErrInvalidRoleQuery = errors.New("invalid role query")
 
 type RoleQuery domquery.Query[RoleFilter, RoleSort]
 
+// Page is 1-based, and both Limit and Page must be set.
+
 func (q RoleQuery) Validate() error {
-	return q.Filter.Validate()
+	err := q.Filter.Validate()
+
+	if err == nil {
+		err = q.SortBy.Validate()
+	}
+
+	if err == nil && (q.Limit == 0 || q.Page == 0) {
+		err = ErrInvalidRoleQuery
+	}
+
+	return err
 }
 
 //

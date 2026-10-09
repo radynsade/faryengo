@@ -48,7 +48,7 @@ delete it. Roles assigned to users cannot be deleted.
 
 Provide an email, first name, last name, password, international phone number,
 and the UUID of an existing role, in that order. Emails must be unique and
-passwords must contain at least eight characters.
+passwords must contain at least six characters.
 
 Creation prints the new user UUID. Use that UUID to delete the user. User and
 role UUID arguments must use the standard hyphenated format and cannot be the

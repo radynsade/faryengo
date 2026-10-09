@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"go.uber.org/goleak"
 
@@ -67,6 +68,38 @@ func TestFindByCodeForUpdateRequiresTransaction(t *testing.T) {
 
 			if !errors.Is(findErr, test.want) || language != nil {
 				t.Fatalf("got %v, %v; want nil, %v", language, findErr, test.want)
+			}
+		})
+	}
+}
+
+func TestMapLanguageError(t *testing.T) {
+	for _, tt := range []struct {
+		name       string
+		code       string
+		constraint string
+		want       error
+	}{
+		{"duplicate code", "23505", "language_pkey", languages.ErrLanguageAlreadyExists},
+		{"second fallback", "23505", "language_is_fallback_true", languages.ErrFallbackLanguageAlreadyExists},
+		{"fallback in use", "23514", "language_fallback_in_use", languages.ErrFallbackLanguageAlreadyInUse},
+		{"language in use", "23503", "translation_language_code_fkey", languages.ErrLanguageInUse},
+		{"unrelated constraint", "23503", "other_fkey", nil},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			postgresErr := &pgconn.PgError{Code: tt.code, ConstraintName: tt.constraint}
+			err := mapLanguageError(postgresErr)
+
+			if !errors.Is(err, postgresErr) {
+				t.Fatalf("mapLanguageError() = %v, want the original cause preserved", err)
+			}
+
+			if tt.want != nil && !errors.Is(err, tt.want) {
+				t.Fatalf("mapLanguageError() = %v, want %v", err, tt.want)
+			}
+
+			if tt.want == nil && err != error(postgresErr) {
+				t.Fatalf("mapLanguageError() = %v, want the error unchanged", err)
 			}
 		})
 	}

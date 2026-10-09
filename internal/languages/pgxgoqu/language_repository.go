@@ -445,6 +445,8 @@ func mapLanguageError(err error) error {
 			result = errors.Join(languages.ErrLanguageAlreadyExists, err)
 		case postgresErr.Code == "23514" && postgresErr.ConstraintName == "language_fallback_in_use":
 			result = errors.Join(languages.ErrFallbackLanguageAlreadyInUse, err)
+		case postgresErr.Code == "23503" && postgresErr.ConstraintName == "translation_language_code_fkey":
+			result = errors.Join(languages.ErrLanguageInUse, err)
 		}
 	}
 
