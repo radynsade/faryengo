@@ -174,8 +174,7 @@ page hooks alongside it.
 The primary variant is a filled accent button for actions such as Create and
 Save. The secondary variant has muted text, a white surface, and a line border;
 hover uses accent text and a soft accent background without changing the border.
-Filter, Sign out, and ordinary row actions use this same recipe. Sign out keeps
-the account block's full-width geometry. The filled danger variant is used in
+Filter and ordinary row actions use this same recipe. The filled danger variant is used in
 confirmation, detail, and edit actions; the danger-outline recipe gives row Delete its
 red text and pale red hover. Button dimensions and color variants are separate
 decisions.
@@ -235,16 +234,21 @@ change. Without JavaScript, the same failure renders the whole page.
 ## Layout and page responsibilities
 
 The reusable `LanguageSwitcher` renders native locale links in the sidebar and
-authentication layout. It uses shared button tokens, with an accent treatment for
-the selected locale, and wraps on narrow screens. Layouts own its placement:
-the sidebar places it after navigation, and the authentication panel separates it
-from the form with a border. Its complete layout is server-rendered. All interface
+authentication layout. It joins the links into one full-width control on a pale
+track, with the selected locale as a raised white segment in accent text. Layouts own its placement:
+the sidebar places it in its footer above the account, and the authentication
+panel separates it from the form with a border. Its complete layout is server-rendered. All interface
 copy, including accessible labels and interactive widget messages, uses the
 embedded go-i18n catalogs; see [admin-i18n.md](admin-i18n.md).
 
 `layouts/_panel.scss` owns the authenticated shell: a sticky, scrollable sidebar,
-the account card, navigation, skip link, main area, and optional `.panel-page`
-inset. At 720px and below it becomes a header with a two-column menu. The main
+navigation, the account row, skip link, main area, and optional `.panel-page`
+inset. The sidebar stacks the brand, an uppercase section label, and the menu;
+the active link carries an accent marker at the sidebar edge. Its footer holds
+the language switcher and, below a divider, the account row: a decorative
+initials avatar (`--avatar-size`), the truncated name and email, and an
+icon-only Sign out button with a localized label and a pale red hover.
+At 720px and below it becomes a header with a two-column menu. The main
 area has no shared padding or width limit, allowing collection tables to fill it.
 
 The panel layout has two navigation regions. `#page-content` is the whole layout
@@ -255,7 +259,7 @@ The sign-out form targets `#page-content` explicitly, because it leaves the
 dashboard. A request targeting `#panel-main` receives only the head and the
 content area; the menu (`#panel-menu`), whose active link follows the section,
 and the sidebar language links (`#panel-languages`), which keep the current page
-and query, arrive as out-of-band morphs. The brand, account card, and sign-out
+and query, arrive as out-of-band morphs. The brand, account row, and sign-out
 form are never sent again. If such a request ends on a page with another layout,
 the server retargets the response to `#page-content`.
 
