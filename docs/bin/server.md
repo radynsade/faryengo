@@ -1,6 +1,6 @@
 # Server
 
-Use `bin/server` to serve the admin application. Set configuration in the
+Use `bin/server` to serve the admin and office applications. Set configuration in the
 environment or an optional `.env` file in the working directory. Existing
 environment values take precedence over the file.
 
@@ -34,6 +34,13 @@ Create the initial language, role, and user with the [CLI](cli.md). Open
 `/admin/<language>/sign-in` on the server's public address, replacing
 `<language>` with a supported interface language code, and sign in with the
 user's email and password.
+
+The office application is served at `/office/<language>`; `/office` redirects
+to English. Users sign in at `/office/<language>/sign-in` with the same email
+and password as the admin panel. The office keeps its own session cookie, so
+signing in to one application does not sign in to the other. The dashboard has
+Overview, Budgets, Transactions, Goals, Reports, and Settings pages, which are
+empty for now; a visitor who is not signed in is sent to the sign-in page.
 
 Press Ctrl+C or send SIGTERM to stop the server gracefully. Startup and runtime
 failures are reported with a nonzero exit status.

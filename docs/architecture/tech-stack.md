@@ -55,6 +55,9 @@ components through domain contracts, as described in
 | Idiomorph | Morphs returned markup into the existing page and preserves reusable elements during HTMX updates. |
 | Tabler Icons webfont | Admin interface icons supplied through CSS and font assets. |
 
+The office frontend in `web/office/assets` uses the same stack, without the
+icon font.
+
 HTML is rendered by Go and templ. TypeScript handles browser interactions;
 HTMX connects those interactions to server-rendered responses. Interface
 translation catalogs are distinct from translated domain values.

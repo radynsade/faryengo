@@ -1,0 +1,62 @@
+package pages
+
+import (
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
+	"github.com/radynsade/faryengo/web/office/templates/layouts"
+)
+
+// SignInFormID names the region a failed in-page submission replaces.
+const SignInFormID = "sign-in-form"
+
+type SignInProps struct {
+	Action      string
+	Email       string
+	Error       string
+	FieldErrors map[string]string
+}
+
+templ SignIn(props SignInProps) {
+	@layouts.AuthLayout(officei18n.T(ctx, "auth.welcome"), officei18n.T(ctx, "auth.description")) {
+		@SignInForm(props)
+	}
+}
+
+// SignInForm is the region a failed submission replaces in place: the
+// form-wide error and the fields. The password is never rendered back.
+templ SignInForm(props SignInProps) {
+	<form
+		id={ SignInFormID }
+		class="form"
+		method="post"
+		action={ templ.URL(props.Action) }
+		novalidate
+		{ components.FormAttributes()... }
+	>
+		@components.FormAlert(props.Error)
+		@components.TextInput(components.TextInputProps{
+			ID:           "email",
+			Name:         "email",
+			Type:         "email",
+			Label:        officei18n.T(ctx, "fields.email"),
+			Placeholder:  officei18n.T(ctx, "fields.email_placeholder"),
+			Autocomplete: "username",
+			Value:        props.Email,
+			Required:     true,
+			Error:        props.FieldErrors["email"],
+		})
+		@components.PasswordInput(components.TextInputProps{
+			ID:           "password",
+			Name:         "password",
+			Label:        officei18n.T(ctx, "fields.password"),
+			Placeholder:  officei18n.T(ctx, "fields.password_placeholder"),
+			Autocomplete: "current-password",
+			Required:     true,
+			Error:        props.FieldErrors["password"],
+		})
+		<button class="button" type="submit">
+			{ officei18n.T(ctx, "auth.sign_in") }
+			@components.Icon("arrow-right")
+		</button>
+	</form>
+}

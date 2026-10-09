@@ -1,0 +1,119 @@
+{
+  "common.brand": {
+    "other": "Faryen"
+  },
+  "common.language": {
+    "other": "Язык"
+  },
+  "document.title": {
+    "other": "{{.Page}} · Faryen"
+  },
+  "auth.sign_in": {
+    "other": "Войти"
+  },
+  "auth.welcome": {
+    "other": "С возвращением"
+  },
+  "auth.description": {
+    "other": "Войдите, чтобы управлять бюджетом и видеть, куда уходят деньги."
+  },
+  "auth.showcase_title": {
+    "other": "Ваши деньги — в полном порядке"
+  },
+  "auth.showcase_text": {
+    "other": "Планируйте бюджет, отслеживайте расходы и следите за целями в одном месте."
+  },
+  "auth.point_plan": {
+    "other": "Планируйте бюджет на месяц"
+  },
+  "auth.point_track": {
+    "other": "Отслеживайте каждую трату"
+  },
+  "auth.point_goals": {
+    "other": "Достигайте целей накоплений"
+  },
+  "fields.email": {
+    "other": "Эл. почта"
+  },
+  "fields.email_placeholder": {
+    "other": "vy@example.com"
+  },
+  "fields.password": {
+    "other": "Пароль"
+  },
+  "fields.password_placeholder": {
+    "other": "Введите пароль"
+  },
+  "fields.show_password": {
+    "other": "Показать пароль"
+  },
+  "fields.hide_password": {
+    "other": "Скрыть пароль"
+  },
+  "nav.overview": {
+    "other": "Обзор"
+  },
+  "nav.budgets": {
+    "other": "Бюджеты"
+  },
+  "nav.transactions": {
+    "other": "Операции"
+  },
+  "nav.goals": {
+    "other": "Цели"
+  },
+  "nav.reports": {
+    "other": "Отчёты"
+  },
+  "nav.settings": {
+    "other": "Настройки"
+  },
+  "dashboard.navigation": {
+    "other": "Главное меню"
+  },
+  "dashboard.open_menu": {
+    "other": "Открыть меню"
+  },
+  "dashboard.close_menu": {
+    "other": "Закрыть меню"
+  },
+  "auth.sign_out": {
+    "other": "Выйти"
+  },
+  "errors.invalid_credentials": {
+    "other": "Неверный адрес эл. почты или пароль."
+  },
+  "errors.sign_in_busy": {
+    "other": "Сейчас входит слишком много людей. Попробуйте ещё раз через минуту."
+  },
+  "errors.sign_in_unavailable": {
+    "other": "Вход временно недоступен. Попробуйте позже."
+  },
+  "errors.form": {
+    "other": "Не удалось прочитать форму. Обновите страницу и попробуйте ещё раз."
+  },
+  "errors.cross_origin": {
+    "other": "Запрос пришёл с другого сайта и был заблокирован."
+  },
+  "errors.sign_out": {
+    "other": "Не удалось выйти. Попробуйте ещё раз."
+  },
+  "validation.required": {
+    "other": "Заполните это поле."
+  },
+  "validation.email": {
+    "other": "Введите корректный адрес эл. почты."
+  },
+  "validation.too_long": {
+    "other": "Слишком длинное значение."
+  },
+  "validation.invalid": {
+    "other": "Недопустимое значение."
+  },
+  "navigation.error": {
+    "other": "Не удалось загрузить страницу. Проверьте подключение и попробуйте ещё раз."
+  },
+  "navigation.skip": {
+    "other": "Перейти к содержимому"
+  }
+}

@@ -1,0 +1,23 @@
+package components
+
+import officei18n "github.com/radynsade/faryengo/web/office/i18n"
+
+// LanguageSwitcher keeps the current page and query. Switching the language
+// is the one deliberate full navigation, because every text on the page,
+// including the document language, changes.
+templ LanguageSwitcher() {
+	<nav class="language-switcher" aria-label={ officei18n.T(ctx, "common.language") }>
+		for _, item := range officei18n.LanguageLinks(ctx) {
+			<a
+				class="language-switcher__link"
+				href={ templ.URL(item.Href) }
+				lang={ item.Code }
+				hreflang={ item.Code }
+				hx-boost="false"
+				if item.Active {
+					aria-current="true"
+				}
+			>{ item.Name }</a>
+		}
+	</nav>
+}

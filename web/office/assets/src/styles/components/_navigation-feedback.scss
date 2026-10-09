@@ -1,0 +1,41 @@
+.navigation-error {
+	position: fixed;
+	bottom: 1rem;
+	left: 50%;
+	z-index: 50;
+	width: max-content;
+	max-width: calc(100% - 2rem);
+	margin: 0;
+	padding: 0.625rem 1rem;
+	border-radius: var(--radius-md);
+	background: var(--color-ink);
+	color: var(--color-surface);
+	font-weight: 600;
+	box-shadow: var(--shadow-soft);
+	transform: translateX(-50%);
+}
+
+.skip-link {
+	position: fixed;
+	top: 0.75rem;
+	left: 0.75rem;
+	z-index: 60;
+	padding: 0.5rem 0.875rem;
+	border-radius: var(--radius-md);
+	background: var(--color-primary);
+	color: var(--color-on-primary);
+	font-weight: 700;
+	text-decoration: none;
+	transform: translateY(-200%);
+
+	&:focus {
+		transform: none;
+	}
+}
+
+// Request indicators: a pending submission dims its button.
+.htmx-request .button,
+.button[disabled] {
+	opacity: 0.7;
+	cursor: progress;
+}

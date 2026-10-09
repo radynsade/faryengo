@@ -38,7 +38,7 @@ styles/
     _collection.scss        Toolbars, action groups, tag lists, pagination
     _tables.scss            Scroll regions, tables, sort links
     _filter-menu.scss       Collapsible filter popover
-    _details.scss           Responsive definition lists
+    _details.scss           Bordered detail rows with a shared label column
     _copy-value.scss        Inline clipboard controls for scalar values
     _feedback.scss          Badges and inline notices
     _navigation-feedback.scss  Navigation failure toast
@@ -166,7 +166,7 @@ page hooks alongside it.
 | Collection layout | `.list-toolbar`, `__controls`, `.action-group`, `.tag-list`, `.pagination`, `__current` |
 | Tables | `.data-table-scroll`, `.data-table`, `--fixed`, `__actions`, `__empty`, `__loading`, `__spinner`, `.table-sort`; page rules own domain-specific column widths |
 | Filters | `.filter-menu`, `__form`; native `details` and `summary` remain usable without JavaScript |
-| Details | `.details-list`; semantic `dl`, `dt`, and `dd` elements; role-view permissions use the same badges as the role list |
+| Details | `.details-list`, `__row`; semantic `dl` with one `div` per `dt`/`dd` pair; rows are subgrids, so the label column fits the longest label (wrapping past 40% of the width) and stacks above values on phones; role-view permissions use the same badges as the role list |
 | Copyable values | `CopyValue` and `.copy-value`; inline scalar values with Tabler `copy` on hover/focus and `copy-check` after successful copying; localized clipboard status and keyboard activation |
 | Status | `.badge`, `--negative`; `.notice`, `--error` for inline feedback |
 | Dialogs | `.admin-dialog` is the shell; `.confirm-delete` and `.success-dialog` own their content |

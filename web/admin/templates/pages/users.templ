@@ -418,8 +418,8 @@ templ UserView(props UserViewProps) {
 							}
 						}
 					</header>
-					<dl class="user-view__details">
-						<div class="user-view__row">
+					<dl class="details-list">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.first_name") }</dt>
 							<dd>
 								<div class="tag-list">
@@ -430,41 +430,41 @@ templ UserView(props UserViewProps) {
 								</div>
 							</dd>
 						</div>
-						<div class="user-view__row">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.last_name") }</dt>
 							<dd>
 								@components.CopyValue(props.User.LastName, admini18n.T(ctx, "fields.last_name"))
 							</dd>
 						</div>
-						<div class="user-view__row">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.uuid") }</dt>
 							<dd>
 								@components.CopyValue(props.User.ID, admini18n.T(ctx, "fields.uuid"))
 							</dd>
 						</div>
-						<div class="user-view__row">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.email") }</dt>
 							<dd>
 								@components.CopyValue(props.User.Email, admini18n.T(ctx, "fields.email"))
 							</dd>
 						</div>
-						<div class="user-view__row">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.phone") }</dt>
 							<dd>
 								@components.CopyValue(props.User.Phone, admini18n.T(ctx, "fields.phone"))
 							</dd>
 						</div>
-						<div class="user-view__row">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.role") }</dt>
 							<dd>
 								@UserRole(props.Panel.BasePath, props.User, props.CanViewRoles)
 							</dd>
 						</div>
-						<div class="user-view__row">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.created_at") }</dt>
 							<dd>{ props.User.CreatedAt }</dd>
 						</div>
-						<div class="user-view__row">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.updated_at") }</dt>
 							<dd>{ props.User.UpdatedAt }</dd>
 						</div>

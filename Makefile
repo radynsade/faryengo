@@ -5,8 +5,12 @@
 web/admin/assets/node_modules/.package-lock.json: web/admin/assets/package.json web/admin/assets/package-lock.json
 	npm ci --prefix web/admin/assets
 
-assets: web/admin/assets/node_modules/.package-lock.json
+web/office/assets/node_modules/.package-lock.json: web/office/assets/package.json web/office/assets/package-lock.json
+	npm ci --prefix web/office/assets
+
+assets: web/admin/assets/node_modules/.package-lock.json web/office/assets/node_modules/.package-lock.json
 	npm run build --prefix web/admin/assets
+	npm run build --prefix web/office/assets
 
 templates: assets
 	go tool templ generate
@@ -19,6 +23,7 @@ vet: fmt
 
 lint: vet
 	npm run format:check --prefix web/admin/assets
+	npm run format:check --prefix web/office/assets
 	golangci-lint run ./...
 
 build: lint

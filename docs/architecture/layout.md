@@ -19,6 +19,7 @@ have a purpose; not every directory below needs to exist from the start.
 | `web/` | Web transport handlers, routing, page rendering, and frontend source and assets, including styles, scripts, and static files. |
 | `web/admin/handlers/` | The admin's HTTP handlers: the `Handler` type, route registration, and the handler methods that authenticate, authorize, call application services, and choose responses. |
 | `web/admin/utils/` | Admin transport code that is not a handler: cookies, request state, flash sessions, rendering and minification, request parsing and validation, field errors, and mapping domain values to template props. It must not import `web/admin/handlers/`. |
+| `web/office/` | The office web application. It uses the admin's stack and mirrors its structure: `handlers/`, `utils/`, `i18n/`, `templates/`, and the Vite build in `assets/`. Its design is its own and does not reuse the admin's styles. |
 | `middleware/` | Transport middleware shared by web and API endpoints. |
 | `docs/` | Architecture, development, and operational documentation. |
 | `db/migrations/` | Versioned PostgreSQL schema changes. Add migration files when the schema changes; a human runs migrations. |

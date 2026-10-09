@@ -29,6 +29,7 @@ import (
 	"github.com/radynsade/faryengo/middleware"
 	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
 	adminhandlers "github.com/radynsade/faryengo/web/admin/handlers"
+	officehandlers "github.com/radynsade/faryengo/web/office/handlers"
 )
 
 //
@@ -61,6 +62,7 @@ func run(ctx context.Context) error {
 		pool     *pgxpool.Pool
 		client   *redislib.Client
 		handler  *adminhandlers.Handler
+		office   *officehandlers.Handler
 		err      error
 	)
 
@@ -93,7 +95,7 @@ func run(ctx context.Context) error {
 	}
 
 	if err == nil {
-		handler, err = wireAdmin(ctx, settings, pool, client)
+		handler, office, err = wireHandlers(ctx, settings, pool, client)
 	}
 
 	if err == nil {
@@ -103,6 +105,8 @@ func run(ctx context.Context) error {
 
 		if err != nil {
 			err = fmt.Errorf("register admin handlers: %w", err)
+		} else if officeErr := office.RegisterHandlers(mux); officeErr != nil {
+			err = fmt.Errorf("register office handlers: %w", officeErr)
 		} else {
 			err = serve(ctx, &http.Server{
 				Addr:              settings.HTTPAddress,
@@ -203,14 +207,18 @@ func ping(ctx context.Context, pool *pgxpool.Pool, client *redislib.Client) erro
 	return err
 }
 
-func wireAdmin(
+// The admin and the office share authentication, but each keeps its own
+// session cookie.
+
+func wireHandlers(
 	ctx context.Context,
 	settings config.Config,
 	pool *pgxpool.Pool,
 	client *redislib.Client,
-) (*adminhandlers.Handler, error) {
+) (*adminhandlers.Handler, *officehandlers.Handler, error) {
 	var (
 		handler            *adminhandlers.Handler
+		office             *officehandlers.Handler
 		transactor         *pgxdb.Transactor
 		languageRepository *languagespgxgoqu.LanguageRepository
 		roleRepository     *userspgxgoqu.RoleRepository
@@ -282,10 +290,14 @@ func wireAdmin(
 		handler, err = adminhandlers.NewHandler(passwords, sessions, identities, userService, roles, languages, flashes, settings.AuthCookieSecure)
 	}
 
-	if err != nil {
-		handler = nil
-		err = fmt.Errorf("configure the admin application: %w", err)
+	if err == nil {
+		office, err = officehandlers.NewHandler(passwords, sessions, identities, settings.AuthCookieSecure)
 	}
 
-	return handler, err
+	if err != nil {
+		handler, office = nil, nil
+		err = fmt.Errorf("configure the web applications: %w", err)
+	}
+
+	return handler, office, err
 }

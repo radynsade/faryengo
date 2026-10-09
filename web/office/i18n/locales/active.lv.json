@@ -1,0 +1,119 @@
+{
+  "common.brand": {
+    "other": "Faryen"
+  },
+  "common.language": {
+    "other": "Valoda"
+  },
+  "document.title": {
+    "other": "{{.Page}} · Faryen"
+  },
+  "auth.sign_in": {
+    "other": "Pieslēgties"
+  },
+  "auth.welcome": {
+    "other": "Laipni lūdzam atpakaļ"
+  },
+  "auth.description": {
+    "other": "Pieslēdzieties, lai pārvaldītu savu budžetu un redzētu, kur paliek nauda."
+  },
+  "auth.showcase_title": {
+    "other": "Jūsu nauda — skaidri sakārtota"
+  },
+  "auth.showcase_text": {
+    "other": "Plānojiet budžetu, sekojiet tēriņiem un sasniedziet mērķus vienuviet."
+  },
+  "auth.point_plan": {
+    "other": "Plānojiet mēneša budžetu"
+  },
+  "auth.point_track": {
+    "other": "Sekojiet katram tēriņam"
+  },
+  "auth.point_goals": {
+    "other": "Sasniedziet uzkrājumu mērķus"
+  },
+  "fields.email": {
+    "other": "E-pasts"
+  },
+  "fields.email_placeholder": {
+    "other": "jus@example.com"
+  },
+  "fields.password": {
+    "other": "Parole"
+  },
+  "fields.password_placeholder": {
+    "other": "Ievadiet paroli"
+  },
+  "fields.show_password": {
+    "other": "Rādīt paroli"
+  },
+  "fields.hide_password": {
+    "other": "Slēpt paroli"
+  },
+  "nav.overview": {
+    "other": "Pārskats"
+  },
+  "nav.budgets": {
+    "other": "Budžeti"
+  },
+  "nav.transactions": {
+    "other": "Darījumi"
+  },
+  "nav.goals": {
+    "other": "Mērķi"
+  },
+  "nav.reports": {
+    "other": "Atskaites"
+  },
+  "nav.settings": {
+    "other": "Iestatījumi"
+  },
+  "dashboard.navigation": {
+    "other": "Galvenā izvēlne"
+  },
+  "dashboard.open_menu": {
+    "other": "Atvērt izvēlni"
+  },
+  "dashboard.close_menu": {
+    "other": "Aizvērt izvēlni"
+  },
+  "auth.sign_out": {
+    "other": "Iziet"
+  },
+  "errors.invalid_credentials": {
+    "other": "E-pasts vai parole nav pareiza."
+  },
+  "errors.sign_in_busy": {
+    "other": "Pašlaik pieslēdzas pārāk daudz cilvēku. Lūdzu, mēģiniet vēlreiz pēc brīža."
+  },
+  "errors.sign_in_unavailable": {
+    "other": "Pieslēgšanās īslaicīgi nav pieejama. Lūdzu, mēģiniet vēlāk."
+  },
+  "errors.form": {
+    "other": "Formu neizdevās nolasīt. Lūdzu, pārlādējiet lapu un mēģiniet vēlreiz."
+  },
+  "errors.cross_origin": {
+    "other": "Šis pieprasījums nāca no citas vietnes un tika bloķēts."
+  },
+  "errors.sign_out": {
+    "other": "Iziet neizdevās. Lūdzu, mēģiniet vēlreiz."
+  },
+  "validation.required": {
+    "other": "Lūdzu, aizpildiet šo lauku."
+  },
+  "validation.email": {
+    "other": "Ievadiet derīgu e-pasta adresi."
+  },
+  "validation.too_long": {
+    "other": "Šī vērtība ir pārāk gara."
+  },
+  "validation.invalid": {
+    "other": "Šī vērtība nav derīga."
+  },
+  "navigation.error": {
+    "other": "Lapu neizdevās ielādēt. Pārbaudiet savienojumu un mēģiniet vēlreiz."
+  },
+  "navigation.skip": {
+    "other": "Pāriet uz saturu"
+  }
+}

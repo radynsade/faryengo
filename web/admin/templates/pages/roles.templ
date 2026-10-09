@@ -383,8 +383,8 @@ templ RoleView(props RoleViewProps) {
 							}
 						}
 					</header>
-					<dl class="role-view__details">
-						<div class="role-view__row">
+					<dl class="details-list">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.name") }</dt>
 							<dd>
 								<div class="tag-list">
@@ -395,19 +395,19 @@ templ RoleView(props RoleViewProps) {
 								</div>
 							</dd>
 						</div>
-						<div class="role-view__row">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.uuid") }</dt>
 							<dd>
 								@components.CopyValue(props.Role.ID, admini18n.T(ctx, "fields.uuid"))
 							</dd>
 						</div>
-						<div class="role-view__row">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.super_role") }</dt>
 							<dd>
 								@RoleSuper(props.Role.IsSuper)
 							</dd>
 						</div>
-						<div class="role-view__row">
+						<div class="details-list__row">
 							<dt>{ admini18n.T(ctx, "fields.permissions") }</dt>
 							<dd>
 								<div class="tag-list">

@@ -1,0 +1,51 @@
+package layouts
+
+import (
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
+)
+
+// AuthLayout pairs the page's form with a showcase of what the office offers.
+// On narrow screens the showcase shrinks to a header band above the form.
+templ AuthLayout(title string, description string) {
+	<div class="auth" { pageRegion(ctx)... }>
+		<aside class="auth__showcase">
+			@components.Brand(true)
+			<div class="auth__pitch">
+				<p class="auth__pitch-title">{ officei18n.T(ctx, "auth.showcase_title") }</p>
+				<p class="auth__pitch-text">{ officei18n.T(ctx, "auth.showcase_text") }</p>
+				<ul class="auth__points">
+					for _, id := range []string{"auth.point_plan", "auth.point_track", "auth.point_goals"} {
+						<li>
+							<span class="auth__point-icon" aria-hidden="true">
+								@components.Icon("check")
+							</span>
+							{ officei18n.T(ctx, id) }
+						</li>
+					}
+				</ul>
+			</div>
+			<div class="auth__card-art" aria-hidden="true">
+				<div class="auth__card-art-ring"></div>
+				<div class="auth__card-art-bar auth__card-art-bar--1"></div>
+				<div class="auth__card-art-bar auth__card-art-bar--2"></div>
+				<div class="auth__card-art-bar auth__card-art-bar--3"></div>
+			</div>
+		</aside>
+		<main class="auth__main">
+			<div class="auth__mobile-brand">
+				@components.Brand(false)
+			</div>
+			<section class="auth__form" aria-labelledby="auth-title">
+				<header class="auth__heading">
+					<h1 id="auth-title" tabindex="-1">{ title }</h1>
+					<p>{ description }</p>
+				</header>
+				{ children... }
+			</section>
+			<footer class="auth__footer">
+				@components.LanguageSwitcher()
+			</footer>
+		</main>
+	</div>
+}

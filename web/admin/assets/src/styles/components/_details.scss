@@ -1,28 +1,56 @@
 @use '../abstracts' as ui;
 
+// Rows are subgrids of the list, so every label shares one column sized to
+// the longest label. A label wraps only past 40% of the list's width, which
+// keeps unusually long translations from crowding out the values.
 .details-list {
 	display: grid;
-	grid-template-columns: max-content minmax(0, 1fr);
-	gap: var(--space-3) var(--space-5);
-	margin: var(--space-5) 0;
+	grid-template-columns: fit-content(40%) minmax(0, 1fr);
+	margin: 0;
+	font-size: var(--font-size-control);
 
-	dt {
-		font-weight: var(--font-weight-bold);
-	}
+	&__row {
+		display: grid;
+		grid-column: 1 / -1;
+		grid-template-columns: subgrid;
 
-	dd {
-		margin: 0;
-		overflow-wrap: anywhere;
+		+ .details-list__row {
+			border-top: var(--border-width) solid var(--color-line);
+		}
+
+		dt,
+		dd {
+			min-width: 0;
+			margin: 0;
+			padding: var(--space-2) var(--space-4);
+			overflow-wrap: anywhere;
+		}
+
+		dt {
+			display: flex;
+			align-items: center;
+			color: var(--color-muted);
+			background: var(--color-background);
+			font-size: var(--font-size-caption);
+			font-weight: var(--font-weight-bold);
+			text-transform: uppercase;
+			letter-spacing: 0.04em;
+			overflow-wrap: normal;
+		}
+
+		&:last-child dt {
+			border-end-start-radius: var(--radius-panel);
+		}
 	}
 }
 
-@include ui.respond-to(panel) {
+@include ui.respond-to(phone) {
 	.details-list {
 		grid-template-columns: minmax(0, 1fr);
-		gap: var(--space-1);
+	}
 
-		dd + dt {
-			margin-top: var(--space-3);
-		}
+	.details-list__row dt {
+		padding-bottom: 0;
+		background: transparent;
 	}
 }

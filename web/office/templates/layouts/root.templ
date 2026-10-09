@@ -1,0 +1,46 @@
+package layouts
+
+import (
+	"context"
+
+	"github.com/radynsade/faryengo/web/office/assets"
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+)
+
+// Root is the complete document for first loads, history restoration without
+// a cache, and browsers without JavaScript.
+templ Root(title string) {
+	<!DOCTYPE html>
+	<html lang={ officei18n.Language(ctx) }>
+		@Head(title)
+		<body hx-ext="head-support, morph" hx-history="false" hx-target={ "#" + PageRegionID }>
+			{ children... }
+			<p id="navigation-error" class="navigation-error" role="alert" hidden>
+				{ officei18n.T(ctx, "navigation.error") }
+			</p>
+		</body>
+	</html>
+}
+
+// Head is shared by documents and partial responses, so a navigation merges
+// the head: shared assets stay and only page-specific elements change.
+templ Head(title string) {
+	<head hx-head="merge">
+		<meta charset="UTF-8"/>
+		<meta name="viewport" content="width=device-width, initial-scale=1"/>
+		<meta name="color-scheme" content="light"/>
+		<title>{ title }</title>
+		<link rel="stylesheet" href={ assets.BuiltCSS("style.scss") }/>
+		<script type="module" src={ assets.BuiltAsset("main.ts") }></script>
+	</head>
+}
+
+// pageRegion carries the interface language and the translated navigation
+// error, so a navigation that changes them updates the document too.
+func pageRegion(ctx context.Context) templ.Attributes {
+	return templ.Attributes{
+		"id":                    PageRegionID,
+		"data-ui-language":      officei18n.Language(ctx),
+		"data-navigation-error": officei18n.T(ctx, "navigation.error"),
+	}
+}

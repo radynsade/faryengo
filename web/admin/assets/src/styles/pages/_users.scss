@@ -77,54 +77,6 @@
 		border-start-start-radius: var(--radius-panel);
 		border-start-end-radius: var(--radius-panel);
 	}
-
-	&__details {
-		margin: 0;
-		font-size: var(--font-size-control);
-	}
-
-	&__row {
-		display: grid;
-		grid-template-columns: 9rem minmax(0, 1fr);
-
-		+ .user-view__row {
-			border-top: var(--border-width) solid var(--color-line);
-		}
-
-		dt,
-		dd {
-			min-width: 0;
-			margin: 0;
-			padding: var(--space-2) var(--space-4);
-			overflow-wrap: anywhere;
-		}
-
-		dt {
-			display: flex;
-			align-items: center;
-			color: var(--color-muted);
-			background: var(--color-background);
-			font-size: var(--font-size-caption);
-			font-weight: var(--font-weight-bold);
-			text-transform: uppercase;
-			letter-spacing: 0.04em;
-		}
-
-		&:last-child dt {
-			border-end-start-radius: var(--radius-panel);
-		}
-	}
-}
-
-@include ui.respond-to(phone) {
-	.user-view__row {
-		grid-template-columns: minmax(0, 1fr);
-
-		dt {
-			padding-bottom: 0;
-			background: transparent;
-		}
-	}
 }
 
 // Creation and editing pair related fields on wide screens.

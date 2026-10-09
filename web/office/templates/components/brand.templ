@@ -1,0 +1,13 @@
+package components
+
+import (
+	"github.com/radynsade/faryengo/web/office/assets"
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+)
+
+templ Brand(inverse bool) {
+	<span class={ "brand", templ.KV("brand--inverse", inverse) }>
+		<svg class="brand__mark" width="28" height="28" aria-hidden="true"><use href={ assets.Icons + "#brand" }></use></svg>
+		<span class="brand__name">{ officei18n.T(ctx, "common.brand") }</span>
+	</span>
+}

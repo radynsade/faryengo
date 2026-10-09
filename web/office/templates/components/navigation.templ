@@ -1,0 +1,28 @@
+package components
+
+// Links and forms do not name their target: they inherit it from their
+// layout, which is the whole page region in the authentication layout and the
+// main region inside the dashboard.
+
+// NavigationAttributes wire a link for in-page navigation. The browser keeps
+// the native href, so links work without JavaScript and in new tabs.
+func NavigationAttributes() templ.Attributes {
+	return templ.Attributes{
+		"hx-boost":  "true",
+		"hx-swap":   "morph:outerHTML show:none",
+		"hx-sync":   "body:replace",
+		"hx-params": "none",
+	}
+}
+
+// FormAttributes wire a form for in-page submission. A pending submission
+// drops repeated ones, and the redirect target of a successful one becomes
+// the new address.
+func FormAttributes() templ.Attributes {
+	return templ.Attributes{
+		"hx-boost":        "true",
+		"hx-swap":         "morph:outerHTML show:none",
+		"hx-sync":         "this:drop",
+		"hx-disabled-elt": "find button[type='submit']",
+	}
+}

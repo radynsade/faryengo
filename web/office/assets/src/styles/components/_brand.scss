@@ -1,0 +1,29 @@
+.brand {
+	--brand-mark-ink: var(--color-on-primary);
+
+	display: inline-flex;
+	align-items: center;
+	gap: 0.5rem;
+	color: var(--color-primary);
+	font-weight: 800;
+	font-size: 1.0625rem;
+	letter-spacing: -0.02em;
+
+	&__mark {
+		flex: none;
+	}
+
+	&__name {
+		color: var(--color-ink);
+	}
+
+	&--inverse {
+		--brand-mark-ink: var(--color-primary-strong);
+
+		color: var(--color-on-primary);
+
+		.brand__name {
+			color: var(--color-on-primary);
+		}
+	}
+}

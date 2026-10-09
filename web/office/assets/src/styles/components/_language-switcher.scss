@@ -1,0 +1,29 @@
+.language-switcher {
+	display: inline-flex;
+	gap: 0.25rem;
+	padding: 0.25rem;
+	border-radius: var(--radius-pill);
+	background: var(--color-surface);
+	border: 1px solid var(--color-border);
+
+	&__link {
+		padding: 0.25rem 0.75rem;
+		border-radius: var(--radius-pill);
+		color: var(--color-muted);
+		font-size: 0.75rem;
+		font-weight: 600;
+		text-decoration: none;
+		transition:
+			color var(--transition),
+			background-color var(--transition);
+
+		&:hover {
+			color: var(--color-ink);
+		}
+
+		&[aria-current='true'] {
+			background: var(--color-primary-soft);
+			color: var(--color-primary-strong);
+		}
+	}
+}

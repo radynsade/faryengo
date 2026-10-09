@@ -1,0 +1,186 @@
+// The showcase takes the left side on wide screens; below the breakpoint the
+// form stands alone under a compact brand.
+$wide: 960px;
+
+.auth {
+	display: grid;
+	min-height: 100dvh;
+
+	@media (min-width: $wide) {
+		grid-template-columns: minmax(420px, 5fr) 6fr;
+	}
+
+	&__showcase {
+		position: relative;
+		display: none;
+		flex-direction: column;
+		justify-content: space-between;
+		gap: 2.5rem;
+		margin: 0.75rem;
+		padding: 2rem;
+		overflow: hidden;
+		border-radius: var(--radius-lg);
+		background: var(--gradient-showcase);
+		color: var(--color-on-primary);
+
+		// Soft glow behind the decorative card.
+		&::before {
+			content: '';
+			position: absolute;
+			right: -20%;
+			bottom: -25%;
+			width: 70%;
+			aspect-ratio: 1;
+			border-radius: 50%;
+			background: radial-gradient(
+				circle,
+				rgb(255 207 110 / 0.35),
+				transparent 70%
+			);
+		}
+
+		@media (min-width: $wide) {
+			display: flex;
+		}
+	}
+
+	&__pitch {
+		position: relative;
+		display: grid;
+		gap: 0.75rem;
+		max-width: 23rem;
+	}
+
+	&__pitch-title {
+		font-size: clamp(1.5rem, 2.2vw, 2rem);
+		font-weight: 800;
+		line-height: 1.15;
+		letter-spacing: -0.03em;
+	}
+
+	&__pitch-text {
+		color: rgb(255 255 255 / 0.78);
+		font-size: 0.9375rem;
+	}
+
+	&__points {
+		display: grid;
+		gap: 0.625rem;
+		margin: 0.75rem 0 0;
+		padding: 0;
+		list-style: none;
+		font-weight: 600;
+
+		li {
+			display: flex;
+			align-items: center;
+			gap: 0.625rem;
+		}
+	}
+
+	&__point-icon {
+		display: inline-grid;
+		place-items: center;
+		width: 1.5rem;
+		height: 1.5rem;
+		border-radius: 50%;
+		background: var(--color-accent);
+		color: #2a1d6e;
+
+		.icon {
+			width: 0.875rem;
+			height: 0.875rem;
+		}
+	}
+
+	// A small, abstract budget card: a progress ring and three bars.
+	&__card-art {
+		position: relative;
+		display: grid;
+		grid-template-columns: auto 1fr;
+		grid-template-rows: repeat(3, auto);
+		align-items: center;
+		column-gap: 1rem;
+		row-gap: 0.625rem;
+		width: min(100%, 19rem);
+		padding: 1.25rem;
+		border: 1px solid rgb(255 255 255 / 0.25);
+		border-radius: var(--radius-lg);
+		background: rgb(255 255 255 / 0.12);
+		backdrop-filter: blur(12px);
+		box-shadow: var(--shadow-soft);
+	}
+
+	&__card-art-ring {
+		grid-row: 1 / -1;
+		width: 4.25rem;
+		aspect-ratio: 1;
+		border-radius: 50%;
+		background:
+			radial-gradient(closest-side, #5747d4 72%, transparent 73%),
+			conic-gradient(var(--color-accent) 0 68%, rgb(255 255 255 / 0.2) 0);
+	}
+
+	&__card-art-bar {
+		height: 0.5rem;
+		border-radius: var(--radius-pill);
+		background: rgb(255 255 255 / 0.85);
+
+		&--1 {
+			width: 90%;
+		}
+
+		&--2 {
+			width: 65%;
+			opacity: 0.6;
+		}
+
+		&--3 {
+			width: 40%;
+			opacity: 0.35;
+		}
+	}
+
+	&__main {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		gap: 1.5rem;
+		padding: 1.5rem 1rem;
+
+		@media (min-width: $wide) {
+			padding: 2rem;
+		}
+	}
+
+	&__mobile-brand {
+		align-self: flex-start;
+
+		@media (min-width: $wide) {
+			display: none;
+		}
+	}
+
+	&__form {
+		display: grid;
+		gap: 1.5rem;
+		width: min(100%, 22rem);
+		margin-block: auto;
+	}
+
+	&__heading {
+		display: grid;
+		gap: 0.375rem;
+
+		h1 {
+			font-size: clamp(1.5rem, 3.5vw, 1.75rem);
+			font-weight: 800;
+			line-height: 1.15;
+			letter-spacing: -0.03em;
+		}
+
+		p {
+			color: var(--color-muted);
+		}
+	}
+}

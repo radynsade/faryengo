@@ -1,0 +1,119 @@
+{
+  "common.brand": {
+    "other": "Faryen"
+  },
+  "common.language": {
+    "other": "Language"
+  },
+  "document.title": {
+    "other": "{{.Page}} · Faryen"
+  },
+  "auth.sign_in": {
+    "other": "Sign in"
+  },
+  "auth.welcome": {
+    "other": "Welcome back"
+  },
+  "auth.description": {
+    "other": "Sign in to manage your budget and see where your money goes."
+  },
+  "auth.showcase_title": {
+    "other": "Your money, clearly organized"
+  },
+  "auth.showcase_text": {
+    "other": "Plan budgets, track spending, and stay on top of every goal in one calm place."
+  },
+  "auth.point_plan": {
+    "other": "Plan monthly budgets"
+  },
+  "auth.point_track": {
+    "other": "Track every expense"
+  },
+  "auth.point_goals": {
+    "other": "Reach your savings goals"
+  },
+  "fields.email": {
+    "other": "Email"
+  },
+  "fields.email_placeholder": {
+    "other": "you@example.com"
+  },
+  "fields.password": {
+    "other": "Password"
+  },
+  "fields.password_placeholder": {
+    "other": "Enter your password"
+  },
+  "fields.show_password": {
+    "other": "Show password"
+  },
+  "fields.hide_password": {
+    "other": "Hide password"
+  },
+  "nav.overview": {
+    "other": "Overview"
+  },
+  "nav.budgets": {
+    "other": "Budgets"
+  },
+  "nav.transactions": {
+    "other": "Transactions"
+  },
+  "nav.goals": {
+    "other": "Goals"
+  },
+  "nav.reports": {
+    "other": "Reports"
+  },
+  "nav.settings": {
+    "other": "Settings"
+  },
+  "dashboard.navigation": {
+    "other": "Main menu"
+  },
+  "dashboard.open_menu": {
+    "other": "Open menu"
+  },
+  "dashboard.close_menu": {
+    "other": "Close menu"
+  },
+  "auth.sign_out": {
+    "other": "Sign out"
+  },
+  "errors.invalid_credentials": {
+    "other": "The email or password is incorrect."
+  },
+  "errors.sign_in_busy": {
+    "other": "Too many people are signing in right now. Please try again in a moment."
+  },
+  "errors.sign_in_unavailable": {
+    "other": "Signing in is temporarily unavailable. Please try again later."
+  },
+  "errors.form": {
+    "other": "The form could not be read. Please reload the page and try again."
+  },
+  "errors.cross_origin": {
+    "other": "This request came from another site and was blocked."
+  },
+  "errors.sign_out": {
+    "other": "Signing out failed. Please try again."
+  },
+  "validation.required": {
+    "other": "Please fill in this field."
+  },
+  "validation.email": {
+    "other": "Enter a valid email address."
+  },
+  "validation.too_long": {
+    "other": "This value is too long."
+  },
+  "validation.invalid": {
+    "other": "This value is not valid."
+  },
+  "navigation.error": {
+    "other": "The page could not be loaded. Check your connection and try again."
+  },
+  "navigation.skip": {
+    "other": "Skip to content"
+  }
+}

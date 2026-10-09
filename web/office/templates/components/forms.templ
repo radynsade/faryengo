@@ -1,0 +1,93 @@
+package components
+
+import (
+	"github.com/radynsade/faryengo/web/office/assets"
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+)
+
+type TextInputProps struct {
+	ID           string
+	Name         string
+	Type         string
+	Label        string
+	Placeholder  string
+	Autocomplete string
+	Value        string
+	Required     bool
+	Error        string
+}
+
+templ TextInput(props TextInputProps) {
+	<div class="field">
+		<label class="field__label" for={ props.ID }>{ props.Label }</label>
+		<input
+			class="field__input"
+			id={ props.ID }
+			name={ props.Name }
+			type={ props.Type }
+			placeholder={ props.Placeholder }
+			autocomplete={ props.Autocomplete }
+			value={ props.Value }
+			required?={ props.Required }
+			if props.Error != "" {
+				aria-invalid="true"
+				aria-describedby={ props.ID + "-error" }
+			}
+		/>
+		@fieldError(props)
+	</div>
+}
+
+// PasswordInput adds a visibility toggle. The toggle carries both of its
+// labels, so the script switches them without its own copy; without
+// JavaScript the toggle is hidden and the field stays a plain password field.
+templ PasswordInput(props TextInputProps) {
+	<div class="field">
+		<label class="field__label" for={ props.ID }>{ props.Label }</label>
+		<div class="field__control">
+			<input
+				class="field__input field__input--with-action"
+				id={ props.ID }
+				name={ props.Name }
+				type="password"
+				placeholder={ props.Placeholder }
+				autocomplete={ props.Autocomplete }
+				required?={ props.Required }
+				if props.Error != "" {
+					aria-invalid="true"
+					aria-describedby={ props.ID + "-error" }
+				}
+			/>
+			<button
+				class="field__action"
+				type="button"
+				aria-controls={ props.ID }
+				aria-pressed="false"
+				aria-label={ officei18n.T(ctx, "fields.show_password") }
+				data-password-toggle
+				data-label-show={ officei18n.T(ctx, "fields.show_password") }
+				data-label-hide={ officei18n.T(ctx, "fields.hide_password") }
+			>
+				<svg class="icon field__action-show" width="18" height="18" aria-hidden="true"><use href={ assets.Icons + "#eye" }></use></svg>
+				<svg class="icon field__action-hide" width="18" height="18" aria-hidden="true"><use href={ assets.Icons + "#eye-off" }></use></svg>
+			</button>
+		</div>
+		@fieldError(props)
+	</div>
+}
+
+templ fieldError(props TextInputProps) {
+	if props.Error != "" {
+		<p class="field__error" id={ props.ID + "-error" }>{ props.Error }</p>
+	}
+}
+
+// FormAlert reports a problem with the whole form rather than one field.
+templ FormAlert(message string) {
+	if message != "" {
+		<div class="form-alert" role="alert">
+			@Icon("alert")
+			<p>{ message }</p>
+		</div>
+	}
+}

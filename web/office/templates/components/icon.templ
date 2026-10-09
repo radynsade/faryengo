@@ -1,0 +1,9 @@
+package components
+
+import "github.com/radynsade/faryengo/web/office/assets"
+
+// Icon references a symbol of the icon sprite, so a page repeats no icon
+// markup. Icons take the current text color.
+templ Icon(name string) {
+	<svg class="icon" width="18" height="18" aria-hidden="true"><use href={ assets.Icons + "#" + name }></use></svg>
+}

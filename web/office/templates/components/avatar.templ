@@ -1,0 +1,13 @@
+package components
+
+// Avatar shows the profile picture, or the person's initials until one is
+// uploaded.
+templ Avatar(pictureURL string, initials string) {
+	<span class="avatar">
+		if pictureURL != "" {
+			<img class="avatar__image" src={ pictureURL } alt="" width="34" height="34"/>
+		} else {
+			<span class="avatar__initials" aria-hidden="true">{ initials }</span>
+		}
+	</span>
+}
