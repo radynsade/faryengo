@@ -16,6 +16,12 @@
 	text-align: left;
 	font-size: var(--font-size-control);
 
+	// A fixed layout takes column widths from the table's column definitions
+	// rather than its rows, so loading or replacing rows never resizes columns.
+	&--fixed {
+		table-layout: fixed;
+	}
+
 	th,
 	td {
 		padding: var(--space-2) var(--space-4);

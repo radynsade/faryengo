@@ -12,9 +12,39 @@
 }
 
 .role-table__uuid {
-	width: 25%;
+	overflow: hidden;
 	white-space: nowrap;
+	text-overflow: ellipsis;
 	font-size: var(--font-size-small);
+}
+
+// Column widths are declared rather than measured from the rows, so the table
+// keeps its shape from the loading row to the loaded roles. The UUID column
+// fits a whole UUID at its own font size, the actions column fits exactly the
+// buttons a user may use, and the name column takes the remaining width.
+.role-table__col {
+	&--uuid {
+		width: calc(34ch + 2 * var(--space-4));
+		font-size: var(--font-size-small);
+	}
+
+	&--super {
+		width: 7rem;
+	}
+
+	&--permissions {
+		width: 30%;
+	}
+
+	&--actions {
+		width: calc(var(--icon-action-size) + 2 * var(--space-4));
+	}
+}
+
+.role-table--manage .role-table__col--actions {
+	width: calc(
+		3 * var(--icon-action-size) + 2 * var(--space-2) + 2 * var(--space-4)
+	);
 }
 
 // Role viewing follows the collection's toolbar, row density, and badges.

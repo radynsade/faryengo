@@ -162,7 +162,7 @@ an existing JavaScript hook alongside the generic `filter-menu` class.
 | Cards | `.card`, `__eyebrow`, `__links`; page content owns its heading and paragraphs |
 | Page titles | `.page-title`, `__heading`, `.breadcrumbs`, `__list`, `__item`, `__link`, `__separator`; `PageTitle` renders the title and an ordered breadcrumb list |
 | Collection layout | `.list-toolbar`, `__controls`, `.action-group`, `.tag-list`, `.pagination`, `__current` |
-| Tables | `.data-table-scroll`, `.data-table`, `__actions`, `__empty`, `__loading`, `__spinner`, `.table-sort`; page rules own domain-specific column widths |
+| Tables | `.data-table-scroll`, `.data-table`, `--fixed`, `__actions`, `__empty`, `__loading`, `__spinner`, `.table-sort`; page rules own domain-specific column widths |
 | Filters | `.filter-menu`, `__form`; native `details` and `summary` remain usable without JavaScript |
 | Details | `.details-list`; semantic `dl`, `dt`, and `dd` elements; role-view permissions use the same badges as the role list |
 | Copyable values | `CopyValue` and `.copy-value`; inline scalar values with Tabler `copy` on hover/focus and `copy-check` after successful copying; localized clipboard status and keyboard activation |
@@ -178,7 +178,10 @@ confirmation, detail, and edit actions; the danger-outline recipe gives row Dele
 red text and pale red hover. Button dimensions and color variants are separate
 decisions.
 
-Toolbars wrap their controls at the panel breakpoint. Tables retain a minimum
+Tables whose rows load after the page use `.data-table--fixed` with a `colgroup`, so
+column widths come from the declared columns rather than the rows and never
+change between the loading row and the loaded data. Toolbars wrap their controls
+at the panel breakpoint. Tables retain a minimum
 width inside a horizontal scroll region; their action column stays compact and
 does not wrap its button group. Badges distinguish positive and negative values
 with text as well as color. Detail lists become a single column on narrow screens.
@@ -256,7 +259,9 @@ card instead of placing a back link or a duplicate page heading inside it.
 footer, and full-width form submission buttons. Compact screens reduce its inset.
 
 `pages/_roles.scss` owns the full-width role list, total/supporting text, editor
-composition, and UUID column proportion. View, create, and edit pages use the
+composition, and the role table's declared column widths: a UUID column that fits a
+whole UUID, Super and Permissions columns, an actions column sized for the
+buttons the user may use, and a Name column taking the remaining width. View, create, and edit pages use the
 centered content column with Admin → Roles → current-page breadcrumbs.
 The role view uses a compact collection-style toolbar above bordered detail
 rows, with muted label cells and permission badges matching the list. It retains

@@ -123,8 +123,15 @@ templ RolesTable(props RoleListProps) {
 			</div>
 		</div>
 		<div class="data-table-scroll" tabindex="0" role="region" aria-label={ admini18n.T(ctx, "roles.table") }>
-			<table class="data-table">
+			<table class={ "data-table data-table--fixed role-table", templ.KV("role-table--manage", props.CanManage) }>
 				<caption class="visually-hidden">{ admini18n.T(ctx, "roles.caption") }</caption>
+				<colgroup>
+					<col class="role-table__col--uuid"/>
+					<col class="role-table__col--name"/>
+					<col class="role-table__col--super"/>
+					<col class="role-table__col--permissions"/>
+					<col class="role-table__col--actions"/>
+				</colgroup>
 				<thead>
 					<tr>
 						<th scope="col" aria-sort={ props.SortDirection(users.RoleSortID) }>

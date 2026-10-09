@@ -452,3 +452,39 @@ func equalNames(got, want users.RoleName) bool {
 
 	return equal
 }
+
+// Declared column widths keep the table's shape while it loads; the actions
+// column is sized for the buttons the user may use.
+
+func TestRolesTableDeclaresItsColumns(t *testing.T) {
+	for _, tt := range []struct {
+		name        string
+		permissions users.Permissions
+		wantManage  bool
+	}{
+		{"viewer", users.Permissions{users.PermissionViewRole}, false},
+		{"manager", users.Permissions{users.PermissionViewRole, users.PermissionManageRole}, true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t, tt.permissions, false)
+			cookies := f.signIn(t)
+
+			for _, path := range []string{"/admin/en/roles", "/admin/en/roles/table"} {
+				body := f.do(request{path: path, cookies: cookies}).Body.String()
+				table := regexp.MustCompile(`<table class="([^"]*)"`).FindStringSubmatch(body)
+
+				if table == nil || !strings.Contains(table[1], "data-table--fixed") {
+					t.Fatalf("GET %s table = %v", path, table)
+				}
+
+				if strings.Contains(table[1], "role-table--manage") != tt.wantManage {
+					t.Fatalf("GET %s table classes = %q", path, table[1])
+				}
+
+				if cols := strings.Count(body, `<col class="role-table__col--`); cols != 5 {
+					t.Fatalf("GET %s declares %d columns", path, cols)
+				}
+			}
+		})
+	}
+}
