@@ -32,7 +32,9 @@ deleted. Both commands print the affected language code on success.
 
 Supply translated names as one quoted argument in the format
 `<languageCode>:<name>|<languageCode>:<name>`. Each code must identify an existing
-language, and names must be nonblank. Names cannot contain `:` or `|`.
+language, and names must be nonblank. Names cannot contain `:` or `|`. When a
+fallback language exists, the name in that language is required; other languages
+are optional.
 
 - `--super` or `-s` grants all permissions, including those added later.
 - `--permission <permission>` or `-p <permission>` grants one permission.

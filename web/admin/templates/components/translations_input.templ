@@ -8,6 +8,7 @@ type TranslationInputValue struct {
 	Code     string
 	Language string
 	Value    string
+	Required bool
 	Errors   []string
 }
 
@@ -112,6 +113,7 @@ templ TranslationsInput(props TranslationsInputProps) {
 							if len(field.Errors) > 0 || len(props.Errors) > 0 {
 								aria-invalid="true"
 							}
+							required?={ field.Required }
 							if props.MaxLength > 0 {
 								maxlength={ strconv.Itoa(props.MaxLength) }
 							}

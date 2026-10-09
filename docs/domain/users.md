@@ -61,7 +61,7 @@ is limited to 100 characters.
 | Field | Domain value | Required | Meaning and rules |
 | --- | --- | --- | --- |
 | Identity | Role identity | Yes | Distinguishes this Role from all other Roles; nonempty and stable. |
-| Name | Translated role name | Yes | Contains at least one nonblank translation, with at most one per language. |
+| Name | Translated role name | Yes | Contains a nonblank translation in the [fallback language](languages.md#language-aggregate) when the catalog has one; other translations are optional, with at most one per language. Without a fallback language, at least one nonblank translation is required. |
 | Permissions | Collection of permissions | Yes; may be empty | Lists explicitly granted actions; every entry must be a defined permission. |
 | Super designation | Yes or no | Yes | Defaults to no; when yes, grants every defined permission. |
 
@@ -87,7 +87,7 @@ their content rather than a separate entity identity.
 | Last name | Name text | Valid text with a non-whitespace character; at most 100 characters. |
 | Password | Secret text | A new password is valid text with a non-whitespace character, at least six characters, and at most 4096 bytes. |
 | Password credential | Verification value | Nonempty value used to verify a password; distinct from the password supplied by the User. |
-| Role name | Translated text | At least one translation; each is nonblank and at most 100 characters. |
+| Role name | Translated text | Includes the fallback language translation when the catalog has a fallback language, otherwise at least one translation; each translation is nonblank and at most 100 characters. |
 | Permission | Authorized action | One of managing Users, viewing Users, managing Roles, or viewing Roles. |
 | Credentials version | Version identity | Nonempty value identifying the current state of the User's email and password; replaced whenever either changes or all of the User's Sessions end, and never reused. A replaced version invalidates [Sessions](security.md#session) holding it. |
 

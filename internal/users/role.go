@@ -88,8 +88,9 @@ func (id RoleID) Validate() error {
 const MaxRoleNameLength = 100
 
 var (
-	ErrRoleNameInvalid = errors.New("invalid role name")
-	ErrRoleNameTooLong = fmt.Errorf("exceeds the limit of %d characters", MaxRoleNameLength)
+	ErrRoleNameInvalid         = errors.New("invalid role name")
+	ErrRoleNameTooLong         = fmt.Errorf("exceeds the limit of %d characters", MaxRoleNameLength)
+	ErrRoleNameFallbackMissing = errors.New("lacks the fallback language translation")
 )
 
 type RoleName languages.Text
@@ -108,6 +109,23 @@ func (r RoleName) Validate() error {
 				break
 			}
 		}
+	}
+
+	return err
+}
+
+// When the catalog has a fallback language, a Role name requires its
+// translation and every other translation is optional. Without a fallback
+// language, any one translation is enough. An empty fallback code means the
+// catalog has none.
+
+func (r RoleName) ValidateWithFallback(fallback languages.Code) error {
+	var err error
+
+	if _, found := r[fallback]; fallback != "" && !found {
+		err = fmt.Errorf("%w: %w", ErrRoleNameInvalid, ErrRoleNameFallbackMissing)
+	} else {
+		err = r.Validate()
 	}
 
 	return err

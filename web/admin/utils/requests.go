@@ -121,7 +121,7 @@ func ParseSignInForm(writer http.ResponseWriter, request *http.Request) (SignInF
 //
 
 type RoleForm struct {
-	Name        map[string]string `form:"name" validate:"min=1,dive,keys,len=2,ascii,lowercase,endkeys,notblank,utf8"`
+	Name        map[string]string `form:"name" validate:"dive,keys,len=2,ascii,lowercase,endkeys,notblank,utf8"`
 	Permissions []string          `form:"permissions" validate:"dive,oneof=manage_user view_user manage_role view_role"`
 	IsSuper     string            `form:"is_super" validate:"omitempty,eq=1"`
 }
@@ -262,10 +262,6 @@ func FieldErrors(ctx context.Context, err error) components.FieldErrors {
 				messageID = "validation.uuid"
 			case "max", "maxbytes":
 				messageID = "validation.too_long"
-			}
-
-			if key == "name" && field.Rule == "min" {
-				messageID = "validation.role_name"
 			}
 
 			// Every selected value belongs to the one permissions control.

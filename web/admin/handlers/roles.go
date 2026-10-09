@@ -267,10 +267,16 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 					var messageID string
 
 					status, messageID = utils.RoleError(request, err)
-					props.FieldErrors = utils.FieldErrors(request.Context(), err)
+					props.FieldErrors = utils.RoleFormFieldErrors(request.Context(), err, catalog)
 
+					// Field errors stand beside their controls; any other failure
+					// is shown at the top of the form.
 					if len(props.FieldErrors) == 0 {
-						if flashErr := h.flashes.Add(writer, request, flashmsg.Error, admini18n.T(request.Context(), messageID)); flashErr != nil {
+						var flashErr error
+
+						props.Errors, flashErr = h.flashes.ShowError(writer, request, admini18n.T(request.Context(), messageID))
+
+						if flashErr != nil {
 							utils.FlashUnavailable(writer, request, flashErr)
 							responded = true
 						}
@@ -283,7 +289,11 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 				props.Permissions = utils.PermissionOptions(request.Context(), utils.PermissionsOf(form.Permissions))
 				props.IsSuper = form.IsSuper == "1"
 
-				h.render(writer, request, status, props.Title, pages.RoleForm(props))
+				if request.Method == http.MethodPost && utils.IsPartial(request) {
+					utils.RenderFormRegion(writer, request, status, pages.RoleFormID, pages.RoleFieldsForm(props))
+				} else {
+					h.render(writer, request, status, props.Title, pages.RoleForm(props))
+				}
 			}
 		}
 	})

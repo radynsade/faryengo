@@ -266,7 +266,7 @@ func wireAdmin(
 	}
 
 	if err == nil {
-		roles, err = app.NewRoleService(transactor, roleRepository)
+		roles, err = app.NewRoleService(transactor, roleRepository, languageRepository)
 	}
 
 	if err == nil {

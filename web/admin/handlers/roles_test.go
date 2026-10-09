@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"regexp"
 	"slices"
 	"strings"
 	"testing"
@@ -171,7 +172,8 @@ func TestRoleFormValidation(t *testing.T) {
 		wantStatus int
 		wantBody   string
 	}{
-		{"no name", "name[en]=+&permissions=view_role", http.StatusUnprocessableEntity, "Enter a name in at least one language."},
+		{"no name", "name[en]=+&permissions=view_role", http.StatusUnprocessableEntity, "This translation is required."},
+		{"only another language", "name[lv]=Redaktors", http.StatusUnprocessableEntity, "This translation is required."},
 		{"name too long", "name[en]=" + strings.Repeat("a", users.MaxRoleNameLength+1), http.StatusUnprocessableEntity, "This value is too long."},
 		{"unknown permission", "name[en]=Editor&permissions=everything", http.StatusUnprocessableEntity, "Enter a valid value."},
 		{"unknown language", "name[de]=Redakteur", http.StatusBadRequest, "Submit a valid role form."},
@@ -209,19 +211,48 @@ func TestRoleFieldErrorsMarkControls(t *testing.T) {
 	response := f.do(request{
 		method:  http.MethodPost,
 		path:    "/admin/en/roles/create",
-		body:    "name[lv]=+&permissions=everything",
+		body:    "name[lv]=Redaktors",
 		cookies: f.signIn(t),
 	})
 	body := response.Body.String()
 
+	// The missing fallback translation is marked on the English field and tab,
+	// which opens first; the Latvian value is kept.
 	for _, want := range []string{
-		`id="role-name-errors"`,
-		`id="role-permissions-errors"`,
-		`aria-describedby="role-name-help role-name-errors"`,
+		`id="role-name-en-errors"`,
+		`aria-describedby="role-name-help role-name-en-errors"`,
+		`translations-input__tab translations-input__tab--invalid`,
+		`data-translations-input data-language="en"`,
+		`value="Redaktors"`,
 		`aria-invalid="true"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("body does not contain %s", want)
+		}
+	}
+
+	if strings.Contains(body, "Enter a name in at least one language.") {
+		t.Fatal("the form still asks for a name in any language")
+	}
+}
+
+func TestRoleFormMarksTheFallbackTranslationRequired(t *testing.T) {
+	f := newFixture(t, nil, true)
+	body := f.do(request{path: "/admin/en/roles/create", cookies: f.signIn(t)}).Body.String()
+
+	if !strings.Contains(body, "The translation in the fallback language (English) is required.") {
+		t.Fatal("the help does not name the required fallback translation")
+	}
+
+	inputs := regexp.MustCompile(`<input [^>]*name="name\[(\w+)\]"[^>]*>`).FindAllStringSubmatch(body, -1)
+
+	if len(inputs) != 3 {
+		t.Fatalf("found %d name inputs", len(inputs))
+	}
+
+	for _, input := range inputs {
+		if required := strings.Contains(input[0], " required"); required != (input[1] == "en") {
+			t.Fatalf("name[%s] required = %t", input[1], required)
 		}
 	}
 }

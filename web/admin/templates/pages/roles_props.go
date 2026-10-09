@@ -135,6 +135,10 @@ func SortOrderValue(order domquery.SortOrder) string {
 // Role form
 //
 
+// RoleFormID names the region a failed in-page submission replaces.
+
+const RoleFormID = "role-form"
+
 type RoleFormProps struct {
 	Panel            layouts.PanelProps
 	ID               string
@@ -144,6 +148,7 @@ type RoleFormProps struct {
 	NameTranslations components.TranslationsInputProps
 	Permissions      []PermissionOption
 	IsSuper          bool
+	Errors           []string
 	FieldErrors      components.FieldErrors
 }
 

@@ -219,7 +219,7 @@ func wireServices(pool *pgxpool.Pool) (services, error) {
 	}
 
 	if err == nil {
-		wired.roles, err = app.NewRoleService(transactor, roleRepository)
+		wired.roles, err = app.NewRoleService(transactor, roleRepository, languageRepository)
 	}
 
 	if err == nil {

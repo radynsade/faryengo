@@ -99,6 +99,24 @@ func RenderFragment(
 	write(writer, request, status, content)
 }
 
+// A failed in-page submission replaces only its form region, which the page
+// already has, so neither the head nor the rest of the page is sent again.
+// The region is morphed, keeping focus and typed values, and the address
+// stays that of the page the form was submitted from.
+
+func RenderFormRegion(
+	writer http.ResponseWriter,
+	request *http.Request,
+	status int,
+	regionID string,
+	content templ.Component,
+) {
+	writer.Header().Set("HX-Retarget", "#"+regionID)
+	writer.Header().Set("HX-Reswap", "morph:outerHTML")
+	writer.Header().Set("HX-Push-Url", "false")
+	RenderFragment(writer, request, status, content)
+}
+
 // Transport rejections and unavailable storage are plain-text errors; the
 // client shows its translated navigation error and keeps the page usable.
 

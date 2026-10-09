@@ -107,7 +107,7 @@ func newFixture(t *testing.T, permissions users.Permissions, isSuper bool) *fixt
 	identities, err := security.NewIdentityResolver(f.credentials(), f.users(), f.roleRepository())
 	must(t, err)
 
-	roleService, err := app.NewRoleService(transactor, f.roleRepository())
+	roleService, err := app.NewRoleService(transactor, f.roleRepository(), catalogRepository())
 	must(t, err)
 
 	languageService, err := app.NewLanguageService(transactor, catalogRepository())
@@ -323,6 +323,9 @@ func (f *fixture) matching(filter users.RoleFilter) []*users.Role {
 
 func catalogRepository() *languagesmock.LanguageRepository {
 	return &languagesmock.LanguageRepository{
+		FindFallbackFunc: func(context.Context) (*languages.Language, error) {
+			return languages.NewLanguage("en", "English", "English", true), nil
+		},
 		FindAllFunc: func(context.Context) ([]*languages.Language, error) {
 			return []*languages.Language{
 				languages.NewLanguage("en", "English", "English", true),

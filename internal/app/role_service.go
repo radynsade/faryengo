@@ -26,18 +26,22 @@ type RoleList struct {
 //
 
 // Every write runs in a transaction, so it is atomic on its own and joins a
-// transaction already carried by the caller's context.
+// transaction already carried by the caller's context. A Role name must
+// include the catalog's fallback language translation, so writes read the
+// fallback language before validating.
 
 var ErrRoleRepositoryNil = errors.New("role repository is nil")
 
 type RoleService struct {
 	transactor Transactor
 	repository users.RoleRepository
+	languages  languages.LanguageRepository
 }
 
 func NewRoleService(
 	transactor Transactor,
 	repository users.RoleRepository,
+	languageRepository languages.LanguageRepository,
 ) (*RoleService, error) {
 	var (
 		service *RoleService
@@ -48,8 +52,10 @@ func NewRoleService(
 		err = ErrTransactorNil
 	} else if repository == nil {
 		err = ErrRoleRepositoryNil
+	} else if languageRepository == nil {
+		err = ErrLanguageRepositoryNil
 	} else {
-		service = &RoleService{transactor: transactor, repository: repository}
+		service = &RoleService{transactor: transactor, repository: repository, languages: languageRepository}
 	}
 
 	return service, err
@@ -68,14 +74,19 @@ func (s *RoleService) Create(
 	)
 
 	if err = s.check(); err == nil {
-		var id uuid.UUID
+		var (
+			id       uuid.UUID
+			fallback languages.Code
+		)
 
 		id, err = uuid.NewV7()
 
 		if err != nil {
 			err = fmt.Errorf("generate role ID: %w", err)
+		} else if fallback, err = s.fallback(ctx); err != nil {
+			err = fmt.Errorf("create role: %w", err)
 		} else {
-			role, err = newRole(users.RoleID(id), request.Name, request.Permissions, request.IsSuper)
+			role, err = newRole(users.RoleID(id), request.Name, request.Permissions, request.IsSuper, fallback)
 
 			if err != nil {
 				err = fmt.Errorf("create role: %w: %w", input.ErrCreateRoleInputInvalid, err)
@@ -179,10 +190,18 @@ func (s *RoleService) Update(
 	)
 
 	if err = s.check(); err == nil {
-		role, err = newRole(request.ID, request.Name, request.Permissions, request.IsSuper)
+		var fallback languages.Code
+
+		fallback, err = s.fallback(ctx)
 
 		if err != nil {
-			err = fmt.Errorf("update role: %w: %w", input.ErrUpdateRoleInputInvalid, err)
+			err = fmt.Errorf("update role: %w", err)
+		} else {
+			role, err = newRole(request.ID, request.Name, request.Permissions, request.IsSuper, fallback)
+
+			if err != nil {
+				err = fmt.Errorf("update role: %w: %w", input.ErrUpdateRoleInputInvalid, err)
+			}
 		}
 	}
 
@@ -255,9 +274,29 @@ func (s *RoleService) check() error {
 		err = ErrRoleRepositoryNil
 	} else if s.transactor == nil {
 		err = ErrTransactorNil
+	} else if s.languages == nil {
+		err = ErrLanguageRepositoryNil
 	}
 
 	return err
+}
+
+// The catalog may have no fallback language; the empty code reports that.
+
+func (s *RoleService) fallback(ctx context.Context) (languages.Code, error) {
+	var code languages.Code
+
+	language, err := s.languages.FindFallback(ctx)
+
+	if errors.Is(err, languages.ErrLanguageNotFound) {
+		err = nil
+	} else if err != nil {
+		err = fmt.Errorf("find the fallback language: %w", err)
+	} else {
+		code = language.Code
+	}
+
+	return code, err
 }
 
 // Every field is validated, rather than stopping at the first failure, so a
@@ -268,6 +307,7 @@ func newRole(
 	name map[string]string,
 	permissions []string,
 	isSuper bool,
+	fallback languages.Code,
 ) (*users.Role, error) {
 	var (
 		roleName        users.RoleName
@@ -294,7 +334,7 @@ func newRole(
 
 	err := errors.Join(
 		role.ID.Validate(),
-		role.Name.Validate(),
+		role.Name.ValidateWithFallback(fallback),
 		role.Permissions.Validate(),
 	)
 

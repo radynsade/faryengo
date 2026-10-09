@@ -11,7 +11,6 @@ import (
 	"github.com/radynsade/faryengo/internal/security/sessionid"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
-	"github.com/radynsade/faryengo/pkg/flashmsg"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
@@ -73,7 +72,7 @@ func (h *Handler) signInPage(writer http.ResponseWriter, request *http.Request) 
 	if err == nil {
 		http.Redirect(writer, request, utils.AdminPath(request), http.StatusSeeOther)
 	} else if utils.IsUnauthenticated(err) {
-		h.renderSignIn(writer, request, http.StatusOK, "", nil)
+		h.renderSignIn(writer, request, http.StatusOK, "", nil, nil)
 	} else {
 		h.signInFailed(writer, request, "", err)
 	}
@@ -91,7 +90,7 @@ func (h *Handler) signIn(writer http.ResponseWriter, request *http.Request) {
 	if errors.Is(err, utils.ErrFormInvalid) {
 		h.showSignInError(writer, request, http.StatusBadRequest, "", "errors.credentials_form")
 	} else if err != nil {
-		h.renderSignIn(writer, request, http.StatusUnprocessableEntity, form.Email, utils.FieldErrors(request.Context(), err))
+		h.renderSignIn(writer, request, http.StatusUnprocessableEntity, form.Email, nil, utils.FieldErrors(request.Context(), err))
 	} else {
 		var (
 			session *security.Session
@@ -158,25 +157,30 @@ func (h *Handler) restorePasswordPage(writer http.ResponseWriter, request *http.
 // Helpers
 //
 
+// A failed in-page submission replaces only the sign-in form; every other
+// response is the whole page.
+
 func (h *Handler) renderSignIn(
 	writer http.ResponseWriter,
 	request *http.Request,
 	status int,
 	email string,
+	messages []string,
 	fields components.FieldErrors,
 ) {
-	h.render(
-		writer,
-		request,
-		status,
-		admini18n.T(request.Context(), "actions.sign_in"),
-		pages.SignIn(pages.SignInProps{
-			Action:             utils.AdminPath(request) + "/sign-in",
-			RestorePasswordURL: utils.AdminPath(request) + "/restore-password",
-			Email:              email,
-			FieldErrors:        fields,
-		}),
-	)
+	props := pages.SignInProps{
+		Action:             utils.AdminPath(request) + "/sign-in",
+		RestorePasswordURL: utils.AdminPath(request) + "/restore-password",
+		Email:              email,
+		Errors:             messages,
+		FieldErrors:        fields,
+	}
+
+	if request.Method == http.MethodPost && utils.IsPartial(request) {
+		utils.RenderFormRegion(writer, request, status, pages.SignInFormID, pages.SignInForm(props))
+	} else {
+		h.render(writer, request, status, admini18n.T(request.Context(), "actions.sign_in"), pages.SignIn(props))
+	}
 }
 
 func (h *Handler) showSignInError(
@@ -186,10 +190,12 @@ func (h *Handler) showSignInError(
 	email string,
 	messageID string,
 ) {
-	if err := h.flashes.Add(writer, request, flashmsg.Error, admini18n.T(request.Context(), messageID)); err != nil {
+	messages, err := h.flashes.ShowError(writer, request, admini18n.T(request.Context(), messageID))
+
+	if err != nil {
 		utils.FlashUnavailable(writer, request, err)
 	} else {
-		h.renderSignIn(writer, request, status, email, nil)
+		h.renderSignIn(writer, request, status, email, messages, nil)
 	}
 }
 

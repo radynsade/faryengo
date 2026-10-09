@@ -365,5 +365,11 @@
   },
   "errors.sign_out": {
     "other": "Neizdevās izrakstīties. Lūdzu, mēģiniet vēlreiz."
+  },
+  "validation.fallback_translation": {
+    "other": "Šis tulkojums ir obligāts."
+  },
+  "roles.name_help_fallback": {
+    "other": "Tulkojums rezerves valodā ({{.Language}}) ir obligāts. Pārējie tulkojumi nav obligāti; atstājiet tos tukšus, lai tos izlaistu."
   }
 }

@@ -211,12 +211,21 @@ and `.form-field__errors` messages directly below the relevant controls. Invalid
 native inputs and enhanced multiselects carry `aria-invalid` and link to their
 messages through `aria-describedby`; translation controls retain their help-text
 reference too. Each invalid translation marks its language tab, and the server
-opens the first tab with a field error. The requirement to supply at least one
-translated name is a group error beside the name input; other translations remain
-optional. Checkbox errors appear beneath the checkbox. Messages use the interface
+opens the first tab with a field error. The fallback language's name field is
+`required`, and its help text names the fallback language; a missing fallback
+translation is an error on that field and its tab, and other translations remain
+optional. When the catalog has no fallback language, supplying no name at all is
+a group error beside the name input. Checkbox errors appear beneath the checkbox. Messages use the interface
 catalogs and apply to full pages, HTMX fragments, and native forms without
-JavaScript. Field errors live only in the submission response; form-wide failures
-continue using notifications.
+JavaScript. Field errors live only in the submission response. Form-wide
+failures, such as wrong credentials or a malformed form, appear inside the form
+region: above the sign-in form with `.form-error`, and below the role form's
+toolbar with `.notice--error`.
+
+A failed submission during an in-page update returns only its form region, the
+`#sign-in-form` wrapper or the `#role-form` section, retargeted and morphed in
+place; the head, layout, and sidebar are not sent again, and the address does not
+change. Without JavaScript, the same failure renders the whole page.
 
 ## Layout and page responsibilities
 

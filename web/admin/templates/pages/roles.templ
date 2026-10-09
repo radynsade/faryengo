@@ -273,8 +273,10 @@ templ RoleForm(props RoleFormProps) {
 }
 
 // RoleFieldsForm shares the compact field layout between creation and editing.
+// It is also the region a failed in-page submission replaces, so form-wide
+// errors render inside it, below the toolbar.
 templ RoleFieldsForm(props RoleFormProps) {
-	<section class="role-form" aria-labelledby="page-heading">
+	<section id={ RoleFormID } class="role-form" aria-labelledby="page-heading">
 		<form method="post" action={ templ.URL(props.Action) } { components.FormAttributes()... }>
 			<header class="list-toolbar">
 				<div class="action-group">
@@ -303,6 +305,9 @@ templ RoleFieldsForm(props RoleFormProps) {
 					}
 				}
 			</header>
+			for _, message := range props.Errors {
+				<p class="notice notice--error" role="alert">{ message }</p>
+			}
 			<div class="role-form__fields">
 				<div class="role-form__row">
 					<div class="role-form__field">

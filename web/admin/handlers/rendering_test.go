@@ -234,3 +234,61 @@ func catalogMessages(t *testing.T, language string) map[string]string {
 
 	return messages
 }
+
+// A failed in-page submission replaces only its form, keeping the rest of the
+// page; the same failure without in-page updates is the whole page.
+
+func TestFailedSubmissionsReplaceOnlyTheForm(t *testing.T) {
+	tests := []struct {
+		name       string
+		path       string
+		body       string
+		signedIn   bool
+		wantStatus int
+		wantRegion string
+		wantText   string
+	}{
+		{"wrong password", "/admin/en/sign-in", "email=ada@example.com&password=wrong", false, http.StatusUnauthorized, `<div id="sign-in-form">`, "The email, password, or session is invalid."},
+		{"invalid email", "/admin/en/sign-in", "email=nope&password=x", false, http.StatusUnprocessableEntity, `<div id="sign-in-form">`, "Enter a valid email address."},
+		{"role field error", "/admin/en/roles/create", "name[en]=+", true, http.StatusUnprocessableEntity, `<section id="role-form"`, "This translation is required."},
+		{"role form error", "/admin/en/roles/create", "name[de]=Redakteur", true, http.StatusBadRequest, `<section id="role-form"`, "Submit a valid role form."},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t, nil, true)
+
+			var cookies []*http.Cookie
+
+			if tt.signedIn {
+				cookies = f.signIn(t)
+			}
+
+			response := f.do(request{method: http.MethodPost, path: tt.path, body: tt.body, cookies: cookies, headers: partial})
+			body := response.Body.String()
+			region := strings.TrimSuffix(strings.TrimPrefix(tt.wantRegion, `<div id="`), `">`)
+			region = strings.TrimSuffix(strings.TrimPrefix(region, `<section id="`), `"`)
+
+			if response.Code != tt.wantStatus || !strings.HasPrefix(body, tt.wantRegion) || !strings.Contains(body, tt.wantText) {
+				t.Fatalf("partial = %d: %.300s", response.Code, body)
+			}
+
+			if strings.Contains(body, "<head ") || strings.Contains(body, "<head>") || strings.Contains(body, "panel-sidebar") || strings.Contains(body, "auth-panel__heading") {
+				t.Fatalf("the response repeats the page around the form: %.300s", body)
+			}
+
+			if response.Header().Get("HX-Retarget") != "#"+region ||
+				response.Header().Get("HX-Reswap") != "morph:outerHTML" ||
+				response.Header().Get("HX-Push-Url") != "false" {
+				t.Fatalf("headers = %v", response.Header())
+			}
+
+			full := f.do(request{method: http.MethodPost, path: tt.path, body: tt.body, cookies: cookies})
+
+			if full.Code != tt.wantStatus || !strings.HasPrefix(full.Body.String(), "<!doctype html>") ||
+				!strings.Contains(full.Body.String(), tt.wantText) || full.Header().Get("HX-Retarget") != "" {
+				t.Fatalf("full = %d: %.300s", full.Code, full.Body.String())
+			}
+		})
+	}
+}

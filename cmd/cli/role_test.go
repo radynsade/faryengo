@@ -13,6 +13,8 @@ import (
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/app/input"
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
+	"github.com/radynsade/faryengo/internal/languages"
+	languagesmock "github.com/radynsade/faryengo/internal/languages/mock"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/users/mock"
 )
@@ -112,6 +114,12 @@ func TestExecuteRoleCommand(t *testing.T) {
 			wantErrs: []error{input.ErrCreateRoleInputInvalid, users.ErrPermissionInvalid},
 			wantText: "invalid permission",
 		},
+		{
+			name:     "create without the fallback translation",
+			args:     []string{"users", "create-role", "lv:Redaktors"},
+			wantErrs: []error{input.ErrCreateRoleInputInvalid, users.ErrRoleNameFallbackMissing},
+			wantText: "lacks the fallback language translation",
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			repository := &mock.RoleRepository{
@@ -132,7 +140,7 @@ func TestExecuteRoleCommand(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			service, err := app.NewRoleService(&appmock.Transactor{}, repository)
+			service, err := app.NewRoleService(&appmock.Transactor{}, repository, fallbackCatalog())
 
 			if err != nil {
 				t.Fatal(err)
@@ -164,7 +172,7 @@ func TestExecuteCreateRoleCommand(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	service, err := app.NewRoleService(&appmock.Transactor{}, repository)
+	service, err := app.NewRoleService(&appmock.Transactor{}, repository, fallbackCatalog())
 
 	if err != nil {
 		t.Fatal(err)
@@ -177,5 +185,15 @@ func TestExecuteCreateRoleCommand(t *testing.T) {
 	if err != nil || created == nil || !created.IsSuper ||
 		output.String() != "created role "+uuid.UUID(created.ID).String()+"\n" {
 		t.Fatalf("executeRoleCommand() = (%q, %v), created = %+v", output.String(), err, created)
+	}
+}
+
+// English is the fallback language of the test catalog.
+
+func fallbackCatalog() *languagesmock.LanguageRepository {
+	return &languagesmock.LanguageRepository{
+		FindFallbackFunc: func(context.Context) (*languages.Language, error) {
+			return languages.NewLanguage("en", "English", "English", true), nil
+		},
 	}
 }

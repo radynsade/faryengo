@@ -363,5 +363,11 @@
   },
   "errors.sign_out": {
     "other": "Unable to sign out. Please try again."
+  },
+  "validation.fallback_translation": {
+    "other": "This translation is required."
+  },
+  "roles.name_help_fallback": {
+    "other": "The translation in the fallback language ({{.Language}}) is required. Other translations are optional; leave them blank to omit them."
   }
 }

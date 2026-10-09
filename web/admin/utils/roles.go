@@ -318,13 +318,41 @@ func RoleNameTranslations(
 	for _, language := range catalog {
 		languageCode := string(language.Code)
 
+		if language.IsFallback {
+			props.Help = admini18n.T(ctx, "roles.name_help_fallback", map[string]any{"Language": string(language.NativeName)})
+		}
+
 		props.Values = append(props.Values, components.TranslationInputValue{
 			Code:     languageCode,
 			Language: string(language.NativeName),
 			Value:    names[languageCode],
+			Required: language.IsFallback,
 			Errors:   fields["name["+languageCode+"]"],
 		})
 	}
 
 	return props
+}
+
+// A missing fallback translation belongs to the fallback language's field,
+// which only the catalog can name, so it is added to the generic field errors.
+
+func RoleFormFieldErrors(
+	ctx context.Context,
+	err error,
+	catalog []*languages.Language,
+) components.FieldErrors {
+	fields := FieldErrors(ctx, err)
+
+	for _, language := range catalog {
+		if language.IsFallback && errors.Is(err, users.ErrRoleNameFallbackMissing) {
+			if fields == nil {
+				fields = make(components.FieldErrors)
+			}
+
+			fields["name["+string(language.Code)+"]"] = []string{admini18n.T(ctx, "validation.fallback_translation")}
+		}
+	}
+
+	return fields
 }

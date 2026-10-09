@@ -11,6 +11,7 @@ import (
 	"github.com/radynsade/faryengo/internal/app/input"
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
 	"github.com/radynsade/faryengo/internal/languages"
+	languagesmock "github.com/radynsade/faryengo/internal/languages/mock"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/users/mock"
 	"github.com/radynsade/faryengo/pkg/domquery"
@@ -21,14 +22,16 @@ func TestNewRoleService(t *testing.T) {
 		name       string
 		transactor Transactor
 		repository users.RoleRepository
+		languages  languages.LanguageRepository
 		wantErr    error
 	}{
-		{name: "created", transactor: &appmock.Transactor{}, repository: &mock.RoleRepository{}},
-		{name: "nil transactor", repository: &mock.RoleRepository{}, wantErr: ErrTransactorNil},
-		{name: "nil repository", transactor: &appmock.Transactor{}, wantErr: ErrRoleRepositoryNil},
+		{name: "created", transactor: &appmock.Transactor{}, repository: &mock.RoleRepository{}, languages: catalogWithFallback("")},
+		{name: "nil transactor", repository: &mock.RoleRepository{}, languages: catalogWithFallback(""), wantErr: ErrTransactorNil},
+		{name: "nil repository", transactor: &appmock.Transactor{}, languages: catalogWithFallback(""), wantErr: ErrRoleRepositoryNil},
+		{name: "nil language repository", transactor: &appmock.Transactor{}, repository: &mock.RoleRepository{}, wantErr: ErrLanguageRepositoryNil},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			service, err := NewRoleService(tt.transactor, tt.repository)
+			service, err := NewRoleService(tt.transactor, tt.repository, tt.languages)
 
 			if !errors.Is(err, tt.wantErr) || (err == nil) != (tt.wantErr == nil) || (service == nil) != (tt.wantErr != nil) {
 				t.Fatalf("NewRoleService() = (%v, %v), want error %v", service, err, tt.wantErr)
@@ -137,7 +140,7 @@ func TestRoleServiceCreate(t *testing.T) {
 			}
 
 			transactor := &appmock.Transactor{BeginErr: tt.beginErr}
-			service, err := NewRoleService(transactor, repository)
+			service, err := NewRoleService(transactor, repository, catalogWithFallback(""))
 
 			if err != nil {
 				t.Fatal(err)
@@ -208,7 +211,7 @@ func TestRoleServiceFindByID(t *testing.T) {
 				},
 			}
 
-			service, err := NewRoleService(&appmock.Transactor{}, repository)
+			service, err := NewRoleService(&appmock.Transactor{}, repository, catalogWithFallback(""))
 
 			if err != nil {
 				t.Fatal(err)
@@ -295,7 +298,7 @@ func TestRoleServiceList(t *testing.T) {
 				},
 			}
 
-			service, err := NewRoleService(&appmock.Transactor{}, repository)
+			service, err := NewRoleService(&appmock.Transactor{}, repository, catalogWithFallback(""))
 
 			if err != nil {
 				t.Fatal(err)
@@ -398,7 +401,7 @@ func TestRoleServiceUpdate(t *testing.T) {
 			}
 
 			transactor := &appmock.Transactor{}
-			service, err := NewRoleService(transactor, repository)
+			service, err := NewRoleService(transactor, repository, catalogWithFallback(""))
 
 			if err != nil {
 				t.Fatal(err)
@@ -480,7 +483,7 @@ func TestRoleServiceDelete(t *testing.T) {
 			}
 
 			transactor := &appmock.Transactor{}
-			service, err := NewRoleService(transactor, repository)
+			service, err := NewRoleService(transactor, repository, catalogWithFallback(""))
 
 			if err != nil {
 				t.Fatal(err)
@@ -530,5 +533,107 @@ func assertRole(
 		if role.Permissions[index] != users.Permission(permission) {
 			t.Fatalf("role permissions = %v, want %v", role.Permissions, permissions)
 		}
+	}
+}
+
+// A catalog with an empty fallback code has no fallback language.
+
+func catalogWithFallback(code languages.Code) *languagesmock.LanguageRepository {
+	return &languagesmock.LanguageRepository{
+		FindFallbackFunc: func(context.Context) (*languages.Language, error) {
+			var (
+				language *languages.Language
+				err      = languages.ErrLanguageNotFound
+			)
+
+			if code != "" {
+				language, err = languages.NewLanguage(code, "English", "English", true), nil
+			}
+
+			return language, err
+		},
+	}
+}
+
+func TestRoleServiceFallbackTranslation(t *testing.T) {
+	storageErr := errors.New("storage unavailable")
+
+	for _, tt := range []struct {
+		name      string
+		catalog   *languagesmock.LanguageRepository
+		roleName  map[string]string
+		wantErrs  []error
+		wantWrite bool
+	}{
+		{name: "fallback translation only", catalog: catalogWithFallback("en"), roleName: map[string]string{"en": "Editor"}, wantWrite: true},
+		{name: "fallback and other translations", catalog: catalogWithFallback("en"), roleName: map[string]string{"en": "Editor", "lv": "Redaktors"}, wantWrite: true},
+		{
+			name:     "missing fallback translation",
+			catalog:  catalogWithFallback("en"),
+			roleName: map[string]string{"lv": "Redaktors"},
+			wantErrs: []error{users.ErrRoleNameInvalid, users.ErrRoleNameFallbackMissing},
+		},
+		{
+			name:     "empty name with a fallback language",
+			catalog:  catalogWithFallback("en"),
+			roleName: map[string]string{},
+			wantErrs: []error{users.ErrRoleNameFallbackMissing},
+		},
+		{name: "no fallback language", catalog: catalogWithFallback(""), roleName: map[string]string{"lv": "Redaktors"}, wantWrite: true},
+		{
+			name:     "empty name without a fallback language",
+			catalog:  catalogWithFallback(""),
+			roleName: map[string]string{},
+			wantErrs: []error{languages.ErrTextWithoutTranslations},
+		},
+		{
+			name: "catalog unavailable",
+			catalog: &languagesmock.LanguageRepository{
+				FindFallbackFunc: func(context.Context) (*languages.Language, error) { return nil, storageErr },
+			},
+			roleName: map[string]string{"en": "Editor"},
+			wantErrs: []error{storageErr},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			for _, operation := range []string{"create", "update"} {
+				t.Run(operation, func(t *testing.T) {
+					writes := 0
+					repository := &mock.RoleRepository{
+						CreateFunc: func(context.Context, *users.Role) users.ErrRoleCreateFailed {
+							writes++
+
+							return nil
+						},
+						FindByIDForUpdateFunc: func(_ context.Context, id users.RoleID) (*users.Role, error) {
+							return users.NewRole(id, users.RoleName{"en": "Old"}, nil, false), nil
+						},
+						UpdateFunc: func(context.Context, *users.Role) users.ErrRoleUpdateFailed {
+							writes++
+
+							return nil
+						},
+					}
+
+					service, err := NewRoleService(&appmock.Transactor{}, repository, tt.catalog)
+
+					if err != nil {
+						t.Fatal(err)
+					}
+
+					if operation == "create" {
+						_, err = service.Create(t.Context(), input.CreateRoleInput{Name: tt.roleName})
+					} else {
+						_, err = service.Update(t.Context(), input.UpdateRoleInput{ID: testRoleID, Name: tt.roleName})
+					}
+
+					assertErrors(t, err, tt.wantErrs)
+
+					if (writes == 1) != tt.wantWrite {
+						t.Fatalf("writes = %d, want written = %t", writes, tt.wantWrite)
+					}
+				})
+			}
+		})
 	}
 }
