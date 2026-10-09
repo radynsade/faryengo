@@ -11,7 +11,7 @@ templ Root(title string) {
 	<!DOCTYPE html>
 	<html lang={ admini18n.Language(ctx) }>
 		@Head(title)
-		<body hx-ext="head-support, morph" hx-history="false">
+		<body hx-ext="head-support, morph" hx-history="false" hx-target={ "#" + PageRegionID }>
 			{ children... }
 			<p id="navigation-error" class="navigation-error" role="alert" hidden>
 				{ admini18n.T(ctx, "navigation.error") }

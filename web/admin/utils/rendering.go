@@ -13,7 +13,6 @@ import (
 
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
-	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/layouts"
 )
 
@@ -25,13 +24,13 @@ func AdminPath(request *http.Request) string {
 	return "/admin/" + url.PathEscape(request.PathValue("language"))
 }
 
-// The location tells the client to navigate in place, as a link would, when
-// the request targeted something other than the page.
+// The location tells the client to navigate within the dashboard, as a link
+// would, when the request targeted something other than the content region.
 
 func NavigationLocation(path string) string {
 	location, _ := json.Marshal(map[string]string{
 		"path":   path,
-		"target": components.PageTarget,
+		"target": "#" + layouts.ContentRegionID,
 		"swap":   "morph:outerHTML show:none",
 	})
 
@@ -53,6 +52,14 @@ func IsPartial(request *http.Request) bool {
 func varyByForm(writer http.ResponseWriter) {
 	writer.Header().Add("Vary", "HX-Request")
 	writer.Header().Add("Vary", "HX-History-Restore-Request")
+	writer.Header().Add("Vary", "HX-Target")
+}
+
+// A partial request that targets the dashboard's content region already shows
+// the dashboard, so only the content is sent.
+
+func targetsContent(request *http.Request) bool {
+	return IsPartial(request) && request.Header.Get("HX-Target") == layouts.ContentRegionID
 }
 
 //
@@ -60,7 +67,10 @@ func varyByForm(writer http.ResponseWriter) {
 //
 
 // The page shows the flash messages in the bag, which the caller has already
-// consumed from storage.
+// consumed from storage. A request from inside the dashboard receives only the
+// page's content; if the page turns out to use another layout, such as the
+// sign-in page after a session ended, the response replaces the whole page
+// region instead.
 
 func Render(
 	writer http.ResponseWriter,
@@ -72,6 +82,7 @@ func Render(
 ) {
 	title := admini18n.T(request.Context(), "document.title", map[string]any{"Page": pageTitle})
 	page := layouts.Page(title, content)
+	state := &layouts.RenderState{ContentOnly: targetsContent(request)}
 
 	varyByForm(writer)
 
@@ -85,8 +96,15 @@ func Render(
 		}
 	}
 
-	request = request.WithContext(flashmsg.WithBag(request.Context(), bag))
-	write(writer, request, status, page)
+	ctx := layouts.WithRenderState(flashmsg.WithBag(request.Context(), bag), state)
+	body, err := render(request.WithContext(ctx), page)
+
+	if err == nil && state.ContentOnly && !state.PanelRendered {
+		writer.Header().Set("HX-Retarget", "#"+layouts.PageRegionID)
+		writer.Header().Set("HX-Reswap", "morph:outerHTML show:none")
+	}
+
+	send(writer, request, status, body, err)
 }
 
 func RenderFragment(
@@ -96,7 +114,10 @@ func RenderFragment(
 	content templ.Component,
 ) {
 	varyByForm(writer)
-	write(writer, request, status, content)
+
+	body, err := render(request, content)
+
+	send(writer, request, status, body, err)
 }
 
 // A failed in-page submission replaces only its form region, which the page
@@ -133,15 +154,11 @@ func Fail(
 // Helpers
 //
 
-// Rendering completes before anything is written, so a failed render is
-// reported with an error status instead of a truncated page.
+// Rendering completes before anything is written, so headers can depend on
+// what was rendered and a failed render is reported with an error status
+// instead of a truncated page.
 
-func write(
-	writer http.ResponseWriter,
-	request *http.Request,
-	status int,
-	content templ.Component,
-) {
+func render(request *http.Request, content templ.Component) ([]byte, error) {
 	var rendered, minified bytes.Buffer
 
 	err := content.Render(request.Context(), &rendered)
@@ -150,6 +167,16 @@ func write(
 		err = minifier.Minify("text/html", &minified, &rendered)
 	}
 
+	return minified.Bytes(), err
+}
+
+func send(
+	writer http.ResponseWriter,
+	request *http.Request,
+	status int,
+	body []byte,
+	err error,
+) {
 	if err != nil {
 		slog.ErrorContext(request.Context(), "render an admin page", "error", err)
 		Fail(writer, request, http.StatusInternalServerError, "navigation.error")
@@ -157,7 +184,7 @@ func write(
 		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
 		writer.WriteHeader(status)
 
-		if _, writeErr := writer.Write(minified.Bytes()); writeErr != nil {
+		if _, writeErr := writer.Write(body); writeErr != nil {
 			slog.DebugContext(request.Context(), "write an admin page", "error", writeErr)
 		}
 	}

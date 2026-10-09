@@ -308,7 +308,7 @@ func TestRoleDelete(t *testing.T) {
 
 				must(t, json.Unmarshal([]byte(response.Header().Get("HX-Location")), &location))
 
-				if location["path"] != tt.wantHeader || location["target"] != "#page-content" || !strings.HasPrefix(location["swap"], "morph:") {
+				if location["path"] != tt.wantHeader || location["target"] != "#panel-main" || !strings.HasPrefix(location["swap"], "morph:") {
 					t.Fatalf("HX-Location = %v", location)
 				}
 			}

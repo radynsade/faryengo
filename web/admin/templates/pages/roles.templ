@@ -47,7 +47,6 @@ templ RolesTable(props RoleListProps) {
 						method="get"
 						action={ templ.URL(props.Panel.BasePath + "/roles") }
 						hx-get={ props.Panel.BasePath + "/roles" }
-						hx-target="#page-content"
 						hx-swap="morph:outerHTML show:none"
 						hx-push-url="true"
 						hx-sync="body:replace"

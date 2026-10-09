@@ -245,6 +245,18 @@ the account card, navigation, skip link, main area, and optional `.panel-page`
 inset. At 720px and below it becomes a header with a two-column menu. The main
 area has no shared padding or width limit, allowing collection tables to fill it.
 
+The panel layout has two navigation regions. `#page-content` is the whole layout
+and `#panel-main` is the content area. Links and forms do not name a target:
+they inherit `#page-content` from the document body and `#panel-main` from the
+panel layout, so navigation inside the dashboard morphs only the content area.
+The sign-out form targets `#page-content` explicitly, because it leaves the
+dashboard. A request targeting `#panel-main` receives only the head and the
+content area; the menu (`#panel-menu`), whose active link follows the section,
+and the sidebar language links (`#panel-languages`), which keep the current page
+and query, arrive as out-of-band morphs. The brand, account card, and sign-out
+form are never sent again. If such a request ends on a page with another layout,
+the server retargets the response to `#page-content`.
+
 Inset detail and form pages use `.panel-page__content` inside `.panel-page` to
 center a content column, with a 960px maximum controlled by
 `--page-content-width`. The page title and card share this column so their edges

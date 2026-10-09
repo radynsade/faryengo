@@ -1,17 +1,17 @@
 package components
 
-// PageTarget is the region that every in-page navigation morphs.
-const PageTarget = "#page-content"
+// Links and forms do not name their target: they inherit it from their
+// layout, which is the whole page region in the authentication layout and the
+// content region inside the dashboard.
 
 // NavigationAttributes wire a link for in-page navigation. The browser keeps
 // the native href, so links work without JavaScript and in new tabs.
 func NavigationAttributes() templ.Attributes {
 	return templ.Attributes{
-		"hx-boost":   "true",
-		"hx-target":  PageTarget,
-		"hx-swap":    "morph:outerHTML show:none",
-		"hx-sync":    "body:replace",
-		"hx-params":  "none",
+		"hx-boost":  "true",
+		"hx-swap":   "morph:outerHTML show:none",
+		"hx-sync":   "body:replace",
+		"hx-params": "none",
 	}
 }
 
@@ -21,7 +21,6 @@ func NavigationAttributes() templ.Attributes {
 func FormAttributes() templ.Attributes {
 	return templ.Attributes{
 		"hx-boost":        "true",
-		"hx-target":       PageTarget,
 		"hx-swap":         "morph:outerHTML show:none",
 		"hx-sync":         "this:drop",
 		"hx-disabled-elt": "find button[type='submit']",

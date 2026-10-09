@@ -27,8 +27,14 @@ A full document load is allowed only for:
 
 - Each page is available at one URL and can be returned in two forms: a complete
   document for full loads, and a partial response for in-page updates.
-- Responses that differ by form declare it in the `Vary` header so caches never
-  serve one form in place of the other.
+- Navigation inside the dashboard updates only the page's content. The partial
+  response contains the content region and the head, never the sidebar or the
+  rest of the shared layout; the parts of the sidebar that depend on the current
+  page, such as the active section and the language links, are updated
+  separately. A request that leaves the dashboard, such as signing out or a
+  session that ended, replaces the whole page instead.
+- Responses that differ by form or by the region they update declare it in the
+  `Vary` header so caches never serve one form in place of the other.
 - A successful form submission follows Post/Redirect/Get: the server redirects,
   and the client updates the page with the result of the redirected request.
 - A failed validation returns the same form with its field errors and an error

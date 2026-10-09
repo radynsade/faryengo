@@ -7,6 +7,10 @@ htmx.config.historyRestoreAsHxRequest = false;
 htmx.config.allowEval = false;
 htmx.config.allowScriptTags = false;
 
+// Navigation replaces either the whole page region or, inside the dashboard,
+// only its content region; both are page changes for focus and dialogs.
+const pageRegions = ['page-content', 'panel-main'];
+
 function showNavigationError(show: boolean) {
 	const message = document.getElementById('navigation-error');
 
@@ -66,7 +70,7 @@ document.addEventListener('htmx:beforeSwap', (event) => {
 	if (
 		detail.shouldSwap
 		&& detail.target instanceof HTMLElement
-		&& detail.target.id === 'page-content'
+		&& pageRegions.includes(detail.target.id)
 	) {
 		// A modal dialog left open would stay in the top layer after the page
 		// content around it is morphed.
@@ -99,7 +103,7 @@ document.addEventListener('htmx:afterSwap', (event) => {
 
 	if (
 		detail.target instanceof HTMLElement
-		&& detail.target.id === 'page-content'
+		&& pageRegions.includes(detail.target.id)
 	) {
 		focusPageContent();
 	}

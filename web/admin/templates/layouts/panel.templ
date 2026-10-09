@@ -25,54 +25,105 @@ type PanelProps struct {
 
 // Panel wraps authenticated pages with navigation and the current user's
 // identity. Sections the user may not view are left out of the navigation.
+// Links and forms inside the panel inherit the content region as their
+// target, so navigation replaces only the page's content. When the request
+// already shows the panel, only the content region is rendered, together with
+// out-of-band updates of the sidebar parts that depend on the page.
 templ Panel(props PanelProps) {
-	<div
-		id="page-content"
-		class="panel-layout"
-		data-ui-language={ admini18n.Language(ctx) }
-		data-navigation-error={ admini18n.T(ctx, "navigation.error") }
-	>
-		<a class="panel-skip-link" href="#panel-main">{ admini18n.T(ctx, "navigation.skip") }</a>
-		<aside class="panel-sidebar" aria-label={ admini18n.T(ctx, "navigation.sidebar") }>
-			<a class="panel-sidebar__brand" href={ templ.URL(props.BasePath) } { components.NavigationAttributes()... }>
-				@components.Brand()
-			</a>
-			<section class="panel-sidebar__account" aria-label={ admini18n.T(ctx, "navigation.account") }>
-				<div class="panel-sidebar__identity">
-					<p class="panel-sidebar__name">{ admini18n.T(ctx, "common.full_name", map[string]any{"FirstName": props.FirstName, "LastName": props.LastName}) }</p>
-					<p class="panel-sidebar__email">{ props.Email }</p>
-				</div>
-				<form method="post" action={ templ.URL(props.BasePath + "/sign-out") } { components.FormAttributes()... }>
-					<button class="panel-sidebar__sign-out" type="submit">
-						<i class="ti ti-logout" aria-hidden="true"></i>
-						{ admini18n.T(ctx, "actions.sign_out") }
-					</button>
-				</form>
-			</section>
-			<div class="panel-sidebar__navigation">
-				<p class="panel-sidebar__label">{ admini18n.T(ctx, "common.workspace") }</p>
-				<nav class="panel-menu" aria-label={ admini18n.T(ctx, "navigation.menu") }>
-					if props.CanViewUsers {
-						@components.PanelLink(props.BasePath+"/users", props.ActiveSection == SectionUsers) {
-							<i class="ti ti-users" aria-hidden="true"></i>
-							{ admini18n.T(ctx, "navigation.users") }
-						}
-					}
-					if props.CanViewRoles {
-						@components.PanelLink(props.BasePath+"/roles", props.ActiveSection == SectionRoles) {
-							<i class="ti ti-shield-check" aria-hidden="true"></i>
-							{ admini18n.T(ctx, "navigation.roles") }
-						}
-					}
-				</nav>
-			</div>
-			<div class="panel-sidebar__languages">
-				@components.LanguageSwitcher()
-			</div>
-		</aside>
-		<main id="panel-main" class="panel-main" tabindex="-1" aria-label={ props.Title }>
-			@components.FlashMessages(flashmsg.FromContext(ctx), "notice")
+	{{ markPanelRendered(ctx) }}
+	if contentOnly(ctx) {
+		@panelMain(props) {
 			{ children... }
-		</main>
+		}
+		@panelMenu(props, true)
+		@panelLanguages(true)
+	} else {
+		<div
+			id={ PageRegionID }
+			class="panel-layout"
+			hx-target={ "#" + ContentRegionID }
+			data-ui-language={ admini18n.Language(ctx) }
+			data-navigation-error={ admini18n.T(ctx, "navigation.error") }
+		>
+			<a class="panel-skip-link" href={ templ.SafeURL("#" + ContentRegionID) }>{ admini18n.T(ctx, "navigation.skip") }</a>
+			<aside class="panel-sidebar" aria-label={ admini18n.T(ctx, "navigation.sidebar") }>
+				<a class="panel-sidebar__brand" href={ templ.URL(props.BasePath) } { components.NavigationAttributes()... }>
+					@components.Brand()
+				</a>
+				<section class="panel-sidebar__account" aria-label={ admini18n.T(ctx, "navigation.account") }>
+					<div class="panel-sidebar__identity">
+						<p class="panel-sidebar__name">{ admini18n.T(ctx, "common.full_name", map[string]any{"FirstName": props.FirstName, "LastName": props.LastName}) }</p>
+						<p class="panel-sidebar__email">{ props.Email }</p>
+					</div>
+					// Signing out leaves the dashboard, so it replaces the whole page.
+					<form
+						method="post"
+						action={ templ.URL(props.BasePath + "/sign-out") }
+						hx-target={ "#" + PageRegionID }
+						{ components.FormAttributes()... }
+					>
+						<button class="panel-sidebar__sign-out" type="submit">
+							<i class="ti ti-logout" aria-hidden="true"></i>
+							{ admini18n.T(ctx, "actions.sign_out") }
+						</button>
+					</form>
+				</section>
+				<div class="panel-sidebar__navigation">
+					<p class="panel-sidebar__label">{ admini18n.T(ctx, "common.workspace") }</p>
+					@panelMenu(props, false)
+				</div>
+				@panelLanguages(false)
+			</aside>
+			@panelMain(props) {
+				{ children... }
+			}
+		</div>
+	}
+}
+
+templ panelMain(props PanelProps) {
+	<main id={ ContentRegionID } class="panel-main" tabindex="-1" aria-label={ props.Title }>
+		@components.FlashMessages(flashmsg.FromContext(ctx), "notice")
+		{ children... }
+	</main>
+}
+
+// The menu marks the active section, so every navigation updates it. An
+// out-of-band swap finds its element by ID; "morph" morphs the whole element.
+templ panelMenu(props PanelProps, outOfBand bool) {
+	<nav
+		id="panel-menu"
+		class="panel-menu"
+		aria-label={ admini18n.T(ctx, "navigation.menu") }
+		if outOfBand {
+			hx-swap-oob="morph"
+		}
+	>
+		if props.CanViewUsers {
+			@components.PanelLink(props.BasePath+"/users", props.ActiveSection == SectionUsers) {
+				<i class="ti ti-users" aria-hidden="true"></i>
+				{ admini18n.T(ctx, "navigation.users") }
+			}
+		}
+		if props.CanViewRoles {
+			@components.PanelLink(props.BasePath+"/roles", props.ActiveSection == SectionRoles) {
+				<i class="ti ti-shield-check" aria-hidden="true"></i>
+				{ admini18n.T(ctx, "navigation.roles") }
+			}
+		}
+	</nav>
+}
+
+// Language links lead to the current page and query, so every navigation
+// updates them.
+templ panelLanguages(outOfBand bool) {
+	<div
+		id="panel-languages"
+		class="panel-sidebar__languages"
+		if outOfBand {
+			hx-swap-oob="morph"
+		}
+	>
+		@components.LanguageSwitcher()
 	</div>
 }

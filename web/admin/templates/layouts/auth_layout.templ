@@ -9,7 +9,7 @@ import (
 // AuthLayout centers a compact panel for pages used before signing in.
 templ AuthLayout(title string, description string) {
 	<main
-		id="page-content"
+		id={ PageRegionID }
 		class="auth-layout"
 		data-ui-language={ admini18n.Language(ctx) }
 		data-navigation-error={ admini18n.T(ctx, "navigation.error") }

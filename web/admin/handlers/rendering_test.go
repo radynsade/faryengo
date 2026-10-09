@@ -118,19 +118,114 @@ func TestLinksAndFormsUpdateInPlace(t *testing.T) {
 			default:
 				morphs := strings.HasPrefix(attributes["hx-swap"], "morph:")
 
-				if !morphs || attributes["hx-target"] != "#page-content" || attributes["action"] == "" || attributes["method"] == "" {
+				if !morphs || attributes["action"] == "" || attributes["method"] == "" {
 					t.Fatalf("GET %s: form is not an in-page submission: %s", path, tag)
 				}
 			}
 		}
 	}
 
+	// Links and forms inherit their target: the whole page region from the
+	// document, the content region inside the dashboard. Signing out leaves
+	// the dashboard, so it names the page region itself.
 	for _, path := range paths {
-		check(path, f.do(request{path: path, cookies: cookies}).Body.String())
+		body := f.do(request{path: path, cookies: cookies}).Body.String()
+
+		for _, want := range []string{
+			`<body hx-ext="head-support, morph" hx-history="false" hx-target="#page-content">`,
+			`<div id="page-content" class="panel-layout" hx-target="#panel-main"`,
+			`action="/admin/en/sign-out" hx-target="#page-content"`,
+		} {
+			if !strings.Contains(body, want) {
+				t.Fatalf("GET %s lacks %s", path, want)
+			}
+		}
+
+		check(path, body)
 	}
 
 	for _, path := range guest {
 		check(path, f.do(request{path: path}).Body.String())
+	}
+}
+
+// Navigation inside the dashboard returns only the page's content, with the
+// sidebar parts that depend on the page updated out of band; the sidebar
+// itself is never sent again.
+
+func TestDashboardNavigationReturnsOnlyContent(t *testing.T) {
+	f := newFixture(t, nil, true)
+	cookies := f.signIn(t)
+	content := map[string]string{"HX-Request": "true", "HX-Target": "panel-main"}
+
+	for _, tt := range []struct {
+		path       string
+		wantActive string
+	}{
+		{"/admin/en", ""},
+		{"/admin/en/users", "/admin/en/users"},
+		{"/admin/en/roles?name=a", "/admin/en/roles"},
+		{"/admin/en/roles/create", "/admin/en/roles"},
+		{"/admin/en/roles/" + roleID(f.role) + "/view", "/admin/en/roles"},
+	} {
+		response := f.do(request{path: tt.path, cookies: cookies, headers: content})
+		body := response.Body.String()
+
+		if response.Code != http.StatusOK || !strings.HasPrefix(body, `<head hx-head="merge">`) || !strings.Contains(body, `</head><main id="panel-main"`) {
+			t.Fatalf("GET %s = %d: %.200s", tt.path, response.Code, body)
+		}
+
+		for _, unwanted := range []string{"<aside", "panel-sidebar__account", "panel-layout", `id="page-content"`, "/sign-out"} {
+			if strings.Contains(body, unwanted) {
+				t.Fatalf("GET %s resends the layout: contains %s", tt.path, unwanted)
+			}
+		}
+
+		if !strings.Contains(body, `<nav id="panel-menu" class="panel-menu" aria-label="Admin navigation" hx-swap-oob="morph">`) ||
+			!strings.Contains(body, `<div id="panel-languages" class="panel-sidebar__languages" hx-swap-oob="morph">`) {
+			t.Fatalf("GET %s lacks the out-of-band sidebar updates", tt.path)
+		}
+
+		active := regexp.MustCompile(`<a class="panel-menu__link" href="([^"]*)" aria-current="page"`).FindStringSubmatch(body)
+
+		if (active == nil) != (tt.wantActive == "") || (active != nil && active[1] != tt.wantActive) {
+			t.Fatalf("GET %s active section = %v, want %q", tt.path, active, tt.wantActive)
+		}
+
+		languagePath := strings.Replace(tt.path, "/admin/en", "/admin/lv", 1)
+
+		if !strings.Contains(body, `href="`+strings.ReplaceAll(languagePath, "&", "&amp;")+`"`) {
+			t.Fatalf("GET %s language links do not lead to the same page", tt.path)
+		}
+
+		if response.Header().Get("HX-Retarget") != "" || !slices.Contains(response.Header().Values("Vary"), "HX-Target") {
+			t.Fatalf("GET %s headers = %v", tt.path, response.Header())
+		}
+	}
+}
+
+// A request from the dashboard that ends on a page with another layout, such
+// as the sign-in page after the session ended, replaces the whole page.
+
+func TestLeavingTheDashboardReplacesThePage(t *testing.T) {
+	f := newFixture(t, nil, true)
+	content := map[string]string{"HX-Request": "true", "HX-Target": "panel-main"}
+	response := f.do(request{path: "/admin/en/sign-in", headers: content})
+	body := response.Body.String()
+
+	if response.Header().Get("HX-Retarget") != "#page-content" || !strings.HasPrefix(response.Header().Get("HX-Reswap"), "morph:outerHTML") {
+		t.Fatalf("headers = %v", response.Header())
+	}
+
+	if !strings.Contains(body, `<main id="page-content" class="auth-layout"`) {
+		t.Fatalf("body = %.300s", body)
+	}
+
+	// A request for the whole page region gets the whole dashboard.
+	whole := f.do(request{path: "/admin/en", cookies: f.signIn(t), headers: map[string]string{"HX-Request": "true", "HX-Target": "page-content"}})
+
+	if !strings.Contains(whole.Body.String(), `class="panel-layout"`) || whole.Header().Get("HX-Retarget") != "" {
+		t.Fatalf("whole page = %.300s", whole.Body.String())
 	}
 }
 
