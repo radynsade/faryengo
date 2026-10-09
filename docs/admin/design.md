@@ -2,7 +2,8 @@
 
 The admin interface uses server-rendered templ components, SCSS compiled by
 Vite, Nunito typography, and Tabler icons. This document describes the visual
-system and stylesheet ownership. [Architecture](architecture.md) governs the
+system and stylesheet ownership.
+[Technical requirements](../architecture/tech-requirements.md) govern the
 application boundaries; [assets](assets.md) describes build and delivery.
 
 The system preserves the current admin appearance: white surfaces over a pale

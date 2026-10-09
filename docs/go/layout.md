@@ -3,8 +3,8 @@
 This guide defines which declarations belong in which Go files and packages.
 Use [code style](style.md) for organization within a file and
 [tests](tests.md) for test conventions.
-[Architecture](../architecture.md) and [project layout](../architecture/layout.md)
-take precedence over these rules.
+[Technical requirements](../architecture/tech-requirements.md) and
+[project layout](../architecture/layout.md) take precedence over these rules.
 
 ## Domain files
 
@@ -36,7 +36,7 @@ internal/catalog/
 
 - Declare an interface in the consumer's package and keep it small: one or two
   methods.
-- Exception, following [architecture.md](../architecture.md): a domain package
+- Exception, following [technical requirements](../architecture/tech-requirements.md#architecture-and-dependencies): a domain package
   declares the contracts that infrastructure implements. A repository
   interface (`<Entity>Repository`) or a domain service port
   (`PasswordHasher`, `internal/users/password.go:79-82`) lives in the
@@ -55,6 +55,50 @@ internal/catalog/
 
 See [interface return types](style.md#interfaces) for constructor results and
 typed repository write failures.
+
+## Nested interfaces and implementations
+
+An implementation of a domain interface may itself depend on a capability that
+has several possible implementations, such as storage. The implementation
+package then declares that capability as its own interface, and the
+implementations of that interface nest below it.
+
+- Declare the nested interface in the implementation package that consumes
+  it, together with the sentinels its implementations must return. The
+  interface describes only what that consumer needs.
+- Put each implementation of the nested interface in
+  `<implementation>/<nested_implementation_name>/`, named after its technology,
+  and check its conformance at compile time.
+- Keep policy in the consumer. The nested implementation stores, loads, and
+  performs atomic comparisons; the consumer decides what a result means, such
+  as revoking access after a failed comparison.
+- A nested implementation may import its parent package and domain packages.
+  It must not import sibling implementations or their nested packages.
+- When several sibling implementations need the same contract, declare it once
+  in the domain package that owns the underlying state rather than in each
+  sibling.
+- Test the consumer from an external test package (`package <name>_test`) with
+  a real nested implementation connected to a test server, because the nested
+  package imports its parent.
+- Wire the nested implementation into its consumer in `main()`, like any other
+  dependency.
+
+The following tree illustrates these rules with an imaginary notifications
+domain. `notifications.Sender` has an email implementation, which declares an
+`email.Transport` interface with an SMTP implementation:
+
+```text
+internal/notifications/
+├── sender.go               Sender interface
+├── push/
+│   └── sender.go           Sender implementation
+└── email/
+    ├── sender.go           Sender implementation, Transport interface
+    └── smtp/
+        └── transport.go    Transport implementation
+```
+
+`email/smtp` may import `email` and `notifications`, but not `push`.
 
 ## Supporting files and wiring
 

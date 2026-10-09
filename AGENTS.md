@@ -16,6 +16,7 @@ in the Go guides.
 | [docs/architecture/tech-stack.md](docs/architecture/tech-stack.md) | Infrastructure services, libraries, and development tools used in the project. |
 | [docs/go/layout.md](docs/go/layout.md) | Go file and package organization, declaration ownership, and dependency wiring. |
 | [docs/go/style.md](docs/go/style.md) | Go code organization within a file, errors, control flow, naming, formatting, interfaces, and concurrency. |
+| [docs/go/usages.md](docs/go/usages.md) | Usage of the project's existing abstractions and utilities: database handles and transactions. |
 | [docs/go/tests.md](docs/go/tests.md) | Test placement, table-driven tests, goroutine leak detection, and test commands. |
 | [docs/domain/how-to-doc.md](docs/domain/how-to-doc.md) | Domain model documentation structure, schemas, field descriptions, and invariants. |
 | [docs/domain/users.md](docs/domain/users.md) | Users, roles, permissions, and their domain rules. |
@@ -45,8 +46,9 @@ make the suite faster.
 
 ## Code style
 
-Follow [file layout](docs/go/layout.md), [code style](docs/go/style.md), and
-[test conventions](docs/go/tests.md) for all Go code.
+Follow [file layout](docs/go/layout.md), [code style](docs/go/style.md),
+[usages](docs/go/usages.md), and [test conventions](docs/go/tests.md) for all
+Go code.
 
 ## Landmines
 

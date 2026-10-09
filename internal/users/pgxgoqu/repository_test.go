@@ -43,6 +43,7 @@ func TestConstructorsRejectNilPool(t *testing.T) {
 	}{
 		{"user", func() error { _, err := NewUserRepository(nil); return err }},
 		{"role", func() error { _, err := NewRoleRepository(nil); return err }},
+		{"credentials", func() error { _, err := NewCredentialsRepository(nil); return err }},
 		{"typed nil pool", func() error { _, err := NewUserRepository((*pgxpool.Pool)(nil)); return err }},
 		{"typed nil connection", func() error { _, err := NewRoleRepository((*pgx.Conn)(nil)); return err }},
 	}
@@ -77,6 +78,15 @@ func TestMethodsRejectMissingPool(t *testing.T) {
 		{"role find by ID for update", func() error { _, err := (&RoleRepository{}).FindByIDForUpdate(ctx, roleID); return err }},
 		{"role find", func() error { _, err := (&RoleRepository{}).Find(ctx, users.RoleQuery{}); return err }},
 		{"role count", func() error { _, err := (&RoleRepository{}).Count(ctx, users.RoleFilter{}); return err }},
+		{"credentials find by email", func() error {
+			_, err := (&CredentialsSnapshotRepository{}).FindByEmail(ctx, "a@b.c")
+			return err
+		}},
+		{"credentials find version", func() error {
+			_, err := (*CredentialsSnapshotRepository)(nil).FindVersionByUserID(ctx, userID)
+			return err
+		}},
+		{"credentials rotate version", func() error { return (&CredentialsSnapshotRepository{}).RotateVersion(ctx, userID) }},
 	}
 
 	for _, test := range tests {
@@ -93,6 +103,7 @@ func TestMethodsValidateBeforeIO(t *testing.T) {
 	pool := newLazyPool(t)
 	userRepository := &UserRepository{pool: pool}
 	roles := &RoleRepository{pool: pool}
+	credentials := &CredentialsSnapshotRepository{pool: pool}
 	validRoleID := users.RoleID(uuid.Must(uuid.NewV7()))
 	unloadedUser := users.NewUser(
 		users.UserID(uuid.Must(uuid.NewV7())),
@@ -130,6 +141,17 @@ func TestMethodsValidateBeforeIO(t *testing.T) {
 			_, err := userRepository.FindByEmail(ctx, "Ada <user@example.com>")
 			return err
 		}, users.ErrEmailInvalid},
+		{"credentials find by invalid email", func() error {
+			_, err := credentials.FindByEmail(ctx, "Ada <user@example.com>")
+			return err
+		}, users.ErrEmailInvalid},
+		{"credentials find version by invalid ID", func() error {
+			_, err := credentials.FindVersionByUserID(ctx, users.UserID{})
+			return err
+		}, users.ErrUserIDInvalid},
+		{"credentials rotate version of invalid ID", func() error {
+			return credentials.RotateVersion(ctx, users.UserID{})
+		}, users.ErrUserIDInvalid},
 		{"role create nil", func() error { return roles.Create(ctx, nil) }, users.ErrRoleNil},
 		{"role create invalid", func() error { return roles.Create(ctx, &users.Role{}) }, users.ErrRoleInvalid},
 		{"role update invalid", func() error { return roles.Update(ctx, &users.Role{}) }, users.ErrRoleInvalid},

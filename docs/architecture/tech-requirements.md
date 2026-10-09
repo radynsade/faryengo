@@ -2,9 +2,7 @@
 
 These requirements apply across the project. They define architectural and
 technical constraints; domain rules belong in the domain model documents, and
-implementation conventions belong in the Go guides. The
-[architecture guide](../architecture.md) takes precedence where guidance
-conflicts.
+implementation conventions belong in the Go guides.
 
 ## Architecture and dependencies
 
@@ -50,7 +48,7 @@ aggregates before returning them.
 Infrastructure and configuration parsers own checks for their formats and
 settings. Keep those checks separate from aggregate invariants. Detailed
 validation responsibilities are defined in
-[architecture](../architecture.md#validation-boundaries).
+[validation boundaries](#validation-boundaries).
 
 ## Persistence and consistency
 

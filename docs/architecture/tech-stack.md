@@ -41,7 +41,7 @@ Session lifetime, revocation, and outage behavior are described in
 Infrastructure libraries belong in adapters, while rendering and request
 validation belong in transport code. Application use cases coordinate those
 components through domain contracts, as described in
-[architecture](../architecture.md).
+[technical requirements](tech-requirements.md#architecture-and-dependencies).
 
 ## Admin frontend
 

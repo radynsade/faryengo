@@ -3,7 +3,9 @@
 This guide defines test placement, test structure, leak detection, and test
 commands. Follow [code style](style.md) for declarations and formatting and
 [file layout](layout.md) for production files.
-[Architecture](../architecture.md) takes precedence where guidance conflicts.
+The architecture guides, [project layout](../architecture/layout.md) and
+[technical requirements](../architecture/tech-requirements.md), take precedence
+where guidance conflicts.
 
 > **Important — temporary:** Do not write new integration tests for now.
 > Write unit tests; use full domain-contract mocks for repository dependencies.
