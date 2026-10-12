@@ -9,6 +9,7 @@ import (
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
 	"github.com/radynsade/faryengo/internal/security/sessionid"
+	"github.com/radynsade/faryengo/pkg/flashmsg"
 	"github.com/radynsade/faryengo/web/office/assets"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 	"github.com/radynsade/faryengo/web/office/utils"
@@ -28,6 +29,8 @@ type Handler struct {
 	sessions   *sessionid.Authenticator
 	identities *security.IdentityResolver
 	workspaces *app.WorkspaceService
+	users      *app.UserService
+	flashes    *utils.Flashes
 	cookies    utils.Cookies
 }
 
@@ -36,21 +39,28 @@ func NewHandler(
 	sessions *sessionid.Authenticator,
 	identities *security.IdentityResolver,
 	workspaces *app.WorkspaceService,
+	userService *app.UserService,
+	flashStorage flashmsg.FlashSessionStorage,
 	secureCookies bool,
 ) (*Handler, error) {
 	var (
 		handler *Handler
+		flashes *utils.Flashes
 		err     error
 	)
 
-	if passwords == nil || sessions == nil || identities == nil || workspaces == nil {
+	if passwords == nil || sessions == nil || identities == nil || workspaces == nil || userService == nil {
 		err = ErrHandlerConfigInvalid
+	} else if flashes, err = utils.NewFlashes(flashStorage); err != nil {
+		err = fmt.Errorf("%w: %w", ErrHandlerConfigInvalid, err)
 	} else {
 		handler = &Handler{
 			passwords:  passwords,
 			sessions:   sessions,
 			identities: identities,
 			workspaces: workspaces,
+			users:      userService,
+			flashes:    flashes,
 			cookies:    utils.Cookies{Secure: secureCookies},
 		}
 	}
@@ -79,6 +89,8 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"GET /office", h.root},
 			{"GET /office/{language}", h.root},
 			{"GET /office/{language}/settings", h.settings},
+			{"POST /office/{language}/settings/profile", h.updateProfile},
+			{"POST /office/{language}/settings/password", h.changePassword},
 			{"GET /office/{language}/workspaces", h.selectWorkspace},
 			{"POST /office/{language}/workspaces", h.createWorkspace},
 			{"GET /office/{language}/workspaces/new", h.newWorkspacePage},
@@ -87,7 +99,9 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"GET /office/{language}/workspaces/{workspace}/transactions", h.section("transactions")},
 			{"GET /office/{language}/workspaces/{workspace}/goals", h.section("goals")},
 			{"GET /office/{language}/workspaces/{workspace}/reports", h.section("reports")},
-			{"GET /office/{language}/workspaces/{workspace}/settings", h.section("settings")},
+			{"GET /office/{language}/workspaces/{workspace}/settings", h.settings},
+			{"POST /office/{language}/workspaces/{workspace}/settings/profile", h.updateProfile},
+			{"POST /office/{language}/workspaces/{workspace}/settings/password", h.changePassword},
 			{"GET /office/{language}/sign-in", h.signInPage},
 			{"POST /office/{language}/sign-in", h.signIn},
 			{"POST /office/{language}/sign-out", h.signOut},

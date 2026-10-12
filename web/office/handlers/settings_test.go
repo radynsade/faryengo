@@ -1,0 +1,436 @@
+package handlers
+
+import (
+	"net/http"
+	"net/url"
+	"strings"
+	"testing"
+	"time"
+)
+
+func TestSettingsPage(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		path     string
+		contains []string
+		excludes []string
+	}{
+		{
+			name: "without a workspace",
+			path: "/office/en/settings",
+			contains: []string{
+				`<div class="standalone"`,
+				`<form id="profile-form" class="form" method="post" action="/office/en/settings/profile" novalidate`,
+				`<form id="password-form" class="form" method="post" action="/office/en/settings/password" novalidate`,
+			},
+			excludes: []string{"sidebar"},
+		},
+		{
+			name: "inside a workspace",
+			path: designPath + "/settings",
+			contains: []string{
+				`<aside id="dashboard-sidebar" class="sidebar">`,
+				`<main id="dashboard-main" class="dashboard__main dashboard__main--narrow"`,
+				`action="` + designPath + `/settings/profile"`,
+				`action="` + designPath + `/settings/password"`,
+			},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			cookies := f.signIn(t)
+
+			body := f.do(request{path: tt.path, cookies: cookies}).Body.String()
+
+			for _, want := range append(tt.contains,
+				`<h2 id="profile-title">Profile</h2>`,
+				`<h2 id="password-title">Password change</h2>`,
+				`name="first_name" type="text"`,
+				`value="Ada"`,
+				`value="Lovelace"`,
+				`value="`+testEmail+`"`,
+				`<input type="hidden" name="updated_at" value="`+f.user.UpdatedAt.Format(time.RFC3339Nano)+`">`,
+				`data-confirm-password="email"`,
+				`data-confirm-password="always"`,
+				`<dialog id="profile-confirm" class="confirm-dialog" aria-labelledby="profile-confirm-title" aria-describedby="profile-confirm-description" data-confirm-dialog>`,
+				`<dialog id="password-confirm" class="confirm-dialog" aria-labelledby="password-confirm-title" aria-describedby="password-confirm-description" data-confirm-dialog>`,
+				`<p id="profile-confirm-description">Enter your current password to save the new email.</p>`,
+				`<button class="button" type="submit" name="confirm" value="1" data-confirm-submit>`,
+				`name="new_password_repeat"`,
+				`required data-must-match="new_password"`,
+				`autocomplete="new-password"`,
+				`<p class="field__hint" id="password-new-hint">Use at least 6 characters.</p>`,
+			) {
+				if !strings.Contains(body, want) {
+					t.Fatalf("body lacks %s:\n%s", want, body)
+				}
+			}
+
+			for _, unwanted := range append(tt.excludes, `class="notice"`, `hx-swap-oob`, `data-confirm-dialog open`, `id="password-current"`) {
+				if strings.Contains(body, unwanted) {
+					t.Fatalf("body contains %s", unwanted)
+				}
+			}
+		})
+	}
+}
+
+// Names alone keep every Session; the confirmation shows once.
+
+func TestUpdateProfileNames(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+	version := f.version
+
+	response := f.do(request{
+		method:  http.MethodPost,
+		path:    designPath + "/settings/profile",
+		body:    profileBody(f, "Augusta", "King", testEmail, ""),
+		cookies: cookies,
+	})
+
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != designPath+"/settings" {
+		t.Fatalf("save = %d %q: %s", response.Code, response.Header().Get("Location"), response.Body.String())
+	}
+
+	if f.user.FirstName != "Augusta" || f.user.LastName != "King" || f.version != version || len(response.Result().Cookies()) != 0 {
+		t.Fatalf("user %s %s, version replaced %t, cookies %v", f.user.FirstName, f.user.LastName, f.version != version, response.Result().Cookies())
+	}
+
+	body := f.do(request{path: designPath + "/settings", cookies: cookies}).Body.String()
+
+	if !strings.Contains(body, `<p>Your profile has been saved.</p>`) || strings.Contains(body, "other devices") {
+		t.Fatalf("settings lack only the profile confirmation:\n%s", body)
+	}
+
+	if strings.Contains(f.do(request{path: designPath + "/settings", cookies: cookies}).Body.String(), `class="notice"`) {
+		t.Fatal("the confirmation shows again after a reload")
+	}
+}
+
+// A new email ends every Session; this device signs in again with it.
+
+func TestUpdateProfileEmail(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+	version := f.version
+
+	response := f.do(request{
+		method:  http.MethodPost,
+		path:    "/office/en/settings/profile",
+		body:    profileBody(f, "Ada", "Lovelace", "ada@lovelace.example", testPassword),
+		cookies: cookies,
+	})
+
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/office/en/settings" {
+		t.Fatalf("save = %d %q: %s", response.Code, response.Header().Get("Location"), response.Body.String())
+	}
+
+	if f.user.Email != "ada@lovelace.example" || f.version == version {
+		t.Fatalf("email = %q, version replaced %t", f.user.Email, f.version != version)
+	}
+
+	assertSessionRenewed(t, f, cookies, response.Result().Cookies(), "Your profile has been saved.")
+}
+
+// A new password ends every Session; this device signs in again with it.
+
+func TestChangePassword(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+
+	response := f.do(request{
+		method:  http.MethodPost,
+		path:    designPath + "/settings/password",
+		body:    passwordBody(testPassword, "battery staple", "battery staple"),
+		cookies: cookies,
+	})
+
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != designPath+"/settings" {
+		t.Fatalf("change = %d %q: %s", response.Code, response.Header().Get("Location"), response.Body.String())
+	}
+
+	if f.user.PasswordHash != "hash:battery staple" {
+		t.Fatalf("password hash = %q", f.user.PasswordHash)
+	}
+
+	assertSessionRenewed(t, f, cookies, response.Result().Cookies(), "Your password has been changed.")
+
+	response = f.do(request{
+		method: http.MethodPost,
+		path:   "/office/en/sign-in",
+		body:   "email=" + url.QueryEscape(testEmail) + "&password=battery+staple",
+	})
+
+	if response.Code != http.StatusSeeOther {
+		t.Fatalf("sign in with the new password = %d", response.Code)
+	}
+}
+
+func TestSettingsRejected(t *testing.T) {
+	for _, tt := range []struct {
+		name     string
+		path     string
+		body     func(f *fixture) string
+		status   int
+		contains []string
+		excludes []string
+	}{
+		{
+			name:     "blank first name",
+			path:     "/office/en/settings/profile",
+			body:     func(f *fixture) string { return profileBody(f, " ", "Lovelace", testEmail, "") },
+			status:   http.StatusUnprocessableEntity,
+			contains: []string{`<p class="field__error" id="profile-first-name-error">Please fill in this field.</p>`},
+		},
+		{
+			name:     "too long last name in characters",
+			path:     "/office/en/settings/profile",
+			body:     func(f *fixture) string { return profileBody(f, "Ada", strings.Repeat("ā", 101), testEmail, "") },
+			status:   http.StatusUnprocessableEntity,
+			contains: []string{`id="profile-last-name-error">Use at most 100 characters.</p>`},
+		},
+		{
+			name:     "invalid email",
+			path:     "/office/en/settings/profile",
+			body:     func(f *fixture) string { return profileBody(f, "Ada", "Lovelace", "not-an-email", testPassword) },
+			status:   http.StatusUnprocessableEntity,
+			contains: []string{`id="profile-email-error">Enter a valid email address.</p>`, `value="not-an-email"`},
+		},
+		{
+			name:     "new email asks for the password",
+			path:     "/office/en/settings/profile",
+			body:     func(f *fixture) string { return profileBody(f, "Ada", "Lovelace", "ada@lovelace.example", "") },
+			status:   http.StatusUnprocessableEntity,
+			contains: []string{`data-confirm-dialog open>`, `value="ada@lovelace.example"`},
+			excludes: []string{`id="profile-confirm-password-error"`},
+		},
+		{
+			name: "new email confirmed without the password",
+			path: "/office/en/settings/profile",
+			body: func(f *fixture) string {
+				return profileBody(f, "Ada", "Lovelace", "ada@lovelace.example", "") + "&confirm=1"
+			},
+			status:   http.StatusUnprocessableEntity,
+			contains: []string{`data-confirm-dialog open>`, `id="profile-confirm-password-error">Please fill in this field.</p>`},
+		},
+		{
+			name: "new email with a wrong password",
+			path: "/office/en/settings/profile",
+			body: func(f *fixture) string {
+				return profileBody(f, "Ada", "Lovelace", "ada@lovelace.example", "wrong horse") + "&confirm=1"
+			},
+			status:   http.StatusUnprocessableEntity,
+			contains: []string{`data-confirm-dialog open>`, `id="profile-confirm-password-error">The password is incorrect.</p>`},
+		},
+		{
+			name: "outdated profile",
+			path: "/office/en/settings/profile",
+			body: func(f *fixture) string {
+				return strings.Replace(profileBody(f, "Augusta", "King", testEmail, ""),
+					url.QueryEscape(f.user.UpdatedAt.Format(time.RFC3339Nano)),
+					url.QueryEscape(f.user.UpdatedAt.Add(-time.Hour).Format(time.RFC3339Nano)), 1)
+			},
+			status:   http.StatusConflict,
+			contains: []string{"Your profile changed in the meantime. Reload the page and try again."},
+		},
+		{
+			name:     "malformed profile",
+			path:     "/office/en/settings/profile",
+			body:     func(f *fixture) string { return profileBody(f, "Ada", "Lovelace", testEmail, "") + "&role=admin" },
+			status:   http.StatusBadRequest,
+			contains: []string{"The form could not be read."},
+		},
+		{
+			name:     "different new passwords",
+			path:     "/office/en/settings/password",
+			body:     func(*fixture) string { return passwordBody(testPassword, "battery staple", "battery stable") },
+			status:   http.StatusUnprocessableEntity,
+			contains: []string{`id="password-repeat-error">The passwords do not match.</p>`},
+		},
+		{
+			name:     "new password asks for the current one",
+			path:     "/office/en/settings/password",
+			body:     func(*fixture) string { return passwordBody("", "battery staple", "battery staple") },
+			status:   http.StatusUnprocessableEntity,
+			contains: []string{`<dialog id="password-confirm"`, `data-confirm-dialog open>`},
+			excludes: []string{`id="password-confirm-password-error"`},
+		},
+		{
+			name: "wrong current password",
+			path: "/office/en/settings/password",
+			body: func(*fixture) string {
+				return passwordBody("wrong horse", "battery staple", "battery staple") + "&confirm=1"
+			},
+			status:   http.StatusUnprocessableEntity,
+			contains: []string{`id="password-confirm-password-error">The password is incorrect.</p>`},
+		},
+		{
+			name:     "short new password",
+			path:     "/office/ru/settings/password",
+			body:     func(*fixture) string { return passwordBody(testPassword, "short", "short") },
+			status:   http.StatusUnprocessableEntity,
+			contains: []string{`id="password-new-error">Используйте не менее 6 символов.</p>`},
+		},
+		{
+			name:     "empty password form",
+			path:     "/office/en/settings/password",
+			body:     func(*fixture) string { return passwordBody("", "", "") },
+			status:   http.StatusUnprocessableEntity,
+			contains: []string{`id="password-new-error">Please fill in this field.</p>`, `id="password-repeat-error">Please fill in this field.</p>`},
+			excludes: []string{`data-confirm-dialog open`},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			cookies := f.signIn(t)
+			before, version := *f.user, f.version
+
+			response := f.do(request{method: http.MethodPost, path: tt.path, body: tt.body(f), cookies: cookies})
+			body := response.Body.String()
+
+			if response.Code != tt.status {
+				t.Fatalf("status = %d, want %d:\n%s", response.Code, tt.status, body)
+			}
+
+			if *f.user != before || f.version != version || len(response.Result().Cookies()) != 0 {
+				t.Fatal("a rejected change altered the user, the credentials, or the cookie")
+			}
+
+			for _, want := range tt.contains {
+				if !strings.Contains(body, want) {
+					t.Fatalf("body lacks %s:\n%s", want, body)
+				}
+			}
+
+			for _, unwanted := range tt.excludes {
+				if strings.Contains(body, unwanted) {
+					t.Fatalf("body contains %s", unwanted)
+				}
+			}
+
+			for _, secret := range []string{testPassword, "wrong horse", "battery"} {
+				if strings.Contains(body, secret) {
+					t.Fatalf("body renders a submitted password %q", secret)
+				}
+			}
+		})
+	}
+}
+
+// A failed in-page submission replaces only its form, keeping the address.
+
+func TestSettingsReplaceOnlyTheForm(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+
+	// A missing or wrong current password replaces only the confirmation, so
+	// the form keeps what was typed, the new passwords included.
+	for _, tt := range []struct {
+		path   string
+		body   string
+		formID string
+		tag    string
+	}{
+		{path: designPath + "/settings/profile", body: profileBody(f, "", "Lovelace", testEmail, ""), formID: "profile-form", tag: "form"},
+		{path: designPath + "/settings/password", body: passwordBody("", "", ""), formID: "password-form", tag: "form"},
+		{
+			path:   designPath + "/settings/profile",
+			body:   profileBody(f, "Ada", "Lovelace", "ada@lovelace.example", "wrong horse") + "&confirm=1",
+			formID: "profile-confirm",
+			tag:    "dialog",
+		},
+		{path: designPath + "/settings/password", body: passwordBody("", "battery staple", "battery staple"), formID: "password-confirm", tag: "dialog"},
+	} {
+		response := f.do(request{
+			method:  http.MethodPost,
+			path:    tt.path,
+			body:    tt.body,
+			cookies: cookies,
+			headers: map[string]string{"HX-Request": "true", "HX-Target": "dashboard-main"},
+		})
+		body := response.Body.String()
+
+		if response.Header().Get("HX-Retarget") != "#"+tt.formID || !strings.HasPrefix(body, `<`+tt.tag+` id="`+tt.formID+`"`) || strings.Contains(body, `<head hx-head`) {
+			t.Fatalf("POST %s = %d %v, body is not only the form:\n%s", tt.path, response.Code, response.Header(), body)
+		}
+
+		// An earlier confirmation must not stand beside the new errors.
+		if !strings.HasSuffix(body, `<div id="settings-notices" class="settings__notices" hx-swap-oob="morph"></div>`) {
+			t.Fatalf("POST %s does not clear the confirmations:\n%s", tt.path, body)
+		}
+	}
+}
+
+func TestSettingsVisitors(t *testing.T) {
+	f := newFixture(t)
+
+	for _, path := range []string{"/office/en/settings/profile", designPath + "/settings/password"} {
+		response := f.do(request{method: http.MethodPost, path: path, body: "current_password=x"})
+
+		if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/office/en/sign-in" {
+			t.Fatalf("POST %s as a visitor = %d %q", path, response.Code, response.Header().Get("Location"))
+		}
+	}
+
+	response := f.do(request{
+		method:  http.MethodPost,
+		path:    "/office/en/workspaces/" + otherID + "/settings/profile",
+		body:    profileBody(f, "Ada", "Lovelace", testEmail, ""),
+		cookies: f.signIn(t),
+	})
+
+	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/office/en/workspaces" || f.user.FirstName != "Ada" {
+		t.Fatalf("POST to another user's workspace = %d %q", response.Code, response.Header().Get("Location"))
+	}
+}
+
+//
+// Helpers
+//
+
+func profileBody(f *fixture, firstName, lastName, email, password string) string {
+	values := url.Values{
+		"first_name":       {firstName},
+		"last_name":        {lastName},
+		"email":            {email},
+		"current_password": {password},
+		"updated_at":       {f.user.UpdatedAt.Format(time.RFC3339Nano)},
+	}
+
+	return values.Encode()
+}
+
+func passwordBody(current, next, repeat string) string {
+	values := url.Values{
+		"current_password":    {current},
+		"new_password":        {next},
+		"new_password_repeat": {repeat},
+	}
+
+	return values.Encode()
+}
+
+// The old Session no longer authenticates, the new cookie does, and the
+// settings show the change's confirmation with the sign-out notice once.
+
+func assertSessionRenewed(t *testing.T, f *fixture, old, renewed []*http.Cookie, confirmation string) {
+	t.Helper()
+
+	if len(renewed) != 1 || renewed[0].Value == "" || renewed[0].Value == old[0].Value {
+		t.Fatalf("cookies = %v, want one new session cookie", renewed)
+	}
+
+	if response := f.do(request{path: "/office/en/settings", cookies: old}); response.Header().Get("Location") != "/office/en/sign-in" {
+		t.Fatalf("old session = %d %q, want sign-in", response.Code, response.Header().Get("Location"))
+	}
+
+	response := f.do(request{path: "/office/en/settings", cookies: renewed})
+	body := response.Body.String()
+
+	for _, want := range []string{"<p>" + confirmation + "</p>", "<p>You were signed out on your other devices.</p>"} {
+		if response.Code != http.StatusOK || !strings.Contains(body, want) {
+			t.Fatalf("settings with the new session = %d, lack %s:\n%s", response.Code, want, body)
+		}
+	}
+}

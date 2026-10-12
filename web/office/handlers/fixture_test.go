@@ -26,6 +26,7 @@ import (
 	usersmock "github.com/radynsade/faryengo/internal/users/mock"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	workspacesmock "github.com/radynsade/faryengo/internal/workspaces/mock"
+	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
 )
 
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
@@ -123,7 +124,13 @@ func newFixture(t *testing.T) *fixture {
 	workspaceService, err := app.NewWorkspaceService(&appmock.Transactor{}, f.workspaceRepository())
 	must(t, err)
 
-	handler, err := NewHandler(passwords, sessions, identities, workspaceService, false)
+	userService, err := app.NewUserService(&appmock.Transactor{}, f.users(), hasher)
+	must(t, err)
+
+	flashes, err := flashredis.NewStore(client, "office", time.Minute)
+	must(t, err)
+
+	handler, err := NewHandler(passwords, sessions, identities, workspaceService, userService, flashes, false)
 	must(t, err)
 
 	f.mux = http.NewServeMux()
@@ -223,6 +230,10 @@ func (f *fixture) credentials() *usersmock.CredentialsRepository {
 	}
 }
 
+// An update must carry the User's latest UpdatedAt, like the PostgreSQL
+// repository, and a changed email or password replaces the credentials
+// version, like its trigger.
+
 func (f *fixture) users() *usersmock.UserRepository {
 	return &usersmock.UserRepository{
 		FindByIDFunc: func(_ context.Context, id users.UserID) (*users.User, error) {
@@ -232,10 +243,30 @@ func (f *fixture) users() *usersmock.UserRepository {
 			)
 
 			if id == f.user.ID {
-				user, err = f.user, nil
+				copied := *f.user
+				user, err = &copied, nil
 			}
 
 			return user, err
+		},
+		UpdateFunc: func(_ context.Context, user *users.User) users.ErrUserUpdateFailed {
+			var err users.ErrUserUpdateFailed
+
+			if user.ID != f.user.ID {
+				err = usersmock.NewErrUserUpdateFailed(user, users.ErrUserNotFound)
+			} else if !user.UpdatedAt.Equal(f.user.UpdatedAt) {
+				err = usersmock.NewErrUserUpdateFailed(user, users.ErrUserConflict)
+			} else {
+				if user.Email != f.user.Email || user.PasswordHash != f.user.PasswordHash {
+					f.version = uuid.Must(uuid.NewV7())
+				}
+
+				updated := *user
+				updated.UpdatedAt = f.user.UpdatedAt.Add(time.Second)
+				f.user = &updated
+			}
+
+			return err
 		},
 	}
 }

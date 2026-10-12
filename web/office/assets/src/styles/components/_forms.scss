@@ -2,6 +2,26 @@
 	display: grid;
 	gap: 1rem;
 
+	// Two short fields share a row on wider screens.
+	&__row {
+		display: grid;
+		gap: 1rem;
+
+		@media (min-width: 560px) {
+			grid-template-columns: 1fr 1fr;
+		}
+	}
+
+	// A submit button that fits its label, at the form's end.
+	&__submit {
+		display: flex;
+		justify-content: flex-end;
+
+		.button {
+			width: auto;
+		}
+	}
+
 	// The submit button with a quieter way back below it.
 	&__actions {
 		display: grid;
@@ -70,6 +90,11 @@
 		&--with-action {
 			padding-right: 2.75rem;
 		}
+	}
+
+	&__hint {
+		color: var(--color-muted);
+		font-size: 0.75rem;
 	}
 
 	&__error {

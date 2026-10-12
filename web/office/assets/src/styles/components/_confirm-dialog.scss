@@ -1,0 +1,66 @@
+// A small dialog that asks for the current password. As a modal it centers
+// over a dimmed page; opened inline without JavaScript it reads as a card.
+.confirm-dialog {
+	width: min(100% - 2rem, 24rem);
+	padding: 0;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius-lg);
+	background: var(--color-surface);
+	color: var(--color-ink);
+	box-shadow: var(--shadow-soft);
+
+	&:not(:modal) {
+		position: static;
+		width: 100%;
+		margin: 0;
+		box-shadow: none;
+	}
+
+	&::backdrop {
+		background: rgb(29 27 46 / 0.45);
+	}
+
+	&__body {
+		display: grid;
+		gap: 1.25rem;
+		padding: 1.5rem;
+	}
+
+	&__heading {
+		display: grid;
+		gap: 0.25rem;
+
+		h2 {
+			margin: 0;
+			font-size: 1.0625rem;
+			font-weight: 800;
+			letter-spacing: -0.02em;
+		}
+
+		p {
+			color: var(--color-muted);
+		}
+	}
+
+	&__actions {
+		display: flex;
+		align-items: center;
+		justify-content: flex-end;
+		gap: 1rem;
+
+		.button {
+			width: auto;
+			margin-top: 0;
+		}
+	}
+
+	&__cancel {
+		color: var(--color-muted);
+		font-weight: 600;
+		text-decoration: none;
+
+		&:hover {
+			color: var(--color-ink);
+		}
+	}
+}

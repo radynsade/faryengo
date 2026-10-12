@@ -1,0 +1,64 @@
+// The settings sections stack in one column, each a card with its own form.
+$narrow: 560px;
+
+.settings {
+	display: grid;
+	align-content: start;
+	gap: 1.25rem;
+
+	// Empty until a saved change is confirmed.
+	&__notices:empty {
+		display: none;
+	}
+
+	&__section {
+		display: grid;
+		gap: 1.25rem;
+		padding: 1.25rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-lg);
+		background: var(--color-surface);
+
+		@media (min-width: $narrow) {
+			padding: 1.5rem;
+		}
+	}
+
+	&__heading {
+		display: grid;
+		gap: 0.25rem;
+
+		h2 {
+			margin: 0;
+			font-size: 1.0625rem;
+			font-weight: 800;
+			letter-spacing: -0.02em;
+		}
+
+		p {
+			color: var(--color-muted);
+		}
+	}
+}
+
+.standalone__section.settings {
+	width: min(100%, 36rem);
+}
+
+// A confirmation of a saved change.
+.notice {
+	display: flex;
+	align-items: flex-start;
+	gap: 0.625rem;
+	padding: 0.75rem 0.875rem;
+	border: 1px solid rgb(46 125 50 / 0.25);
+	border-radius: var(--radius-md);
+	background: #edf7ee;
+	color: #1f6b2a;
+	font-weight: 600;
+
+	&__messages {
+		display: grid;
+		gap: 0.25rem;
+	}
+}

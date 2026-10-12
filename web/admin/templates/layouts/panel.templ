@@ -9,9 +9,10 @@ import (
 )
 
 const (
-	SectionHome  = ""
-	SectionUsers = "users"
-	SectionRoles = "roles"
+	SectionHome     = ""
+	SectionUsers    = "users"
+	SectionRoles    = "roles"
+	SectionSettings = "settings"
 )
 
 type PanelProps struct {
@@ -23,6 +24,9 @@ type PanelProps struct {
 	Email         string
 	CanViewUsers  bool
 	CanViewRoles  bool
+	// RefreshAccount sends the account row out of band, for a page that
+	// follows a change of the user's own details.
+	RefreshAccount bool
 }
 
 // Panel wraps authenticated pages with navigation and the current user's
@@ -30,7 +34,8 @@ type PanelProps struct {
 // Links and forms inside the panel inherit the content region as their
 // target, so navigation replaces only the page's content. When the request
 // already shows the panel, only the content region is rendered, together with
-// out-of-band updates of the sidebar parts that depend on the page.
+// out-of-band updates of the sidebar parts that depend on the page, and of the
+// account row when the page asks for it.
 templ Panel(props PanelProps) {
 	{{ markPanelRendered(ctx) }}
 	if contentOnly(ctx) {
@@ -39,6 +44,9 @@ templ Panel(props PanelProps) {
 		}
 		@panelMenu(props, true)
 		@panelLanguages(true)
+		if props.RefreshAccount {
+			@panelAccount(props, true)
+		}
 	} else {
 		<div
 			id={ PageRegionID }
@@ -58,29 +66,7 @@ templ Panel(props PanelProps) {
 				</div>
 				<div class="panel-sidebar__footer">
 					@panelLanguages(false)
-					<section class="panel-sidebar__account" aria-label={ admini18n.T(ctx, "navigation.account") }>
-						<span class="panel-sidebar__avatar" aria-hidden="true">{ initials(props.FirstName, props.LastName) }</span>
-						<div class="panel-sidebar__identity">
-							<p class="panel-sidebar__name">{ admini18n.T(ctx, "common.full_name", map[string]any{"FirstName": props.FirstName, "LastName": props.LastName}) }</p>
-							<p class="panel-sidebar__email">{ props.Email }</p>
-						</div>
-						// Signing out leaves the dashboard, so it replaces the whole page.
-						<form
-							method="post"
-							action={ templ.URL(props.BasePath + "/sign-out") }
-							hx-target={ "#" + PageRegionID }
-							{ components.FormAttributes()... }
-						>
-							<button
-								class="panel-sidebar__sign-out"
-								type="submit"
-								aria-label={ admini18n.T(ctx, "actions.sign_out") }
-								title={ admini18n.T(ctx, "actions.sign_out") }
-							>
-								<i class="ti ti-logout" aria-hidden="true"></i>
-							</button>
-						</form>
-					</section>
+					@panelAccount(props, false)
 				</div>
 			</aside>
 			@panelMain(props) {
@@ -121,6 +107,51 @@ templ panelMenu(props PanelProps, outOfBand bool) {
 			}
 		}
 	</nav>
+}
+
+// The account row shows the user's own name and email and leads to their
+// settings. It is sent again only when a page asks for it, so it marks no
+// active page. Signing out leaves the dashboard, so it replaces the whole
+// page.
+templ panelAccount(props PanelProps, outOfBand bool) {
+	<section
+		id="panel-account"
+		class="panel-sidebar__account"
+		aria-label={ admini18n.T(ctx, "navigation.account") }
+		if outOfBand {
+			hx-swap-oob="morph"
+		}
+	>
+		<span class="panel-sidebar__avatar" aria-hidden="true">{ initials(props.FirstName, props.LastName) }</span>
+		<div class="panel-sidebar__identity">
+			<p class="panel-sidebar__name">{ admini18n.T(ctx, "common.full_name", map[string]any{"FirstName": props.FirstName, "LastName": props.LastName}) }</p>
+			<p class="panel-sidebar__email">{ props.Email }</p>
+		</div>
+		<a
+			class="panel-sidebar__settings"
+			href={ templ.URL(props.BasePath + "/settings") }
+			aria-label={ admini18n.T(ctx, "navigation.settings") }
+			title={ admini18n.T(ctx, "navigation.settings") }
+			{ components.NavigationAttributes()... }
+		>
+			<i class="ti ti-settings" aria-hidden="true"></i>
+		</a>
+		<form
+			method="post"
+			action={ templ.URL(props.BasePath + "/sign-out") }
+			hx-target={ "#" + PageRegionID }
+			{ components.FormAttributes()... }
+		>
+			<button
+				class="panel-sidebar__sign-out"
+				type="submit"
+				aria-label={ admini18n.T(ctx, "actions.sign_out") }
+				title={ admini18n.T(ctx, "actions.sign_out") }
+			>
+				<i class="ti ti-logout" aria-hidden="true"></i>
+			</button>
+		</form>
+	</section>
 }
 
 // Language links lead to the current page and query, so every navigation

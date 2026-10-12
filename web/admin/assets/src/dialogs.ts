@@ -26,11 +26,14 @@ document.addEventListener('click', (event) => {
 	}
 });
 
+// A dialog the server opens shows as a modal. One rendered with the open
+// attribute, so that it shows inline without JavaScript, becomes a modal too.
 function initialize() {
 	for (const dialog of document.querySelectorAll<HTMLDialogElement>(
 		'dialog[data-dialog-open]',
 	)) {
-		if (!dialog.open) {
+		if (!dialog.matches(':modal')) {
+			if (dialog.open) dialog.close();
 			dialog.showModal();
 		}
 

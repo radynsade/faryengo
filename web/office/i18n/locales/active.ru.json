@@ -163,5 +163,86 @@
   },
   "navigation.skip": {
     "other": "Перейти к содержимому"
+  },
+  "settings.profile": {
+    "other": "Профиль"
+  },
+  "settings.profile_description": {
+    "other": "Ваше имя и адрес электронной почты, с которым вы входите."
+  },
+  "settings.password": {
+    "other": "Смена пароля"
+  },
+  "settings.password_description": {
+    "other": "Дважды введите новый пароль, затем подтвердите изменение текущим паролем."
+  },
+  "settings.save_profile": {
+    "other": "Сохранить профиль"
+  },
+  "settings.change_password": {
+    "other": "Сменить пароль"
+  },
+  "settings.profile_saved": {
+    "other": "Ваш профиль сохранён."
+  },
+  "settings.password_changed": {
+    "other": "Ваш пароль изменён."
+  },
+  "settings.signed_out_elsewhere": {
+    "other": "Вы вышли из аккаунта на других устройствах."
+  },
+  "fields.first_name": {
+    "other": "Имя"
+  },
+  "fields.last_name": {
+    "other": "Фамилия"
+  },
+  "fields.current_password": {
+    "other": "Текущий пароль"
+  },
+  "fields.new_password": {
+    "other": "Новый пароль"
+  },
+  "fields.new_password_repeat": {
+    "other": "Повторите новый пароль"
+  },
+  "validation.email_taken": {
+    "other": "Этот адрес электронной почты уже используется."
+  },
+  "validation.password_incorrect": {
+    "other": "Неверный пароль."
+  },
+  "validation.passwords_differ": {
+    "other": "Пароли не совпадают."
+  },
+  "errors.settings_unavailable": {
+    "other": "Не удалось загрузить или сохранить настройки. Попробуйте позже."
+  },
+  "errors.profile_conflict": {
+    "other": "Ваш профиль за это время изменился. Обновите страницу и попробуйте снова."
+  },
+  "settings.password_hint": {
+    "one": "Используйте не менее {{.Count}} символа.",
+    "few": "Используйте не менее {{.Count}} символов.",
+    "many": "Используйте не менее {{.Count}} символов.",
+    "other": "Используйте не менее {{.Count}} символа."
+  },
+  "validation.too_short_chars": {
+    "one": "Используйте не менее {{.Count}} символа.",
+    "few": "Используйте не менее {{.Count}} символов.",
+    "many": "Используйте не менее {{.Count}} символов.",
+    "other": "Используйте не менее {{.Count}} символа."
+  },
+  "settings.confirm_title": {
+    "other": "Подтвердите паролем"
+  },
+  "settings.confirm_email": {
+    "other": "Введите текущий пароль, чтобы сохранить новый адрес электронной почты."
+  },
+  "settings.confirm_password": {
+    "other": "Введите текущий пароль, чтобы изменить его."
+  },
+  "common.confirm": {
+    "other": "Подтвердить"
   }
 }

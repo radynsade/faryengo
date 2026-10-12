@@ -58,8 +58,11 @@
 		text-transform: uppercase;
 	}
 
+	// The column never grows past the sidebar, so a long name or email
+	// truncates instead of widening the footer.
 	&__footer {
 		display: grid;
+		grid-template-columns: minmax(0, 1fr);
 		gap: var(--space-3);
 		margin-top: auto;
 	}
@@ -106,6 +109,27 @@
 		font-size: var(--font-size-caption);
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	&__settings {
+		@include ui.button-base;
+		@include ui.motion(color, background-color);
+
+		width: var(--icon-action-size);
+		height: var(--icon-action-size);
+		border-color: transparent;
+		color: var(--color-muted);
+		background: transparent;
+		text-decoration: none;
+
+		&:hover {
+			color: var(--color-accent);
+			background: var(--color-accent-soft);
+		}
+
+		.ti {
+			font-size: var(--icon-control);
+		}
 	}
 
 	&__sign-out {
@@ -177,6 +201,7 @@
 }
 
 .panel-sidebar__brand,
+.panel-sidebar__settings,
 .panel-sidebar__sign-out,
 .panel-menu__link {
 	&:focus-visible {

@@ -1,0 +1,213 @@
+package pages
+
+import (
+	"github.com/radynsade/faryengo/internal/users"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+	"github.com/radynsade/faryengo/web/admin/templates/components"
+	"github.com/radynsade/faryengo/web/admin/templates/layouts"
+)
+
+// The forms and their password confirmations name the regions a failed
+// in-page submission replaces.
+const (
+	ProfileFormID     = "profile-form"
+	ProfileConfirmID  = "profile-confirm"
+	PasswordFormID    = "password-form"
+	PasswordConfirmID = "password-confirm"
+)
+
+// The confirmation opens on its own when the server asks for the current
+// password, and with JavaScript before a submission that needs it.
+
+type PasswordConfirmProps struct {
+	Open   bool
+	Errors []string
+}
+
+type ProfileFormProps struct {
+	Action      string
+	CancelURL   string
+	FirstName   string
+	LastName    string
+	Email       string
+	UpdatedAt   string
+	Errors      []string
+	FieldErrors components.FieldErrors
+	Confirm     PasswordConfirmProps
+}
+
+type PasswordFormProps struct {
+	Action      string
+	CancelURL   string
+	Errors      []string
+	FieldErrors components.FieldErrors
+	Confirm     PasswordConfirmProps
+}
+
+type SettingsProps struct {
+	Panel    layouts.PanelProps
+	Profile  ProfileFormProps
+	Password PasswordFormProps
+}
+
+// Settings let the signed-in user change their own profile and password. Both
+// cards share the centered content column with the page title.
+templ Settings(props SettingsProps) {
+	@layouts.Panel(props.Panel) {
+		<div class="panel-page">
+			<div class="panel-page__content settings-page">
+				@components.PageTitle(admini18n.T(ctx, "navigation.settings"), []components.BreadcrumbItem{
+					{Label: admini18n.T(ctx, "common.admin"), Href: props.Panel.BasePath},
+					{Label: admini18n.T(ctx, "navigation.settings")},
+				})
+				<section class="card settings-page__card" aria-labelledby="profile-title">
+					<header class="settings-page__heading">
+						<h2 id="profile-title" class="settings-page__title">{ admini18n.T(ctx, "settings.profile") }</h2>
+						<p>{ admini18n.T(ctx, "settings.profile_description") }</p>
+					</header>
+					@ProfileForm(props.Profile)
+				</section>
+				<section class="card settings-page__card" aria-labelledby="password-title">
+					<header class="settings-page__heading">
+						<h2 id="password-title" class="settings-page__title">{ admini18n.T(ctx, "settings.password") }</h2>
+						<p>{ admini18n.T(ctx, "settings.password_description") }</p>
+					</header>
+					@PasswordForm(props.Password)
+				</section>
+			</div>
+		</div>
+	}
+}
+
+// ProfileForm carries the moment of the change it was built from, so saving
+// it cannot overwrite a newer change. A changed email needs the current
+// password, which its confirmation asks for; the names alone do not.
+templ ProfileForm(props ProfileFormProps) {
+	<form
+		id={ ProfileFormID }
+		class="settings-form"
+		method="post"
+		action={ templ.URL(props.Action) }
+		novalidate
+		data-confirm-password="email"
+		{ components.FormAttributes()... }
+	>
+		for _, message := range props.Errors {
+			<p class="notice notice--error" role="alert">{ message }</p>
+		}
+		<input type="hidden" name="updated_at" value={ props.UpdatedAt }/>
+		<div class="settings-form__row">
+			@components.TextInput(components.TextInputProps{
+				ID: "profile-first-name", Name: "first_name", Type: "text", Label: admini18n.T(ctx, "fields.first_name"),
+				Autocomplete: "given-name", Value: props.FirstName, Required: true, MaxLength: users.MaxFirstNameLength,
+				Errors: props.FieldErrors["first_name"],
+			})
+			@components.TextInput(components.TextInputProps{
+				ID: "profile-last-name", Name: "last_name", Type: "text", Label: admini18n.T(ctx, "fields.last_name"),
+				Autocomplete: "family-name", Value: props.LastName, Required: true, MaxLength: users.MaxLastNameLength,
+				Errors: props.FieldErrors["last_name"],
+			})
+		</div>
+		@components.TextInput(components.TextInputProps{
+			ID: "profile-email", Name: "email", Type: "email", Label: admini18n.T(ctx, "fields.email"),
+			Autocomplete: "email", Value: props.Email, Required: true, MaxLength: 254,
+			Errors: props.FieldErrors["email"],
+		})
+		<div class="settings-form__actions">
+			@components.PrimaryButton("submit") {
+				<i class="ti ti-device-floppy" aria-hidden="true"></i>
+				{ admini18n.T(ctx, "settings.save_profile") }
+			}
+		</div>
+		@ProfileConfirm(props)
+	</form>
+}
+
+templ ProfileConfirm(props ProfileFormProps) {
+	@passwordConfirm(ProfileConfirmID, props.Confirm, admini18n.T(ctx, "settings.confirm_email"), props.CancelURL)
+}
+
+// PasswordForm asks for the new password twice, then for the current one in
+// its confirmation. Changing it signs out every other device.
+templ PasswordForm(props PasswordFormProps) {
+	<form
+		id={ PasswordFormID }
+		class="settings-form"
+		method="post"
+		action={ templ.URL(props.Action) }
+		novalidate
+		data-confirm-password="always"
+		{ components.FormAttributes()... }
+	>
+		for _, message := range props.Errors {
+			<p class="notice notice--error" role="alert">{ message }</p>
+		}
+		@components.TextInput(components.TextInputProps{
+			ID: "password-new", Name: "new_password", Type: "password", Label: admini18n.T(ctx, "fields.new_password"),
+			Autocomplete: "new-password", Help: admini18n.Count(ctx, "users.password_help", users.MinPasswordLength),
+			Required: true, Errors: props.FieldErrors["new_password"],
+		})
+		@components.TextInput(components.TextInputProps{
+			ID: "password-repeat", Name: "new_password_repeat", Type: "password", Label: admini18n.T(ctx, "fields.new_password_repeat"),
+			Autocomplete: "new-password", Required: true, Errors: props.FieldErrors["new_password_repeat"], Matches: "new_password",
+		})
+		<div class="settings-form__actions">
+			@components.PrimaryButton("submit") {
+				<i class="ti ti-key" aria-hidden="true"></i>
+				{ admini18n.T(ctx, "settings.change_password") }
+			}
+		</div>
+		@PasswordConfirm(props)
+	</form>
+}
+
+templ PasswordConfirm(props PasswordFormProps) {
+	@passwordConfirm(PasswordConfirmID, props.Confirm, admini18n.T(ctx, "settings.confirm_password"), props.CancelURL)
+}
+
+// passwordConfirm belongs to its form, so confirming submits the form's
+// fields together with the current password, which is never rendered back.
+// Its submit button names the confirmation, so the server can tell an empty
+// password from a submission that has not asked for one yet. Without
+// JavaScript an open confirmation shows inline and Cancel reloads the
+// settings; with JavaScript it is a modal and Cancel closes it.
+templ passwordConfirm(id string, props PasswordConfirmProps, message string, cancelURL string) {
+	<dialog
+		id={ id }
+		class="admin-dialog password-confirm"
+		aria-labelledby={ id + "-title" }
+		aria-describedby={ id + "-message" }
+		data-dialog
+		data-confirm-dialog
+		if props.Open {
+			open
+			data-dialog-open
+		}
+	>
+		<button class="admin-dialog__close" type="button" aria-label={ admini18n.T(ctx, "actions.close") } data-dialog-close data-confirm-cancel>
+			<i class="ti ti-x" aria-hidden="true"></i>
+		</button>
+		<div class="password-confirm__body">
+			<div class="password-confirm__header">
+				<i class="ti ti-lock password-confirm__icon" aria-hidden="true"></i>
+				<h2 id={ id + "-title" } class="password-confirm__title">{ admini18n.T(ctx, "settings.confirm_title") }</h2>
+			</div>
+			<p id={ id + "-message" } class="password-confirm__message">{ message }</p>
+			@components.TextInput(components.TextInputProps{
+				ID: id + "-password", Name: "current_password", Type: "password", Label: admini18n.T(ctx, "fields.current_password"),
+				Autocomplete: "current-password", Required: true, Errors: props.Errors, Autofocus: true,
+			})
+		</div>
+		<div class="password-confirm__footer">
+			<a
+				class="button button--secondary"
+				href={ templ.URL(cancelURL) }
+				data-confirm-cancel
+				{ components.NavigationAttributes()... }
+			>{ admini18n.T(ctx, "actions.cancel") }</a>
+			<button class="button button--primary" type="submit" name="confirm" value="1" data-confirm-submit>
+				{ admini18n.T(ctx, "actions.confirm") }
+			</button>
+		</div>
+	</dialog>
+}

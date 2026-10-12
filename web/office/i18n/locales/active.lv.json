@@ -162,5 +162,84 @@
   },
   "navigation.skip": {
     "other": "Pāriet uz saturu"
+  },
+  "settings.profile": {
+    "other": "Profils"
+  },
+  "settings.profile_description": {
+    "other": "Jūsu vārds un e-pasts, ar kuru jūs pieslēdzaties."
+  },
+  "settings.password": {
+    "other": "Paroles maiņa"
+  },
+  "settings.password_description": {
+    "other": "Divreiz ievadiet jauno paroli un pēc tam apstipriniet maiņu ar pašreizējo paroli."
+  },
+  "settings.save_profile": {
+    "other": "Saglabāt profilu"
+  },
+  "settings.change_password": {
+    "other": "Mainīt paroli"
+  },
+  "settings.profile_saved": {
+    "other": "Jūsu profils ir saglabāts."
+  },
+  "settings.password_changed": {
+    "other": "Jūsu parole ir nomainīta."
+  },
+  "settings.signed_out_elsewhere": {
+    "other": "Jūs tikāt izrakstīts citās ierīcēs."
+  },
+  "fields.first_name": {
+    "other": "Vārds"
+  },
+  "fields.last_name": {
+    "other": "Uzvārds"
+  },
+  "fields.current_password": {
+    "other": "Pašreizējā parole"
+  },
+  "fields.new_password": {
+    "other": "Jaunā parole"
+  },
+  "fields.new_password_repeat": {
+    "other": "Atkārtojiet jauno paroli"
+  },
+  "validation.email_taken": {
+    "other": "Šis e-pasts jau tiek izmantots."
+  },
+  "validation.password_incorrect": {
+    "other": "Parole ir nepareiza."
+  },
+  "validation.passwords_differ": {
+    "other": "Paroles nesakrīt."
+  },
+  "errors.settings_unavailable": {
+    "other": "Jūsu iestatījumus neizdevās ielādēt vai saglabāt. Lūdzu, mēģiniet vēlāk vēlreiz."
+  },
+  "errors.profile_conflict": {
+    "other": "Jūsu profils pa to laiku ir mainījies. Pārlādējiet lapu un mēģiniet vēlreiz."
+  },
+  "settings.password_hint": {
+    "zero": "Izmantojiet vismaz {{.Count}} rakstzīmes.",
+    "one": "Izmantojiet vismaz {{.Count}} rakstzīmi.",
+    "other": "Izmantojiet vismaz {{.Count}} rakstzīmes."
+  },
+  "validation.too_short_chars": {
+    "zero": "Izmantojiet vismaz {{.Count}} rakstzīmes.",
+    "one": "Izmantojiet vismaz {{.Count}} rakstzīmi.",
+    "other": "Izmantojiet vismaz {{.Count}} rakstzīmes."
+  },
+  "settings.confirm_title": {
+    "other": "Apstipriniet ar paroli"
+  },
+  "settings.confirm_email": {
+    "other": "Ievadiet pašreizējo paroli, lai saglabātu jauno e-pastu."
+  },
+  "settings.confirm_password": {
+    "other": "Ievadiet pašreizējo paroli, lai to nomainītu."
+  },
+  "common.confirm": {
+    "other": "Apstiprināt"
   }
 }

@@ -194,6 +194,7 @@ The admin uses these Redis names:
 | Purpose | Name | Meaning |
 | --- | --- | --- |
 | Signed-in `Session.Key` | `faryen:web:admin:flashes:session:{sessionID}` | Messages of one device Session, selected from the verified Session's internal identity. |
+| Office signed-in `Session.Key` | `faryen:web:office:flashes:session:{sessionID}` | The office's messages of one device Session. The office shows messages only to signed-in Users, so it has no guest sessions. After a change of credentials, the confirmation is stored under the device's new Session. |
 | Guest `Session.Key` | `faryen:web:admin:flashes:guest:{randomID}` | Messages of a visitor who has not signed in, identified by a random UUIDv7. |
 | Message hash field | `admin:flashes` | JSON bag in the flash hash; other applications use their own `<application>:flashes` field. |
 

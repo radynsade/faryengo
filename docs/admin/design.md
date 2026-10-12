@@ -49,12 +49,14 @@ styles/
     _dialog.scss            Native dialog surface and close control
     _confirm-delete.scss    Destructive confirmation content
     _success-dialog.scss    Successful-operation content
+    _password-confirm.scss  Current-password confirmation content
   layouts/
     _auth.scss              Authentication shell
     _panel.scss             Sidebar, account, navigation, main area
   pages/
     _roles.scss             Role-page composition and UUID column width
     _users.scss             User-page composition and column widths
+    _settings.scss          Settings-page cards and form rows
   utilities/
     _accessibility.scss     Visually hidden accessible text
 ```
@@ -84,7 +86,7 @@ hold values used by rendered elements and allow scoped overrides.
 | Spacing | `--space-1` through `--space-6`, `--space-8`, `--space-12` | Layout gaps, insets, larger empty states |
 | Typography | `--font-family`, `--font-size-control`, `--font-size-title`, `--font-weight-semibold`, `--line-height-body` | Shared type roles |
 | Geometry | `--radius-control`, `--radius-panel`, `--border-width`, `--control-height`, `--icon-action-size` | Controls, cards, borders, icon actions |
-| Width limits | `--sidebar-width`, `--auth-width`, `--page-content-width`, `--table-min-width` | Layout and component constraints |
+| Width limits | `--sidebar-width`, `--auth-width`, `--page-content-width`, `--settings-content-width`, `--table-min-width` | Layout and component constraints |
 | Elevation | `--shadow-panel`, `--shadow-dropdown`, `--shadow-popover`, `--shadow-dialog` | Surface hierarchy |
 | Focus and motion | `--focus-width`, `--focus-offset`, `--focus-halo`, `--duration-fast`, `--ease-standard` | Keyboard indication and transitions |
 | Stacking | `--z-skip-link`, `--z-popover`, `--z-dropdown` | In-page overlays; native modal dialogs use the top layer |
@@ -169,7 +171,7 @@ page hooks alongside it.
 | Details | `.details-list`, `__row`; semantic `dl` with one `div` per `dt`/`dd` pair; rows are subgrids, so the label column fits the longest label (wrapping past 40% of the width) and stacks above values on phones; role-view permissions use the same badges as the role list |
 | Copyable values | `CopyValue` and `.copy-value`; inline scalar values with Tabler `copy` on hover/focus and `copy-check` after successful copying; localized clipboard status and keyboard activation |
 | Status | `.badge`, `--negative`; `.notice`, `--error` for inline feedback |
-| Dialogs | `.admin-dialog` is the shell; `.confirm-delete` and `.success-dialog` own their content |
+| Dialogs | `.admin-dialog` is the shell; `.confirm-delete`, `.success-dialog`, and `.password-confirm` own their content |
 
 The primary variant is a filled accent button for actions such as Create and
 Save. The secondary variant has muted text, a white surface, and a line border;
@@ -247,7 +249,8 @@ inset. The sidebar stacks the brand, an uppercase section label, and the menu;
 the active link carries an accent marker at the sidebar edge. Its footer holds
 the language switcher and, below a divider, the account row: a decorative
 initials avatar (`--avatar-size`), the truncated name and email, and an
-icon-only Sign out button with a localized label and a pale red hover.
+icon-only Settings link with an accent hover, and an icon-only Sign out button
+with a localized label and a pale red hover.
 At 720px and below it becomes a header with a two-column menu. The main
 area has no shared padding or width limit, allowing collection tables to fill it.
 
@@ -259,8 +262,11 @@ The sign-out form targets `#page-content` explicitly, because it leaves the
 dashboard. A request targeting `#panel-main` receives only the head and the
 content area; the menu (`#panel-menu`), whose active link follows the section,
 and the sidebar language links (`#panel-languages`), which keep the current page
-and query, arrive as out-of-band morphs. The brand, account row, and sign-out
-form are never sent again. If such a request ends on a page with another layout,
+and query, arrive as out-of-band morphs. The brand is never sent again. The
+account row (`#panel-account`) and its sign-out form are sent again only when a
+page asks for them: the settings page does, because a saved profile redirects
+there and the row must show the new name. The row therefore marks no active
+page. If such a request ends on a page with another layout,
 the server retargets the response to `#page-content`.
 
 Inset detail and form pages use `.panel-page__content` inside `.panel-page` to
@@ -330,6 +336,25 @@ to the role view only for users with the view-roles permission. Viewing needs
 the view-users permission; Create, Edit, Delete, and the confirmation dialog
 appear only with the manage-users permission. No page offers deleting the
 signed-in user's own account, and the server refuses such a request.
+
+`pages/_settings.scss` owns the settings page, which every signed-in user may
+open from the account row, whatever their Role grants. It uses the centered
+content column, narrowed to `--settings-content-width`, with Admin → Settings
+breadcrumbs and one card per form: Profile (first and last name side by side,
+then the email) and Password change (the new password twice). Neither form
+shows a current-password field. Submitting the password form, or the profile
+form with a changed email, opens the `.password-confirm` dialog inside that
+form; Confirm submits the form with the current password, which is never
+rendered back. A missing or wrong current password replaces only the dialog,
+so the form keeps what was typed; other failures replace the form. Without
+JavaScript the server renders the dialog open inline. A saved change redirects
+to the settings page, whose success dialog confirms it; changing the email or
+password signs out the user's other devices and keeps the current one signed
+in.
+
+The shared dialog script turns a server-opened dialog (`data-dialog-open`) into
+a modal, including one rendered with the `open` attribute so that it shows
+inline without JavaScript.
 
 ## Accessibility and interaction rules
 

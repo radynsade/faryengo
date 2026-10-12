@@ -60,15 +60,17 @@ func TestUserServiceNilReceiver(t *testing.T) {
 	found, findErr := service.FindByID(ctx, testUserID)
 	updated, updateErr := service.Update(ctx, input.UpdateUserInput{})
 	deleteErr := service.Delete(ctx, testUserID)
+	profile, profileErr := service.UpdateProfile(ctx, input.UpdateProfileInput{})
+	changed, changeErr := service.ChangePassword(ctx, input.ChangePasswordInput{})
 
-	for _, err := range []error{createErr, findErr, updateErr, deleteErr} {
+	for _, err := range []error{createErr, findErr, updateErr, deleteErr, profileErr, changeErr} {
 		if !errors.Is(err, ErrUserRepositoryNil) {
 			t.Fatalf("nil receiver error = %v, want ErrUserRepositoryNil", err)
 		}
 	}
 
-	if created != nil || found != nil || updated != nil {
-		t.Fatalf("nil receiver returned users: %v, %v, %v", created, found, updated)
+	if created != nil || found != nil || updated != nil || profile != nil || changed != nil {
+		t.Fatalf("nil receiver returned users: %v, %v, %v, %v, %v", created, found, updated, profile, changed)
 	}
 }
 
@@ -673,5 +675,208 @@ func reloadFrom(
 		}
 
 		return user, err
+	}
+}
+
+// The mock hasher accepts only "correct horse" for the stored hash.
+
+func profileHasher(hashErr error, hashCalls *int) *mock.PasswordHasher {
+	return &mock.PasswordHasher{
+		HashFunc: func(_ context.Context, password string) (users.PasswordHash, error) {
+			*hashCalls++
+
+			return "hash:" + users.PasswordHash(password), hashErr
+		},
+		VerifyFunc: func(_ context.Context, password string, hash users.PasswordHash) (bool, error) {
+			return hash == "existing hash" && password == "correct horse", nil
+		},
+	}
+}
+
+// The User is loaded outside the transaction for the password check, then
+// written and reloaded inside it.
+
+func profileRepository(
+	t *testing.T,
+	stored **users.User,
+	updateErr error,
+	written **users.User,
+	writes *int,
+) *mock.UserRepository {
+	reload := reloadFrom(stored, nil)
+
+	return &mock.UserRepository{
+		FindByIDFunc: func(ctx context.Context, id users.UserID) (*users.User, error) {
+			var (
+				user *users.User
+				err  error
+			)
+
+			if appmock.InTransaction(ctx) {
+				user, err = reload(ctx, id)
+			} else if *stored == nil {
+				err = users.ErrUserNotFound
+			} else {
+				copied := **stored
+				user = &copied
+			}
+
+			return user, err
+		},
+		UpdateFunc: func(ctx context.Context, user *users.User) users.ErrUserUpdateFailed {
+			var err users.ErrUserUpdateFailed
+
+			*writes++
+			*written = user
+
+			if !appmock.InTransaction(ctx) {
+				t.Error("Update() ran outside a transaction")
+			}
+
+			if updateErr != nil {
+				err = mock.NewErrUserUpdateFailed(user, updateErr)
+			} else {
+				*stored = user
+			}
+
+			return err
+		},
+	}
+}
+
+func TestUserServiceUpdateProfile(t *testing.T) {
+	names := input.UpdateProfileInput{
+		ID:        testUserID,
+		FirstName: "Anna",
+		LastName:  "Ozola",
+		Email:     "anna@example.com",
+		UpdatedAt: testMoment,
+	}
+	email := names
+	email.Email = "anna.new@example.com"
+	email.CurrentPassword = "correct horse"
+	emailWithoutPassword := email
+	emailWithoutPassword.CurrentPassword = ""
+	emailWithWrongPassword := email
+	emailWithWrongPassword.CurrentPassword = "wrong horse"
+
+	for _, tt := range []struct {
+		name       string
+		request    input.UpdateProfileInput
+		missing    bool
+		updateErr  error
+		wantErrs   []error
+		wantWrites int
+		wantEmail  users.Email
+	}{
+		{name: "names without a password", request: names, wantWrites: 1, wantEmail: "anna@example.com"},
+		{name: "email with the current password", request: email, wantWrites: 1, wantEmail: "anna.new@example.com"},
+		{name: "email without a password", request: emailWithoutPassword, wantErrs: []error{input.ErrCurrentPasswordRequired}},
+		{name: "email with a wrong password", request: emailWithWrongPassword, wantErrs: []error{input.ErrCurrentPasswordIncorrect}},
+		{
+			name:     "invalid fields",
+			request:  input.UpdateProfileInput{ID: testUserID, FirstName: " ", Email: "Anna <anna@example.com>"},
+			wantErrs: []error{input.ErrUpdateProfileInputInvalid, users.ErrFirstNameEmpty, users.ErrLastNameEmpty, users.ErrEmailInvalid},
+		},
+		{name: "missing user", request: names, missing: true, wantErrs: []error{users.ErrUserNotFound}},
+		{name: "outdated change", request: names, updateErr: users.ErrUserConflict, wantErrs: []error{users.ErrUserConflict}, wantWrites: 1},
+		{name: "taken email", request: email, updateErr: users.ErrUserAlreadyExists, wantErrs: []error{users.ErrUserAlreadyExists}, wantWrites: 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			hashCalls, writes := 0, 0
+			stored := testUser()
+
+			var written *users.User
+
+			if tt.missing {
+				stored = nil
+			}
+
+			service, err := NewUserService(&appmock.Transactor{}, profileRepository(t, &stored, tt.updateErr, &written, &writes), profileHasher(nil, &hashCalls))
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			user, err := service.UpdateProfile(t.Context(), tt.request)
+
+			if writes != tt.wantWrites || hashCalls != 0 {
+				t.Fatalf("calls = (write %d, hash %d), want (%d, 0)", writes, hashCalls, tt.wantWrites)
+			}
+
+			assertErrors(t, err, tt.wantErrs)
+
+			if len(tt.wantErrs) > 0 {
+				if user != nil {
+					t.Fatalf("UpdateProfile() user = %v, want nil on error", user)
+				}
+			} else {
+				original := testUser()
+
+				if user.Email != tt.wantEmail || user.FirstName != "Anna" || user.LastName != "Ozola" || user.UpdatedAt != testReloaded {
+					t.Fatalf("UpdateProfile() user = %+v, want the reloaded profile", user)
+				}
+
+				if written.RoleID != original.RoleID || written.Phone != original.Phone || written.PasswordHash != original.PasswordHash || written.UpdatedAt != tt.request.UpdatedAt {
+					t.Fatalf("written user = %+v, want the role, phone, and password kept and the request's UpdatedAt", written)
+				}
+			}
+		})
+	}
+}
+
+func TestUserServiceChangePassword(t *testing.T) {
+	valid := input.ChangePasswordInput{ID: testUserID, CurrentPassword: "correct horse", NewPassword: "battery staple"}
+	withoutCurrent := valid
+	withoutCurrent.CurrentPassword = ""
+	wrongCurrent := valid
+	wrongCurrent.CurrentPassword = "wrong horse"
+	short := valid
+	short.NewPassword = "short"
+
+	for _, tt := range []struct {
+		name       string
+		request    input.ChangePasswordInput
+		hashErr    error
+		updateErr  error
+		wantErrs   []error
+		wantHashes int
+		wantWrites int
+	}{
+		{name: "changed", request: valid, wantHashes: 1, wantWrites: 1},
+		{name: "without the current password", request: withoutCurrent, wantErrs: []error{input.ErrCurrentPasswordRequired}},
+		{name: "with a wrong current password", request: wrongCurrent, wantErrs: []error{input.ErrCurrentPasswordIncorrect}},
+		{name: "short new password", request: short, wantErrs: []error{input.ErrChangePasswordInputInvalid, users.ErrPasswordTooShort}},
+		{name: "hash failure", request: valid, hashErr: context.DeadlineExceeded, wantErrs: []error{context.DeadlineExceeded}, wantHashes: 1},
+		{name: "outdated change", request: valid, updateErr: users.ErrUserConflict, wantErrs: []error{users.ErrUserConflict}, wantHashes: 1, wantWrites: 1},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			hashCalls, writes := 0, 0
+			stored := testUser()
+
+			var written *users.User
+
+			service, err := NewUserService(&appmock.Transactor{}, profileRepository(t, &stored, tt.updateErr, &written, &writes), profileHasher(tt.hashErr, &hashCalls))
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			user, err := service.ChangePassword(t.Context(), tt.request)
+
+			if hashCalls != tt.wantHashes || writes != tt.wantWrites {
+				t.Fatalf("calls = (hash %d, write %d), want (%d, %d)", hashCalls, writes, tt.wantHashes, tt.wantWrites)
+			}
+
+			assertErrors(t, err, tt.wantErrs)
+
+			if len(tt.wantErrs) > 0 {
+				if user != nil {
+					t.Fatalf("ChangePassword() user = %v, want nil on error", user)
+				}
+			} else if user.PasswordHash != "hash:battery staple" || written.Email != testUser().Email || written.UpdatedAt != testMoment {
+				t.Fatalf("ChangePassword() user = %+v, written = %+v, want the new hash with the rest kept", user, written)
+			}
+		})
 	}
 }

@@ -1,8 +1,10 @@
-// The sidebar is a floating card below the top bar and beside the content on
-// wide screens; below the breakpoint it becomes a drawer opened from the top
-// bar. It holds only the workspace navigation.
+// The sidebar holds only the workspace navigation. On wide screens it is a
+// narrow rail below the top bar: a floating card of compact tiles, each a
+// large icon above its label. Below the breakpoint it becomes a drawer opened from
+// the top bar, with the brand and one row per section.
 $wide: 960px;
 $sidebar-width: 15rem;
+$rail-width: 6.25rem;
 
 .dashboard {
 	display: flex;
@@ -14,7 +16,7 @@ $sidebar-width: 15rem;
 
 		@media (min-width: $wide) {
 			display: grid;
-			grid-template-columns: $sidebar-width minmax(0, 1fr);
+			grid-template-columns: $rail-width minmax(0, 1fr);
 			gap: 0.75rem;
 			padding: 0.75rem;
 		}
@@ -49,6 +51,19 @@ $sidebar-width: 15rem;
 		@media (min-width: $wide) {
 			padding: 1rem 1.25rem 1.5rem;
 		}
+	}
+
+	// The page's heading and content share one column, centered in the space
+	// beside the sidebar; narrow pages use the standalone layout's width.
+	&__header,
+	&__content {
+		width: min(100%, 72rem);
+		margin-inline: auto;
+	}
+
+	&__main--narrow &__header,
+	&__main--narrow &__content {
+		width: min(100%, 36rem);
 	}
 
 	&__header h1 {
@@ -99,6 +114,7 @@ $sidebar-width: 15rem;
 		position: sticky;
 		top: calc(var(--topbar-height) + 0.75rem);
 		height: calc(100dvh - var(--topbar-height) - 1.5rem);
+		padding: 0.5rem;
 		overflow-y: auto;
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius-lg);
@@ -151,7 +167,7 @@ $sidebar-width: 15rem;
 			background: var(--color-primary-soft);
 			font-weight: 700;
 
-			// Accent marker at the item's left edge.
+			// Accent marker at the item's left edge, on the card's border.
 			&::before {
 				content: '';
 				position: absolute;
@@ -161,6 +177,30 @@ $sidebar-width: 15rem;
 				width: 4px;
 				border-radius: 0 4px 4px 0;
 				background: var(--color-primary);
+
+				@media (min-width: $wide) {
+					left: -0.5rem;
+				}
+			}
+		}
+
+		// A tile: a large icon above a short label, which hyphenates rather
+		// than overflowing in longer languages.
+		@media (min-width: $wide) {
+			flex-direction: column;
+			justify-content: center;
+			gap: 0.3125rem;
+			padding: 0.625rem 0.25rem 0.5rem;
+			font-size: 0.6875rem;
+			line-height: 1.2;
+			text-align: center;
+			hyphens: auto;
+			overflow-wrap: break-word;
+
+			.icon {
+				width: 1.75rem;
+				height: 1.75rem;
+				stroke-width: 1.5;
 			}
 		}
 	}

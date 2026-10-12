@@ -57,28 +57,6 @@ func (h *Handler) section(key string) http.HandlerFunc {
 }
 
 //
-// Settings
-//
-
-// Settings outside a workspace use the standalone layout, without the
-// sidebar; inside a workspace they are one of its sections.
-
-func (h *Handler) settings(writer http.ResponseWriter, request *http.Request) {
-	current, err := h.authenticate(writer, request)
-
-	if err == nil {
-		title := officei18n.T(request.Context(), "nav.settings")
-
-		utils.Render(writer, request, http.StatusOK, title, pages.Settings(utils.SettingsProps(request, current)))
-	} else if utils.IsUnauthenticated(err) {
-		http.Redirect(writer, request, utils.OfficePath(request)+"/sign-in", http.StatusSeeOther)
-	} else {
-		slog.ErrorContext(request.Context(), "office authentication", "error", err)
-		utils.Fail(writer, request, http.StatusServiceUnavailable, "errors.sign_in_unavailable")
-	}
-}
-
-//
 // Helpers
 //
 

@@ -334,7 +334,7 @@ func TestCreateWorkspaceReplacesOnlyTheForm(t *testing.T) {
 		}
 	}
 
-	if response.Code != http.StatusUnprocessableEntity || !strings.HasPrefix(body, `<form id="create-workspace-form"`) || strings.Contains(body, "<head") {
+	if response.Code != http.StatusUnprocessableEntity || !strings.HasPrefix(body, `<form id="create-workspace-form"`) || strings.Contains(body, `<head hx-head`) {
 		t.Fatalf("response = %d, body is not only the form:\n%s", response.Code, body)
 	}
 }

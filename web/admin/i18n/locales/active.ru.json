@@ -505,5 +505,68 @@
   },
   "errors.user_delete_self": {
     "other": "Вы не можете удалить собственную учётную запись."
+  },
+  "navigation.settings": {
+    "other": "Настройки"
+  },
+  "settings.profile": {
+    "other": "Профиль"
+  },
+  "settings.profile_description": {
+    "other": "Ваше имя и адрес электронной почты, с которым вы входите."
+  },
+  "settings.password": {
+    "other": "Смена пароля"
+  },
+  "settings.password_description": {
+    "other": "Дважды введите новый пароль, затем подтвердите изменение текущим паролем."
+  },
+  "settings.save_profile": {
+    "other": "Сохранить профиль"
+  },
+  "settings.change_password": {
+    "other": "Сменить пароль"
+  },
+  "settings.confirm_title": {
+    "other": "Подтвердите паролем"
+  },
+  "settings.confirm_email": {
+    "other": "Введите текущий пароль, чтобы сохранить новый адрес электронной почты."
+  },
+  "settings.confirm_password": {
+    "other": "Введите текущий пароль, чтобы изменить его."
+  },
+  "settings.profile_saved": {
+    "other": "Ваш профиль сохранён."
+  },
+  "settings.password_changed": {
+    "other": "Ваш пароль изменён."
+  },
+  "settings.signed_out_elsewhere": {
+    "other": "Вы вышли из аккаунта на других устройствах."
+  },
+  "fields.current_password": {
+    "other": "Текущий пароль"
+  },
+  "fields.new_password_repeat": {
+    "other": "Повторите новый пароль"
+  },
+  "validation.password_incorrect": {
+    "other": "Неверный пароль."
+  },
+  "validation.passwords_differ": {
+    "other": "Пароли не совпадают."
+  },
+  "actions.confirm": {
+    "other": "Подтвердить"
+  },
+  "errors.settings_form": {
+    "other": "Отправьте корректную форму."
+  },
+  "errors.settings_unavailable": {
+    "other": "Не удалось загрузить или сохранить настройки. Попробуйте позже."
+  },
+  "errors.profile_conflict": {
+    "other": "Ваш профиль за это время изменился. Обновите страницу и попробуйте снова."
   }
 }

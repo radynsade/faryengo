@@ -11,7 +11,6 @@ import (
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	"github.com/radynsade/faryengo/web/office/templates/layouts"
-	"github.com/radynsade/faryengo/web/office/templates/pages"
 )
 
 //
@@ -75,14 +74,12 @@ func DashboardProps(
 // Settings
 //
 
-func SettingsProps(request *http.Request, current *security.Identity) pages.SettingsProps {
-	props := pages.SettingsProps{
-		Layout: layouts.StandaloneProps{
-			TopBar: topBarProps(request, current, OfficePath(request)+"/settings", true),
-		},
+func SettingsLayoutProps(request *http.Request, current *security.Identity) layouts.StandaloneProps {
+	props := layouts.StandaloneProps{
+		TopBar: topBarProps(request, current, OfficePath(request)+"/settings", true),
 	}
 
-	props.Layout.TopBar.SelectURL = WorkspacesPath(request)
+	props.TopBar.SelectURL = WorkspacesPath(request)
 
 	return props
 }

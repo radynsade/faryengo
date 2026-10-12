@@ -501,5 +501,68 @@
   },
   "errors.user_delete_self": {
     "other": "Jūs nevarat dzēst savu kontu."
+  },
+  "navigation.settings": {
+    "other": "Iestatījumi"
+  },
+  "settings.profile": {
+    "other": "Profils"
+  },
+  "settings.profile_description": {
+    "other": "Jūsu vārds un e-pasta adrese, ar kuru jūs pieslēdzaties."
+  },
+  "settings.password": {
+    "other": "Paroles maiņa"
+  },
+  "settings.password_description": {
+    "other": "Divreiz ievadiet jauno paroli un pēc tam apstipriniet maiņu ar pašreizējo paroli."
+  },
+  "settings.save_profile": {
+    "other": "Saglabāt profilu"
+  },
+  "settings.change_password": {
+    "other": "Mainīt paroli"
+  },
+  "settings.confirm_title": {
+    "other": "Apstipriniet ar paroli"
+  },
+  "settings.confirm_email": {
+    "other": "Ievadiet pašreizējo paroli, lai saglabātu jauno e-pasta adresi."
+  },
+  "settings.confirm_password": {
+    "other": "Ievadiet pašreizējo paroli, lai to nomainītu."
+  },
+  "settings.profile_saved": {
+    "other": "Jūsu profils ir saglabāts."
+  },
+  "settings.password_changed": {
+    "other": "Jūsu parole ir nomainīta."
+  },
+  "settings.signed_out_elsewhere": {
+    "other": "Jūs tikāt izrakstīts citās ierīcēs."
+  },
+  "fields.current_password": {
+    "other": "Pašreizējā parole"
+  },
+  "fields.new_password_repeat": {
+    "other": "Atkārtojiet jauno paroli"
+  },
+  "validation.password_incorrect": {
+    "other": "Parole ir nepareiza."
+  },
+  "validation.passwords_differ": {
+    "other": "Paroles nesakrīt."
+  },
+  "actions.confirm": {
+    "other": "Apstiprināt"
+  },
+  "errors.settings_form": {
+    "other": "Iesniedziet derīgu veidlapu."
+  },
+  "errors.settings_unavailable": {
+    "other": "Jūsu iestatījumus neizdevās ielādēt vai saglabāt. Lūdzu, mēģiniet vēlāk vēlreiz."
+  },
+  "errors.profile_conflict": {
+    "other": "Jūsu profils pa to laiku ir mainījies. Pārlādējiet lapu un mēģiniet vēlreiz."
   }
 }

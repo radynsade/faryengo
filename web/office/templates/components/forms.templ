@@ -1,6 +1,8 @@
 package components
 
 import (
+	"strings"
+
 	"github.com/radynsade/faryengo/web/office/assets"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 )
@@ -14,7 +16,10 @@ type TextInputProps struct {
 	Autocomplete string
 	Value        string
 	Required     bool
+	Hint         string
 	Error        string
+	// Matches names the field this one must repeat, such as a new password.
+	Matches string
 }
 
 templ TextInput(props TextInputProps) {
@@ -29,9 +34,14 @@ templ TextInput(props TextInputProps) {
 			autocomplete={ props.Autocomplete }
 			value={ props.Value }
 			required?={ props.Required }
+			if props.Matches != "" {
+				data-must-match={ props.Matches }
+			}
 			if props.Error != "" {
 				aria-invalid="true"
-				aria-describedby={ props.ID + "-error" }
+			}
+			if describedBy(props) != "" {
+				aria-describedby={ describedBy(props) }
 			}
 		/>
 		@fieldError(props)
@@ -53,9 +63,14 @@ templ PasswordInput(props TextInputProps) {
 				placeholder={ props.Placeholder }
 				autocomplete={ props.Autocomplete }
 				required?={ props.Required }
+				if props.Matches != "" {
+					data-must-match={ props.Matches }
+				}
 				if props.Error != "" {
 					aria-invalid="true"
-					aria-describedby={ props.ID + "-error" }
+				}
+				if describedBy(props) != "" {
+					aria-describedby={ describedBy(props) }
 				}
 			/>
 			<button
@@ -76,10 +91,28 @@ templ PasswordInput(props TextInputProps) {
 	</div>
 }
 
+// The hint stays while an error explains what went wrong.
 templ fieldError(props TextInputProps) {
+	if props.Hint != "" {
+		<p class="field__hint" id={ props.ID + "-hint" }>{ props.Hint }</p>
+	}
 	if props.Error != "" {
 		<p class="field__error" id={ props.ID + "-error" }>{ props.Error }</p>
 	}
+}
+
+func describedBy(props TextInputProps) string {
+	ids := make([]string, 0, 2)
+
+	if props.Hint != "" {
+		ids = append(ids, props.ID+"-hint")
+	}
+
+	if props.Error != "" {
+		ids = append(ids, props.ID+"-error")
+	}
+
+	return strings.Join(ids, " ")
 }
 
 // FormAlert reports a problem with the whole form rather than one field.

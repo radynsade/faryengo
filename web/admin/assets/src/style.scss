@@ -18,6 +18,7 @@
 @use 'styles/components/dialog';
 @use 'styles/components/confirm-delete';
 @use 'styles/components/success-dialog';
+@use 'styles/components/password-confirm';
 @use 'styles/components/multiselect';
 @use 'styles/components/language-switcher';
 @use 'styles/components/translations-input';
@@ -26,4 +27,5 @@
 @use 'styles/layouts/panel';
 @use 'styles/pages/roles';
 @use 'styles/pages/users';
+@use 'styles/pages/settings';
 @use 'styles/utilities/accessibility';

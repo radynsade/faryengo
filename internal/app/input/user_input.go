@@ -48,3 +48,44 @@ type UpdateUserInput struct {
 //
 
 var ErrDeleteOwnUser = errors.New("a user cannot delete their own account")
+
+//
+// Update profile input
+//
+
+// A User changes their own names and email. Changing the email requires the
+// current password, because it replaces the credentials; the names alone do
+// not. UpdatedAt is the moment of the User's latest change that the caller
+// saw.
+
+var ErrUpdateProfileInputInvalid = errors.New("invalid update profile input")
+
+type UpdateProfileInput struct {
+	ID              users.UserID
+	FirstName       string
+	LastName        string
+	Email           string
+	CurrentPassword string
+	UpdatedAt       time.Time
+}
+
+//
+// Change password input
+//
+
+var ErrChangePasswordInputInvalid = errors.New("invalid change password input")
+
+type ChangePasswordInput struct {
+	ID              users.UserID
+	CurrentPassword string
+	NewPassword     string
+}
+
+//
+// Current password
+//
+
+var (
+	ErrCurrentPasswordRequired  = errors.New("the current password is required")
+	ErrCurrentPasswordIncorrect = errors.New("the current password is incorrect")
+)

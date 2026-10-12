@@ -15,6 +15,10 @@ type TextInputProps struct {
 	Required     bool
 	MaxLength    int
 	Errors       []string
+	// Autofocus focuses the input when its dialog opens or its page loads.
+	Autofocus bool
+	// Matches names the field this one must repeat, such as a new password.
+	Matches string
 }
 
 // FieldErrors keeps localized messages beside their controls in this response.
@@ -72,6 +76,10 @@ templ TextInput(props TextInputProps) {
 			autocomplete={ props.Autocomplete }
 			value={ props.Value }
 			required?={ props.Required }
+			autofocus?={ props.Autofocus }
+			if props.Matches != "" {
+				data-must-match={ props.Matches }
+			}
 			if props.MaxLength > 0 {
 				maxlength={ strconv.Itoa(props.MaxLength) }
 			}

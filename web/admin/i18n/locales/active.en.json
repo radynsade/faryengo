@@ -497,5 +497,68 @@
   },
   "errors.user_delete_self": {
     "other": "You cannot delete your own account."
+  },
+  "navigation.settings": {
+    "other": "Settings"
+  },
+  "settings.profile": {
+    "other": "Profile"
+  },
+  "settings.profile_description": {
+    "other": "Your name and the email address you sign in with."
+  },
+  "settings.password": {
+    "other": "Password change"
+  },
+  "settings.password_description": {
+    "other": "Enter the new password twice, then confirm the change with your current password."
+  },
+  "settings.save_profile": {
+    "other": "Save profile"
+  },
+  "settings.change_password": {
+    "other": "Change password"
+  },
+  "settings.confirm_title": {
+    "other": "Confirm with your password"
+  },
+  "settings.confirm_email": {
+    "other": "Enter your current password to save the new email address."
+  },
+  "settings.confirm_password": {
+    "other": "Enter your current password to change it."
+  },
+  "settings.profile_saved": {
+    "other": "Your profile has been saved."
+  },
+  "settings.password_changed": {
+    "other": "Your password has been changed."
+  },
+  "settings.signed_out_elsewhere": {
+    "other": "You were signed out on your other devices."
+  },
+  "fields.current_password": {
+    "other": "Current password"
+  },
+  "fields.new_password_repeat": {
+    "other": "Repeat the new password"
+  },
+  "validation.password_incorrect": {
+    "other": "The password is incorrect."
+  },
+  "validation.passwords_differ": {
+    "other": "The passwords do not match."
+  },
+  "actions.confirm": {
+    "other": "Confirm"
+  },
+  "errors.settings_form": {
+    "other": "Submit a valid form."
+  },
+  "errors.settings_unavailable": {
+    "other": "Your settings could not be loaded or saved. Please try again later."
+  },
+  "errors.profile_conflict": {
+    "other": "Your profile changed in the meantime. Reload the page and try again."
   }
 }

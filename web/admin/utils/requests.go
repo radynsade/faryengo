@@ -396,6 +396,8 @@ func fieldErrors(ctx context.Context, err error, mappings []fieldErrorMapping) c
 				messageID = "validation.uuid"
 			case "max", "maxbytes":
 				messageID = "validation.too_long"
+			case "eqfield":
+				messageID = "validation.passwords_differ"
 			}
 
 			// Every selected value belongs to the one permissions control.

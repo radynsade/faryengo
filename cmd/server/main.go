@@ -235,6 +235,7 @@ func wireHandlers(
 		workspaceService    *app.WorkspaceService
 		workspaceRepository *workspacespgxgoqu.WorkspaceRepository
 		flashes             *flashredis.Store
+		officeFlashes       *flashredis.Store
 		err                 error
 	)
 
@@ -298,11 +299,15 @@ func wireHandlers(
 	}
 
 	if err == nil {
+		officeFlashes, err = flashredis.NewStore(client, "office", flashTTL)
+	}
+
+	if err == nil {
 		handler, err = adminhandlers.NewHandler(passwords, sessions, identities, userService, roles, languages, flashes, settings.AuthCookieSecure)
 	}
 
 	if err == nil {
-		office, err = officehandlers.NewHandler(passwords, sessions, identities, workspaceService, settings.AuthCookieSecure)
+		office, err = officehandlers.NewHandler(passwords, sessions, identities, workspaceService, userService, officeFlashes, settings.AuthCookieSecure)
 	}
 
 	if err != nil {

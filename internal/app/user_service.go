@@ -354,6 +354,136 @@ func (s *UserService) DeleteAsUser(
 	return err
 }
 
+// A User changes their own names and email; the Role, phone, and password
+// stay. A changed email replaces the credentials version, which ends every
+// Session of the User, so it requires the current password. The password is
+// verified before the transaction begins, to keep it short, and the request's
+// UpdatedAt rejects a change made in between as ErrUserConflict.
+
+func (s *UserService) UpdateProfile(
+	ctx context.Context,
+	request input.UpdateProfileInput,
+) (*users.User, error) {
+	var (
+		user     *users.User
+		existing *users.User
+		err      error
+	)
+
+	if err = s.check(); err == nil {
+		err = errors.Join(
+			request.ID.Validate(),
+			users.FirstName(request.FirstName).Validate(),
+			users.LastName(request.LastName).Validate(),
+			users.Email(request.Email).Validate(),
+		)
+
+		if err != nil {
+			err = fmt.Errorf("update profile: %w: %w", input.ErrUpdateProfileInputInvalid, err)
+		}
+	}
+
+	if err == nil {
+		existing, err = s.repository.FindByID(ctx, request.ID)
+
+		if err == nil && existing.Email != users.Email(request.Email) {
+			err = s.verifyCurrentPassword(ctx, existing, request.CurrentPassword)
+		}
+	}
+
+	if err == nil {
+		user = users.NewUser(
+			existing.ID,
+			existing.RoleID,
+			users.Email(request.Email),
+			existing.EmailChangedAt,
+			existing.Phone,
+			existing.PhoneChangedAt,
+			existing.PasswordHash,
+			existing.PasswordChangedAt,
+			users.FirstName(request.FirstName),
+			users.LastName(request.LastName),
+			request.UpdatedAt,
+			existing.CreatedAt,
+		)
+
+		user, err = s.save(ctx, user)
+	}
+
+	if err != nil {
+		err = fmt.Errorf("update profile of user %s: %w", uuid.UUID(request.ID), err)
+		user = nil
+	}
+
+	return user, err
+}
+
+// A User changes their own password after proving the current one. The new
+// password replaces the credentials version, which ends every Session of the
+// User. The User's latest change at the moment of the check guards against
+// overwriting a change made while the new password was hashed.
+
+func (s *UserService) ChangePassword(
+	ctx context.Context,
+	request input.ChangePasswordInput,
+) (*users.User, error) {
+	var (
+		user     *users.User
+		existing *users.User
+		hash     users.PasswordHash
+		err      error
+	)
+
+	if err = s.check(); err == nil {
+		err = errors.Join(
+			request.ID.Validate(),
+			users.Password(request.NewPassword).Validate(),
+		)
+
+		if err != nil {
+			err = fmt.Errorf("change password: %w: %w", input.ErrChangePasswordInputInvalid, err)
+		}
+	}
+
+	if err == nil {
+		existing, err = s.repository.FindByID(ctx, request.ID)
+
+		if err == nil {
+			err = s.verifyCurrentPassword(ctx, existing, request.CurrentPassword)
+		}
+
+		if err == nil {
+			hash, err = s.hasher.Hash(ctx, request.NewPassword)
+		}
+	}
+
+	if err == nil {
+		user = users.NewUser(
+			existing.ID,
+			existing.RoleID,
+			existing.Email,
+			existing.EmailChangedAt,
+			existing.Phone,
+			existing.PhoneChangedAt,
+			hash,
+			existing.PasswordChangedAt,
+			existing.FirstName,
+			existing.LastName,
+			existing.UpdatedAt,
+			existing.CreatedAt,
+		)
+
+		user, err = s.save(ctx, user)
+	}
+
+	if err != nil {
+		err = fmt.Errorf("change password of user %s: %w", uuid.UUID(request.ID), err)
+		user = nil
+	}
+
+	return user, err
+}
+
 //
 // Helpers
 //
@@ -367,6 +497,55 @@ func (s *UserService) check() error {
 		err = ErrTransactorNil
 	} else if s.hasher == nil {
 		err = ErrPasswordHasherNil
+	}
+
+	return err
+}
+
+// The write and the reload of the database-owned timestamps share a
+// transaction, so a failed reload undoes the write.
+
+func (s *UserService) save(ctx context.Context, user *users.User) (*users.User, error) {
+	err := s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+		var err error
+
+		if updateErr := s.repository.Update(ctx, user); updateErr != nil {
+			err = updateErr
+		} else {
+			user, err = s.reload(ctx, user.ID)
+		}
+
+		return err
+	})
+
+	if err != nil {
+		user = nil
+	}
+
+	return user, err
+}
+
+func (s *UserService) verifyCurrentPassword(
+	ctx context.Context,
+	user *users.User,
+	password string,
+) error {
+	var err error
+
+	if password == "" {
+		err = input.ErrCurrentPasswordRequired
+	} else if len(password) > users.MaxPasswordBytes {
+		err = input.ErrCurrentPasswordIncorrect
+	} else {
+		var matches bool
+
+		matches, err = s.hasher.Verify(ctx, password, user.PasswordHash)
+
+		if err != nil {
+			err = fmt.Errorf("verify the current password: %w", err)
+		} else if !matches {
+			err = input.ErrCurrentPasswordIncorrect
+		}
 	}
 
 	return err

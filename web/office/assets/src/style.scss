@@ -8,6 +8,7 @@
 @use 'styles/components/dropdown';
 @use 'styles/components/language-menu';
 @use 'styles/components/profile-menu';
+@use 'styles/components/confirm-dialog';
 @use 'styles/components/icon-button';
 @use 'styles/components/avatar';
 @use 'styles/components/navigation-feedback';
@@ -16,3 +17,4 @@
 @use 'styles/layouts/dashboard';
 @use 'styles/layouts/standalone';
 @use 'styles/pages/workspace-select';
+@use 'styles/pages/settings';

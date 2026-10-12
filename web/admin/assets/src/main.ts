@@ -3,6 +3,7 @@ import './style.scss';
 import './navigation';
 import './dialogs';
 import './confirm-delete';
+import './password-confirm';
 import './multiselect';
 import './role-filters';
 import './translations-input';

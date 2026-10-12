@@ -46,7 +46,10 @@ workspace's first member and lands on its overview. A workspace's dashboard is s
 Transactions, Goals, Reports, and Settings pages, which are empty for now. A
 workspace the user does not belong to sends them back to choosing one. The
 settings are also available outside any workspace at
-`/office/<language>/settings`, without the workspace sidebar. A visitor who is
+`/office/<language>/settings`, without the workspace sidebar. There users
+change their names and email, and their password; changing the email or the
+password signs them out on every other device and keeps the current one
+signed in. A visitor who is
 not signed in is sent to the sign-in page.
 
 Press Ctrl+C or send SIGTERM to stop the server gracefully. Startup and runtime

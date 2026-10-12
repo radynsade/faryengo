@@ -10,11 +10,15 @@ type NavigationItem struct {
 	Href string
 }
 
+// A narrow page, such as a form, keeps its content in the same narrow
+// centered column as the standalone layout.
+
 type DashboardProps struct {
 	Title      string
 	Active     string
 	Navigation []NavigationItem
 	TopBar     TopBarProps
+	Narrow     bool
 }
 
 // Dashboard frames every page of a workspace with the top bar and the
@@ -66,7 +70,12 @@ templ Dashboard(props DashboardProps) {
 }
 
 templ dashboardMain(props DashboardProps) {
-	<main id={ ContentRegionID } class="dashboard__main" tabindex="-1" aria-labelledby="page-title">
+	<main
+		id={ ContentRegionID }
+		class={ "dashboard__main", templ.KV("dashboard__main--narrow", props.Narrow) }
+		tabindex="-1"
+		aria-labelledby="page-title"
+	>
 		<header class="dashboard__header">
 			<h1 id="page-title">{ props.Title }</h1>
 		</header>

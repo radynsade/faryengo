@@ -54,7 +54,9 @@ manage Users, or an operator, must delete it.
 Deleting a User ends that User's
 [Workspace memberships](workspaces.md#membership); the Workspaces remain.
 
-Changing names, phone, or Role does not require changing the password.
+Changing names, phone, or Role does not require changing the password. A User
+may change their own names, email, and password. Changing their own email or
+password requires their current password; changing their own names does not.
 Changing the email or password replaces the User's credentials version, which
 ends the User's existing [Sessions](security.md#session).
 

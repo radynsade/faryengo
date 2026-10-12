@@ -1,0 +1,54 @@
+@use '../abstracts' as ui;
+
+// The settings page stacks a card per form in the centered content column,
+// narrower than collection pages because each holds a short form.
+.settings-page {
+	display: grid;
+	gap: var(--space-5);
+	max-width: var(--settings-content-width);
+
+	&__card {
+		display: grid;
+		gap: var(--space-5);
+	}
+
+	&__heading {
+		display: grid;
+		gap: var(--space-1);
+
+		p {
+			margin: 0;
+		}
+	}
+
+	&__title {
+		margin: 0;
+		@include ui.heading;
+	}
+}
+
+.settings-form {
+	display: grid;
+	gap: var(--space-4);
+
+	&__row {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--space-4);
+	}
+
+	&__actions {
+		display: flex;
+		justify-content: flex-end;
+	}
+
+	.notice {
+		margin: 0;
+	}
+}
+
+@include ui.respond-to(panel) {
+	.settings-form__row {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}

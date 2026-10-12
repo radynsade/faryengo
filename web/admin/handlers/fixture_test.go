@@ -323,6 +323,17 @@ func (f *fixture) users() *usersmock.UserRepository {
 				stored := *user
 				stored.UpdatedAt = existing.UpdatedAt.Add(time.Second)
 				f.accounts[user.ID] = &stored
+
+				// The signed-in User's credentials follow their account, and a
+				// changed email or password replaces the credentials version, as
+				// the database trigger does.
+				if user.ID == f.user.ID {
+					if user.Email != f.user.Email || user.PasswordHash != f.user.PasswordHash {
+						f.version = uuid.Must(uuid.NewV7())
+					}
+
+					f.user = &stored
+				}
 			}
 
 			return err

@@ -161,5 +161,82 @@
   },
   "navigation.skip": {
     "other": "Skip to content"
+  },
+  "settings.profile": {
+    "other": "Profile"
+  },
+  "settings.profile_description": {
+    "other": "Your name and the email you sign in with."
+  },
+  "settings.password": {
+    "other": "Password change"
+  },
+  "settings.password_description": {
+    "other": "Enter the new password twice, then confirm the change with your current password."
+  },
+  "settings.save_profile": {
+    "other": "Save profile"
+  },
+  "settings.change_password": {
+    "other": "Change password"
+  },
+  "settings.profile_saved": {
+    "other": "Your profile has been saved."
+  },
+  "settings.password_changed": {
+    "other": "Your password has been changed."
+  },
+  "settings.signed_out_elsewhere": {
+    "other": "You were signed out on your other devices."
+  },
+  "fields.first_name": {
+    "other": "First name"
+  },
+  "fields.last_name": {
+    "other": "Last name"
+  },
+  "fields.current_password": {
+    "other": "Current password"
+  },
+  "fields.new_password": {
+    "other": "New password"
+  },
+  "fields.new_password_repeat": {
+    "other": "Repeat the new password"
+  },
+  "validation.email_taken": {
+    "other": "This email is already in use."
+  },
+  "validation.password_incorrect": {
+    "other": "The password is incorrect."
+  },
+  "validation.passwords_differ": {
+    "other": "The passwords do not match."
+  },
+  "errors.settings_unavailable": {
+    "other": "Your settings could not be loaded or saved. Please try again later."
+  },
+  "errors.profile_conflict": {
+    "other": "Your profile changed in the meantime. Reload the page and try again."
+  },
+  "settings.password_hint": {
+    "one": "Use at least {{.Count}} character.",
+    "other": "Use at least {{.Count}} characters."
+  },
+  "validation.too_short_chars": {
+    "one": "Use at least {{.Count}} character.",
+    "other": "Use at least {{.Count}} characters."
+  },
+  "settings.confirm_title": {
+    "other": "Confirm with your password"
+  },
+  "settings.confirm_email": {
+    "other": "Enter your current password to save the new email."
+  },
+  "settings.confirm_password": {
+    "other": "Enter your current password to change it."
+  },
+  "common.confirm": {
+    "other": "Confirm"
   }
 }

@@ -64,6 +64,8 @@ func (h *Handler) panelProps(request *http.Request, current *security.Identity, 
 		titleID = "navigation.users"
 	case layouts.SectionRoles:
 		titleID = "navigation.roles"
+	case layouts.SectionSettings:
+		titleID = "navigation.settings"
 	}
 
 	return layouts.PanelProps{

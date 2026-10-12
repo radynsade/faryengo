@@ -7,7 +7,7 @@ import (
 )
 
 func TestHandlerConfiguration(t *testing.T) {
-	if _, err := NewHandler(nil, nil, nil, nil, false); err != ErrHandlerConfigInvalid {
+	if _, err := NewHandler(nil, nil, nil, nil, nil, nil, false); err != ErrHandlerConfigInvalid {
 		t.Fatalf("NewHandler(nil...) = %v, want %v", err, ErrHandlerConfigInvalid)
 	}
 
@@ -100,6 +100,7 @@ func TestPages(t *testing.T) {
 				`<a class="sidebar__link" href="` + designPath + `" aria-current="page"`,
 				`href="` + designPath + `/budgets"`,
 				`<span class="topbar__workspace-name">Design</span>`,
+				`<main id="dashboard-main" class="dashboard__main" tabindex="-1"`,
 				`href="/office/en/workspaces"`,
 				`action="/office/en/sign-out"`,
 				"Ada Lovelace",
