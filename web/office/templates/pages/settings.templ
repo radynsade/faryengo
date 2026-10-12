@@ -1,0 +1,22 @@
+package pages
+
+import (
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/layouts"
+)
+
+type SettingsProps struct {
+	Layout layouts.StandaloneProps
+}
+
+// Settings is empty for now. Outside a workspace it stands alone, without the
+// sidebar; inside a workspace the dashboard shows it as a section.
+templ Settings(props SettingsProps) {
+	@layouts.Standalone(props.Layout) {
+		<section class="standalone__section">
+			<header class="standalone__heading">
+				<h1 id="page-title">{ officei18n.T(ctx, "nav.settings") }</h1>
+			</header>
+		</section>
+	}
+}

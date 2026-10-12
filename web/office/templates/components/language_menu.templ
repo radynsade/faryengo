@@ -1,0 +1,45 @@
+package components
+
+import officei18n "github.com/radynsade/faryengo/web/office/i18n"
+
+// LanguageMenu is the top bar's compact language switcher: a dropdown that
+// names the current language and lists every language. The caption is read
+// with the current language but not shown. Like the inline switcher, its
+// links are the one deliberate full navigation.
+templ LanguageMenu() {
+	<details class="dropdown language-menu" data-dropdown>
+		<summary class="dropdown__toggle">
+			@Icon("language-hiragana")
+			<span class="dropdown__caption">{ officei18n.T(ctx, "common.language") }</span>
+			for _, item := range officei18n.LanguageLinks(ctx) {
+				if item.Active {
+					<span class="language-menu__current" lang={ item.Code }>{ item.Name }</span>
+				}
+			}
+			<span class="dropdown__chevron">
+				@Icon("chevron-down")
+			</span>
+		</summary>
+		<ul class="dropdown__list">
+			for _, item := range officei18n.LanguageLinks(ctx) {
+				<li>
+					<a
+						class="dropdown__item"
+						href={ templ.URL(item.Href) }
+						lang={ item.Code }
+						hreflang={ item.Code }
+						hx-boost="false"
+						if item.Active {
+							aria-current="true"
+						}
+					>
+						<span>{ item.Name }</span>
+						if item.Active {
+							@Icon("check")
+						}
+					</a>
+				</li>
+			}
+		</ul>
+	</details>
+}

@@ -22,6 +22,7 @@ in the Go guides.
 | [docs/domain/users.md](docs/domain/users.md) | Users, roles, permissions, and their domain rules. |
 | [docs/domain/security.md](docs/domain/security.md) | Sessions, authenticated access, and how access ends. |
 | [docs/domain/languages.md](docs/domain/languages.md) | Language catalog, fallback languages, and translation rules. |
+| [docs/domain/workspaces.md](docs/domain/workspaces.md) | Workspaces, their memberships, and their domain rules. |
 | [docs/domain/budget.md](docs/domain/budget.md) | Budget concepts, relationships, calculations, and invariants. |
 | [docs/admin/design.md](docs/admin/design.md) | The admin panel's visual system, reusable components, styling conventions, layouts, accessibility, and rendering behavior. |
 | [docs/admin/i18n.md](docs/admin/i18n.md) | Admin interface translation catalogs, locale handling, language switching, pluralization, and localized messages. |

@@ -1,0 +1,148 @@
+// The top bar of every signed-in layout. On narrow screens the workspace,
+// the language menu, and the profile menu show only their icons, so every
+// control stays on one row; the bar still wraps rather than overflowing on
+// the narrowest screens.
+$narrow: 560px;
+$wide: 960px;
+
+.topbar {
+	position: sticky;
+	top: 0;
+	z-index: 10;
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: 0.5rem 1rem;
+	min-height: var(--topbar-height);
+	padding: 0.625rem 1rem;
+	border-bottom: 1px solid var(--color-border);
+	background: rgb(248 246 242 / 0.85);
+	backdrop-filter: blur(12px);
+
+	@media (max-width: #{$narrow - 1px}) {
+		column-gap: 0.375rem;
+	}
+
+	// On one row the bar has a fixed height, which the dashboard's sidebar
+	// subtracts from the viewport.
+	@media (min-width: $narrow) {
+		height: var(--topbar-height);
+		padding-inline: 1.5rem;
+	}
+
+	&__start {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-width: 0;
+	}
+
+	// Inside a workspace the bar is crowded on narrow screens, so the brand
+	// keeps only its mark.
+	&--in-workspace .brand__name {
+		@media (max-width: #{$narrow - 1px}) {
+			display: none;
+		}
+	}
+
+	// The current workspace, which leads back to choosing another. It fits
+	// the bar's fixed height.
+	&__workspace {
+		display: flex;
+		align-items: center;
+		gap: 0.5rem;
+		min-width: 0;
+		height: 2.25rem;
+		margin-left: 0.5rem;
+		padding: 0 0.5rem 0 0.25rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		color: var(--color-ink);
+		text-decoration: none;
+		transition:
+			border-color var(--transition),
+			background-color var(--transition);
+
+		> .icon {
+			color: var(--color-muted);
+		}
+
+		&:hover {
+			border-color: var(--color-primary);
+			background: var(--color-canvas);
+		}
+
+		@media (max-width: #{$narrow - 1px}) {
+			margin-left: 0;
+		}
+	}
+
+	// Without a workspace, an icon leads the text instead of the mark.
+	&__workspace--select {
+		padding-inline: 0.5rem 0.625rem;
+	}
+
+	&__workspace-mark {
+		display: inline-grid;
+		place-items: center;
+		flex: none;
+		width: 1.75rem;
+		height: 1.75rem;
+		border-radius: var(--radius-sm);
+		background: var(--gradient-showcase);
+		color: var(--color-on-primary);
+		font-size: 0.8125rem;
+		font-weight: 800;
+	}
+
+	&__workspace-text {
+		display: grid;
+		min-width: 0;
+		max-width: 14rem;
+		line-height: 1.25;
+
+		// Only the mark shows on narrow screens; the text still names the
+		// link for assistive technology.
+		@media (max-width: #{$narrow - 1px}) {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+	}
+
+	&__workspace-caption {
+		color: var(--color-muted);
+		font-size: 0.625rem;
+		font-weight: 700;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+	}
+
+	&__workspace-name {
+		overflow: hidden;
+		font-size: 0.8125rem;
+		font-weight: 700;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	// The menu button opens the sidebar drawer, which exists only on narrow
+	// screens with JavaScript.
+	&__menu {
+		@media (min-width: $wide), (scripting: none) {
+			display: none;
+		}
+	}
+
+	&__actions {
+		display: flex;
+		align-items: center;
+		gap: 0.375rem;
+		margin-left: auto;
+	}
+}

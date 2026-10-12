@@ -14,16 +14,17 @@ import (
 
 var (
 	dashboardPages = []string{
-		"/office/en",
-		"/office/en/budgets",
-		"/office/en/transactions",
-		"/office/en/goals",
-		"/office/en/reports",
-		"/office/en/settings",
+		designPath,
+		designPath + "/budgets",
+		designPath + "/transactions",
+		designPath + "/goals",
+		designPath + "/reports",
+		designPath + "/settings",
 	}
-	guestPages = []string{"/office/en/sign-in"}
-	partial    = map[string]string{"HX-Request": "true"}
-	toContent  = map[string]string{"HX-Request": "true", "HX-Target": "dashboard-main"}
+	standalonePages = []string{"/office/en/workspaces", "/office/en/workspaces/new", "/office/en/settings"}
+	guestPages      = []string{"/office/en/sign-in"}
+	partial         = map[string]string{"HX-Request": "true"}
+	toContent       = map[string]string{"HX-Request": "true", "HX-Target": "dashboard-main"}
 )
 
 func TestResponseForms(t *testing.T) {
@@ -40,7 +41,7 @@ func TestResponseForms(t *testing.T) {
 			f := newFixture(t)
 			cookies := f.signIn(t)
 
-			for _, path := range append(slices.Clone(dashboardPages), guestPages...) {
+			for _, path := range slices.Concat(dashboardPages, standalonePages, guestPages) {
 				requestCookies := cookies
 
 				if slices.Contains(guestPages, path) {
@@ -128,8 +129,112 @@ func TestLinksAndFormsUpdateInPlace(t *testing.T) {
 		check(path, body)
 	}
 
+	// The standalone layout has no main-region target of its own, so its
+	// links replace the whole page; signing out names the page region in
+	// every layout.
+	for _, path := range standalonePages {
+		body := f.do(request{path: path, cookies: cookies}).Body.String()
+
+		for _, want := range []string{
+			`<div class="standalone" data-navigation-error=`,
+			`<form class="profile-menu__sign-out" method="post" action="/office/en/sign-out" hx-target="#page-content"`,
+		} {
+			if !strings.Contains(body, want) {
+				t.Fatalf("GET %s lacks %s", path, want)
+			}
+		}
+
+		check(path, body)
+	}
+
 	for _, path := range guestPages {
 		check(path, f.do(request{path: path}).Body.String())
+	}
+}
+
+// Every signed-in layout shares the top bar with the account controls; the
+// dashboard's sidebar holds only the workspace navigation.
+
+func TestTopBar(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+
+	for _, path := range slices.Concat(dashboardPages, standalonePages) {
+		body := f.do(request{path: path, cookies: cookies}).Body.String()
+		start, end := strings.Index(body, `<header class="topbar`), strings.Index(body, "</header>")
+
+		if start < 0 || end < start {
+			t.Fatalf("GET %s lacks the top bar", path)
+		}
+
+		topBar := body[start:end]
+		settingsHref := "/office/en/settings"
+
+		if slices.Contains(dashboardPages, path) {
+			settingsHref = designPath + "/settings"
+		}
+
+		for _, want := range []string{
+			`<div id="topbar-actions" class="topbar__actions">`,
+			`<details class="dropdown language-menu" data-dropdown>`,
+			`<span class="language-menu__current" lang="en">English</span>`,
+			`<a class="dropdown__item" href="` + strings.Replace(path, "/en", "/lv", 1) + `" lang="lv" hreflang="lv" hx-boost="false">`,
+			`<a class="dropdown__item" href="` + path + `" lang="en" hreflang="en" hx-boost="false" aria-current="true">`,
+			`<details class="dropdown profile-menu" data-dropdown>`,
+			`<a class="dropdown__item" href="` + settingsHref + `"`,
+			"Ada Lovelace",
+			testEmail,
+			`<span class="avatar__initials" aria-hidden="true">AL</span>`,
+			`action="/office/en/sign-out"`,
+		} {
+			if !strings.Contains(topBar, want) {
+				t.Fatalf("GET %s top bar lacks %s", path, want)
+			}
+		}
+
+		// Settings and signing out are reached through the profile menu only.
+		if strings.Contains(topBar, `class="icon-button"`) || strings.Count(topBar, `action="/office/en/sign-out"`) != 1 {
+			t.Fatalf("GET %s top bar has settings or sign-out outside the profile menu", path)
+		}
+
+		menuStart := strings.Index(topBar, `<details class="dropdown profile-menu"`)
+		menu := topBar[menuStart:]
+
+		if !strings.Contains(menu, settingsHref) || !strings.Contains(menu, `action="/office/en/sign-out"`) {
+			t.Fatalf("GET %s profile menu lacks settings or sign-out", path)
+		}
+
+		if strings.Contains(topBar, `class="language-switcher"`) {
+			t.Fatalf("GET %s top bar has the inline language switcher", path)
+		}
+
+		if hasMenu := strings.Contains(topBar, "data-sidebar-open"); hasMenu != slices.Contains(dashboardPages, path) {
+			t.Fatalf("GET %s top bar has the menu button = %t", path, hasMenu)
+		}
+
+		switcher := `<a id="topbar-workspace" class="topbar__workspace" href="/office/en/workspaces"`
+
+		// Outside a workspace the top bar leads back to choosing one, except on
+		// the choosing page itself.
+		selectLink := `<a class="topbar__workspace topbar__workspace--select" href="/office/en/workspaces"`
+
+		if hasSelect := strings.Contains(topBar, selectLink); hasSelect != (slices.Contains(standalonePages, path) && path != "/office/en/workspaces") {
+			t.Fatalf("GET %s top bar has the link to choosing a workspace = %t", path, hasSelect)
+		}
+
+		if hasSwitcher := strings.Contains(topBar, switcher) && strings.Contains(topBar, `<span class="topbar__workspace-name">Design</span>`); hasSwitcher != slices.Contains(dashboardPages, path) {
+			t.Fatalf("GET %s top bar has the workspace switcher = %t", path, hasSwitcher)
+		}
+
+		if start, end := strings.Index(body, "<aside"), strings.Index(body, "</aside>"); start >= 0 {
+			sidebar := body[start:end]
+
+			for _, unwanted := range []string{"language-switcher", "sign-out", "avatar", "/settings", "workspace-name", `href="/office/en/workspaces"`} {
+				if strings.Contains(sidebar, unwanted) {
+					t.Fatalf("GET %s sidebar contains %s", path, unwanted)
+				}
+			}
+		}
 	}
 }
 
@@ -140,7 +245,7 @@ func TestDashboardNavigationReturnsOnlyContent(t *testing.T) {
 	f := newFixture(t)
 	cookies := f.signIn(t)
 
-	response := f.do(request{path: "/office/en/goals", cookies: cookies, headers: toContent})
+	response := f.do(request{path: designPath + "/goals", cookies: cookies, headers: toContent})
 	body := response.Body.String()
 
 	for _, want := range []string{
@@ -149,16 +254,17 @@ func TestDashboardNavigationReturnsOnlyContent(t *testing.T) {
 		`<main id="dashboard-main"`,
 		`<h1 id="page-title">Goals</h1>`,
 		`<nav id="dashboard-menu" class="sidebar__nav" aria-label="Main menu" hx-swap-oob="morph">`,
-		`<div id="dashboard-account" class="sidebar__foot" hx-swap-oob="morph">`,
-		`href="/office/en/goals" aria-current="page"`,
-		`href="/office/lv/goals"`,
+		`<div id="topbar-actions" class="topbar__actions" hx-swap-oob="morph">`,
+		`<a id="topbar-workspace" class="topbar__workspace" href="/office/en/workspaces" hx-swap-oob="morph"`,
+		`href="` + designPath + `/goals" aria-current="page"`,
+		`href="/office/lv/workspaces/` + designID + `/goals"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("partial lacks %s:\n%s", want, body)
 		}
 	}
 
-	for _, unwanted := range []string{`id="page-content"`, "dashboard__topbar", "sidebar__head"} {
+	for _, unwanted := range []string{`id="page-content"`, "topbar__start", "sidebar__head"} {
 		if strings.Contains(body, unwanted) {
 			t.Fatalf("partial contains %s", unwanted)
 		}
@@ -175,10 +281,10 @@ func TestDashboardNavigationReturnsOnlyContent(t *testing.T) {
 func TestLeavingTheDashboardReplacesThePage(t *testing.T) {
 	f := newFixture(t)
 
-	response := f.do(request{path: "/office/en", headers: toContent})
+	response := f.do(request{path: designPath, headers: toContent})
 
 	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/office/en/sign-in" {
-		t.Fatalf("GET /office/en = %d %q", response.Code, response.Header().Get("Location"))
+		t.Fatalf("GET %s = %d %q", designPath, response.Code, response.Header().Get("Location"))
 	}
 
 	// The browser follows the redirect with the same headers.
@@ -202,8 +308,10 @@ func TestResponsesAreMinimized(t *testing.T) {
 		cookies []*http.Cookie
 		headers map[string]string
 	}{
-		{path: "/office/en", cookies: cookies},
-		{path: "/office/en/budgets", cookies: cookies, headers: toContent},
+		{path: designPath, cookies: cookies},
+		{path: designPath + "/budgets", cookies: cookies, headers: toContent},
+		{path: "/office/en/workspaces", cookies: cookies},
+		{path: "/office/en/settings", cookies: cookies},
 		{path: "/office/en/sign-in"},
 		{path: "/office/en/sign-in", headers: partial},
 	} {
@@ -268,7 +376,7 @@ func TestPagesUseOnlyTheirLanguage(t *testing.T) {
 			cookies := f.signIn(t)
 			translated := readMessages(t, code)
 
-			for _, page := range append(slices.Clone(dashboardPages), guestPages...) {
+			for _, page := range slices.Concat(dashboardPages, standalonePages, guestPages) {
 				path := strings.Replace(page, "/en", "/"+code, 1)
 				body := f.do(request{path: path, cookies: cookies}).Body.String()
 

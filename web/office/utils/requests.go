@@ -10,6 +10,7 @@ import (
 	"slices"
 
 	"github.com/radynsade/faryengo/internal/users"
+	"github.com/radynsade/faryengo/internal/workspaces"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 )
@@ -49,12 +50,79 @@ type SignInForm struct {
 func ParseSignInForm(writer http.ResponseWriter, request *http.Request) (SignInForm, error) {
 	var form SignInForm
 
+	err := parseForm(writer, request, maxSignInFormBytes, "email", "password")
+
+	if err == nil {
+		form = SignInForm{Email: request.PostForm.Get("email"), Password: request.PostForm.Get("password")}
+	}
+
+	return form, err
+}
+
+//
+// Workspace form
+//
+
+// The name's limits belong to the domain, which validates it after trimming;
+// the transport bounds only the size of the whole form.
+
+const maxWorkspaceFormBytes = 8 << 10
+
+type WorkspaceForm struct {
+	Name string
+}
+
+func ParseWorkspaceForm(writer http.ResponseWriter, request *http.Request) (WorkspaceForm, error) {
+	var form WorkspaceForm
+
+	err := parseForm(writer, request, maxWorkspaceFormBytes, "name")
+
+	if err == nil {
+		form = WorkspaceForm{Name: request.PostForm.Get("name")}
+	}
+
+	return form, err
+}
+
+// WorkspaceFieldErrors maps a rejected workspace name to a translated message
+// keyed by the form field name.
+
+func WorkspaceFieldErrors(ctx context.Context, err error) map[string]string {
+	var fields map[string]string
+
+	switch {
+	case errors.Is(err, workspaces.ErrWorkspaceNameEmpty):
+		fields = map[string]string{"name": officei18n.T(ctx, "validation.required")}
+	case errors.Is(err, workspaces.ErrWorkspaceNameTooLong):
+		fields = map[string]string{
+			"name": officei18n.Count(ctx, "validation.too_long_chars", workspaces.MaxWorkspaceNameLength),
+		}
+	case errors.Is(err, workspaces.ErrWorkspaceNameInvalid):
+		fields = map[string]string{"name": officei18n.T(ctx, "validation.invalid")}
+	}
+
+	return fields
+}
+
+//
+// Form parsing
+//
+
+// A form with an unexpected content type, an oversized body, a field other
+// than the allowed ones, or a repeated field is malformed.
+
+func parseForm(
+	writer http.ResponseWriter,
+	request *http.Request,
+	maxBytes int64,
+	allowed ...string,
+) error {
 	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
 
 	if err != nil || mediaType != "application/x-www-form-urlencoded" {
 		err = ErrFormInvalid
 	} else {
-		request.Body = http.MaxBytesReader(writer, request.Body, maxSignInFormBytes)
+		request.Body = http.MaxBytesReader(writer, request.Body, maxBytes)
 
 		if parseErr := request.ParseForm(); parseErr != nil {
 			err = fmt.Errorf("%w: %w", ErrFormInvalid, parseErr)
@@ -63,17 +131,13 @@ func ParseSignInForm(writer http.ResponseWriter, request *http.Request) (SignInF
 
 	if err == nil {
 		for _, key := range slices.Sorted(maps.Keys(request.PostForm)) {
-			if (key != "email" && key != "password") || len(request.PostForm[key]) > 1 {
+			if !slices.Contains(allowed, key) || len(request.PostForm[key]) > 1 {
 				err = ErrFormInvalid
 			}
 		}
 	}
 
-	if err == nil {
-		form = SignInForm{Email: request.PostForm.Get("email"), Password: request.PostForm.Get("password")}
-	}
-
-	return form, err
+	return err
 }
 
 //

@@ -61,13 +61,13 @@ func (h *Handler) authenticate(writer http.ResponseWriter, request *http.Request
 // Sign-in
 //
 
-// Sign in page
+// A signed-in visitor goes on to choose a workspace.
 
 func (h *Handler) signInPage(writer http.ResponseWriter, request *http.Request) {
 	_, err := h.authenticate(writer, request)
 
 	if err == nil {
-		http.Redirect(writer, request, utils.OfficePath(request), http.StatusSeeOther)
+		http.Redirect(writer, request, utils.WorkspacesPath(request), http.StatusSeeOther)
 	} else if utils.IsUnauthenticated(err) {
 		h.renderSignIn(writer, request, http.StatusOK, pages.SignInProps{})
 	} else {
@@ -75,7 +75,7 @@ func (h *Handler) signInPage(writer http.ResponseWriter, request *http.Request) 
 	}
 }
 
-// Sign in
+// A successful sign-in leads to choosing a workspace.
 
 func (h *Handler) signIn(writer http.ResponseWriter, request *http.Request) {
 	form, err := utils.ParseSignInForm(writer, request)
@@ -110,7 +110,7 @@ func (h *Handler) signIn(writer http.ResponseWriter, request *http.Request) {
 
 		if err == nil {
 			h.cookies.Set(writer, utils.SessionCookie, string(id), session.ExpiresAt)
-			http.Redirect(writer, request, utils.OfficePath(request), http.StatusSeeOther)
+			http.Redirect(writer, request, utils.WorkspacesPath(request), http.StatusSeeOther)
 		} else {
 			h.signInFailed(writer, request, form.Email, err)
 		}

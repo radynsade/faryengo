@@ -5,6 +5,9 @@
   "common.language": {
     "other": "Valoda"
   },
+  "common.cancel": {
+    "other": "Atcelt"
+  },
   "document.title": {
     "other": "{{.Page}} · Faryen"
   },
@@ -50,6 +53,12 @@
   "fields.hide_password": {
     "other": "Slēpt paroli"
   },
+  "fields.workspace_name": {
+    "other": "Nosaukums"
+  },
+  "fields.workspace_name_placeholder": {
+    "other": "Mājas finanses"
+  },
   "nav.overview": {
     "other": "Pārskats"
   },
@@ -80,6 +89,33 @@
   "auth.sign_out": {
     "other": "Iziet"
   },
+  "account.menu": {
+    "other": "Konts"
+  },
+  "workspaces.select_title": {
+    "other": "Izvēlieties darbvietu"
+  },
+  "workspaces.select_description": {
+    "other": "Izvēlieties darbvietu, kurā vēlaties strādāt."
+  },
+  "workspaces.empty": {
+    "other": "Jūs vēl neesat nevienas darbvietas dalībnieks."
+  },
+  "workspaces.create": {
+    "other": "Izveidot darbvietu"
+  },
+  "workspaces.create_description": {
+    "other": "Piešķiriet darbvietai nosaukumu."
+  },
+  "workspaces.create_submit": {
+    "other": "Izveidot darbvietu"
+  },
+  "workspaces.retry": {
+    "other": "Mēģināt vēlreiz"
+  },
+  "workspaces.switch": {
+    "other": "Mainīt darbvietu"
+  },
   "errors.invalid_credentials": {
     "other": "E-pasts vai parole nav pareiza."
   },
@@ -98,6 +134,12 @@
   "errors.sign_out": {
     "other": "Iziet neizdevās. Lūdzu, mēģiniet vēlreiz."
   },
+  "errors.workspaces_unavailable": {
+    "other": "Neizdevās ielādēt jūsu darbvietas. Lūdzu, mēģiniet vēlāk vēlreiz."
+  },
+  "errors.workspace_create_unavailable": {
+    "other": "Darbvietu neizdevās izveidot. Lūdzu, mēģiniet vēlāk vēlreiz."
+  },
   "validation.required": {
     "other": "Lūdzu, aizpildiet šo lauku."
   },
@@ -106,6 +148,11 @@
   },
   "validation.too_long": {
     "other": "Šī vērtība ir pārāk gara."
+  },
+  "validation.too_long_chars": {
+    "zero": "Izmantojiet ne vairāk kā {{.Count}} rakstzīmes.",
+    "one": "Izmantojiet ne vairāk kā {{.Count}} rakstzīmi.",
+    "other": "Izmantojiet ne vairāk kā {{.Count}} rakstzīmes."
   },
   "validation.invalid": {
     "other": "Šī vērtība nav derīga."

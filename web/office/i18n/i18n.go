@@ -114,6 +114,17 @@ func T(ctx context.Context, id string, data ...map[string]any) string {
 	return translate(ctx, config)
 }
 
+// Count selects the plural form for the count and passes it to the message as
+// Count.
+
+func Count(ctx context.Context, id string, count int) string {
+	return translate(ctx, &goi18n.LocalizeConfig{
+		MessageID:    id,
+		PluralCount:  count,
+		TemplateData: map[string]any{"Count": count},
+	})
+}
+
 //
 // Language links
 //

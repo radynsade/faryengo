@@ -26,6 +26,7 @@ import (
 	sessionidredis "github.com/radynsade/faryengo/internal/security/sessionid/redis"
 	"github.com/radynsade/faryengo/internal/users/argon2id"
 	userspgxgoqu "github.com/radynsade/faryengo/internal/users/pgxgoqu"
+	workspacespgxgoqu "github.com/radynsade/faryengo/internal/workspaces/pgxgoqu"
 	"github.com/radynsade/faryengo/middleware"
 	flashredis "github.com/radynsade/faryengo/pkg/flashmsg/redis"
 	adminhandlers "github.com/radynsade/faryengo/web/admin/handlers"
@@ -217,22 +218,24 @@ func wireHandlers(
 	client *redislib.Client,
 ) (*adminhandlers.Handler, *officehandlers.Handler, error) {
 	var (
-		handler            *adminhandlers.Handler
-		office             *officehandlers.Handler
-		transactor         *pgxdb.Transactor
-		languageRepository *languagespgxgoqu.LanguageRepository
-		roleRepository     *userspgxgoqu.RoleRepository
-		userRepository     *userspgxgoqu.UserRepository
-		credentials        *userspgxgoqu.CredentialsSnapshotRepository
-		sessionStorage     *sessionidredis.SessionStorage
-		passwords          *emailpass.Authenticator
-		sessions           *sessionid.Authenticator
-		identities         *security.IdentityResolver
-		languages          *app.LanguageService
-		userService        *app.UserService
-		roles              *app.RoleService
-		flashes            *flashredis.Store
-		err                error
+		handler             *adminhandlers.Handler
+		office              *officehandlers.Handler
+		transactor          *pgxdb.Transactor
+		languageRepository  *languagespgxgoqu.LanguageRepository
+		roleRepository      *userspgxgoqu.RoleRepository
+		userRepository      *userspgxgoqu.UserRepository
+		credentials         *userspgxgoqu.CredentialsSnapshotRepository
+		sessionStorage      *sessionidredis.SessionStorage
+		passwords           *emailpass.Authenticator
+		sessions            *sessionid.Authenticator
+		identities          *security.IdentityResolver
+		languages           *app.LanguageService
+		userService         *app.UserService
+		roles               *app.RoleService
+		workspaceService    *app.WorkspaceService
+		workspaceRepository *workspacespgxgoqu.WorkspaceRepository
+		flashes             *flashredis.Store
+		err                 error
 	)
 
 	hasher := argon2id.NewPasswordHasher()
@@ -283,6 +286,14 @@ func wireHandlers(
 	}
 
 	if err == nil {
+		workspaceRepository, err = workspacespgxgoqu.NewWorkspaceRepository(pool)
+	}
+
+	if err == nil {
+		workspaceService, err = app.NewWorkspaceService(transactor, workspaceRepository)
+	}
+
+	if err == nil {
 		flashes, err = flashredis.NewStore(client, "admin", flashTTL)
 	}
 
@@ -291,7 +302,7 @@ func wireHandlers(
 	}
 
 	if err == nil {
-		office, err = officehandlers.NewHandler(passwords, sessions, identities, settings.AuthCookieSecure)
+		office, err = officehandlers.NewHandler(passwords, sessions, identities, workspaceService, settings.AuthCookieSecure)
 	}
 
 	if err != nil {

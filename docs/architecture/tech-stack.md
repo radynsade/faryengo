@@ -9,7 +9,7 @@ rather than duplicating the full version list in this guide.
 
 | Service | Role in the project |
 | --- | --- |
-| PostgreSQL 18 or later | Durable storage for users, credentials, roles, permissions, languages, and translations. Transactions, constraints, and triggers protect consistency. Version 18 is required for database-generated UUIDv7 values. |
+| PostgreSQL 18 or later | Durable storage for users, credentials, roles, permissions, languages, translations, workspaces, and workspace memberships. Transactions, constraints, and triggers protect consistency. Version 18 is required for database-generated UUIDv7 values. |
 | Redis-compatible storage | Shared device sessions, revocation state, sign-in throttling, and flash messages. The application uses the Redis protocol and can target Redis or the architecture's intended Dragonfly service. |
 
 PostgreSQL and Redis-compatible storage are required by the server. Their

@@ -6,9 +6,25 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
+
 	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/workspaces"
 	"github.com/radynsade/faryengo/web/office/templates/layouts"
+	"github.com/radynsade/faryengo/web/office/templates/pages"
 )
+
+//
+// Paths
+//
+
+func WorkspacesPath(request *http.Request) string {
+	return OfficePath(request) + "/workspaces"
+}
+
+func WorkspacePath(request *http.Request, id workspaces.WorkspaceID) string {
+	return WorkspacesPath(request) + "/" + uuid.UUID(id).String()
+}
 
 //
 // Dashboard
@@ -16,13 +32,17 @@ import (
 
 var sections = []string{"overview", "budgets", "transactions", "goals", "reports"}
 
+// Every section, the settings among them, belongs to the workspace in the
+// address.
+
 func DashboardProps(
 	request *http.Request,
 	current *security.Identity,
+	workspace *workspaces.Workspace,
 	active string,
 	title string,
 ) layouts.DashboardProps {
-	base := OfficePath(request)
+	base := WorkspacePath(request, workspace.ID)
 	navigation := make([]layouts.NavigationItem, 0, len(sections))
 
 	for _, key := range sections {
@@ -35,19 +55,58 @@ func DashboardProps(
 		navigation = append(navigation, layouts.NavigationItem{Key: key, Href: href})
 	}
 
-	return layouts.DashboardProps{
-		Title:       title,
-		Active:      active,
-		Navigation:  navigation,
-		SettingsURL: base + "/settings",
-		SignOutURL:  base + "/sign-out",
-		Profile:     profile(current),
+	props := layouts.DashboardProps{
+		Title:      title,
+		Active:     active,
+		Navigation: navigation,
+		TopBar:     topBarProps(request, current, base+"/settings", active == "settings"),
 	}
+
+	props.TopBar.Workspace = &layouts.WorkspaceSummary{
+		Name:      string(workspace.Name),
+		Initial:   initial(string(workspace.Name)),
+		SwitchURL: WorkspacesPath(request),
+	}
+
+	return props
+}
+
+//
+// Settings
+//
+
+func SettingsProps(request *http.Request, current *security.Identity) pages.SettingsProps {
+	props := pages.SettingsProps{
+		Layout: layouts.StandaloneProps{
+			TopBar: topBarProps(request, current, OfficePath(request)+"/settings", true),
+		},
+	}
+
+	props.Layout.TopBar.SelectURL = WorkspacesPath(request)
+
+	return props
 }
 
 //
 // Helpers
 //
+
+// Inside a workspace the settings button leads to the workspace's settings;
+// elsewhere it leads to the settings without a workspace.
+
+func topBarProps(
+	request *http.Request,
+	current *security.Identity,
+	settingsURL string,
+	settingsActive bool,
+) layouts.TopBarProps {
+	return layouts.TopBarProps{
+		SettingsURL:    settingsURL,
+		SignOutURL:     OfficePath(request) + "/sign-out",
+		SettingsActive: settingsActive,
+		Profile:        profile(current),
+	}
+}
 
 func profile(current *security.Identity) layouts.Profile {
 	first, last := string(current.User.FirstName), string(current.User.LastName)

@@ -1,0 +1,70 @@
+package pages
+
+import (
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
+	"github.com/radynsade/faryengo/web/office/templates/layouts"
+)
+
+// CreateWorkspaceFormID names the region a failed in-page submission
+// replaces.
+const CreateWorkspaceFormID = "create-workspace-form"
+
+type CreateWorkspaceProps struct {
+	Layout      layouts.StandaloneProps
+	Action      string
+	CancelURL   string
+	Name        string
+	Error       string
+	FieldErrors map[string]string
+}
+
+templ CreateWorkspace(props CreateWorkspaceProps) {
+	@layouts.Standalone(props.Layout) {
+		<section class="standalone__section">
+			<header class="standalone__heading">
+				<h1 id="page-title">{ officei18n.T(ctx, "workspaces.create") }</h1>
+				<p>{ officei18n.T(ctx, "workspaces.create_description") }</p>
+			</header>
+			@CreateWorkspaceForm(props)
+		</section>
+	}
+}
+
+// CreateWorkspaceForm is the region a failed submission replaces in place: the
+// form-wide error and the name with its error. A successful one opens the new
+// workspace, which replaces the whole page.
+templ CreateWorkspaceForm(props CreateWorkspaceProps) {
+	<form
+		id={ CreateWorkspaceFormID }
+		class="form"
+		method="post"
+		action={ templ.URL(props.Action) }
+		novalidate
+		{ components.FormAttributes()... }
+	>
+		@components.FormAlert(props.Error)
+		@components.TextInput(components.TextInputProps{
+			ID:           "workspace-name",
+			Name:         "name",
+			Type:         "text",
+			Label:        officei18n.T(ctx, "fields.workspace_name"),
+			Placeholder:  officei18n.T(ctx, "fields.workspace_name_placeholder"),
+			Autocomplete: "off",
+			Value:        props.Name,
+			Required:     true,
+			Error:        props.FieldErrors["name"],
+		})
+		<div class="form__actions">
+			<button class="button" type="submit">
+				{ officei18n.T(ctx, "workspaces.create_submit") }
+				@components.Icon("arrow-right")
+			</button>
+			<a
+				class="form__cancel"
+				href={ templ.URL(props.CancelURL) }
+				{ components.NavigationAttributes()... }
+			>{ officei18n.T(ctx, "common.cancel") }</a>
+		</div>
+	</form>
+}

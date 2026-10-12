@@ -5,6 +5,9 @@
   "common.language": {
     "other": "Язык"
   },
+  "common.cancel": {
+    "other": "Отмена"
+  },
   "document.title": {
     "other": "{{.Page}} · Faryen"
   },
@@ -50,6 +53,12 @@
   "fields.hide_password": {
     "other": "Скрыть пароль"
   },
+  "fields.workspace_name": {
+    "other": "Название"
+  },
+  "fields.workspace_name_placeholder": {
+    "other": "Домашние финансы"
+  },
   "nav.overview": {
     "other": "Обзор"
   },
@@ -80,6 +89,33 @@
   "auth.sign_out": {
     "other": "Выйти"
   },
+  "account.menu": {
+    "other": "Аккаунт"
+  },
+  "workspaces.select_title": {
+    "other": "Выберите рабочее пространство"
+  },
+  "workspaces.select_description": {
+    "other": "Выберите рабочее пространство, в котором хотите работать."
+  },
+  "workspaces.empty": {
+    "other": "Вы пока не состоите ни в одном рабочем пространстве."
+  },
+  "workspaces.create": {
+    "other": "Создать рабочее пространство"
+  },
+  "workspaces.create_description": {
+    "other": "Дайте рабочему пространству название."
+  },
+  "workspaces.create_submit": {
+    "other": "Создать рабочее пространство"
+  },
+  "workspaces.retry": {
+    "other": "Попробовать снова"
+  },
+  "workspaces.switch": {
+    "other": "Сменить рабочее пространство"
+  },
   "errors.invalid_credentials": {
     "other": "Неверный адрес эл. почты или пароль."
   },
@@ -98,6 +134,12 @@
   "errors.sign_out": {
     "other": "Не удалось выйти. Попробуйте ещё раз."
   },
+  "errors.workspaces_unavailable": {
+    "other": "Не удалось загрузить ваши рабочие пространства. Попробуйте позже."
+  },
+  "errors.workspace_create_unavailable": {
+    "other": "Не удалось создать рабочее пространство. Попробуйте позже."
+  },
   "validation.required": {
     "other": "Заполните это поле."
   },
@@ -106,6 +148,12 @@
   },
   "validation.too_long": {
     "other": "Слишком длинное значение."
+  },
+  "validation.too_long_chars": {
+    "one": "Используйте не более {{.Count}} символа.",
+    "few": "Используйте не более {{.Count}} символов.",
+    "many": "Используйте не более {{.Count}} символов.",
+    "other": "Используйте не более {{.Count}} символа."
   },
   "validation.invalid": {
     "other": "Недопустимое значение."

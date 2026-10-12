@@ -19,11 +19,11 @@ func TestSignIn(t *testing.T) {
 		excludes []string
 	}{
 		{
-			name:     "signs in and opens the dashboard in the same language",
+			name:     "signs in and asks for a workspace in the same language",
 			path:     "/office/ru/sign-in",
 			body:     "email=" + testEmail + "&password=correct+horse",
 			status:   http.StatusSeeOther,
-			location: "/office/ru",
+			location: "/office/ru/workspaces",
 			cookie:   true,
 		},
 		{
@@ -124,7 +124,7 @@ func TestSignOut(t *testing.T) {
 	}
 
 	// The ended Session no longer opens the dashboard, even with the old cookie.
-	response = f.do(request{path: "/office/lv", cookies: cookies})
+	response = f.do(request{path: "/office/lv/workspaces/" + designID, cookies: cookies})
 
 	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/office/lv/sign-in" {
 		t.Fatalf("dashboard after sign out = %d %q", response.Code, response.Header().Get("Location"))

@@ -1,0 +1,22 @@
+// The top bar's language dropdown; on narrow screens its toggle shows only
+// the icon and the chevron.
+$narrow: 560px;
+
+.language-menu {
+	> .dropdown__toggle {
+		@media (max-width: #{$narrow - 1px}) {
+			padding-inline: 0.375rem;
+		}
+	}
+
+	&__current {
+		@media (max-width: #{$narrow - 1px}) {
+			position: absolute;
+			width: 1px;
+			height: 1px;
+			overflow: hidden;
+			clip-path: inset(50%);
+			white-space: nowrap;
+		}
+	}
+}

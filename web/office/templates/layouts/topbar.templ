@@ -1,0 +1,171 @@
+package layouts
+
+import (
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
+)
+
+type Profile struct {
+	Name       string
+	Email      string
+	Initials   string
+	PictureURL string
+}
+
+type WorkspaceSummary struct {
+	Name      string
+	Initial   string
+	SwitchURL string
+}
+
+// Workspace is set only inside a workspace, where the top bar shows it beside
+// the brand. Outside a workspace, SelectURL leads back to choosing one; it is
+// empty on the choosing page itself.
+
+type TopBarProps struct {
+	Workspace      *WorkspaceSummary
+	SelectURL      string
+	SettingsURL    string
+	SignOutURL     string
+	SettingsActive bool
+	Profile        Profile
+}
+
+// TopBarWorkspaceID and TopBarActionsID name the parts of the top bar that an
+// in-page navigation inside the dashboard updates out of band.
+const (
+	TopBarWorkspaceID = "topbar-workspace"
+	TopBarActionsID   = "topbar-actions"
+)
+
+// topBar is shared by every signed-in layout: the brand, and inside a
+// workspace the workspace switcher, on one side and the language, settings,
+// profile, and sign-out controls on the other. The dashboard adds the button
+// that opens its sidebar on narrow screens.
+templ topBar(props TopBarProps, withMenu bool) {
+	<header class={ "topbar", templ.KV("topbar--in-workspace", props.Workspace != nil) }>
+		<div class="topbar__start">
+			if withMenu {
+				<button
+					class="icon-button topbar__menu"
+					type="button"
+					aria-controls="dashboard-sidebar"
+					aria-expanded="false"
+					aria-label={ officei18n.T(ctx, "dashboard.open_menu") }
+					data-sidebar-open
+				>
+					@components.Icon("menu")
+				</button>
+			}
+			@components.Brand(false)
+			if props.Workspace != nil {
+				@topBarWorkspace(*props.Workspace, false)
+			} else if props.SelectURL != "" {
+				@topBarSelectWorkspace(props.SelectURL)
+			}
+		</div>
+		@topBarActions(props, false)
+	</header>
+}
+
+// The current workspace leads back to choosing another one. Choosing leaves
+// the dashboard, so the response replaces the whole page. On narrow screens
+// only its mark shows; the caption and the name still name the link.
+templ topBarWorkspace(workspace WorkspaceSummary, outOfBand bool) {
+	<a
+		id={ TopBarWorkspaceID }
+		class="topbar__workspace"
+		href={ templ.URL(workspace.SwitchURL) }
+		if outOfBand {
+			hx-swap-oob="morph"
+		}
+		{ components.NavigationAttributes()... }
+	>
+		<span class="topbar__workspace-mark" aria-hidden="true">{ workspace.Initial }</span>
+		<span class="topbar__workspace-text">
+			<span class="topbar__workspace-caption">{ officei18n.T(ctx, "workspaces.switch") }</span>
+			<span class="topbar__workspace-name">{ workspace.Name }</span>
+		</span>
+		@components.Icon("switch")
+	</a>
+}
+
+// Outside a workspace the switcher's place leads back to choosing one. On
+// narrow screens only its icon shows; the text still names the link.
+templ topBarSelectWorkspace(selectURL string) {
+	<a
+		class="topbar__workspace topbar__workspace--select"
+		href={ templ.URL(selectURL) }
+		{ components.NavigationAttributes()... }
+	>
+		@components.Icon("switch")
+		<span class="topbar__workspace-text">
+			<span class="topbar__workspace-name">{ officei18n.T(ctx, "workspaces.select_title") }</span>
+		</span>
+	</a>
+}
+
+// The language links lead to the current page and the profile menu marks the
+// settings page, so every navigation updates the actions; the morph also
+// closes an open menu. Signing out leaves the layout, so it replaces the
+// whole page. An out-of-band swap finds its element by ID; "morph" morphs the
+// whole element.
+templ topBarActions(props TopBarProps, outOfBand bool) {
+	<div
+		id={ TopBarActionsID }
+		class="topbar__actions"
+		if outOfBand {
+			hx-swap-oob="morph"
+		}
+	>
+		@components.LanguageMenu()
+		@profileMenu(props)
+	</div>
+}
+
+// The profile badge opens the account menu. On narrow screens only the
+// avatar shows; the caption, name, and email still name the toggle.
+templ profileMenu(props TopBarProps) {
+	<details class="dropdown profile-menu" data-dropdown>
+		<summary class="dropdown__toggle profile-menu__toggle">
+			<span class="dropdown__caption">{ officei18n.T(ctx, "account.menu") }</span>
+			@components.Avatar(props.Profile.PictureURL, props.Profile.Initials)
+			<span class="profile-menu__text">
+				<span class="profile-menu__name">{ props.Profile.Name }</span>
+				<span class="profile-menu__email">{ props.Profile.Email }</span>
+			</span>
+			<span class="dropdown__chevron">
+				@components.Icon("chevron-down")
+			</span>
+		</summary>
+		<ul class="dropdown__list">
+			<li>
+				<a
+					class="dropdown__item"
+					href={ templ.URL(props.SettingsURL) }
+					if props.SettingsActive {
+						aria-current="page"
+					}
+					{ components.NavigationAttributes()... }
+				>
+					@components.Icon("settings")
+					<span>{ officei18n.T(ctx, "nav.settings") }</span>
+				</a>
+			</li>
+			<li>
+				<form
+					class="profile-menu__sign-out"
+					method="post"
+					action={ templ.URL(props.SignOutURL) }
+					hx-target={ "#" + PageRegionID }
+					{ components.FormAttributes()... }
+				>
+					<button class="dropdown__item dropdown__item--danger" type="submit">
+						@components.Icon("sign-out")
+						<span>{ officei18n.T(ctx, "auth.sign_out") }</span>
+					</button>
+				</form>
+			</li>
+		</ul>
+	</details>
+}

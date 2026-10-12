@@ -1,0 +1,25 @@
+package layouts
+
+import officei18n "github.com/radynsade/faryengo/web/office/i18n"
+
+type StandaloneProps struct {
+	TopBar TopBarProps
+}
+
+// StandaloneMainID names the region that receives focus after a navigation.
+const StandaloneMainID = "standalone-main"
+
+// Standalone frames a signed-in page that stands apart from the dashboard,
+// such as choosing a workspace: the top bar above centered content, without
+// the sidebar. Links and forms inherit the page region as their target, so
+// leaving the page for the dashboard or signing out replaces the whole
+// layout.
+templ Standalone(props StandaloneProps) {
+	<div class="standalone" { pageRegion(ctx)... }>
+		<a class="skip-link" href={ templ.SafeURL("#" + StandaloneMainID) }>{ officei18n.T(ctx, "navigation.skip") }</a>
+		@topBar(props.TopBar, false)
+		<main id={ StandaloneMainID } class="standalone__main" tabindex="-1" aria-labelledby="page-title">
+			{ children... }
+		</main>
+	</div>
+}

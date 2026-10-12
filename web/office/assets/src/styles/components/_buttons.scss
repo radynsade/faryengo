@@ -12,6 +12,7 @@
 	background: var(--color-primary);
 	color: var(--color-on-primary);
 	font-weight: 700;
+	text-decoration: none;
 	cursor: pointer;
 	box-shadow: 0 8px 16px -10px var(--color-primary);
 	transition:
@@ -32,5 +33,22 @@
 
 	&:active {
 		transform: translateY(1px);
+	}
+
+	// A quieter action beside the page's main choices; its icon stays put.
+	&--secondary {
+		border: 1px dashed var(--color-border-strong);
+		background: var(--color-surface);
+		color: var(--color-primary-strong);
+		box-shadow: none;
+
+		&:hover {
+			border-color: var(--color-primary);
+			background: var(--color-primary-soft);
+
+			svg {
+				transform: none;
+			}
+		}
 	}
 }

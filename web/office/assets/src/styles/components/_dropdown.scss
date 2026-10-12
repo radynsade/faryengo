@@ -1,0 +1,122 @@
+// A disclosure that opens a list below its toggle, aligned to its end, above
+// the page content. Items are links or buttons.
+.dropdown {
+	position: relative;
+
+	&__toggle {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.375rem;
+		height: 2.125rem;
+		padding: 0 0.5rem 0 0.625rem;
+		border-radius: var(--radius-sm);
+		color: var(--color-muted);
+		font-weight: 600;
+		list-style: none;
+		cursor: pointer;
+		user-select: none;
+		transition:
+			color var(--transition),
+			background-color var(--transition);
+
+		&::-webkit-details-marker {
+			display: none;
+		}
+
+		&:hover,
+		.dropdown[open] > & {
+			color: var(--color-ink);
+			background: var(--color-surface);
+		}
+	}
+
+	// Read with the toggle's content, never shown.
+	&__caption {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
+	&__chevron {
+		display: inline-grid;
+
+		.icon {
+			width: 1rem;
+			height: 1rem;
+			transition: transform var(--transition);
+		}
+
+		.dropdown[open] > .dropdown__toggle & .icon {
+			transform: rotate(180deg);
+		}
+	}
+
+	&__list {
+		position: absolute;
+		top: calc(100% + 0.375rem);
+		right: 0;
+		z-index: 40;
+		display: grid;
+		gap: 0.125rem;
+		min-width: 10rem;
+		margin: 0;
+		padding: 0.375rem;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius-md);
+		background: var(--color-surface);
+		box-shadow: var(--shadow-soft);
+		list-style: none;
+	}
+
+	&__item {
+		display: flex;
+		align-items: center;
+		gap: 0.625rem;
+		width: 100%;
+		padding: 0.5rem 0.625rem;
+		border: 0;
+		border-radius: var(--radius-sm);
+		background: transparent;
+		color: var(--color-ink);
+		font-weight: 600;
+		text-align: left;
+		text-decoration: none;
+		cursor: pointer;
+		transition:
+			color var(--transition),
+			background-color var(--transition);
+
+		> span {
+			flex: 1;
+		}
+
+		> .icon {
+			color: var(--color-muted);
+		}
+
+		&:hover {
+			background: var(--color-canvas);
+		}
+
+		&[aria-current] {
+			color: var(--color-primary-strong);
+			background: var(--color-primary-soft);
+
+			> .icon {
+				color: currentColor;
+			}
+		}
+
+		&--danger:hover {
+			color: var(--color-danger);
+			background: var(--color-danger-soft);
+
+			> .icon {
+				color: currentColor;
+			}
+		}
+	}
+}

@@ -5,6 +5,9 @@
   "common.language": {
     "other": "Language"
   },
+  "common.cancel": {
+    "other": "Cancel"
+  },
   "document.title": {
     "other": "{{.Page}} · Faryen"
   },
@@ -50,6 +53,12 @@
   "fields.hide_password": {
     "other": "Hide password"
   },
+  "fields.workspace_name": {
+    "other": "Name"
+  },
+  "fields.workspace_name_placeholder": {
+    "other": "Home finances"
+  },
   "nav.overview": {
     "other": "Overview"
   },
@@ -80,6 +89,33 @@
   "auth.sign_out": {
     "other": "Sign out"
   },
+  "account.menu": {
+    "other": "Account"
+  },
+  "workspaces.select_title": {
+    "other": "Select workspace"
+  },
+  "workspaces.select_description": {
+    "other": "Choose the workspace you want to work in."
+  },
+  "workspaces.empty": {
+    "other": "You are not a member of any workspace yet."
+  },
+  "workspaces.create": {
+    "other": "Create a workspace"
+  },
+  "workspaces.create_description": {
+    "other": "Give the workspace a name."
+  },
+  "workspaces.create_submit": {
+    "other": "Create workspace"
+  },
+  "workspaces.retry": {
+    "other": "Try again"
+  },
+  "workspaces.switch": {
+    "other": "Switch workspace"
+  },
   "errors.invalid_credentials": {
     "other": "The email or password is incorrect."
   },
@@ -98,6 +134,12 @@
   "errors.sign_out": {
     "other": "Signing out failed. Please try again."
   },
+  "errors.workspaces_unavailable": {
+    "other": "Your workspaces could not be loaded. Please try again later."
+  },
+  "errors.workspace_create_unavailable": {
+    "other": "The workspace could not be created. Please try again later."
+  },
   "validation.required": {
     "other": "Please fill in this field."
   },
@@ -106,6 +148,10 @@
   },
   "validation.too_long": {
     "other": "This value is too long."
+  },
+  "validation.too_long_chars": {
+    "one": "Use at most {{.Count}} character.",
+    "other": "Use at most {{.Count}} characters."
   },
   "validation.invalid": {
     "other": "This value is not valid."

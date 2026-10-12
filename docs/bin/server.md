@@ -38,9 +38,16 @@ user's email and password.
 The office application is served at `/office/<language>`; `/office` redirects
 to English. Users sign in at `/office/<language>/sign-in` with the same email
 and password as the admin panel. The office keeps its own session cookie, so
-signing in to one application does not sign in to the other. The dashboard has
-Overview, Budgets, Transactions, Goals, Reports, and Settings pages, which are
-empty for now; a visitor who is not signed in is sent to the sign-in page.
+signing in to one application does not sign in to the other. After signing in,
+users choose one of their workspaces at `/office/<language>/workspaces`, or
+create one at `/office/<language>/workspaces/new`; the creator becomes the new
+workspace's first member and lands on its overview. A workspace's dashboard is served at
+`/office/<language>/workspaces/<workspace>` and has Overview, Budgets,
+Transactions, Goals, Reports, and Settings pages, which are empty for now. A
+workspace the user does not belong to sends them back to choosing one. The
+settings are also available outside any workspace at
+`/office/<language>/settings`, without the workspace sidebar. A visitor who is
+not signed in is sent to the sign-in page.
 
 Press Ctrl+C or send SIGTERM to stop the server gracefully. Startup and runtime
 failures are reported with a nonzero exit status.

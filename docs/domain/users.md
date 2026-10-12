@@ -51,6 +51,9 @@ own lifecycle and is outside the User aggregate.
 A User cannot delete their own account; another User with the authority to
 manage Users, or an operator, must delete it.
 
+Deleting a User ends that User's
+[Workspace memberships](workspaces.md#membership); the Workspaces remain.
+
 Changing names, phone, or Role does not require changing the password.
 Changing the email or password replaces the User's credentials version, which
 ends the User's existing [Sessions](security.md#session).

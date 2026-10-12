@@ -1,0 +1,72 @@
+package pages
+
+import (
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
+	"github.com/radynsade/faryengo/web/office/templates/layouts"
+)
+
+type WorkspaceItem struct {
+	ID      string
+	Name    string
+	Initial string
+	Href    string
+}
+
+type SelectWorkspaceProps struct {
+	Layout     layouts.StandaloneProps
+	Workspaces []WorkspaceItem
+	Error      string
+	RetryURL   string
+	CreateURL  string
+}
+
+// SelectWorkspace follows a successful sign-in. Each row carries its
+// workspace's ID, so morphing matches rows between renders. A list that could
+// not be loaded is replaced by its error and a retry link.
+templ SelectWorkspace(props SelectWorkspaceProps) {
+	@layouts.Standalone(props.Layout) {
+		<section class="workspace-select">
+			<header class="workspace-select__heading">
+				<h1 id="page-title">{ officei18n.T(ctx, "workspaces.select_title") }</h1>
+				<p>{ officei18n.T(ctx, "workspaces.select_description") }</p>
+			</header>
+			if props.Error != "" {
+				<div class="workspace-select__error">
+					@components.FormAlert(props.Error)
+					<a
+						class="workspace-select__retry"
+						href={ templ.URL(props.RetryURL) }
+						{ components.NavigationAttributes()... }
+					>{ officei18n.T(ctx, "workspaces.retry") }</a>
+				</div>
+			} else if len(props.Workspaces) > 0 {
+				<ul class="workspace-select__list" aria-labelledby="page-title">
+					for _, item := range props.Workspaces {
+						<li id={ "workspace-" + item.ID }>
+							<a
+								class="workspace-select__item"
+								href={ templ.URL(item.Href) }
+								{ components.NavigationAttributes()... }
+							>
+								<span class="workspace-select__mark" aria-hidden="true">{ item.Initial }</span>
+								<span class="workspace-select__name">{ item.Name }</span>
+								@components.Icon("arrow-right")
+							</a>
+						</li>
+					}
+				</ul>
+			} else {
+				<p class="workspace-select__empty">{ officei18n.T(ctx, "workspaces.empty") }</p>
+			}
+			<a
+				class="button button--secondary"
+				href={ templ.URL(props.CreateURL) }
+				{ components.NavigationAttributes()... }
+			>
+				@components.Icon("plus")
+				{ officei18n.T(ctx, "workspaces.create") }
+			</a>
+		</section>
+	}
+}

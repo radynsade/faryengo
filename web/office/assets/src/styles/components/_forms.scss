@@ -1,6 +1,23 @@
 .form {
 	display: grid;
 	gap: 1rem;
+
+	// The submit button with a quieter way back below it.
+	&__actions {
+		display: grid;
+		justify-items: center;
+		gap: 0.75rem;
+	}
+
+	&__cancel {
+		color: var(--color-muted);
+		font-weight: 600;
+		text-decoration: none;
+
+		&:hover {
+			color: var(--color-ink);
+		}
+	}
 }
 
 .field {

@@ -5,32 +5,24 @@ import (
 	"github.com/radynsade/faryengo/web/office/templates/components"
 )
 
-type Profile struct {
-	Name       string
-	Email      string
-	Initials   string
-	PictureURL string
-}
-
 type NavigationItem struct {
 	Key  string
 	Href string
 }
 
 type DashboardProps struct {
-	Title       string
-	Active      string
-	Navigation  []NavigationItem
-	SettingsURL string
-	SignOutURL  string
-	Profile     Profile
+	Title      string
+	Active     string
+	Navigation []NavigationItem
+	TopBar     TopBarProps
 }
 
-// Dashboard frames every signed-in page with the sidebar. Links and forms
+// Dashboard frames every page of a workspace with the top bar and the
+// sidebar, which holds only the workspace's navigation. Links and forms
 // inside it inherit the main region as their target, so navigation replaces
 // only the page's main region. When the request already shows the dashboard,
 // only the main region is rendered, together with out-of-band updates of the
-// sidebar parts that depend on the page.
+// menu and the top bar's parts, which depend on the page.
 //
 // On narrow screens the sidebar becomes a drawer opened from the top bar;
 // without JavaScript it stays above the content.
@@ -40,43 +32,35 @@ templ Dashboard(props DashboardProps) {
 		@dashboardMain(props) {
 			{ children... }
 		}
+		if props.TopBar.Workspace != nil {
+			@topBarWorkspace(*props.TopBar.Workspace, true)
+		}
 		@dashboardMenu(props, true)
-		@dashboardAccount(props, true)
+		@topBarActions(props.TopBar, true)
 	} else {
 		<div class="dashboard" hx-target={ "#" + ContentRegionID } data-dashboard { pageRegion(ctx)... }>
 			<a class="skip-link" href={ templ.SafeURL("#" + ContentRegionID) }>{ officei18n.T(ctx, "navigation.skip") }</a>
-			<header class="dashboard__topbar">
-				@components.Brand(false)
-				<button
-					class="icon-button"
-					type="button"
-					aria-controls="dashboard-sidebar"
-					aria-expanded="false"
-					aria-label={ officei18n.T(ctx, "dashboard.open_menu") }
-					data-sidebar-open
-				>
-					@components.Icon("menu")
-				</button>
-			</header>
+			@topBar(props.TopBar, true)
 			<div class="dashboard__backdrop" data-sidebar-close></div>
-			<aside id="dashboard-sidebar" class="sidebar">
-				<div class="sidebar__head">
-					@components.Brand(false)
-					<button
-						class="icon-button sidebar__close"
-						type="button"
-						aria-label={ officei18n.T(ctx, "dashboard.close_menu") }
-						data-sidebar-close
-					>
-						@components.Icon("close")
-					</button>
-				</div>
-				@dashboardMenu(props, false)
-				@dashboardAccount(props, false)
-			</aside>
-			@dashboardMain(props) {
-				{ children... }
-			}
+			<div class="dashboard__body">
+				<aside id="dashboard-sidebar" class="sidebar">
+					<div class="sidebar__head">
+						@components.Brand(false)
+						<button
+							class="icon-button sidebar__close"
+							type="button"
+							aria-label={ officei18n.T(ctx, "dashboard.close_menu") }
+							data-sidebar-close
+						>
+							@components.Icon("close")
+						</button>
+					</div>
+					@dashboardMenu(props, false)
+				</aside>
+				@dashboardMain(props) {
+					{ children... }
+				}
+			</div>
 		</div>
 	}
 }
@@ -92,8 +76,7 @@ templ dashboardMain(props DashboardProps) {
 	</main>
 }
 
-// The menu marks the active section, so every navigation updates it. An
-// out-of-band swap finds its element by ID; "morph" morphs the whole element.
+// The menu marks the active section, so every navigation updates it.
 templ dashboardMenu(props DashboardProps, outOfBand bool) {
 	<nav
 		id="dashboard-menu"
@@ -121,56 +104,4 @@ templ dashboardMenu(props DashboardProps, outOfBand bool) {
 			}
 		</ul>
 	</nav>
-}
-
-// The language links lead to the current page and the settings button marks
-// the settings page, so every navigation updates the account area. Signing
-// out leaves the dashboard, so it replaces the whole page.
-templ dashboardAccount(props DashboardProps, outOfBand bool) {
-	<div
-		id="dashboard-account"
-		class="sidebar__foot"
-		if outOfBand {
-			hx-swap-oob="morph"
-		}
-	>
-		<div class="sidebar__languages">
-			<span class="sidebar__caption">
-				@components.Icon("language")
-				{ officei18n.T(ctx, "common.language") }
-			</span>
-			@components.LanguageSwitcher()
-		</div>
-		<form
-			class="sidebar__sign-out"
-			method="post"
-			action={ templ.URL(props.SignOutURL) }
-			hx-target={ "#" + PageRegionID }
-			{ components.FormAttributes()... }
-		>
-			<button class="sidebar__link" type="submit">
-				@components.Icon("sign-out")
-				<span>{ officei18n.T(ctx, "auth.sign_out") }</span>
-			</button>
-		</form>
-		<div class="profile">
-			@components.Avatar(props.Profile.PictureURL, props.Profile.Initials)
-			<div class="profile__text">
-				<span class="profile__name">{ props.Profile.Name }</span>
-				<span class="profile__email">{ props.Profile.Email }</span>
-			</div>
-			<a
-				class="icon-button profile__settings"
-				href={ templ.URL(props.SettingsURL) }
-				aria-label={ officei18n.T(ctx, "nav.settings") }
-				title={ officei18n.T(ctx, "nav.settings") }
-				if props.Active == "settings" {
-					aria-current="page"
-				}
-				{ components.NavigationAttributes()... }
-			>
-				@components.Icon("settings")
-			</a>
-		</div>
-	</div>
 }

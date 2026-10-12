@@ -1,0 +1,49 @@
+// The top bar's account dropdown. Its toggle is the profile badge, which
+// shows only the avatar below the wide breakpoint.
+$narrow: 560px;
+$wide: 960px;
+
+.profile-menu {
+	> .dropdown__toggle {
+		gap: 0.625rem;
+		height: 2.25rem;
+		padding-inline: 0.25rem 0.5rem;
+		color: var(--color-ink);
+		font-weight: inherit;
+
+		@media (max-width: #{$narrow - 1px}) {
+			padding-inline: 0.125rem 0.25rem;
+		}
+	}
+
+	&__text {
+		display: grid;
+		min-width: 0;
+		max-width: 12rem;
+		line-height: 1.3;
+
+		@media (max-width: #{$wide - 1px}) {
+			display: none;
+		}
+	}
+
+	&__name {
+		overflow: hidden;
+		font-size: 0.8125rem;
+		font-weight: 700;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	&__email {
+		overflow: hidden;
+		color: var(--color-muted);
+		font-size: 0.75rem;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	&__sign-out {
+		margin: 0;
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
 	"github.com/radynsade/faryengo/internal/security/sessionid"
@@ -26,6 +27,7 @@ type Handler struct {
 	passwords  *emailpass.Authenticator
 	sessions   *sessionid.Authenticator
 	identities *security.IdentityResolver
+	workspaces *app.WorkspaceService
 	cookies    utils.Cookies
 }
 
@@ -33,6 +35,7 @@ func NewHandler(
 	passwords *emailpass.Authenticator,
 	sessions *sessionid.Authenticator,
 	identities *security.IdentityResolver,
+	workspaces *app.WorkspaceService,
 	secureCookies bool,
 ) (*Handler, error) {
 	var (
@@ -40,13 +43,14 @@ func NewHandler(
 		err     error
 	)
 
-	if passwords == nil || sessions == nil || identities == nil {
+	if passwords == nil || sessions == nil || identities == nil || workspaces == nil {
 		err = ErrHandlerConfigInvalid
 	} else {
 		handler = &Handler{
 			passwords:  passwords,
 			sessions:   sessions,
 			identities: identities,
+			workspaces: workspaces,
 			cookies:    utils.Cookies{Secure: secureCookies},
 		}
 	}
@@ -73,12 +77,17 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			handler http.HandlerFunc
 		}{
 			{"GET /office", h.root},
-			{"GET /office/{language}", h.section("overview")},
-			{"GET /office/{language}/budgets", h.section("budgets")},
-			{"GET /office/{language}/transactions", h.section("transactions")},
-			{"GET /office/{language}/goals", h.section("goals")},
-			{"GET /office/{language}/reports", h.section("reports")},
-			{"GET /office/{language}/settings", h.section("settings")},
+			{"GET /office/{language}", h.root},
+			{"GET /office/{language}/settings", h.settings},
+			{"GET /office/{language}/workspaces", h.selectWorkspace},
+			{"POST /office/{language}/workspaces", h.createWorkspace},
+			{"GET /office/{language}/workspaces/new", h.newWorkspacePage},
+			{"GET /office/{language}/workspaces/{workspace}", h.section("overview")},
+			{"GET /office/{language}/workspaces/{workspace}/budgets", h.section("budgets")},
+			{"GET /office/{language}/workspaces/{workspace}/transactions", h.section("transactions")},
+			{"GET /office/{language}/workspaces/{workspace}/goals", h.section("goals")},
+			{"GET /office/{language}/workspaces/{workspace}/reports", h.section("reports")},
+			{"GET /office/{language}/workspaces/{workspace}/settings", h.section("settings")},
 			{"GET /office/{language}/sign-in", h.signInPage},
 			{"POST /office/{language}/sign-in", h.signIn},
 			{"POST /office/{language}/sign-out", h.signOut},

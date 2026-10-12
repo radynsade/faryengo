@@ -15,6 +15,8 @@ import (
 	redislib "github.com/redis/go-redis/v9"
 	"go.uber.org/goleak"
 
+	"github.com/radynsade/faryengo/internal/app"
+	appmock "github.com/radynsade/faryengo/internal/app/mock"
 	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
@@ -22,6 +24,8 @@ import (
 	sessionidredis "github.com/radynsade/faryengo/internal/security/sessionid/redis"
 	"github.com/radynsade/faryengo/internal/users"
 	usersmock "github.com/radynsade/faryengo/internal/users/mock"
+	"github.com/radynsade/faryengo/internal/workspaces"
+	workspacesmock "github.com/radynsade/faryengo/internal/workspaces/mock"
 )
 
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
@@ -33,17 +37,28 @@ func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 const (
 	testEmail    = "ada@example.com"
 	testPassword = "correct horse"
+
+	// The User belongs to Design and Family budget, not to the other one.
+	designID   = "01920000-0000-7000-8000-0000000000d1"
+	familyID   = "01920000-0000-7000-8000-0000000000f1"
+	otherID    = "01920000-0000-7000-8000-0000000000e1"
+	designPath = "/office/en/workspaces/" + designID
 )
 
 type fixture struct {
-	mux     *http.ServeMux
-	user    *users.User
-	role    *users.Role
-	version uuid.UUID
+	mux        *http.ServeMux
+	user       *users.User
+	role       *users.Role
+	version    uuid.UUID
+	workspaces []*workspaces.Workspace
+	members    map[workspaces.WorkspaceID][]users.UserID
+	findErr    error
+	createErr  error
 }
 
-// The fixture has one User with an ordinary Role. Its repositories keep them
-// in memory behind the complete domain contracts.
+// The fixture has one User with an ordinary Role, who belongs to two of three
+// Workspaces. Its repositories keep them in memory behind the complete domain
+// contracts.
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
@@ -75,6 +90,15 @@ func newFixture(t *testing.T) *fixture {
 		time.Now(),
 	)
 
+	design := workspaces.NewWorkspace(workspaces.WorkspaceID(uuid.MustParse(designID)), "Design")
+	family := workspaces.NewWorkspace(workspaces.WorkspaceID(uuid.MustParse(familyID)), "Family budget")
+	other := workspaces.NewWorkspace(workspaces.WorkspaceID(uuid.MustParse(otherID)), "Someone else's")
+	f.workspaces = []*workspaces.Workspace{family, design, other}
+	f.members = map[workspaces.WorkspaceID][]users.UserID{
+		design.ID: {f.user.ID},
+		family.ID: {f.user.ID},
+	}
+
 	hasher := &usersmock.PasswordHasher{
 		HashFunc: func(_ context.Context, password string) (users.PasswordHash, error) {
 			return users.PasswordHash("hash:" + password), nil
@@ -96,7 +120,10 @@ func newFixture(t *testing.T) *fixture {
 	identities, err := security.NewIdentityResolver(f.credentials(), f.users(), f.roles())
 	must(t, err)
 
-	handler, err := NewHandler(passwords, sessions, identities, false)
+	workspaceService, err := app.NewWorkspaceService(&appmock.Transactor{}, f.workspaceRepository())
+	must(t, err)
+
+	handler, err := NewHandler(passwords, sessions, identities, workspaceService, false)
 	must(t, err)
 
 	f.mux = http.NewServeMux()
@@ -226,6 +253,80 @@ func (f *fixture) roles() *usersmock.RoleRepository {
 			}
 
 			return role, err
+		},
+	}
+}
+
+// Find returns every Workspace the filter's member belongs to, in name order;
+// it ignores paging, which the fixture never needs. Created workspaces and
+// added members join the in-memory state.
+
+func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
+	matching := func(filter workspaces.WorkspaceFilter) []*workspaces.Workspace {
+		result := make([]*workspaces.Workspace, 0, len(f.workspaces))
+
+		for _, workspace := range f.workspaces {
+			if filter.MemberID == nil || slices.Contains(f.members[workspace.ID], *filter.MemberID) {
+				result = append(result, workspace)
+			}
+		}
+
+		slices.SortFunc(result, func(a, b *workspaces.Workspace) int {
+			return strings.Compare(string(a.Name), string(b.Name))
+		})
+
+		return result
+	}
+
+	return &workspacesmock.WorkspaceRepository{
+		FindFunc: func(_ context.Context, query workspaces.WorkspaceQuery) ([]*workspaces.Workspace, error) {
+			var result []*workspaces.Workspace
+
+			if f.findErr == nil {
+				result = matching(query.Filter)
+			}
+
+			return result, f.findErr
+		},
+		CountFunc: func(_ context.Context, filter workspaces.WorkspaceFilter) (int, error) {
+			return len(matching(filter)), nil
+		},
+		FindByIDFunc: func(_ context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
+			var (
+				found *workspaces.Workspace
+				err   = workspaces.ErrWorkspaceNotFound
+			)
+
+			for _, workspace := range f.workspaces {
+				if workspace.ID == id {
+					found, err = workspace, nil
+				}
+			}
+
+			return found, err
+		},
+		HasMemberFunc: func(_ context.Context, membership workspaces.Membership) (bool, error) {
+			return slices.Contains(f.members[membership.WorkspaceID], membership.UserID), nil
+		},
+		CreateFunc: func(_ context.Context, workspace *workspaces.Workspace) workspaces.ErrWorkspaceCreateFailed {
+			var err workspaces.ErrWorkspaceCreateFailed
+
+			if f.createErr != nil {
+				err = workspacesmock.NewErrWorkspaceCreateFailed(workspace, f.createErr)
+			} else {
+				f.workspaces = append(f.workspaces, workspace)
+			}
+
+			return err
+		},
+		AddMemberFunc: func(_ context.Context, membership workspaces.Membership) workspaces.ErrMembershipAddFailed {
+			if f.members == nil {
+				f.members = make(map[workspaces.WorkspaceID][]users.UserID)
+			}
+
+			f.members[membership.WorkspaceID] = append(f.members[membership.WorkspaceID], membership.UserID)
+
+			return nil
 		},
 	}
 }

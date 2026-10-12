@@ -7,7 +7,7 @@ import (
 )
 
 func TestHandlerConfiguration(t *testing.T) {
-	if _, err := NewHandler(nil, nil, nil, false); err != ErrHandlerConfigInvalid {
+	if _, err := NewHandler(nil, nil, nil, nil, false); err != ErrHandlerConfigInvalid {
 		t.Fatalf("NewHandler(nil...) = %v, want %v", err, ErrHandlerConfigInvalid)
 	}
 
@@ -28,16 +28,23 @@ func TestPages(t *testing.T) {
 		location string
 		language string
 		contains []string
+		excludes []string
 	}{
 		{
-			name:     "redirects the root to the default language",
+			name:     "redirects the root to choosing a workspace in the default language",
 			path:     "/office",
 			status:   http.StatusSeeOther,
-			location: "/office/en",
+			location: "/office/en/workspaces",
+		},
+		{
+			name:     "redirects a language root to choosing a workspace",
+			path:     "/office/lv",
+			status:   http.StatusSeeOther,
+			location: "/office/lv/workspaces",
 		},
 		{
 			name:     "sends visitors to the sign-in page",
-			path:     "/office/en/budgets",
+			path:     designPath + "/budgets",
 			status:   http.StatusSeeOther,
 			location: "/office/en/sign-in",
 		},
@@ -51,6 +58,7 @@ func TestPages(t *testing.T) {
 				`action="/office/en/sign-in"`,
 				`autocomplete="current-password"`,
 				`href="/office/lv/sign-in"`,
+				`<nav class="language-switcher" aria-label="Language">`,
 				"Welcome back",
 			},
 		},
@@ -69,22 +77,30 @@ func TestPages(t *testing.T) {
 			contains: []string{`<html lang="en">`, "Welcome back"},
 		},
 		{
-			name:     "sends a signed-in user from the sign-in page to the dashboard",
+			name:     "sends a signed-in user from the sign-in page to the workspace selection",
 			path:     "/office/lv/sign-in",
 			cookies:  signedIn,
 			status:   http.StatusSeeOther,
-			location: "/office/lv",
+			location: "/office/lv/workspaces",
 		},
 		{
-			name:     "renders the overview with the user's profile",
-			path:     "/office/en",
+			name:     "sends visitors from the workspace selection to the sign-in page",
+			path:     "/office/en/workspaces",
+			status:   http.StatusSeeOther,
+			location: "/office/en/sign-in",
+		},
+		{
+			name:     "renders the workspace overview with the user's profile",
+			path:     designPath,
 			cookies:  signedIn,
 			status:   http.StatusOK,
 			language: "en",
 			contains: []string{
 				"<title>Overview · Faryen</title>",
-				`<a class="sidebar__link" href="/office/en" aria-current="page"`,
-				`href="/office/en/budgets"`,
+				`<a class="sidebar__link" href="` + designPath + `" aria-current="page"`,
+				`href="` + designPath + `/budgets"`,
+				`<span class="topbar__workspace-name">Design</span>`,
+				`href="/office/en/workspaces"`,
 				`action="/office/en/sign-out"`,
 				"Ada Lovelace",
 				testEmail,
@@ -92,16 +108,65 @@ func TestPages(t *testing.T) {
 			},
 		},
 		{
-			name:     "marks the settings button on the settings page",
-			path:     "/office/lv/settings",
+			name:     "shows a workspace's settings with its sidebar",
+			path:     "/office/lv/workspaces/" + designID + "/settings",
 			cookies:  signedIn,
 			status:   http.StatusOK,
 			language: "lv",
 			contains: []string{
 				`<h1 id="page-title">Iestatījumi</h1>`,
-				`href="/office/lv/settings" aria-label="Iestatījumi" title="Iestatījumi" aria-current="page"`,
-				`href="/office/ru/settings"`,
+				`<aside id="dashboard-sidebar" class="sidebar">`,
+				`<a class="dropdown__item" href="/office/lv/workspaces/` + designID + `/settings" aria-current="page"`,
+				`href="/office/ru/workspaces/` + designID + `/settings"`,
 			},
+		},
+		{
+			name:     "shows the settings without a workspace and without the sidebar",
+			path:     "/office/en/settings",
+			cookies:  signedIn,
+			status:   http.StatusOK,
+			language: "en",
+			contains: []string{
+				`<div class="standalone"`,
+				`<h1 id="page-title">Settings</h1>`,
+				`<a class="dropdown__item" href="/office/en/settings" aria-current="page"`,
+				`href="/office/lv/settings"`,
+			},
+			excludes: []string{"sidebar", "dashboard"},
+		},
+		{
+			name:     "sends visitors from the settings to the sign-in page",
+			path:     "/office/en/settings",
+			status:   http.StatusSeeOther,
+			location: "/office/en/sign-in",
+		},
+		{
+			name:     "sends a user back to choosing from a workspace they do not belong to",
+			path:     "/office/en/workspaces/" + otherID + "/goals",
+			cookies:  signedIn,
+			status:   http.StatusSeeOther,
+			location: "/office/en/workspaces",
+		},
+		{
+			name:     "sends a user back to choosing from a missing workspace",
+			path:     "/office/en/workspaces/01920000-0000-7000-8000-000000000000",
+			cookies:  signedIn,
+			status:   http.StatusSeeOther,
+			location: "/office/en/workspaces",
+		},
+		{
+			name:     "sends a user back to choosing from a malformed workspace ID",
+			path:     "/office/en/workspaces/not-an-id/budgets",
+			cookies:  signedIn,
+			status:   http.StatusSeeOther,
+			location: "/office/en/workspaces",
+		},
+		{
+			name:     "sends a user back to choosing from the nil workspace ID",
+			path:     "/office/en/workspaces/00000000-0000-0000-0000-000000000000",
+			cookies:  signedIn,
+			status:   http.StatusSeeOther,
+			location: "/office/en/workspaces",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -122,6 +187,12 @@ func TestPages(t *testing.T) {
 			for _, fragment := range tt.contains {
 				if !strings.Contains(response.Body.String(), fragment) {
 					t.Fatalf("body lacks %q:\n%s", fragment, response.Body.String())
+				}
+			}
+
+			for _, fragment := range tt.excludes {
+				if strings.Contains(response.Body.String(), fragment) {
+					t.Fatalf("body contains %q", fragment)
 				}
 			}
 		})
