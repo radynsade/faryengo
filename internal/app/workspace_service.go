@@ -26,18 +26,21 @@ type WorkspaceList struct {
 //
 
 // Every write runs in a transaction, so it is atomic on its own and joins a
-// transaction already carried by the caller's context.
+// transaction already carried by the caller's context. Users are read only to
+// find a new member by email.
 
 var ErrWorkspaceRepositoryNil = errors.New("workspace repository is nil")
 
 type WorkspaceService struct {
 	transactor Transactor
 	repository workspaces.WorkspaceRepository
+	users      users.UserRepository
 }
 
 func NewWorkspaceService(
 	transactor Transactor,
 	repository workspaces.WorkspaceRepository,
+	userRepository users.UserRepository,
 ) (*WorkspaceService, error) {
 	var (
 		service *WorkspaceService
@@ -48,8 +51,10 @@ func NewWorkspaceService(
 		err = ErrTransactorNil
 	} else if repository == nil {
 		err = ErrWorkspaceRepositoryNil
+	} else if userRepository == nil {
+		err = ErrUserRepositoryNil
 	} else {
-		service = &WorkspaceService{transactor: transactor, repository: repository}
+		service = &WorkspaceService{transactor: transactor, repository: repository, users: userRepository}
 	}
 
 	return service, err
@@ -349,6 +354,98 @@ func (s *WorkspaceService) AddMember(
 	return err
 }
 
+// Members come back in name order. A membership whose User was deleted in
+// the meantime is left out, as the deletion removes it too.
+
+func (s *WorkspaceService) ListMembers(
+	ctx context.Context,
+	id workspaces.WorkspaceID,
+) ([]*users.User, error) {
+	var (
+		members []*users.User
+		ids     []users.UserID
+		err     error
+	)
+
+	if err = s.check(); err == nil {
+		err = id.Validate()
+
+		if err != nil {
+			err = fmt.Errorf("list workspace members: %w", err)
+		}
+	}
+
+	if err == nil {
+		ids, err = s.repository.FindMemberIDs(ctx, id)
+
+		if err == nil {
+			members, err = s.users.FindByIDs(ctx, ids)
+		}
+
+		if err != nil {
+			err = fmt.Errorf("list members of workspace %s: %w", uuid.UUID(id), err)
+			members = nil
+		}
+	}
+
+	return members, err
+}
+
+// The User is found by email, ignoring letter case. A missing User is
+// reported as users.ErrUserNotFound, a missing Workspace as
+// ErrWorkspaceNotFound, and an existing membership as
+// ErrMembershipAlreadyExists. The added User is returned, so the caller can
+// name them.
+
+func (s *WorkspaceService) AddMemberByEmail(
+	ctx context.Context,
+	request input.AddMemberByEmailInput,
+) (*users.User, error) {
+	var (
+		user *users.User
+		err  error
+	)
+
+	if err = s.check(); err == nil {
+		err = errors.Join(
+			request.WorkspaceID.Validate(),
+			users.Email(request.Email).Validate(),
+		)
+
+		if err != nil {
+			err = fmt.Errorf("add workspace member by email: %w: %w", input.ErrAddMemberByEmailInputInvalid, err)
+		}
+	}
+
+	if err == nil {
+		user, err = s.users.FindByEmail(ctx, users.Email(request.Email))
+
+		if err == nil {
+			membership := workspaces.NewMembership(request.WorkspaceID, user.ID)
+
+			err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+				var err error
+
+				if addErr := s.repository.AddMember(ctx, membership); addErr != nil {
+					err = addErr
+				}
+
+				return err
+			})
+		}
+
+		if err != nil {
+			err = fmt.Errorf("add a member by email to workspace %s: %w", uuid.UUID(request.WorkspaceID), err)
+		}
+	}
+
+	if err != nil {
+		user = nil
+	}
+
+	return user, err
+}
+
 // A User who is not a member is reported by the repository as
 // ErrMembershipNotFound.
 
@@ -398,6 +495,8 @@ func (s *WorkspaceService) check() error {
 		err = ErrWorkspaceRepositoryNil
 	} else if s.transactor == nil {
 		err = ErrTransactorNil
+	} else if s.users == nil {
+		err = ErrUserRepositoryNil
 	}
 
 	return err

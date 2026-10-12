@@ -10,6 +10,8 @@ import (
 // The forms and their password confirmations name the regions a failed
 // in-page submission replaces.
 const (
+	WorkspaceFormID   = "workspace-form"
+	MemberFormID      = "workspace-member-form"
 	ProfileFormID     = "profile-form"
 	ProfileConfirmID  = "profile-confirm"
 	PasswordFormID    = "password-form"
@@ -44,10 +46,42 @@ type PasswordFormProps struct {
 	Confirm     ConfirmProps
 }
 
+type WorkspaceFormProps struct {
+	Action      string
+	Name        string
+	Error       string
+	FieldErrors map[string]string
+}
+
+type MemberFormProps struct {
+	Action      string
+	Email       string
+	Error       string
+	FieldErrors map[string]string
+}
+
+// RemoveURL is empty for the signed-in User, who is not removed from here.
+
+type MemberItem struct {
+	ID        string
+	Name      string
+	Email     string
+	Initials  string
+	IsCurrent bool
+	RemoveURL string
+}
+
+// Workspace, Members, and Member are set only for the settings of a
+// workspace. MembersError replaces the list when it could not be loaded.
+
 type SettingsContentProps struct {
-	Notices  []string
-	Profile  ProfileFormProps
-	Password PasswordFormProps
+	Notices      []string
+	Workspace    *WorkspaceFormProps
+	Members      []MemberItem
+	MembersError string
+	Member       *MemberFormProps
+	Profile   ProfileFormProps
+	Password  PasswordFormProps
 }
 
 type SettingsProps struct {
@@ -80,6 +114,30 @@ templ WorkspaceSettings(dashboard layouts.DashboardProps, content SettingsConten
 // from the flash messages the redirect left for this page.
 templ SettingsContent(props SettingsContentProps) {
 	@settingsNotices(props.Notices, false)
+	if props.Workspace != nil {
+		<section class="settings__section" aria-labelledby="workspace-title">
+			<header class="settings__heading">
+				<h2 id="workspace-title">{ officei18n.T(ctx, "settings.workspace") }</h2>
+				<p>{ officei18n.T(ctx, "settings.workspace_description") }</p>
+			</header>
+			@WorkspaceForm(*props.Workspace)
+			<div class="settings__subsection">
+				<header class="settings__heading">
+					<h3 id="members-title">{ officei18n.T(ctx, "settings.members") }</h3>
+				</header>
+				@memberList(props.Members, props.MembersError)
+			</div>
+			if props.Member != nil {
+				<div class="settings__subsection">
+					<header class="settings__heading">
+						<h3 id="member-title">{ officei18n.T(ctx, "settings.add_member") }</h3>
+						<p>{ officei18n.T(ctx, "settings.add_member_description") }</p>
+					</header>
+					@MemberForm(*props.Member)
+				</div>
+			}
+		</section>
+	}
 	<section class="settings__section" aria-labelledby="profile-title">
 		<header class="settings__heading">
 			<h2 id="profile-title">{ officei18n.T(ctx, "settings.profile") }</h2>
@@ -124,6 +182,106 @@ templ settingsNotices(notices []string, outOfBand bool) {
 templ SettingsFormFailure(form templ.Component) {
 	@form
 	@settingsNotices(nil, true)
+}
+
+// WorkspaceForm renames the current workspace for every member.
+templ WorkspaceForm(props WorkspaceFormProps) {
+	<form
+		id={ WorkspaceFormID }
+		class="form"
+		method="post"
+		action={ templ.URL(props.Action) }
+		novalidate
+		{ components.FormAttributes()... }
+	>
+		@components.FormAlert(props.Error)
+		@components.TextInput(components.TextInputProps{
+			ID:           "workspace-name",
+			Name:         "name",
+			Type:         "text",
+			Label:        officei18n.T(ctx, "fields.workspace_name"),
+			Autocomplete: "off",
+			Value:        props.Name,
+			Required:     true,
+			Error:        props.FieldErrors["name"],
+		})
+		<div class="form__submit">
+			<button class="button" type="submit">{ officei18n.T(ctx, "settings.save_workspace") }</button>
+		</div>
+	</form>
+}
+
+// Each row carries its member's ID, so morphing matches rows between renders.
+// The signed-in User's own row is marked and has no remove button; every other
+// member can be removed, and added again by email.
+templ memberList(members []MemberItem, loadError string) {
+	if loadError != "" {
+		@components.FormAlert(loadError)
+	} else {
+		<ul class="member-list" aria-labelledby="members-title">
+			for _, member := range members {
+				<li id={ "member-" + member.ID } class="member-list__item">
+					@components.Avatar("", member.Initials)
+					<span class="member-list__text">
+						<span class="member-list__name">{ member.Name }</span>
+						<span class="member-list__email">{ member.Email }</span>
+					</span>
+					if member.IsCurrent {
+						<span class="member-list__badge">{ officei18n.T(ctx, "settings.member_you") }</span>
+					}
+					if member.RemoveURL != "" {
+						<form
+							class="member-list__remove"
+							method="post"
+							action={ templ.URL(member.RemoveURL) }
+							{ components.FormAttributes()... }
+						>
+							<button
+								class="icon-button icon-button--danger"
+								type="submit"
+								aria-label={ officei18n.T(ctx, "settings.member_remove", map[string]any{"Name": member.Name}) }
+								title={ officei18n.T(ctx, "settings.member_remove", map[string]any{"Name": member.Name}) }
+							>
+								@components.Icon("trash")
+							</button>
+						</form>
+					}
+				</li>
+			}
+		</ul>
+	}
+}
+
+// MemberForm adds an existing User to the current workspace by their email.
+templ MemberForm(props MemberFormProps) {
+	<form
+		id={ MemberFormID }
+		class="form"
+		method="post"
+		action={ templ.URL(props.Action) }
+		novalidate
+		aria-labelledby="member-title"
+		{ components.FormAttributes()... }
+	>
+		@components.FormAlert(props.Error)
+		@components.TextInput(components.TextInputProps{
+			ID:           "member-email",
+			Name:         "email",
+			Type:         "email",
+			Label:        officei18n.T(ctx, "fields.email"),
+			Placeholder:  officei18n.T(ctx, "fields.email_placeholder"),
+			Autocomplete: "off",
+			Value:        props.Email,
+			Required:     true,
+			Error:        props.FieldErrors["email"],
+		})
+		<div class="form__submit">
+			<button class="button" type="submit">
+				@components.Icon("plus")
+				{ officei18n.T(ctx, "settings.add_member_submit") }
+			</button>
+		</div>
+	</form>
 }
 
 // ProfileForm carries the moment of the change it was built from, so saving

@@ -71,6 +71,7 @@ func TestMethodsRejectMissingPool(t *testing.T) {
 		{"user delete", func() error { return (&UserRepository{}).Delete(ctx, userID) }},
 		{"user find by ID", func() error { _, err := (*UserRepository)(nil).FindByID(ctx, userID); return err }},
 		{"user find by email", func() error { _, err := (&UserRepository{}).FindByEmail(ctx, "a@b.c"); return err }},
+		{"user find by IDs", func() error { _, err := (&UserRepository{}).FindByIDs(ctx, []users.UserID{userID}); return err }},
 		{"role create", func() error { return (&RoleRepository{}).Create(ctx, &users.Role{}) }},
 		{"role update", func() error { return (&RoleRepository{}).Update(ctx, &users.Role{}) }},
 		{"role delete", func() error { return (&RoleRepository{}).Delete(ctx, roleID) }},
@@ -135,6 +136,10 @@ func TestMethodsValidateBeforeIO(t *testing.T) {
 		{"user delete invalid ID", func() error { return userRepository.Delete(ctx, users.UserID{}) }, users.ErrUserIDInvalid},
 		{"user find by invalid ID", func() error {
 			_, err := userRepository.FindByID(ctx, users.UserID{})
+			return err
+		}, users.ErrUserIDInvalid},
+		{"user find by invalid IDs", func() error {
+			_, err := userRepository.FindByIDs(ctx, []users.UserID{users.UserID(uuid.Must(uuid.NewV7())), {}})
 			return err
 		}, users.ErrUserIDInvalid},
 		{"user find by invalid email", func() error {

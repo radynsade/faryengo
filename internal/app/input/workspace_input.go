@@ -30,3 +30,14 @@ type RenameWorkspaceInput struct {
 	ID   workspaces.WorkspaceID
 	Name string
 }
+
+//
+// Add member by email input
+//
+
+var ErrAddMemberByEmailInputInvalid = errors.New("invalid add member by email input")
+
+type AddMemberByEmailInput struct {
+	WorkspaceID workspaces.WorkspaceID
+	Email       string
+}

@@ -44,7 +44,9 @@ create one at `/office/<language>/workspaces/new`; the creator becomes the new
 workspace's first member and lands on its overview. A workspace's dashboard is served at
 `/office/<language>/workspaces/<workspace>` and has Overview, Budgets,
 Transactions, Goals, Reports, and Settings pages, which are empty for now. A
-workspace the user does not belong to sends them back to choosing one. The
+workspace's settings list its members and let any member rename it, add
+another existing user to it by email, and remove other members. A workspace the user does
+not belong to sends them back to choosing one. The
 settings are also available outside any workspace at
 `/office/<language>/settings`, without the workspace sidebar. There users
 change their names and email, and their password; changing the email or the

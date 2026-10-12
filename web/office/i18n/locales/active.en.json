@@ -238,5 +238,50 @@
   },
   "common.confirm": {
     "other": "Confirm"
+  },
+  "settings.workspace": {
+    "other": "Workspace"
+  },
+  "settings.workspace_description": {
+    "other": "The name every member of this workspace sees."
+  },
+  "settings.save_workspace": {
+    "other": "Save workspace"
+  },
+  "settings.workspace_saved": {
+    "other": "The workspace has been saved."
+  },
+  "settings.add_member": {
+    "other": "Add a member"
+  },
+  "settings.add_member_description": {
+    "other": "Enter the email address of a user who already has an account."
+  },
+  "settings.add_member_submit": {
+    "other": "Add member"
+  },
+  "settings.member_added": {
+    "other": "{{.Name}} ({{.Email}}) has been added to the workspace."
+  },
+  "validation.member_unknown": {
+    "other": "No user has this email address."
+  },
+  "validation.member_exists": {
+    "other": "This user is already a member of the workspace."
+  },
+  "settings.members": {
+    "other": "Members"
+  },
+  "settings.member_you": {
+    "other": "You"
+  },
+  "errors.members_unavailable": {
+    "other": "The members could not be loaded. Please try again later."
+  },
+  "settings.member_remove": {
+    "other": "Remove {{.Name}} from the workspace"
+  },
+  "settings.member_removed": {
+    "other": "{{.Name}} has been removed from the workspace."
   }
 }

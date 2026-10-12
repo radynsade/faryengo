@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 )
 
@@ -149,6 +150,7 @@ type WorkspaceRepository struct {
 	AddMemberFunc         func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipAddFailed
 	RemoveMemberFunc      func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipRemoveFailed
 	HasMemberFunc         func(ctx context.Context, membership workspaces.Membership) (bool, error)
+	FindMemberIDsFunc     func(ctx context.Context, id workspaces.WorkspaceID) ([]users.UserID, error)
 }
 
 var _ workspaces.WorkspaceRepository = (*WorkspaceRepository)(nil)
@@ -326,4 +328,22 @@ func (r *WorkspaceRepository) HasMember(
 	}
 
 	return isMember, err
+}
+
+// Find the IDs of a workspace's members
+
+func (r *WorkspaceRepository) FindMemberIDs(
+	ctx context.Context,
+	id workspaces.WorkspaceID,
+) ([]users.UserID, error) {
+	var (
+		result []users.UserID
+		err    = ErrNotConfigured
+	)
+
+	if r.FindMemberIDsFunc != nil {
+		result, err = r.FindMemberIDsFunc(ctx, id)
+	}
+
+	return result, err
 }

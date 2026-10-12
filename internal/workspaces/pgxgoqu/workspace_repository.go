@@ -535,6 +535,44 @@ func (r *WorkspaceRepository) HasMember(
 	return count > 0, err
 }
 
+// Find the IDs of a workspace's members
+
+func (r *WorkspaceRepository) FindMemberIDs(
+	ctx context.Context,
+	id workspaces.WorkspaceID,
+) ([]users.UserID, error) {
+	var (
+		result []users.UserID
+		err    error
+	)
+
+	if r == nil || r.pool == nil {
+		err = pgxdb.ErrNilDB
+	} else if validationErr := id.Validate(); validationErr != nil {
+		err = fmt.Errorf("failed to find workspace members: %w", validationErr)
+	} else {
+		query, args, buildErr := goqu.Dialect("postgres").
+			From("workspace_membership").
+			Select("user_id").
+			Where(goqu.Ex{"workspace_id": uuid.UUID(id).String()}).
+			Order(goqu.C("user_id").Asc()).
+			Prepared(true).
+			ToSQL()
+
+		if buildErr != nil {
+			err = fmt.Errorf("failed to build the workspace members query: %w", buildErr)
+		} else {
+			result, err = r.scanMemberIDs(ctx, query, args)
+
+			if err != nil {
+				err = fmt.Errorf("failed to find members of workspace %s: %w", uuid.UUID(id), err)
+			}
+		}
+	}
+
+	return result, err
+}
+
 //
 // Helpers
 //
@@ -568,6 +606,46 @@ func (r *WorkspaceRepository) find(
 	}
 
 	return workspace, err
+}
+
+func (r *WorkspaceRepository) scanMemberIDs(
+	ctx context.Context,
+	query string,
+	args []any,
+) ([]users.UserID, error) {
+	result := []users.UserID{}
+
+	rows, err := pgxdb.FromContext(ctx, r.pool).Query(ctx, query, args...)
+
+	if err == nil {
+		defer rows.Close()
+
+		for rows.Next() {
+			var id pgtype.UUID
+
+			err = rows.Scan(&id)
+
+			if err == nil {
+				err = users.UserID(id.Bytes).Validate()
+			}
+
+			if err != nil {
+				break
+			}
+
+			result = append(result, users.UserID(id.Bytes))
+		}
+
+		if err == nil {
+			err = rows.Err()
+		}
+	}
+
+	if err != nil {
+		result = nil
+	}
+
+	return result, err
 }
 
 func workspaceColumns() []any {

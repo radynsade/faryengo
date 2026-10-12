@@ -46,7 +46,7 @@ func (h *Handler) settings(writer http.ResponseWriter, request *http.Request) {
 			slog.ErrorContext(request.Context(), "office flash storage", "error", err)
 			utils.Fail(writer, request, http.StatusServiceUnavailable, "errors.settings_unavailable")
 		} else {
-			content := utils.SettingsContentProps(request, scope.current, scope.url, bag.Get(flashmsg.Success))
+			content := utils.SettingsContentProps(request, scope.current, scope.workspace, scope.url, bag.Get(flashmsg.Success))
 
 			h.renderSettings(writer, request, http.StatusOK, scope, content, "")
 		}
@@ -86,7 +86,7 @@ func (h *Handler) updateProfile(writer http.ResponseWriter, request *http.Reques
 
 			h.settingsSaved(writer, request, scope, user, password, messages)
 		} else {
-			content := utils.SettingsContentProps(request, scope.current, scope.url, nil)
+			content := utils.SettingsContentProps(request, scope.current, scope.workspace, scope.url, nil)
 			content.Profile.FirstName, content.Profile.LastName, content.Profile.Email = form.FirstName, form.LastName, form.Email
 			content.Profile.FieldErrors = utils.ProfileFieldErrors(request.Context(), err)
 
@@ -133,7 +133,7 @@ func (h *Handler) changePassword(writer http.ResponseWriter, request *http.Reque
 
 			h.settingsSaved(writer, request, scope, user, form.NewPassword, messages)
 		} else {
-			content := utils.SettingsContentProps(request, scope.current, scope.url, nil)
+			content := utils.SettingsContentProps(request, scope.current, scope.workspace, scope.url, nil)
 			content.Password.FieldErrors = utils.PasswordFieldErrors(request.Context(), err)
 			status, region := http.StatusUnprocessableEntity, pages.PasswordFormID
 			confirm, confirming := utils.PasswordConfirmation(request.Context(), err, form.Confirmed)
@@ -146,6 +146,121 @@ func (h *Handler) changePassword(writer http.ResponseWriter, request *http.Reque
 			}
 
 			h.renderSettings(writer, request, status, scope, content, region)
+		}
+	}
+}
+
+// A workspace's name is the same for every member, so any member may change
+// it; the scope has already checked the membership.
+
+func (h *Handler) renameWorkspace(writer http.ResponseWriter, request *http.Request) {
+	scope, ok := h.settingsScope(writer, request)
+
+	if ok {
+		var renamed *workspaces.Workspace
+
+		form, err := utils.ParseWorkspaceForm(writer, request)
+
+		if err == nil {
+			renamed, err = h.workspaces.Rename(request.Context(), input.RenameWorkspaceInput{ID: scope.workspace.ID, Name: form.Name})
+		}
+
+		if err == nil {
+			scope.workspace = renamed
+			h.settingsSaved(writer, request, scope, nil, "", []string{officei18n.T(request.Context(), "settings.workspace_saved")})
+		} else if errors.Is(err, workspaces.ErrWorkspaceNotFound) {
+			http.Redirect(writer, request, utils.WorkspacesPath(request), http.StatusSeeOther)
+		} else {
+			content := utils.SettingsContentProps(request, scope.current, scope.workspace, scope.url, nil)
+			content.Workspace.Name = form.Name
+			content.Workspace.FieldErrors = utils.WorkspaceFieldErrors(request.Context(), err)
+			status := http.StatusUnprocessableEntity
+
+			if content.Workspace.FieldErrors == nil {
+				status, content.Workspace.Error = utils.SettingsFormError(request.Context(), err)
+				h.logSettingsFailure(request, status, err)
+			}
+
+			h.renderSettings(writer, request, status, scope, content, pages.WorkspaceFormID)
+		}
+	}
+}
+
+// Any member may add another existing User by email; the scope has already
+// checked the membership. The confirmation names the added User.
+
+func (h *Handler) addWorkspaceMember(writer http.ResponseWriter, request *http.Request) {
+	scope, ok := h.settingsScope(writer, request)
+
+	if ok {
+		var member *users.User
+
+		form, err := utils.ParseMemberForm(writer, request)
+
+		if err == nil {
+			member, err = h.workspaces.AddMemberByEmail(request.Context(), input.AddMemberByEmailInput{
+				WorkspaceID: scope.workspace.ID,
+				Email:       form.Email,
+			})
+		}
+
+		if err == nil {
+			message := officei18n.T(request.Context(), "settings.member_added", map[string]any{
+				"Name":  utils.FullName(member),
+				"Email": string(member.Email),
+			})
+
+			h.settingsSaved(writer, request, scope, nil, "", []string{message})
+		} else if errors.Is(err, workspaces.ErrWorkspaceNotFound) {
+			http.Redirect(writer, request, utils.WorkspacesPath(request), http.StatusSeeOther)
+		} else {
+			content := utils.SettingsContentProps(request, scope.current, scope.workspace, scope.url, nil)
+			content.Member.Email = form.Email
+			content.Member.FieldErrors = utils.MemberFieldErrors(request.Context(), err)
+			status := http.StatusUnprocessableEntity
+
+			if content.Member.FieldErrors == nil {
+				status, content.Member.Error = utils.SettingsFormError(request.Context(), err)
+				h.logSettingsFailure(request, status, err)
+			}
+
+			h.renderSettings(writer, request, status, scope, content, pages.MemberFormID)
+		}
+	}
+}
+
+// Any member may remove another one, who can be added again by email. The
+// signed-in User does not remove themselves from here, so such a request, and
+// one for a User who is no longer a member, changes nothing and shows the
+// current members.
+
+func (h *Handler) removeWorkspaceMember(writer http.ResponseWriter, request *http.Request) {
+	scope, ok := h.settingsScope(writer, request)
+
+	if ok {
+		var member *users.User
+
+		id, err := utils.ParseRemoveMemberForm(writer, request)
+
+		if err == nil && id != scope.current.User.ID {
+			member, err = h.users.FindByID(request.Context(), id)
+
+			if err == nil {
+				err = h.workspaces.RemoveMember(request.Context(), scope.workspace.ID, id)
+			}
+		}
+
+		if err == nil && member != nil {
+			message := officei18n.T(request.Context(), "settings.member_removed", map[string]any{"Name": utils.FullName(member)})
+
+			h.settingsSaved(writer, request, scope, nil, "", []string{message})
+		} else if err == nil || errors.Is(err, users.ErrUserNotFound) || errors.Is(err, workspaces.ErrMembershipNotFound) {
+			http.Redirect(writer, request, scope.url, http.StatusSeeOther)
+		} else if errors.Is(err, utils.ErrFormInvalid) {
+			utils.Fail(writer, request, http.StatusBadRequest, "errors.form")
+		} else {
+			slog.ErrorContext(request.Context(), "office workspace member removal", "error", err)
+			utils.Fail(writer, request, http.StatusServiceUnavailable, "errors.settings_unavailable")
 		}
 	}
 }
@@ -277,7 +392,8 @@ func (h *Handler) logSettingsFailure(request *http.Request, status int, err erro
 // A failed in-page submission replaces only its form, or only the form's
 // confirmation when the current password is missing or wrong, so the other
 // fields keep what was typed; every other response is the whole page, inside
-// the workspace when the settings belong to one.
+// the workspace with its members when the settings belong to one. A member
+// list that cannot be loaded shows its error instead.
 
 func (h *Handler) renderSettings(
 	writer http.ResponseWriter,
@@ -292,6 +408,15 @@ func (h *Handler) renderSettings(
 	if region != "" && utils.IsPartial(request) {
 		utils.RenderFormRegion(writer, request, status, region, pages.SettingsFormFailure(settingsRegion(region, content)))
 	} else if scope.workspace != nil {
+		members, err := h.workspaces.ListMembers(request.Context(), scope.workspace.ID)
+
+		if err != nil {
+			slog.ErrorContext(request.Context(), "office workspace members", "error", err)
+			content.MembersError = officei18n.T(request.Context(), "errors.members_unavailable")
+		} else {
+			content.Members = utils.MemberItems(members, scope.current, scope.url)
+		}
+
 		dashboard := utils.DashboardProps(request, scope.current, scope.workspace, "settings", title)
 		dashboard.Narrow = true
 
@@ -307,6 +432,10 @@ func settingsRegion(region string, content pages.SettingsContentProps) templ.Com
 	var component templ.Component
 
 	switch region {
+	case pages.WorkspaceFormID:
+		component = pages.WorkspaceForm(*content.Workspace)
+	case pages.MemberFormID:
+		component = pages.MemberForm(*content.Member)
 	case pages.ProfileConfirmID:
 		component = pages.ProfileConfirm(content.Profile)
 	case pages.PasswordFormID:

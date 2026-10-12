@@ -291,7 +291,7 @@ func wireHandlers(
 	}
 
 	if err == nil {
-		workspaceService, err = app.NewWorkspaceService(transactor, workspaceRepository)
+		workspaceService, err = app.NewWorkspaceService(transactor, workspaceRepository, userRepository)
 	}
 
 	if err == nil {

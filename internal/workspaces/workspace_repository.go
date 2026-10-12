@@ -176,4 +176,5 @@ type WorkspaceRepository interface {
 	AddMember(ctx context.Context, membership Membership) ErrMembershipAddFailed
 	RemoveMember(ctx context.Context, membership Membership) ErrMembershipRemoveFailed
 	HasMember(ctx context.Context, membership Membership) (bool, error)
+	FindMemberIDs(ctx context.Context, id WorkspaceID) ([]users.UserID, error)
 }

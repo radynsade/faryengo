@@ -88,6 +88,7 @@ type UserRepository struct {
 	DeleteFunc      func(ctx context.Context, id users.UserID) users.ErrUserDeleteFailed
 	FindByIDFunc    func(ctx context.Context, id users.UserID) (*users.User, error)
 	FindByEmailFunc func(ctx context.Context, email users.Email) (*users.User, error)
+	FindByIDsFunc   func(ctx context.Context, ids []users.UserID) ([]*users.User, error)
 	FindFunc        func(ctx context.Context, query users.UserQuery) ([]*users.User, error)
 	CountFunc       func(ctx context.Context, filter users.UserFilter) (int, error)
 }
@@ -179,6 +180,24 @@ func (r *UserRepository) FindByEmail(
 	}
 
 	return user, err
+}
+
+// Find users by their IDs
+
+func (r *UserRepository) FindByIDs(
+	ctx context.Context,
+	ids []users.UserID,
+) ([]*users.User, error) {
+	var (
+		result []*users.User
+		err    = ErrNotConfigured
+	)
+
+	if r.FindByIDsFunc != nil {
+		result, err = r.FindByIDsFunc(ctx, ids)
+	}
+
+	return result, err
 }
 
 // Find users matching a query

@@ -11,6 +11,7 @@ import (
 	"github.com/radynsade/faryengo/internal/app/input"
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
 	"github.com/radynsade/faryengo/internal/users"
+	usersmock "github.com/radynsade/faryengo/internal/users/mock"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	workspacesmock "github.com/radynsade/faryengo/internal/workspaces/mock"
 	"github.com/radynsade/faryengo/pkg/domquery"
@@ -23,14 +24,16 @@ func TestNewWorkspaceService(t *testing.T) {
 		name       string
 		transactor Transactor
 		repository workspaces.WorkspaceRepository
+		users      users.UserRepository
 		wantErr    error
 	}{
-		{name: "created", transactor: &appmock.Transactor{}, repository: &workspacesmock.WorkspaceRepository{}},
-		{name: "nil transactor", repository: &workspacesmock.WorkspaceRepository{}, wantErr: ErrTransactorNil},
-		{name: "nil repository", transactor: &appmock.Transactor{}, wantErr: ErrWorkspaceRepositoryNil},
+		{name: "created", transactor: &appmock.Transactor{}, repository: &workspacesmock.WorkspaceRepository{}, users: &usersmock.UserRepository{}},
+		{name: "nil transactor", repository: &workspacesmock.WorkspaceRepository{}, users: &usersmock.UserRepository{}, wantErr: ErrTransactorNil},
+		{name: "nil repository", transactor: &appmock.Transactor{}, users: &usersmock.UserRepository{}, wantErr: ErrWorkspaceRepositoryNil},
+		{name: "nil user repository", transactor: &appmock.Transactor{}, repository: &workspacesmock.WorkspaceRepository{}, wantErr: ErrUserRepositoryNil},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			service, err := NewWorkspaceService(tt.transactor, tt.repository)
+			service, err := NewWorkspaceService(tt.transactor, tt.repository, tt.users)
 
 			if !errors.Is(err, tt.wantErr) || (err == nil) != (tt.wantErr == nil) || (service == nil) != (tt.wantErr != nil) {
 				t.Fatalf("NewWorkspaceService() = (%v, %v), want error %v", service, err, tt.wantErr)
@@ -54,15 +57,17 @@ func TestWorkspaceServiceNilReceiver(t *testing.T) {
 	removeErr := service.RemoveMember(ctx, testWorkspaceID, testUserID)
 	member, memberErr := service.FindForMember(ctx, testWorkspaceID, testUserID)
 	createdAsUser, createAsUserErr := service.CreateAsUser(ctx, testUserID, input.CreateWorkspaceInput{Name: "Design"})
+	addedByEmail, addByEmailErr := service.AddMemberByEmail(ctx, input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "anna@example.com"})
+	listedMembers, listMembersErr := service.ListMembers(ctx, testWorkspaceID)
 
-	for _, err := range []error{createErr, findErr, listErr, memberListErr, renameErr, deleteErr, addErr, removeErr, memberErr, createAsUserErr} {
+	for _, err := range []error{createErr, findErr, listErr, memberListErr, renameErr, deleteErr, addErr, removeErr, memberErr, createAsUserErr, addByEmailErr, listMembersErr} {
 		if !errors.Is(err, ErrWorkspaceRepositoryNil) {
 			t.Fatalf("nil receiver error = %v, want ErrWorkspaceRepositoryNil", err)
 		}
 	}
 
-	if created != nil || found != nil || list.Workspaces != nil || memberList.Workspaces != nil || renamed != nil || member != nil || createdAsUser != nil {
-		t.Fatalf("nil receiver returned values: %v, %v, %v, %v, %v, %v, %v", created, found, list, memberList, renamed, member, createdAsUser)
+	if created != nil || found != nil || list.Workspaces != nil || memberList.Workspaces != nil || renamed != nil || member != nil || createdAsUser != nil || addedByEmail != nil || listedMembers != nil {
+		t.Fatalf("nil receiver returned values: %v, %v, %v, %v, %v, %v, %v, %v, %v", created, found, list, memberList, renamed, member, createdAsUser, addedByEmail, listedMembers)
 	}
 }
 
@@ -148,7 +153,7 @@ func TestWorkspaceServiceCreate(t *testing.T) {
 			}
 
 			transactor := &appmock.Transactor{BeginErr: tt.beginErr}
-			service, err := NewWorkspaceService(transactor, repository)
+			service, err := NewWorkspaceService(transactor, repository, &usersmock.UserRepository{})
 
 			if err != nil {
 				t.Fatal(err)
@@ -264,7 +269,7 @@ func TestWorkspaceServiceCreateAsUser(t *testing.T) {
 			}
 
 			transactor := &appmock.Transactor{}
-			service, err := NewWorkspaceService(transactor, repository)
+			service, err := NewWorkspaceService(transactor, repository, &usersmock.UserRepository{})
 
 			if err != nil {
 				t.Fatal(err)
@@ -332,7 +337,7 @@ func TestWorkspaceServiceFindByID(t *testing.T) {
 				},
 			}
 
-			service, err := NewWorkspaceService(&appmock.Transactor{}, repository)
+			service, err := NewWorkspaceService(&appmock.Transactor{}, repository, &usersmock.UserRepository{})
 
 			if err != nil {
 				t.Fatal(err)
@@ -430,7 +435,7 @@ func TestWorkspaceServiceFindForMember(t *testing.T) {
 				},
 			}
 
-			service, err := NewWorkspaceService(&appmock.Transactor{}, repository)
+			service, err := NewWorkspaceService(&appmock.Transactor{}, repository, &usersmock.UserRepository{})
 
 			if err != nil {
 				t.Fatal(err)
@@ -556,7 +561,7 @@ func TestWorkspaceServiceList(t *testing.T) {
 				},
 			}
 
-			service, err := NewWorkspaceService(&appmock.Transactor{}, repository)
+			service, err := NewWorkspaceService(&appmock.Transactor{}, repository, &usersmock.UserRepository{})
 
 			if err != nil {
 				t.Fatal(err)
@@ -677,7 +682,7 @@ func TestWorkspaceServiceRename(t *testing.T) {
 			}
 
 			transactor := &appmock.Transactor{}
-			service, err := NewWorkspaceService(transactor, repository)
+			service, err := NewWorkspaceService(transactor, repository, &usersmock.UserRepository{})
 
 			if err != nil {
 				t.Fatal(err)
@@ -747,7 +752,7 @@ func TestWorkspaceServiceDelete(t *testing.T) {
 			}
 
 			transactor := &appmock.Transactor{}
-			service, err := NewWorkspaceService(transactor, repository)
+			service, err := NewWorkspaceService(transactor, repository, &usersmock.UserRepository{})
 
 			if err != nil {
 				t.Fatal(err)
@@ -876,7 +881,7 @@ func TestWorkspaceServiceMembers(t *testing.T) {
 			}
 
 			transactor := &appmock.Transactor{}
-			service, err := NewWorkspaceService(transactor, repository)
+			service, err := NewWorkspaceService(transactor, repository, &usersmock.UserRepository{})
 
 			if err != nil {
 				t.Fatal(err)
@@ -904,5 +909,183 @@ func validWorkspaceQuery() workspaces.WorkspaceQuery {
 		SortBy:    workspaces.WorkspaceSortName,
 		Limit:     20,
 		Page:      1,
+	}
+}
+
+func TestWorkspaceServiceAddMemberByEmail(t *testing.T) {
+	member := testUser()
+
+	for _, tt := range []struct {
+		name        string
+		request     input.AddMemberByEmailInput
+		findErr     error
+		addErr      error
+		wantErrs    []error
+		wantFinds   int
+		wantAdds    int
+		wantTxCalls int
+	}{
+		{
+			name:        "added",
+			request:     input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "Anna@Example.com"},
+			wantFinds:   1,
+			wantAdds:    1,
+			wantTxCalls: 1,
+		},
+		{
+			name:     "invalid fields",
+			request:  input.AddMemberByEmailInput{Email: "Anna <anna@example.com>"},
+			wantErrs: []error{input.ErrAddMemberByEmailInputInvalid, workspaces.ErrWorkspaceIDInvalid, users.ErrEmailInvalid},
+		},
+		{
+			name:      "unknown email",
+			request:   input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "nobody@example.com"},
+			findErr:   users.ErrUserNotFound,
+			wantErrs:  []error{users.ErrUserNotFound},
+			wantFinds: 1,
+		},
+		{
+			name:        "already a member",
+			request:     input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "anna@example.com"},
+			addErr:      workspaces.ErrMembershipAlreadyExists,
+			wantErrs:    []error{workspaces.ErrMembershipAlreadyExists},
+			wantFinds:   1,
+			wantAdds:    1,
+			wantTxCalls: 1,
+		},
+		{
+			name:        "workspace deleted meanwhile",
+			request:     input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "anna@example.com"},
+			addErr:      workspaces.ErrWorkspaceNotFound,
+			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
+			wantFinds:   1,
+			wantAdds:    1,
+			wantTxCalls: 1,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			finds, adds := 0, 0
+
+			userRepository := &usersmock.UserRepository{
+				FindByEmailFunc: func(_ context.Context, email users.Email) (*users.User, error) {
+					var user *users.User
+
+					finds++
+
+					if email != users.Email(tt.request.Email) {
+						t.Errorf("FindByEmail() called with %q", email)
+					}
+
+					if tt.findErr == nil {
+						user = member
+					}
+
+					return user, tt.findErr
+				},
+			}
+
+			repository := &workspacesmock.WorkspaceRepository{
+				AddMemberFunc: func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipAddFailed {
+					var err workspaces.ErrMembershipAddFailed
+
+					adds++
+
+					if !appmock.InTransaction(ctx) || membership != workspaces.NewMembership(tt.request.WorkspaceID, member.ID) {
+						t.Errorf("AddMember() called with (%v, %+v), want the found user in a transaction", ctx, membership)
+					}
+
+					if tt.addErr != nil {
+						err = workspacesmock.NewErrMembershipAddFailed(membership, tt.addErr)
+					}
+
+					return err
+				},
+			}
+
+			transactor := &appmock.Transactor{}
+			service, err := NewWorkspaceService(transactor, repository, userRepository)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			user, err := service.AddMemberByEmail(t.Context(), tt.request)
+
+			if finds != tt.wantFinds || adds != tt.wantAdds || transactor.Calls != tt.wantTxCalls {
+				t.Fatalf("calls = (find %d, add %d, transaction %d), want (%d, %d, %d)", finds, adds, transactor.Calls, tt.wantFinds, tt.wantAdds, tt.wantTxCalls)
+			}
+
+			assertErrors(t, err, tt.wantErrs)
+
+			if (user == member) != (len(tt.wantErrs) == 0) || (user != nil && len(tt.wantErrs) > 0) {
+				t.Fatalf("AddMemberByEmail() user = %v, want the member only on success", user)
+			}
+		})
+	}
+}
+
+func TestWorkspaceServiceListMembers(t *testing.T) {
+	member := testUser()
+	storageErr := errors.New("storage unavailable")
+
+	for _, tt := range []struct {
+		name      string
+		id        workspaces.WorkspaceID
+		idsErr    error
+		usersErr  error
+		wantErrs  []error
+		wantCalls int
+		wantCount int
+	}{
+		{name: "listed", id: testWorkspaceID, wantCalls: 2, wantCount: 1},
+		{name: "invalid ID", wantErrs: []error{workspaces.ErrWorkspaceIDInvalid}},
+		{name: "membership failure", id: testWorkspaceID, idsErr: storageErr, wantErrs: []error{storageErr}, wantCalls: 1},
+		{name: "user failure", id: testWorkspaceID, usersErr: storageErr, wantErrs: []error{storageErr}, wantCalls: 2},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			calls := 0
+
+			repository := &workspacesmock.WorkspaceRepository{
+				FindMemberIDsFunc: func(_ context.Context, id workspaces.WorkspaceID) ([]users.UserID, error) {
+					calls++
+
+					if id != tt.id {
+						t.Errorf("FindMemberIDs() called with %v", id)
+					}
+
+					return []users.UserID{member.ID}, tt.idsErr
+				},
+			}
+
+			userRepository := &usersmock.UserRepository{
+				FindByIDsFunc: func(_ context.Context, ids []users.UserID) ([]*users.User, error) {
+					calls++
+
+					if len(ids) != 1 || ids[0] != member.ID {
+						t.Errorf("FindByIDs() called with %v", ids)
+					}
+
+					return []*users.User{member}, tt.usersErr
+				},
+			}
+
+			service, err := NewWorkspaceService(&appmock.Transactor{}, repository, userRepository)
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			members, err := service.ListMembers(t.Context(), tt.id)
+
+			if calls != tt.wantCalls {
+				t.Fatalf("repository calls = %d, want %d", calls, tt.wantCalls)
+			}
+
+			assertErrors(t, err, tt.wantErrs)
+
+			if len(members) != tt.wantCount || (tt.wantCount > 0 && members[0] != member) {
+				t.Fatalf("ListMembers() = %v, want %d members", members, tt.wantCount)
+			}
+		})
 	}
 }

@@ -297,6 +297,56 @@ func (r *UserRepository) FindByEmail(
 	return user, err
 }
 
+// Users come back in name order, ignoring letter case, with the ID as the
+// tie-breaker; IDs that name no User are left out, and no IDs need no query.
+
+func (r *UserRepository) FindByIDs(
+	ctx context.Context,
+	ids []users.UserID,
+) ([]*users.User, error) {
+	var (
+		result []*users.User
+		err    error
+	)
+
+	stored := make([]string, 0, len(ids))
+
+	for _, id := range ids {
+		if err == nil {
+			err = id.Validate()
+			stored = append(stored, uuid.UUID(id).String())
+		}
+	}
+
+	if r == nil || r.pool == nil {
+		err = pgxdb.ErrNilDB
+	} else if err != nil {
+		err = fmt.Errorf("failed to find users by IDs: %w", err)
+	} else if len(stored) == 0 {
+		result = []*users.User{}
+	} else {
+		query, args, buildErr := goqu.Dialect("postgres").
+			From("user").
+			Select(userColumns()...).
+			Where(goqu.Ex{"id": stored}).
+			Order(goqu.L(`lower("user".first_name)`).Asc(), goqu.L(`lower("user".last_name)`).Asc(), goqu.C("id").Asc()).
+			Prepared(true).
+			ToSQL()
+
+		if buildErr != nil {
+			err = fmt.Errorf("failed to build the find users by IDs query: %w", buildErr)
+		} else {
+			result, err = r.scanUsers(ctx, query, args, len(stored))
+
+			if err != nil {
+				err = fmt.Errorf("failed to find users by IDs: %w", err)
+			}
+		}
+	}
+
+	return result, err
+}
+
 // Find users matching a query; Page is 1-based
 
 func (r *UserRepository) Find(
@@ -401,6 +451,52 @@ func (r *UserRepository) Count(
 //
 // Helpers
 //
+
+func (r *UserRepository) scanUsers(
+	ctx context.Context,
+	query string,
+	args []any,
+	capacity int,
+) ([]*users.User, error) {
+	var result []*users.User
+
+	rows, err := pgxdb.FromContext(ctx, r.pool).Query(ctx, query, args...)
+
+	if err == nil {
+		defer rows.Close()
+
+		result = make([]*users.User, 0, capacity)
+
+		for rows.Next() {
+			var (
+				record userRecord
+				user   *users.User
+			)
+
+			err = rows.Scan(record.targets()...)
+
+			if err == nil {
+				user, err = record.user()
+			}
+
+			if err != nil {
+				break
+			}
+
+			result = append(result, user)
+		}
+
+		if err == nil {
+			err = rows.Err()
+		}
+	}
+
+	if err != nil {
+		result = nil
+	}
+
+	return result, err
+}
 
 func (r *UserRepository) find(
 	ctx context.Context,

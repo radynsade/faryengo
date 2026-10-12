@@ -4,11 +4,15 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
+	"github.com/radynsade/faryengo/internal/workspaces"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 	"github.com/radynsade/faryengo/web/office/templates/pages"
@@ -160,6 +164,103 @@ func PasswordFieldErrors(ctx context.Context, err error) map[string]string {
 }
 
 //
+// Member form
+//
+
+type MemberForm struct {
+	Email string `form:"email" validate:"required,office_mailbox,maxbytes=254"`
+}
+
+func ParseMemberForm(writer http.ResponseWriter, request *http.Request) (MemberForm, error) {
+	var form MemberForm
+
+	err := parseForm(writer, request, maxSettingsFormBytes, "email")
+
+	if err == nil {
+		form = MemberForm{Email: request.PostForm.Get("email")}
+		err = requestvalidation.Validate(request.Context(), form)
+	}
+
+	return form, err
+}
+
+// An email that names no User, or a User who already belongs to the
+// workspace, is a problem with the email field.
+
+func MemberFieldErrors(ctx context.Context, err error) map[string]string {
+	fields := make(map[string]string)
+
+	addTransportErrors(ctx, fields, err)
+
+	if _, found := fields["email"]; !found {
+		switch {
+		case errors.Is(err, users.ErrEmailInvalid):
+			fields["email"] = officei18n.T(ctx, "validation.email")
+		case errors.Is(err, users.ErrUserNotFound):
+			fields["email"] = officei18n.T(ctx, "validation.member_unknown")
+		case errors.Is(err, workspaces.ErrMembershipAlreadyExists):
+			fields["email"] = officei18n.T(ctx, "validation.member_exists")
+		}
+	}
+
+	return nilIfEmpty(fields)
+}
+
+//
+// Members
+//
+
+func MemberItems(
+	members []*users.User,
+	current *security.Identity,
+	settingsURL string,
+) []pages.MemberItem {
+	items := make([]pages.MemberItem, 0, len(members))
+
+	for _, member := range members {
+		item := pages.MemberItem{
+			ID:        uuid.UUID(member.ID).String(),
+			Name:      FullName(member),
+			Email:     string(member.Email),
+			Initials:  initial(string(member.FirstName)) + initial(string(member.LastName)),
+			IsCurrent: member.ID == current.User.ID,
+		}
+
+		if !item.IsCurrent {
+			item.RemoveURL = settingsURL + "/members/" + item.ID + "/remove"
+		}
+
+		items = append(items, item)
+	}
+
+	return items
+}
+
+func FullName(user *users.User) string {
+	return strings.TrimSpace(string(user.FirstName) + " " + string(user.LastName))
+}
+
+// Removal carries the member in its address, so its form has no fields.
+
+func ParseRemoveMemberForm(writer http.ResponseWriter, request *http.Request) (users.UserID, error) {
+	var id users.UserID
+
+	err := parseForm(writer, request, maxSettingsFormBytes)
+
+	if err == nil {
+		parsed, parseErr := uuid.Parse(request.PathValue("user"))
+
+		if parseErr != nil || parsed == uuid.Nil {
+			err = errors.Join(ErrFormInvalid, users.ErrUserIDInvalid)
+		} else {
+			id = users.UserID(parsed)
+		}
+	}
+
+	return id, err
+}
+
+//
 // Password confirmation
 //
 
@@ -194,12 +295,13 @@ func PasswordConfirmation(ctx context.Context, err error, confirmed bool) (pages
 func SettingsContentProps(
 	request *http.Request,
 	current *security.Identity,
+	workspace *workspaces.Workspace,
 	settingsURL string,
 	notices []string,
 ) pages.SettingsContentProps {
 	user := current.User
 
-	return pages.SettingsContentProps{
+	props := pages.SettingsContentProps{
 		Notices: notices,
 		Profile: pages.ProfileFormProps{
 			Action:    settingsURL + "/profile",
@@ -214,6 +316,16 @@ func SettingsContentProps(
 			CancelURL: settingsURL,
 		},
 	}
+
+	if workspace != nil {
+		props.Workspace = &pages.WorkspaceFormProps{
+			Action: settingsURL + "/workspace",
+			Name:   string(workspace.Name),
+		}
+		props.Member = &pages.MemberFormProps{Action: settingsURL + "/members"}
+	}
+
+	return props
 }
 
 // A profile that changed after the form was built cannot be saved over the

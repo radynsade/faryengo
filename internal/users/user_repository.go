@@ -166,6 +166,7 @@ type UserRepository interface {
 	Delete(ctx context.Context, id UserID) ErrUserDeleteFailed
 	FindByID(ctx context.Context, id UserID) (*User, error)
 	FindByEmail(ctx context.Context, email Email) (*User, error)
+	FindByIDs(ctx context.Context, ids []UserID) ([]*User, error)
 	Find(ctx context.Context, query UserQuery) ([]*User, error)
 	Count(ctx context.Context, filter UserFilter) (int, error)
 }

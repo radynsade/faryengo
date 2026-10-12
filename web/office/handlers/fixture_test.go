@@ -55,10 +55,13 @@ type fixture struct {
 	members    map[workspaces.WorkspaceID][]users.UserID
 	findErr    error
 	createErr  error
+	updateErr  error
+	membersErr error
+	others     []*users.User
 }
 
-// The fixture has one User with an ordinary Role, who belongs to two of three
-// Workspaces. Its repositories keep them in memory behind the complete domain
+// The fixture has one signed-in User with an ordinary Role, who belongs to two
+// of three Workspaces, and another User who belongs to none. Its repositories keep them in memory behind the complete domain
 // contracts.
 
 func newFixture(t *testing.T) *fixture {
@@ -91,6 +94,21 @@ func newFixture(t *testing.T) *fixture {
 		time.Now(),
 	)
 
+	f.others = []*users.User{users.NewUser(
+		users.UserID(uuid.Must(uuid.NewV7())),
+		f.role.ID,
+		"grace@example.com",
+		time.Now(),
+		"+37120000001",
+		time.Now(),
+		"hash:another horse",
+		time.Now(),
+		"Grace",
+		"Hopper",
+		time.Now(),
+		time.Now(),
+	)}
+
 	design := workspaces.NewWorkspace(workspaces.WorkspaceID(uuid.MustParse(designID)), "Design")
 	family := workspaces.NewWorkspace(workspaces.WorkspaceID(uuid.MustParse(familyID)), "Family budget")
 	other := workspaces.NewWorkspace(workspaces.WorkspaceID(uuid.MustParse(otherID)), "Someone else's")
@@ -121,7 +139,7 @@ func newFixture(t *testing.T) *fixture {
 	identities, err := security.NewIdentityResolver(f.credentials(), f.users(), f.roles())
 	must(t, err)
 
-	workspaceService, err := app.NewWorkspaceService(&appmock.Transactor{}, f.workspaceRepository())
+	workspaceService, err := app.NewWorkspaceService(&appmock.Transactor{}, f.workspaceRepository(), f.users())
 	must(t, err)
 
 	userService, err := app.NewUserService(&appmock.Transactor{}, f.users(), hasher)
@@ -242,12 +260,45 @@ func (f *fixture) users() *usersmock.UserRepository {
 				err  = users.ErrUserNotFound
 			)
 
-			if id == f.user.ID {
-				copied := *f.user
-				user, err = &copied, nil
+			for _, candidate := range append([]*users.User{f.user}, f.others...) {
+				if candidate.ID == id {
+					copied := *candidate
+					user, err = &copied, nil
+				}
 			}
 
 			return user, err
+		},
+		FindByIDsFunc: func(_ context.Context, ids []users.UserID) ([]*users.User, error) {
+			found := []*users.User{}
+
+			for _, user := range append([]*users.User{f.user}, f.others...) {
+				if slices.Contains(ids, user.ID) {
+					copied := *user
+					found = append(found, &copied)
+				}
+			}
+
+			slices.SortFunc(found, func(a, b *users.User) int {
+				return strings.Compare(strings.ToLower(string(a.FirstName)), strings.ToLower(string(b.FirstName)))
+			})
+
+			return found, nil
+		},
+		FindByEmailFunc: func(_ context.Context, email users.Email) (*users.User, error) {
+			var (
+				found *users.User
+				err   = users.ErrUserNotFound
+			)
+
+			for _, user := range append([]*users.User{f.user}, f.others...) {
+				if strings.EqualFold(string(user.Email), string(email)) {
+					copied := *user
+					found, err = &copied, nil
+				}
+			}
+
+			return found, err
 		},
 		UpdateFunc: func(_ context.Context, user *users.User) users.ErrUserUpdateFailed {
 			var err users.ErrUserUpdateFailed
@@ -289,8 +340,8 @@ func (f *fixture) roles() *usersmock.RoleRepository {
 }
 
 // Find returns every Workspace the filter's member belongs to, in name order;
-// it ignores paging, which the fixture never needs. Created workspaces and
-// added members join the in-memory state.
+// it ignores paging, which the fixture never needs. Created and renamed
+// workspaces and added members join the in-memory state.
 
 func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 	matching := func(filter workspaces.WorkspaceFilter) []*workspaces.Workspace {
@@ -336,8 +387,62 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 
 			return found, err
 		},
+		RemoveMemberFunc: func(_ context.Context, membership workspaces.Membership) workspaces.ErrMembershipRemoveFailed {
+			var err workspaces.ErrMembershipRemoveFailed
+
+			members := f.members[membership.WorkspaceID]
+			index := slices.Index(members, membership.UserID)
+
+			if index < 0 {
+				err = workspacesmock.NewErrMembershipRemoveFailed(membership, workspaces.ErrMembershipNotFound)
+			} else {
+				f.members[membership.WorkspaceID] = slices.Delete(slices.Clone(members), index, index+1)
+			}
+
+			return err
+		},
+		FindMemberIDsFunc: func(_ context.Context, id workspaces.WorkspaceID) ([]users.UserID, error) {
+			var ids []users.UserID
+
+			if f.membersErr == nil {
+				ids = slices.Clone(f.members[id])
+			}
+
+			return ids, f.membersErr
+		},
 		HasMemberFunc: func(_ context.Context, membership workspaces.Membership) (bool, error) {
 			return slices.Contains(f.members[membership.WorkspaceID], membership.UserID), nil
+		},
+		FindByIDForUpdateFunc: func(_ context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
+			var (
+				found *workspaces.Workspace
+				err   = workspaces.ErrWorkspaceNotFound
+			)
+
+			for _, workspace := range f.workspaces {
+				if workspace.ID == id {
+					copied := *workspace
+					found, err = &copied, nil
+				}
+			}
+
+			return found, err
+		},
+		UpdateFunc: func(_ context.Context, workspace *workspaces.Workspace) workspaces.ErrWorkspaceUpdateFailed {
+			var err workspaces.ErrWorkspaceUpdateFailed = workspacesmock.NewErrWorkspaceUpdateFailed(workspace, workspaces.ErrWorkspaceNotFound)
+
+			if f.updateErr != nil {
+				err = workspacesmock.NewErrWorkspaceUpdateFailed(workspace, f.updateErr)
+			} else {
+				for index, stored := range f.workspaces {
+					if stored.ID == workspace.ID {
+						copied := *workspace
+						f.workspaces[index], err = &copied, nil
+					}
+				}
+			}
+
+			return err
 		},
 		CreateFunc: func(_ context.Context, workspace *workspaces.Workspace) workspaces.ErrWorkspaceCreateFailed {
 			var err workspaces.ErrWorkspaceCreateFailed
@@ -351,13 +456,19 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 			return err
 		},
 		AddMemberFunc: func(_ context.Context, membership workspaces.Membership) workspaces.ErrMembershipAddFailed {
+			var err workspaces.ErrMembershipAddFailed
+
 			if f.members == nil {
 				f.members = make(map[workspaces.WorkspaceID][]users.UserID)
 			}
 
-			f.members[membership.WorkspaceID] = append(f.members[membership.WorkspaceID], membership.UserID)
+			if slices.Contains(f.members[membership.WorkspaceID], membership.UserID) {
+				err = workspacesmock.NewErrMembershipAddFailed(membership, workspaces.ErrMembershipAlreadyExists)
+			} else {
+				f.members[membership.WorkspaceID] = append(f.members[membership.WorkspaceID], membership.UserID)
+			}
 
-			return nil
+			return err
 		},
 	}
 }

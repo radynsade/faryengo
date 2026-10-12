@@ -244,5 +244,50 @@
   },
   "common.confirm": {
     "other": "Подтвердить"
+  },
+  "settings.workspace": {
+    "other": "Рабочее пространство"
+  },
+  "settings.workspace_description": {
+    "other": "Название, которое видят все участники этого рабочего пространства."
+  },
+  "settings.save_workspace": {
+    "other": "Сохранить рабочее пространство"
+  },
+  "settings.workspace_saved": {
+    "other": "Рабочее пространство сохранено."
+  },
+  "settings.add_member": {
+    "other": "Добавить участника"
+  },
+  "settings.add_member_description": {
+    "other": "Введите адрес электронной почты пользователя, у которого уже есть аккаунт."
+  },
+  "settings.add_member_submit": {
+    "other": "Добавить участника"
+  },
+  "settings.member_added": {
+    "other": "{{.Name}} ({{.Email}}) добавлен(а) в рабочее пространство."
+  },
+  "validation.member_unknown": {
+    "other": "Нет пользователя с этим адресом электронной почты."
+  },
+  "validation.member_exists": {
+    "other": "Этот пользователь уже участник рабочего пространства."
+  },
+  "settings.members": {
+    "other": "Участники"
+  },
+  "settings.member_you": {
+    "other": "Вы"
+  },
+  "errors.members_unavailable": {
+    "other": "Не удалось загрузить участников. Попробуйте позже."
+  },
+  "settings.member_remove": {
+    "other": "Удалить {{.Name}} из рабочего пространства"
+  },
+  "settings.member_removed": {
+    "other": "{{.Name}} удалён(а) из рабочего пространства."
   }
 }

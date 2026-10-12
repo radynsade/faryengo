@@ -241,5 +241,50 @@
   },
   "common.confirm": {
     "other": "Apstiprināt"
+  },
+  "settings.workspace": {
+    "other": "Darbvieta"
+  },
+  "settings.workspace_description": {
+    "other": "Nosaukums, ko redz visi šīs darbvietas dalībnieki."
+  },
+  "settings.save_workspace": {
+    "other": "Saglabāt darbvietu"
+  },
+  "settings.workspace_saved": {
+    "other": "Darbvieta ir saglabāta."
+  },
+  "settings.add_member": {
+    "other": "Pievienot dalībnieku"
+  },
+  "settings.add_member_description": {
+    "other": "Ievadiet tāda lietotāja e-pasta adresi, kuram jau ir konts."
+  },
+  "settings.add_member_submit": {
+    "other": "Pievienot dalībnieku"
+  },
+  "settings.member_added": {
+    "other": "{{.Name}} ({{.Email}}) ir pievienots darbvietai."
+  },
+  "validation.member_unknown": {
+    "other": "Nevienam lietotājam nav šīs e-pasta adreses."
+  },
+  "validation.member_exists": {
+    "other": "Šis lietotājs jau ir darbvietas dalībnieks."
+  },
+  "settings.members": {
+    "other": "Dalībnieki"
+  },
+  "settings.member_you": {
+    "other": "Jūs"
+  },
+  "errors.members_unavailable": {
+    "other": "Dalībniekus neizdevās ielādēt. Lūdzu, mēģiniet vēlāk vēlreiz."
+  },
+  "settings.member_remove": {
+    "other": "Noņemt {{.Name}} no darbvietas"
+  },
+  "settings.member_removed": {
+    "other": "{{.Name}} ir noņemts no darbvietas."
   }
 }

@@ -75,6 +75,7 @@ func TestWorkspaceMethodsRejectMissingPool(t *testing.T) {
 		{"add member", func() error { return (&WorkspaceRepository{}).AddMember(ctx, membership) }},
 		{"remove member", func() error { return (&WorkspaceRepository{}).RemoveMember(ctx, membership) }},
 		{"has member", func() error { _, err := (&WorkspaceRepository{}).HasMember(ctx, membership); return err }},
+		{"find member IDs", func() error { _, err := (&WorkspaceRepository{}).FindMemberIDs(ctx, id); return err }},
 	}
 
 	for _, test := range tests {
@@ -142,6 +143,10 @@ func TestWorkspaceMethodsValidateBeforeIO(t *testing.T) {
 		{"add member without a workspace", func() error {
 			return repository.AddMember(ctx, workspaces.NewMembership(workspaces.WorkspaceID{}, users.UserID(uuid.Must(uuid.NewV7()))))
 		}, workspaces.ErrMembershipInvalid},
+		{"find member IDs of an invalid workspace", func() error {
+			_, err := repository.FindMemberIDs(ctx, workspaces.WorkspaceID{})
+			return err
+		}, workspaces.ErrWorkspaceIDInvalid},
 		{"has member without a user", func() error {
 			_, err := repository.HasMember(ctx, workspaces.NewMembership(validID, users.UserID{}))
 			return err
