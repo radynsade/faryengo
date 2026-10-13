@@ -91,6 +91,44 @@ templ PasswordInput(props TextInputProps) {
 	</div>
 }
 
+type SelectOption struct {
+	Value string
+	Label string
+}
+
+type SelectProps struct {
+	ID      string
+	Name    string
+	Label   string
+	Value   string
+	Options []SelectOption
+	Error   string
+}
+
+// Select chooses one of a fixed set of values; the option matching Value
+// starts selected.
+templ Select(props SelectProps) {
+	<div class="field">
+		<label class="field__label" for={ props.ID }>{ props.Label }</label>
+		<select
+			class="field__input field__input--select"
+			id={ props.ID }
+			name={ props.Name }
+			if props.Error != "" {
+				aria-invalid="true"
+				aria-describedby={ props.ID + "-error" }
+			}
+		>
+			for _, option := range props.Options {
+				<option value={ option.Value } selected?={ option.Value == props.Value }>{ option.Label }</option>
+			}
+		</select>
+		if props.Error != "" {
+			<p class="field__error" id={ props.ID + "-error" }>{ props.Error }</p>
+		}
+	</div>
+}
+
 // The hint stays while an error explains what went wrong.
 templ fieldError(props TextInputProps) {
 	if props.Hint != "" {

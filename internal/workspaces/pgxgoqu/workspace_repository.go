@@ -120,6 +120,22 @@ func (e *errMembershipAddFailed) Error() string {
 	return "failed to add a workspace member"
 }
 
+// Implementation of workspaces.ErrMembershipUpdateFailed
+
+type errMembershipUpdateFailed struct {
+	errMembershipWriteFailed
+}
+
+func newErrMembershipUpdateFailed(membership workspaces.Membership, err error) *errMembershipUpdateFailed {
+	return &errMembershipUpdateFailed{
+		errMembershipWriteFailed: errMembershipWriteFailed{membership, err},
+	}
+}
+
+func (e *errMembershipUpdateFailed) Error() string {
+	return "failed to update a workspace member"
+}
+
 // Implementation of workspaces.ErrMembershipRemoveFailed
 
 type errMembershipRemoveFailed struct {
@@ -443,6 +459,7 @@ func (r *WorkspaceRepository) AddMember(
 			Rows(goqu.Record{
 				"workspace_id": uuid.UUID(membership.WorkspaceID).String(),
 				"user_id":      uuid.UUID(membership.UserID).String(),
+				"role":         string(membership.Role),
 			}).
 			Prepared(true).
 			ToSQL()
@@ -454,6 +471,45 @@ func (r *WorkspaceRepository) AddMember(
 
 			if execErr != nil {
 				err = newErrMembershipAddFailed(membership, mapMembershipError(execErr))
+			}
+		}
+	}
+
+	return err
+}
+
+// Update a member's role
+
+func (r *WorkspaceRepository) UpdateMember(
+	ctx context.Context,
+	membership workspaces.Membership,
+) workspaces.ErrMembershipUpdateFailed {
+	var err workspaces.ErrMembershipUpdateFailed
+
+	if r == nil || r.pool == nil {
+		err = newErrMembershipUpdateFailed(membership, pgxdb.ErrNilDB)
+	} else if validationErr := membership.Validate(); validationErr != nil {
+		err = newErrMembershipUpdateFailed(membership, validationErr)
+	} else {
+		query, args, buildErr := goqu.Dialect("postgres").
+			Update("workspace_membership").
+			Set(goqu.Record{"role": string(membership.Role)}).
+			Where(goqu.Ex{
+				"workspace_id": uuid.UUID(membership.WorkspaceID).String(),
+				"user_id":      uuid.UUID(membership.UserID).String(),
+			}).
+			Prepared(true).
+			ToSQL()
+
+		if buildErr != nil {
+			err = newErrMembershipUpdateFailed(membership, buildErr)
+		} else {
+			tag, execErr := pgxdb.FromContext(ctx, r.pool).Exec(ctx, query, args...)
+
+			if execErr != nil {
+				err = newErrMembershipUpdateFailed(membership, execErr)
+			} else if tag.RowsAffected() == 0 {
+				err = newErrMembershipUpdateFailed(membership, workspaces.ErrMembershipNotFound)
 			}
 		}
 	}
@@ -499,50 +555,55 @@ func (r *WorkspaceRepository) RemoveMember(
 	return err
 }
 
-// Report whether a user is a member of a workspace
+// Find a member
 
-func (r *WorkspaceRepository) HasMember(
+func (r *WorkspaceRepository) FindMember(
 	ctx context.Context,
-	membership workspaces.Membership,
-) (bool, error) {
+	id workspaces.WorkspaceID,
+	userID users.UserID,
+) (workspaces.Membership, error) {
 	var (
-		count int
-		err   error
+		membership workspaces.Membership
+		err        error
 	)
 
 	if r == nil || r.pool == nil {
 		err = pgxdb.ErrNilDB
-	} else if validationErr := membership.Validate(); validationErr != nil {
-		err = fmt.Errorf("failed to check a workspace member: %w", validationErr)
+	} else if validationErr := errors.Join(id.Validate(), userID.Validate()); validationErr != nil {
+		err = fmt.Errorf("failed to find a workspace member: %w", validationErr)
 	} else {
 		query, args, buildErr := goqu.Dialect("postgres").
 			From("workspace_membership").
-			Select(goqu.COUNT("*")).
+			Select(membershipColumns()...).
 			Where(goqu.Ex{
-				"workspace_id": uuid.UUID(membership.WorkspaceID).String(),
-				"user_id":      uuid.UUID(membership.UserID).String(),
+				"workspace_id": uuid.UUID(id).String(),
+				"user_id":      uuid.UUID(userID).String(),
 			}).
 			Prepared(true).
 			ToSQL()
 
 		if buildErr != nil {
 			err = fmt.Errorf("failed to build the workspace member query: %w", buildErr)
-		} else if scanErr := pgxdb.FromContext(ctx, r.pool).QueryRow(ctx, query, args...).Scan(&count); scanErr != nil {
-			err = fmt.Errorf("failed to check a workspace member: %w", scanErr)
+		} else {
+			membership, err = scanMembership(pgxdb.FromContext(ctx, r.pool).QueryRow(ctx, query, args...))
+
+			if err != nil {
+				err = fmt.Errorf("failed to find user %s in workspace %s: %w", uuid.UUID(userID), uuid.UUID(id), err)
+			}
 		}
 	}
 
-	return count > 0, err
+	return membership, err
 }
 
-// Find the IDs of a workspace's members
+// Find a workspace's members
 
-func (r *WorkspaceRepository) FindMemberIDs(
+func (r *WorkspaceRepository) FindMembers(
 	ctx context.Context,
 	id workspaces.WorkspaceID,
-) ([]users.UserID, error) {
+) (workspaces.Memberships, error) {
 	var (
-		result []users.UserID
+		result workspaces.Memberships
 		err    error
 	)
 
@@ -553,7 +614,7 @@ func (r *WorkspaceRepository) FindMemberIDs(
 	} else {
 		query, args, buildErr := goqu.Dialect("postgres").
 			From("workspace_membership").
-			Select("user_id").
+			Select(membershipColumns()...).
 			Where(goqu.Ex{"workspace_id": uuid.UUID(id).String()}).
 			Order(goqu.C("user_id").Asc()).
 			Prepared(true).
@@ -562,7 +623,7 @@ func (r *WorkspaceRepository) FindMemberIDs(
 		if buildErr != nil {
 			err = fmt.Errorf("failed to build the workspace members query: %w", buildErr)
 		} else {
-			result, err = r.scanMemberIDs(ctx, query, args)
+			result, err = r.scanMemberships(ctx, query, args)
 
 			if err != nil {
 				err = fmt.Errorf("failed to find members of workspace %s: %w", uuid.UUID(id), err)
@@ -608,12 +669,12 @@ func (r *WorkspaceRepository) find(
 	return workspace, err
 }
 
-func (r *WorkspaceRepository) scanMemberIDs(
+func (r *WorkspaceRepository) scanMemberships(
 	ctx context.Context,
 	query string,
 	args []any,
-) ([]users.UserID, error) {
-	result := []users.UserID{}
+) (workspaces.Memberships, error) {
+	result := workspaces.Memberships{}
 
 	rows, err := pgxdb.FromContext(ctx, r.pool).Query(ctx, query, args...)
 
@@ -621,22 +682,15 @@ func (r *WorkspaceRepository) scanMemberIDs(
 		defer rows.Close()
 
 		for rows.Next() {
-			var (
-				id       pgtype.UUID
-				memberID users.UserID
-			)
+			var membership workspaces.Membership
 
-			err = rows.Scan(&id)
-
-			if err == nil {
-				memberID, err = users.NewUserID(uuid.UUID(id.Bytes))
-			}
+			membership, err = scanMembership(rows)
 
 			if err != nil {
 				break
 			}
 
-			result = append(result, memberID)
+			result = append(result, membership)
 		}
 
 		if err == nil {
@@ -655,6 +709,14 @@ func workspaceColumns() []any {
 	return []any{
 		"id",
 		"name",
+	}
+}
+
+func membershipColumns() []any {
+	return []any{
+		"workspace_id",
+		"user_id",
+		"role",
 	}
 }
 
@@ -739,6 +801,37 @@ func scanWorkspace(row pgx.Row) (*workspaces.Workspace, error) {
 	}
 
 	return workspace, err
+}
+
+func scanMembership(row pgx.Row) (workspaces.Membership, error) {
+	var (
+		membership  workspaces.Membership
+		err         error
+		workspaceID pgtype.UUID
+		userID      pgtype.UUID
+		role        string
+	)
+
+	scanErr := row.Scan(&workspaceID, &userID, &role)
+
+	if errors.Is(scanErr, pgx.ErrNoRows) {
+		err = workspaces.ErrMembershipNotFound
+	} else if scanErr != nil {
+		err = fmt.Errorf("scan workspace member: %w", scanErr)
+	} else {
+		membership = workspaces.NewMembership(
+			workspaces.WorkspaceID(workspaceID.Bytes),
+			users.UserID(userID.Bytes),
+			workspaces.Role(role),
+		)
+
+		if err = membership.Validate(); err != nil {
+			membership = workspaces.Membership{}
+			err = fmt.Errorf("failed to decode a workspace member: %w", err)
+		}
+	}
+
+	return membership, err
 }
 
 func mapWorkspaceError(err error) error {

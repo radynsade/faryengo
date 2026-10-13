@@ -107,6 +107,7 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"GET /office/{language}/workspaces/{workspace}/settings", h.workspaceSettings},
 			{"POST /office/{language}/workspaces/{workspace}/settings/workspace", h.renameWorkspace},
 			{"POST /office/{language}/workspaces/{workspace}/settings/members", h.addWorkspaceMember},
+			{"POST /office/{language}/workspaces/{workspace}/settings/members/{user}/role", h.changeWorkspaceMemberRole},
 			{"POST /office/{language}/workspaces/{workspace}/settings/members/{user}/remove", h.removeWorkspaceMember},
 			{"GET /office/{language}/sign-in", h.signInPage},
 			{"POST /office/{language}/sign-in", h.signIn},

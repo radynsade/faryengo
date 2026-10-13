@@ -293,6 +293,36 @@
   "settings.member_removed": {
     "other": "{{.Name}} ir noņemts no darbvietas."
   },
+  "fields.role": {
+    "other": "Loma"
+  },
+  "roles.viewer": {
+    "other": "Skatītājs"
+  },
+  "roles.editor": {
+    "other": "Redaktors"
+  },
+  "roles.owner": {
+    "other": "Īpašnieks"
+  },
+  "settings.members_read_only": {
+    "other": "Darbvietas nosaukumu un dalībniekus var mainīt tikai tās īpašnieki."
+  },
+  "settings.member_role": {
+    "other": "{{.Name}} loma"
+  },
+  "settings.member_role_save": {
+    "other": "Saglabāt {{.Name}} lomu"
+  },
+  "settings.member_role_changed": {
+    "other": "{{.Name}}: loma mainīta uz “{{.Role}}”."
+  },
+  "errors.permission_denied": {
+    "other": "Jūsu loma šajā darbvietā neļauj veikt šīs izmaiņas."
+  },
+  "errors.last_owner": {
+    "other": "Darbvietai jāpaliek vismaz vienam īpašniekam."
+  },
   "errors.code": {
     "other": "Kļūdas kods"
   },

@@ -22,11 +22,16 @@ type WorkspaceFormProps struct {
 type MemberFormProps struct {
 	Action      string
 	Email       string
+	Role        string
+	Roles       []components.SelectOption
 	Error       string
 	FieldErrors map[string]string
 }
 
-// RemoveURL is empty for the signed-in User, who is not removed from here.
+// RoleURL is empty when the viewer may not change the member's role, or the
+// member is the workspace's last owner. RemoveURL is empty when the viewer
+// may not remove members, and for the signed-in User, who is not removed
+// from here.
 
 type MemberItem struct {
 	ID        string
@@ -34,17 +39,25 @@ type MemberItem struct {
 	Email     string
 	Initials  string
 	IsCurrent bool
+	Role      string
+	RoleLabel string
+	RoleURL   string
 	RemoveURL string
 }
 
-// MembersError replaces the list when it could not be loaded.
+// MembersError replaces the list when it could not be loaded. Members who
+// may not rename the workspace see its name read-only, and those who may not
+// manage members see no way to add, remove, or change them.
 
 type WorkspaceSettingsContentProps struct {
-	Notices      []string
-	Workspace    WorkspaceFormProps
-	Members      []MemberItem
-	MembersError string
-	Member       MemberFormProps
+	Notices          []string
+	CanRename        bool
+	CanManageMembers bool
+	Workspace        WorkspaceFormProps
+	Roles            []components.SelectOption
+	Members          []MemberItem
+	MembersError     string
+	Member           MemberFormProps
 }
 
 // WorkspaceSettings is a section of the workspace, inside its dashboard.
@@ -66,20 +79,29 @@ templ WorkspaceSettingsContent(props WorkspaceSettingsContentProps) {
 			<h2 id="workspace-title">{ officei18n.T(ctx, "settings.workspace") }</h2>
 			<p>{ officei18n.T(ctx, "settings.workspace_description") }</p>
 		</header>
-		@WorkspaceForm(props.Workspace)
+		if props.CanRename {
+			@WorkspaceForm(props.Workspace)
+		} else {
+			@workspaceName(props.Workspace.Name)
+		}
 		<div class="settings__subsection">
 			<header class="settings__heading">
 				<h3 id="members-title">{ officei18n.T(ctx, "settings.members") }</h3>
+				if !props.CanManageMembers {
+					<p>{ officei18n.T(ctx, "settings.members_read_only") }</p>
+				}
 			</header>
-			@memberList(props.Members, props.MembersError)
+			@memberList(props.Members, props.Roles, props.MembersError)
 		</div>
-		<div class="settings__subsection">
-			<header class="settings__heading">
-				<h3 id="member-title">{ officei18n.T(ctx, "settings.add_member") }</h3>
-				<p>{ officei18n.T(ctx, "settings.add_member_description") }</p>
-			</header>
-			@MemberForm(props.Member)
-		</div>
+		if props.CanManageMembers {
+			<div class="settings__subsection">
+				<header class="settings__heading">
+					<h3 id="member-title">{ officei18n.T(ctx, "settings.add_member") }</h3>
+					<p>{ officei18n.T(ctx, "settings.add_member_description") }</p>
+				</header>
+				@MemberForm(props.Member)
+			</div>
+		}
 	</section>
 }
 
@@ -110,10 +132,21 @@ templ WorkspaceForm(props WorkspaceFormProps) {
 	</form>
 }
 
+// workspaceName shows the name to a member who may not change it.
+templ workspaceName(name string) {
+	<div class="field">
+		<span class="field__label">{ officei18n.T(ctx, "fields.workspace_name") }</span>
+		<p class="field__value">{ name }</p>
+	</div>
+}
+
 // Each row carries its member's ID, so morphing matches rows between renders.
-// The signed-in User's own row is marked and has no remove button; every other
-// member can be removed, and added again by email.
-templ memberList(members []MemberItem, loadError string) {
+// Every row shows its member's role, which an owner changes in place: the
+// role is saved as soon as it is chosen, and the save button is there only
+// for browsers without JavaScript. The
+// signed-in User's own row is marked and has no remove button; an owner can
+// remove every other member, who can be added again by email.
+templ memberList(members []MemberItem, roles []components.SelectOption, loadError string) {
 	if loadError != "" {
 		@components.FormAlert(loadError)
 	} else {
@@ -127,6 +160,35 @@ templ memberList(members []MemberItem, loadError string) {
 					</span>
 					if member.IsCurrent {
 						<span class="member-list__badge">{ officei18n.T(ctx, "settings.member_you") }</span>
+					}
+					if member.RoleURL != "" {
+						<form
+							class="member-list__role-form"
+							method="post"
+							action={ templ.URL(member.RoleURL) }
+							{ components.FormAttributes()... }
+						>
+							<select
+								class="field__input field__input--select member-list__role-select"
+								name="role"
+								data-auto-submit
+								aria-label={ officei18n.T(ctx, "settings.member_role", map[string]any{"Name": member.Name}) }
+							>
+								for _, role := range roles {
+									<option value={ role.Value } selected?={ role.Value == member.Role }>{ role.Label }</option>
+								}
+							</select>
+							<button
+								class="icon-button member-list__role-save"
+								type="submit"
+								aria-label={ officei18n.T(ctx, "settings.member_role_save", map[string]any{"Name": member.Name}) }
+								title={ officei18n.T(ctx, "settings.member_role_save", map[string]any{"Name": member.Name}) }
+							>
+								@components.Icon("check")
+							</button>
+						</form>
+					} else {
+						<span class="member-list__role">{ member.RoleLabel }</span>
 					}
 					if member.RemoveURL != "" {
 						<form
@@ -151,7 +213,8 @@ templ memberList(members []MemberItem, loadError string) {
 	}
 }
 
-// MemberForm adds an existing User to the current workspace by their email.
+// MemberForm adds an existing User to the current workspace by their email,
+// with the role they get there.
 templ MemberForm(props MemberFormProps) {
 	<form
 		id={ MemberFormID }
@@ -173,6 +236,14 @@ templ MemberForm(props MemberFormProps) {
 			Value:        props.Email,
 			Required:     true,
 			Error:        props.FieldErrors["email"],
+		})
+		@components.Select(components.SelectProps{
+			ID:      "member-role",
+			Name:    "role",
+			Label:   officei18n.T(ctx, "fields.role"),
+			Value:   props.Role,
+			Options: props.Roles,
+			Error:   props.FieldErrors["role"],
 		})
 		<div class="form__submit">
 			<button class="button" type="submit">

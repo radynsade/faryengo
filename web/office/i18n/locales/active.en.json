@@ -290,6 +290,36 @@
   "settings.member_removed": {
     "other": "{{.Name}} has been removed from the workspace."
   },
+  "fields.role": {
+    "other": "Role"
+  },
+  "roles.viewer": {
+    "other": "Viewer"
+  },
+  "roles.editor": {
+    "other": "Editor"
+  },
+  "roles.owner": {
+    "other": "Owner"
+  },
+  "settings.members_read_only": {
+    "other": "Only the workspace's owners can change its name and members."
+  },
+  "settings.member_role": {
+    "other": "Role of {{.Name}}"
+  },
+  "settings.member_role_save": {
+    "other": "Save the role of {{.Name}}"
+  },
+  "settings.member_role_changed": {
+    "other": "{{.Name}}'s role has been changed to {{.Role}}."
+  },
+  "errors.permission_denied": {
+    "other": "Your role in this workspace does not allow this change."
+  },
+  "errors.last_owner": {
+    "other": "The workspace must keep at least one owner."
+  },
   "errors.code": {
     "other": "Error code"
   },

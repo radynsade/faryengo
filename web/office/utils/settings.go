@@ -9,12 +9,14 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
 	"github.com/radynsade/faryengo/web/office/templates/pages"
 )
 
@@ -167,17 +169,21 @@ func PasswordFieldErrors(ctx context.Context, err error) map[string]string {
 // Member form
 //
 
+// The allowed roles belong to the domain; the transport bounds only their
+// size.
+
 type MemberForm struct {
 	Email string `form:"email" validate:"required,office_mailbox,maxbytes=254"`
+	Role  string `form:"role" validate:"maxbytes=32"`
 }
 
 func ParseMemberForm(writer http.ResponseWriter, request *http.Request) (MemberForm, error) {
 	var form MemberForm
 
-	err := parseForm(writer, request, maxSettingsFormBytes, "email")
+	err := parseForm(writer, request, maxSettingsFormBytes, "email", "role")
 
 	if err == nil {
-		form = MemberForm{Email: request.PostForm.Get("email")}
+		form = MemberForm{Email: request.PostForm.Get("email"), Role: request.PostForm.Get("role")}
 		err = requestvalidation.Validate(request.Context(), form)
 	}
 
@@ -185,7 +191,8 @@ func ParseMemberForm(writer http.ResponseWriter, request *http.Request) (MemberF
 }
 
 // An email that names no User, or a User who already belongs to the
-// workspace, is a problem with the email field.
+// workspace, is a problem with the email field, and a role the workspace
+// does not know is a problem with the role field.
 
 func MemberFieldErrors(ctx context.Context, err error) map[string]string {
 	fields := make(map[string]string)
@@ -203,30 +210,103 @@ func MemberFieldErrors(ctx context.Context, err error) map[string]string {
 		}
 	}
 
+	if _, found := fields["role"]; !found && errors.Is(err, workspaces.ErrRoleInvalid) {
+		fields["role"] = officei18n.T(ctx, "validation.invalid")
+	}
+
 	return nilIfEmpty(fields)
+}
+
+//
+// Role form
+//
+
+// The member comes from the address and the role from the form; an unknown
+// role is the domain's to reject. The form offers only known roles, so a
+// missing one means the form itself is broken.
+
+type RoleForm struct {
+	UserID users.UserID
+	Role   string `form:"role" validate:"required,maxbytes=32"`
+}
+
+func ParseRoleForm(writer http.ResponseWriter, request *http.Request) (RoleForm, error) {
+	var form RoleForm
+
+	id, err := ParseRemoveMemberForm(writer, request, "role")
+
+	if err == nil {
+		form = RoleForm{UserID: id, Role: request.PostForm.Get("role")}
+
+		if validationErr := requestvalidation.Validate(request.Context(), form); validationErr != nil {
+			err = errors.Join(ErrFormInvalid, validationErr)
+		}
+	}
+
+	return form, err
+}
+
+//
+// Roles
+//
+
+// Roles are offered from the least to the most authority.
+
+func RoleOptions(ctx context.Context) []components.SelectOption {
+	roles := []workspaces.Role{workspaces.RoleViewer, workspaces.RoleEditor, workspaces.RoleOwner}
+	options := make([]components.SelectOption, 0, len(roles))
+
+	for _, role := range roles {
+		options = append(options, components.SelectOption{Value: string(role), Label: RoleLabel(ctx, role)})
+	}
+
+	return options
+}
+
+func RoleLabel(ctx context.Context, role workspaces.Role) string {
+	return officei18n.T(ctx, "roles."+string(role))
 }
 
 //
 // Members
 //
 
+// A member who manages members may change every role but the last owner's,
+// since a workspace keeps an owner, and may remove every member but
+// themselves.
+
 func MemberItems(
-	members []*users.User,
+	ctx context.Context,
+	members []app.WorkspaceMember,
 	current *security.Identity,
+	canManage bool,
 	settingsURL string,
 ) []pages.MemberItem {
+	owners := 0
 	items := make([]pages.MemberItem, 0, len(members))
 
 	for _, member := range members {
+		if member.Role == workspaces.RoleOwner {
+			owners++
+		}
+	}
+
+	for _, member := range members {
 		item := pages.MemberItem{
-			ID:        uuid.UUID(member.ID).String(),
-			Name:      FullName(member),
-			Email:     string(member.Email),
-			Initials:  initial(string(member.FirstName)) + initial(string(member.LastName)),
-			IsCurrent: member.ID == current.User.ID,
+			ID:        uuid.UUID(member.User.ID).String(),
+			Name:      FullName(member.User),
+			Email:     string(member.User.Email),
+			Initials:  initial(string(member.User.FirstName)) + initial(string(member.User.LastName)),
+			IsCurrent: member.User.ID == current.User.ID,
+			Role:      string(member.Role),
+			RoleLabel: RoleLabel(ctx, member.Role),
 		}
 
-		if !item.IsCurrent {
+		if canManage && (member.Role != workspaces.RoleOwner || owners > 1) {
+			item.RoleURL = settingsURL + "/members/" + item.ID + "/role"
+		}
+
+		if canManage && !item.IsCurrent {
 			item.RemoveURL = settingsURL + "/members/" + item.ID + "/remove"
 		}
 
@@ -240,12 +320,13 @@ func FullName(user *users.User) string {
 	return strings.TrimSpace(string(user.FirstName) + " " + string(user.LastName))
 }
 
-// Removal carries the member in its address, so its form has no fields.
+// Removal carries the member in its address, so its form has no fields; a
+// form about the member, such as a role change, names its own.
 
-func ParseRemoveMemberForm(writer http.ResponseWriter, request *http.Request) (users.UserID, error) {
+func ParseRemoveMemberForm(writer http.ResponseWriter, request *http.Request, allowed ...string) (users.UserID, error) {
 	var id users.UserID
 
-	err := parseForm(writer, request, maxSettingsFormBytes)
+	err := parseForm(writer, request, maxSettingsFormBytes, allowed...)
 
 	if err == nil {
 		parsed, parseErr := uuid.Parse(request.PathValue("user"))
@@ -319,18 +400,29 @@ func ProfileSettingsContentProps(
 	}
 }
 
-// The workspace form starts from the workspace's current name. The members
-// are loaded only for a whole page.
+// The workspace form starts from the workspace's current name, and the
+// member form from the least authority. The member's role decides which
+// forms are shown. The members are loaded only for a whole page.
 
 func WorkspaceSettingsContentProps(
-	workspace *workspaces.Workspace,
+	ctx context.Context,
+	found app.MemberWorkspace,
 	settingsURL string,
 	notices []string,
 ) pages.WorkspaceSettingsContentProps {
+	roles := RoleOptions(ctx)
+
 	return pages.WorkspaceSettingsContentProps{
-		Notices:   notices,
-		Workspace: pages.WorkspaceFormProps{Action: settingsURL + "/workspace", Name: string(workspace.Name)},
-		Member:    pages.MemberFormProps{Action: settingsURL + "/members"},
+		Notices:          notices,
+		CanRename:        found.Role.Allows(workspaces.ActionRename),
+		CanManageMembers: found.Role.Allows(workspaces.ActionManageMembers),
+		Workspace:        pages.WorkspaceFormProps{Action: settingsURL + "/workspace", Name: string(found.Workspace.Name)},
+		Roles:            roles,
+		Member: pages.MemberFormProps{
+			Action: settingsURL + "/members",
+			Role:   string(workspaces.RoleViewer),
+			Roles:  roles,
+		},
 	}
 }
 

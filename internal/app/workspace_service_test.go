@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 
@@ -51,22 +52,26 @@ func TestWorkspaceServiceNilReceiver(t *testing.T) {
 	found, findErr := service.FindByID(ctx, testWorkspaceID)
 	list, listErr := service.List(ctx, validWorkspaceQuery())
 	memberList, memberListErr := service.ListByMember(ctx, testUserID, validWorkspaceQuery())
-	renamed, renameErr := service.Rename(ctx, input.RenameWorkspaceInput{ID: testWorkspaceID, Name: "Design"})
+	renamed, renameErr := service.Rename(ctx, testUserID, input.RenameWorkspaceInput{ID: testWorkspaceID, Name: "Design"})
 	deleteErr := service.Delete(ctx, testWorkspaceID)
-	addErr := service.AddMember(ctx, testWorkspaceID, testUserID)
-	removeErr := service.RemoveMember(ctx, testWorkspaceID, testUserID)
+	addErr := service.AddMember(ctx, testWorkspaceID, testUserID, workspaces.RoleViewer)
+	roleErr := service.ChangeMemberRole(ctx, testUserID, input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testUserID, Role: "owner"})
+	removeErr := service.RemoveMember(ctx, testUserID, testWorkspaceID, testUserID)
 	member, memberErr := service.FindForMember(ctx, testWorkspaceID, testUserID)
 	createdAsUser, createAsUserErr := service.CreateAsUser(ctx, testUserID, input.CreateWorkspaceInput{Name: "Design"})
-	addedByEmail, addByEmailErr := service.AddMemberByEmail(ctx, input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "anna@example.com"})
-	listedMembers, listMembersErr := service.ListMembers(ctx, testWorkspaceID)
+	addedByEmail, addByEmailErr := service.AddMemberByEmail(ctx, testUserID, input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "anna@example.com"})
+	listedMembers, listMembersErr := service.ListMembers(ctx, testUserID, testWorkspaceID)
 
-	for _, err := range []error{createErr, findErr, listErr, memberListErr, renameErr, deleteErr, addErr, removeErr, memberErr, createAsUserErr, addByEmailErr, listMembersErr} {
+	for _, err := range []error{
+		createErr, findErr, listErr, memberListErr, renameErr, deleteErr, addErr, roleErr, removeErr, memberErr, createAsUserErr, addByEmailErr, listMembersErr,
+	} {
 		if !errors.Is(err, ErrWorkspaceRepositoryNil) {
 			t.Fatalf("nil receiver error = %v, want ErrWorkspaceRepositoryNil", err)
 		}
 	}
 
-	if created != nil || found != nil || list.Workspaces != nil || memberList.Workspaces != nil || renamed != nil || member != nil || createdAsUser != nil || addedByEmail != nil || listedMembers != nil {
+	if created != nil || found != nil || list.Workspaces != nil || memberList.Workspaces != nil || renamed != nil ||
+		member.Workspace != nil || createdAsUser != nil || addedByEmail != nil || listedMembers != nil {
 		t.Fatalf("nil receiver returned values: %v, %v, %v, %v, %v, %v, %v, %v, %v", created, found, list, memberList, renamed, member, createdAsUser, addedByEmail, listedMembers)
 	}
 }
@@ -191,7 +196,7 @@ func TestWorkspaceServiceCreateAsUser(t *testing.T) {
 		wantAdds    int
 	}{
 		{
-			name:        "created with the creator as its member",
+			name:        "created with the creator as its owner",
 			creatorID:   testUserID,
 			request:     input.CreateWorkspaceInput{Name: " Family budget "},
 			wantTxCalls: 1,
@@ -256,8 +261,8 @@ func TestWorkspaceServiceCreateAsUser(t *testing.T) {
 
 					adds++
 
-					if !appmock.InTransaction(ctx) || membership != (workspaces.Membership{WorkspaceID: stored.ID, UserID: tt.creatorID}) {
-						t.Errorf("AddMember() called with (%v, %+v), want the creator of the stored workspace in a transaction", ctx, membership)
+					if !appmock.InTransaction(ctx) || membership != workspaces.NewMembership(stored.ID, tt.creatorID, workspaces.RoleOwner) {
+						t.Errorf("AddMember() called with (%v, %+v), want the creator as the owner of the stored workspace in a transaction", ctx, membership)
 					}
 
 					if tt.addErr != nil {
@@ -360,99 +365,164 @@ func TestWorkspaceServiceFindByID(t *testing.T) {
 	}
 }
 
+// The workspace comes with the member's role. A User who is not a member
+// cannot tell the workspace from a missing one.
+
 func TestWorkspaceServiceFindForMember(t *testing.T) {
-	existing := workspaces.NewWorkspace(testWorkspaceID, "Design")
 	storageErr := errors.New("storage unavailable")
 
 	for _, tt := range []struct {
-		name          string
-		workspaceID   workspaces.WorkspaceID
-		userID        users.UserID
-		findErr       error
-		isMember      bool
-		memberErr     error
-		wantErrs      []error
-		wantFinds     int
-		wantChecks    int
-		wantWorkspace bool
+		name        string
+		workspaceID workspaces.WorkspaceID
+		userID      users.UserID
+		readErr     error
+		wantRole    workspaces.Role
+		wantErrs    []error
 	}{
-		{name: "member", workspaceID: testWorkspaceID, userID: testUserID, isMember: true, wantFinds: 1, wantChecks: 1, wantWorkspace: true},
+		{name: "owner", workspaceID: testWorkspaceID, userID: testOwnerID, wantRole: workspaces.RoleOwner},
+		{name: "viewer", workspaceID: testWorkspaceID, userID: testViewerID, wantRole: workspaces.RoleViewer},
 		{
 			name:        "not a member reads as missing",
 			workspaceID: testWorkspaceID,
-			userID:      testUserID,
+			userID:      testOutsiderID,
 			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
-			wantFinds:   1,
-			wantChecks:  1,
 		},
 		{
 			name:        "missing workspace",
-			workspaceID: testWorkspaceID,
-			userID:      testUserID,
-			findErr:     workspaces.ErrWorkspaceNotFound,
+			workspaceID: workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")),
+			userID:      testOwnerID,
 			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
-			wantFinds:   1,
 		},
 		{
-			name:        "membership check failure",
+			name:        "membership read failure",
 			workspaceID: testWorkspaceID,
-			userID:      testUserID,
-			memberErr:   storageErr,
+			userID:      testOwnerID,
+			readErr:     storageErr,
 			wantErrs:    []error{storageErr},
-			wantFinds:   1,
-			wantChecks:  1,
 		},
-		{name: "invalid workspace ID", userID: testUserID, wantErrs: []error{workspaces.ErrMembershipInvalid, workspaces.ErrWorkspaceIDInvalid}},
-		{name: "invalid user ID", workspaceID: testWorkspaceID, wantErrs: []error{workspaces.ErrMembershipInvalid, users.ErrUserIDInvalid}},
+		{name: "invalid workspace ID", userID: testOwnerID, wantErrs: []error{workspaces.ErrWorkspaceIDInvalid}},
+		{name: "invalid user ID", workspaceID: testWorkspaceID, wantErrs: []error{users.ErrUserIDInvalid}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			finds, checks := 0, 0
+			store := newWorkspaceStore(t, testMemberships()...)
+			store.readErr = tt.readErr
+			service := newStoreService(t, store, &usersmock.UserRepository{})
 
-			repository := &workspacesmock.WorkspaceRepository{
-				FindByIDFunc: func(_ context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
-					var workspace *workspaces.Workspace
-
-					finds++
-
-					if id != tt.workspaceID {
-						t.Errorf("FindByID() called with %v", id)
-					}
-
-					if tt.findErr == nil {
-						workspace = existing
-					}
-
-					return workspace, tt.findErr
-				},
-				HasMemberFunc: func(_ context.Context, membership workspaces.Membership) (bool, error) {
-					checks++
-
-					if membership != (workspaces.Membership{WorkspaceID: tt.workspaceID, UserID: tt.userID}) {
-						t.Errorf("HasMember() called with %+v", membership)
-					}
-
-					return tt.isMember, tt.memberErr
-				},
-			}
-
-			service, err := NewWorkspaceService(&appmock.Transactor{}, repository, &usersmock.UserRepository{})
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			workspace, err := service.FindForMember(t.Context(), tt.workspaceID, tt.userID)
-
-			if finds != tt.wantFinds || checks != tt.wantChecks {
-				t.Fatalf("calls = (find %d, check %d), want (%d, %d)", finds, checks, tt.wantFinds, tt.wantChecks)
-			}
+			found, err := service.FindForMember(t.Context(), tt.workspaceID, tt.userID)
 
 			assertErrors(t, err, tt.wantErrs)
 
-			if (workspace == existing) != tt.wantWorkspace || (workspace != nil && !tt.wantWorkspace) {
-				t.Fatalf("FindForMember() workspace = %v, want returned %t", workspace, tt.wantWorkspace)
+			if len(tt.wantErrs) > 0 && found != (MemberWorkspace{}) {
+				t.Fatalf("FindForMember() = %+v, want nothing on error", found)
+			} else if len(tt.wantErrs) == 0 && (found.Workspace != store.workspace || found.Role != tt.wantRole) {
+				t.Fatalf("FindForMember() = %+v, want the workspace with role %q", found, tt.wantRole)
 			}
 		})
+	}
+}
+
+// Every office operation is tried by a member of each role, on a workspace
+// that keeps another owner and another member to change, so only the actor's
+// role decides the outcome. A denied operation writes nothing.
+
+func TestWorkspaceServiceRolePermissions(t *testing.T) {
+	operations := []struct {
+		name  string
+		write bool
+		call  func(service *WorkspaceService, actorID, targetID users.UserID) error
+	}{
+		{"view", false, func(service *WorkspaceService, actorID, _ users.UserID) error {
+			_, err := service.FindForMember(t.Context(), testWorkspaceID, actorID)
+			return err
+		}},
+		{"list members", false, func(service *WorkspaceService, actorID, _ users.UserID) error {
+			_, err := service.ListMembers(t.Context(), actorID, testWorkspaceID)
+			return err
+		}},
+		{"rename", true, func(service *WorkspaceService, actorID, _ users.UserID) error {
+			_, err := service.Rename(t.Context(), actorID, input.RenameWorkspaceInput{ID: testWorkspaceID, Name: "Research"})
+			return err
+		}},
+		{"add member", true, func(service *WorkspaceService, actorID, _ users.UserID) error {
+			_, err := service.AddMemberByEmail(t.Context(), actorID, input.AddMemberByEmailInput{
+				WorkspaceID: testWorkspaceID,
+				Email:       "grace@example.com",
+				Role:        "editor",
+			})
+			return err
+		}},
+		{"change role", true, func(service *WorkspaceService, actorID, targetID users.UserID) error {
+			return service.ChangeMemberRole(t.Context(), actorID, input.ChangeMemberRoleInput{
+				WorkspaceID: testWorkspaceID,
+				UserID:      targetID,
+				Role:        "owner",
+			})
+		}},
+		{"remove member", true, func(service *WorkspaceService, actorID, targetID users.UserID) error {
+			return service.RemoveMember(t.Context(), actorID, testWorkspaceID, targetID)
+		}},
+	}
+
+	for _, tt := range []struct {
+		role     workspaces.Role
+		actorID  users.UserID
+		targetID users.UserID
+		allowed  []bool
+	}{
+		{workspaces.RoleViewer, testViewerID, testEditorID, []bool{true, true, false, false, false, false}},
+		{workspaces.RoleEditor, testEditorID, testViewerID, []bool{true, true, false, false, false, false}},
+		{workspaces.RoleOwner, testOwnerID, testEditorID, []bool{true, true, true, true, true, true}},
+	} {
+		for index, operation := range operations {
+			t.Run(string(tt.role)+" "+operation.name, func(t *testing.T) {
+				store := newWorkspaceStore(t, testMemberships()...)
+				service := newStoreService(t, store, testUserRepository(testMembers()...))
+
+				err := operation.call(service, tt.actorID, tt.targetID)
+
+				if tt.allowed[index] {
+					if err != nil {
+						t.Fatalf("%s as %s = %v, want it allowed", operation.name, tt.role, err)
+					}
+
+					if operation.write && store.writes != 1 {
+						t.Fatalf("%s as %s wrote %d times, want once", operation.name, tt.role, store.writes)
+					}
+				} else if !errors.Is(err, workspaces.ErrRolePermissionDenied) || errors.Is(err, workspaces.ErrWorkspaceNotFound) || store.writes != 0 {
+					t.Fatalf("%s as %s = %v after %d writes, want %v and no write", operation.name, tt.role, err, store.writes, workspaces.ErrRolePermissionDenied)
+				}
+			})
+		}
+	}
+
+	// A User outside the workspace, or acting on a missing one, learns
+	// nothing about it. A missing workspace is one the store holds under
+	// another ID, where the actor is an owner.
+	for _, tt := range []struct {
+		name     string
+		storedID workspaces.WorkspaceID
+		actorID  users.UserID
+	}{
+		{"not a member", testWorkspaceID, testOutsiderID},
+		{"missing workspace", workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")), testOwnerID},
+	} {
+		for _, operation := range operations {
+			t.Run(tt.name+" "+operation.name, func(t *testing.T) {
+				store := newWorkspaceStore(t, testMemberships()...)
+				store.workspace.ID = tt.storedID
+
+				for index := range store.memberships {
+					store.memberships[index].WorkspaceID = tt.storedID
+				}
+
+				service := newStoreService(t, store, testUserRepository(testMembers()...))
+				err := operation.call(service, tt.actorID, testEditorID)
+
+				if !errors.Is(err, workspaces.ErrWorkspaceNotFound) || errors.Is(err, workspaces.ErrRolePermissionDenied) || store.writes != 0 {
+					t.Fatalf("%s = %v after %d writes, want %v and no write", operation.name, err, store.writes, workspaces.ErrWorkspaceNotFound)
+				}
+			})
+		}
 	}
 }
 
@@ -590,121 +660,93 @@ func TestWorkspaceServiceList(t *testing.T) {
 	}
 }
 
+// The workspace is locked before the owner's role is read and the new name
+// written.
+
 func TestWorkspaceServiceRename(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
+		actorID     users.UserID
 		request     input.RenameWorkspaceInput
 		lockErr     error
-		updateErr   error
+		writeErr    error
 		wantName    workspaces.WorkspaceName
 		wantErrs    []error
 		wantTxCalls int
-		wantLocks   int
 		wantWrites  int
 	}{
 		{
 			name:        "renamed",
+			actorID:     testOwnerID,
 			request:     input.RenameWorkspaceInput{ID: testWorkspaceID, Name: " Research "},
 			wantName:    "Research",
 			wantTxCalls: 1,
-			wantLocks:   1,
 			wantWrites:  1,
 		},
 		{
-			name:     "all fields invalid",
-			request:  input.RenameWorkspaceInput{Name: "  "},
-			wantErrs: []error{input.ErrRenameWorkspaceInputInvalid, workspaces.ErrWorkspaceIDInvalid, workspaces.ErrWorkspaceNameEmpty},
+			name:    "all fields invalid",
+			request: input.RenameWorkspaceInput{Name: "  "},
+			wantErrs: []error{
+				input.ErrRenameWorkspaceInputInvalid,
+				workspaces.ErrWorkspaceIDInvalid,
+				users.ErrUserIDInvalid,
+				workspaces.ErrWorkspaceNameEmpty,
+			},
+			wantName: "Design",
 		},
 		{
 			name:     "long name",
+			actorID:  testOwnerID,
 			request:  input.RenameWorkspaceInput{ID: testWorkspaceID, Name: strings.Repeat("a", workspaces.MaxWorkspaceNameLength+1)},
 			wantErrs: []error{input.ErrRenameWorkspaceInputInvalid, workspaces.ErrWorkspaceNameTooLong},
+			wantName: "Design",
 		},
 		{
-			name:        "not found",
+			name:        "lock failure",
+			actorID:     testOwnerID,
 			request:     input.RenameWorkspaceInput{ID: testWorkspaceID, Name: "Research"},
-			lockErr:     workspaces.ErrWorkspaceNotFound,
-			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
+			lockErr:     context.DeadlineExceeded,
+			wantErrs:    []error{context.DeadlineExceeded},
+			wantName:    "Design",
 			wantTxCalls: 1,
-			wantLocks:   1,
 		},
 		{
 			name:        "update failure",
+			actorID:     testOwnerID,
 			request:     input.RenameWorkspaceInput{ID: testWorkspaceID, Name: "Research"},
-			updateErr:   context.DeadlineExceeded,
+			writeErr:    context.DeadlineExceeded,
 			wantErrs:    []error{context.DeadlineExceeded},
+			wantName:    "Design",
 			wantTxCalls: 1,
-			wantLocks:   1,
 			wantWrites:  1,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			locks, writes := 0, 0
-
-			var stored *workspaces.Workspace
-
-			repository := &workspacesmock.WorkspaceRepository{
-				FindByIDForUpdateFunc: func(ctx context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
-					var workspace *workspaces.Workspace
-
-					locks++
-
-					if !appmock.InTransaction(ctx) || id != tt.request.ID {
-						t.Errorf("FindByIDForUpdate() called with (%v, %v), want a transaction", ctx, id)
-					}
-
-					if writes > 0 {
-						t.Error("FindByIDForUpdate() called after Update()")
-					}
-
-					if tt.lockErr == nil {
-						workspace = workspaces.NewWorkspace(id, "Old")
-					}
-
-					return workspace, tt.lockErr
-				},
-				UpdateFunc: func(ctx context.Context, workspace *workspaces.Workspace) workspaces.ErrWorkspaceUpdateFailed {
-					var err workspaces.ErrWorkspaceUpdateFailed
-
-					writes++
-					stored = workspace
-
-					if !appmock.InTransaction(ctx) {
-						t.Error("Update() ran outside a transaction")
-					}
-
-					if tt.updateErr != nil {
-						err = workspacesmock.NewErrWorkspaceUpdateFailed(workspace, tt.updateErr)
-					}
-
-					return err
-				},
-			}
-
+			store := newWorkspaceStore(t, testMemberships()...)
+			store.lockErr, store.writeErr = tt.lockErr, tt.writeErr
 			transactor := &appmock.Transactor{}
-			service, err := NewWorkspaceService(transactor, repository, &usersmock.UserRepository{})
+			service, err := NewWorkspaceService(transactor, store.repository(), &usersmock.UserRepository{})
 
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			workspace, err := service.Rename(t.Context(), tt.request)
+			workspace, err := service.Rename(t.Context(), tt.actorID, tt.request)
 
-			if transactor.Calls != tt.wantTxCalls || locks != tt.wantLocks || writes != tt.wantWrites {
-				t.Fatalf(
-					"Rename() calls = (transaction %d, lock %d, write %d), want (%d, %d, %d)",
-					transactor.Calls, locks, writes, tt.wantTxCalls, tt.wantLocks, tt.wantWrites,
-				)
+			if transactor.Calls != tt.wantTxCalls || store.writes != tt.wantWrites {
+				t.Fatalf("Rename() calls = (transaction %d, write %d), want (%d, %d)", transactor.Calls, store.writes, tt.wantTxCalls, tt.wantWrites)
 			}
 
 			assertErrors(t, err, tt.wantErrs)
 
-			if len(tt.wantErrs) > 0 {
-				if workspace != nil {
-					t.Fatalf("Rename() workspace = %v, want nil on error", workspace)
-				}
-			} else if workspace != stored || workspace.ID != tt.request.ID || workspace.Name != tt.wantName {
-				t.Fatalf("Rename() workspace = %+v, stored = %+v, want %v named %q", workspace, stored, tt.request.ID, tt.wantName)
+			if store.workspace.Name != tt.wantName {
+				t.Fatalf("stored name = %q, want %q", store.workspace.Name, tt.wantName)
+			}
+
+			if len(tt.wantErrs) > 0 && workspace != nil {
+				t.Fatalf("Rename() workspace = %v, want nil on error", workspace)
+			} else if len(tt.wantErrs) == 0 && workspace != store.workspace {
+				t.Fatalf("Rename() workspace = %+v, want the stored workspace", workspace)
 			}
 		})
 	}
@@ -769,43 +811,56 @@ func TestWorkspaceServiceDelete(t *testing.T) {
 	}
 }
 
-func TestWorkspaceServiceMembers(t *testing.T) {
+// Adding a member by ID serves the admin panel and the CLI, so it checks no
+// workspace role and needs no lock: the workspace may have no members at all.
+
+func TestWorkspaceServiceAddMember(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
-		remove      bool
 		workspaceID workspaces.WorkspaceID
 		userID      users.UserID
+		role        workspaces.Role
+		existing    []workspaces.Membership
 		writeErr    error
 		wantErrs    []error
 		wantTxCalls int
 		wantWrites  int
 	}{
-		{name: "added", workspaceID: testWorkspaceID, userID: testUserID, wantTxCalls: 1, wantWrites: 1},
+		{name: "added", workspaceID: testWorkspaceID, userID: testUserID, role: workspaces.RoleEditor, wantTxCalls: 1, wantWrites: 1},
+		{
+			name:        "added beside an owner",
+			workspaceID: testWorkspaceID,
+			userID:      testUserID,
+			role:        workspaces.RoleViewer,
+			existing:    testMemberships(),
+			wantTxCalls: 1,
+			wantWrites:  1,
+		},
 		{
 			name:     "add without a workspace",
 			userID:   testUserID,
+			role:     workspaces.RoleViewer,
 			wantErrs: []error{workspaces.ErrMembershipInvalid, workspaces.ErrWorkspaceIDInvalid},
 		},
 		{
 			name:        "add without a user",
 			workspaceID: testWorkspaceID,
+			role:        workspaces.RoleViewer,
 			wantErrs:    []error{workspaces.ErrMembershipInvalid, users.ErrUserIDInvalid},
+		},
+		{
+			name:        "add without a role",
+			workspaceID: testWorkspaceID,
+			userID:      testUserID,
+			wantErrs:    []error{workspaces.ErrMembershipInvalid, workspaces.ErrRoleInvalid},
 		},
 		{
 			name:        "already a member",
 			workspaceID: testWorkspaceID,
-			userID:      testUserID,
-			writeErr:    workspaces.ErrMembershipAlreadyExists,
+			userID:      testOwnerID,
+			role:        workspaces.RoleViewer,
+			existing:    testMemberships(),
 			wantErrs:    []error{workspaces.ErrMembershipAlreadyExists},
-			wantTxCalls: 1,
-			wantWrites:  1,
-		},
-		{
-			name:        "add to a missing workspace",
-			workspaceID: testWorkspaceID,
-			userID:      testUserID,
-			writeErr:    workspaces.ErrWorkspaceNotFound,
-			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
 			wantTxCalls: 1,
 			wantWrites:  1,
 		},
@@ -813,91 +868,37 @@ func TestWorkspaceServiceMembers(t *testing.T) {
 			name:        "add a missing user",
 			workspaceID: testWorkspaceID,
 			userID:      testUserID,
+			role:        workspaces.RoleViewer,
 			writeErr:    users.ErrUserNotFound,
 			wantErrs:    []error{users.ErrUserNotFound},
 			wantTxCalls: 1,
 			wantWrites:  1,
 		},
-		{name: "removed", remove: true, workspaceID: testWorkspaceID, userID: testUserID, wantTxCalls: 1, wantWrites: 1},
-		{
-			name:        "remove without a user",
-			remove:      true,
-			workspaceID: testWorkspaceID,
-			wantErrs:    []error{workspaces.ErrMembershipInvalid, users.ErrUserIDInvalid},
-		},
-		{
-			name:        "remove a non-member",
-			remove:      true,
-			workspaceID: testWorkspaceID,
-			userID:      testUserID,
-			writeErr:    workspaces.ErrMembershipNotFound,
-			wantErrs:    []error{workspaces.ErrMembershipNotFound},
-			wantTxCalls: 1,
-			wantWrites:  1,
-		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			writes := 0
-			want := workspaces.Membership{WorkspaceID: tt.workspaceID, UserID: tt.userID}
-			checkWrite := func(ctx context.Context, membership workspaces.Membership) {
-				writes++
-
-				if !appmock.InTransaction(ctx) || membership != want {
-					t.Errorf("membership write called with (%v, %+v), want %+v in a transaction", ctx, membership, want)
-				}
-			}
-
-			repository := &workspacesmock.WorkspaceRepository{
-				AddMemberFunc: func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipAddFailed {
-					var err workspaces.ErrMembershipAddFailed
-
-					checkWrite(ctx, membership)
-
-					if tt.remove {
-						t.Error("AddMember() called while removing")
-					}
-
-					if tt.writeErr != nil {
-						err = workspacesmock.NewErrMembershipAddFailed(membership, tt.writeErr)
-					}
-
-					return err
-				},
-				RemoveMemberFunc: func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipRemoveFailed {
-					var err workspaces.ErrMembershipRemoveFailed
-
-					checkWrite(ctx, membership)
-
-					if !tt.remove {
-						t.Error("RemoveMember() called while adding")
-					}
-
-					if tt.writeErr != nil {
-						err = workspacesmock.NewErrMembershipRemoveFailed(membership, tt.writeErr)
-					}
-
-					return err
-				},
-			}
-
+			store := newWorkspaceStore(t, tt.existing...)
+			store.writeErr = tt.writeErr
 			transactor := &appmock.Transactor{}
-			service, err := NewWorkspaceService(transactor, repository, &usersmock.UserRepository{})
+			service, err := NewWorkspaceService(transactor, store.repository(), &usersmock.UserRepository{})
 
 			if err != nil {
 				t.Fatal(err)
 			}
 
-			if tt.remove {
-				err = service.RemoveMember(t.Context(), tt.workspaceID, tt.userID)
-			} else {
-				err = service.AddMember(t.Context(), tt.workspaceID, tt.userID)
-			}
+			err = service.AddMember(t.Context(), tt.workspaceID, tt.userID, tt.role)
 
-			if transactor.Calls != tt.wantTxCalls || writes != tt.wantWrites {
-				t.Fatalf("calls = (transaction %d, write %d), want (%d, %d)", transactor.Calls, writes, tt.wantTxCalls, tt.wantWrites)
+			if transactor.Calls != tt.wantTxCalls || store.writes != tt.wantWrites || store.locked {
+				t.Fatalf(
+					"calls = (transaction %d, write %d, locked %t), want (%d, %d, false)",
+					transactor.Calls, store.writes, store.locked, tt.wantTxCalls, tt.wantWrites,
+				)
 			}
 
 			assertErrors(t, err, tt.wantErrs)
+
+			if len(tt.wantErrs) == 0 && store.role(tt.userID) != tt.role {
+				t.Fatalf("stored role = %q, want %q", store.role(tt.userID), tt.role)
+			}
 		})
 	}
 }
@@ -912,180 +913,590 @@ func validWorkspaceQuery() workspaces.WorkspaceQuery {
 	}
 }
 
-func TestWorkspaceServiceAddMemberByEmail(t *testing.T) {
-	member := testUser()
+// An owner adds a User found by email, ignoring letter case; a member added
+// without a role is a viewer.
 
+func TestWorkspaceServiceAddMemberByEmail(t *testing.T) {
 	for _, tt := range []struct {
-		name        string
-		request     input.AddMemberByEmailInput
-		findErr     error
-		addErr      error
-		wantErrs    []error
-		wantFinds   int
-		wantAdds    int
-		wantTxCalls int
+		name       string
+		request    input.AddMemberByEmailInput
+		writeErr   error
+		wantRole   workspaces.Role
+		wantErrs   []error
+		wantWrites int
 	}{
 		{
-			name:        "added",
-			request:     input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "Anna@Example.com"},
-			wantFinds:   1,
-			wantAdds:    1,
-			wantTxCalls: 1,
+			name:       "added as a viewer by default",
+			request:    input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "Grace@Example.com"},
+			wantRole:   workspaces.RoleViewer,
+			wantWrites: 1,
 		},
 		{
-			name:     "invalid fields",
-			request:  input.AddMemberByEmailInput{Email: "Anna <anna@example.com>"},
-			wantErrs: []error{input.ErrAddMemberByEmailInputInvalid, workspaces.ErrWorkspaceIDInvalid, users.ErrEmailInvalid},
+			name:       "added as an editor",
+			request:    input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "grace@example.com", Role: "editor"},
+			wantRole:   workspaces.RoleEditor,
+			wantWrites: 1,
 		},
 		{
-			name:      "unknown email",
-			request:   input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "nobody@example.com"},
-			findErr:   users.ErrUserNotFound,
-			wantErrs:  []error{users.ErrUserNotFound},
-			wantFinds: 1,
+			name:       "added as an owner",
+			request:    input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "grace@example.com", Role: "owner"},
+			wantRole:   workspaces.RoleOwner,
+			wantWrites: 1,
 		},
 		{
-			name:        "already a member",
-			request:     input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "anna@example.com"},
-			addErr:      workspaces.ErrMembershipAlreadyExists,
-			wantErrs:    []error{workspaces.ErrMembershipAlreadyExists},
-			wantFinds:   1,
-			wantAdds:    1,
-			wantTxCalls: 1,
+			name:    "invalid fields",
+			request: input.AddMemberByEmailInput{Email: "Grace <grace@example.com>", Role: "admin"},
+			wantErrs: []error{
+				input.ErrAddMemberByEmailInputInvalid,
+				workspaces.ErrWorkspaceIDInvalid,
+				users.ErrEmailInvalid,
+				workspaces.ErrRoleInvalid,
+			},
 		},
 		{
-			name:        "workspace deleted meanwhile",
-			request:     input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "anna@example.com"},
-			addErr:      workspaces.ErrWorkspaceNotFound,
-			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
-			wantFinds:   1,
-			wantAdds:    1,
-			wantTxCalls: 1,
+			name:     "unknown email",
+			request:  input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "nobody@example.com"},
+			wantErrs: []error{users.ErrUserNotFound},
+		},
+		{
+			name:       "already a member",
+			request:    input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "edgar@example.com"},
+			wantErrs:   []error{workspaces.ErrMembershipAlreadyExists},
+			wantWrites: 1,
+		},
+		{
+			name:       "write failure",
+			request:    input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "grace@example.com"},
+			writeErr:   context.DeadlineExceeded,
+			wantErrs:   []error{context.DeadlineExceeded},
+			wantWrites: 1,
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			finds, adds := 0, 0
+			store := newWorkspaceStore(t, testMemberships()...)
+			store.writeErr = tt.writeErr
+			service := newStoreService(t, store, testUserRepository(testMembers()...))
 
-			userRepository := &usersmock.UserRepository{
-				FindByEmailFunc: func(_ context.Context, email users.Email) (*users.User, error) {
-					var user *users.User
+			user, err := service.AddMemberByEmail(t.Context(), testOwnerID, tt.request)
 
-					finds++
-
-					if email != users.Email(tt.request.Email) {
-						t.Errorf("FindByEmail() called with %q", email)
-					}
-
-					if tt.findErr == nil {
-						user = member
-					}
-
-					return user, tt.findErr
-				},
-			}
-
-			repository := &workspacesmock.WorkspaceRepository{
-				AddMemberFunc: func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipAddFailed {
-					var err workspaces.ErrMembershipAddFailed
-
-					adds++
-
-					if !appmock.InTransaction(ctx) || membership != (workspaces.Membership{WorkspaceID: tt.request.WorkspaceID, UserID: member.ID}) {
-						t.Errorf("AddMember() called with (%v, %+v), want the found user in a transaction", ctx, membership)
-					}
-
-					if tt.addErr != nil {
-						err = workspacesmock.NewErrMembershipAddFailed(membership, tt.addErr)
-					}
-
-					return err
-				},
-			}
-
-			transactor := &appmock.Transactor{}
-			service, err := NewWorkspaceService(transactor, repository, userRepository)
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			user, err := service.AddMemberByEmail(t.Context(), tt.request)
-
-			if finds != tt.wantFinds || adds != tt.wantAdds || transactor.Calls != tt.wantTxCalls {
-				t.Fatalf("calls = (find %d, add %d, transaction %d), want (%d, %d, %d)", finds, adds, transactor.Calls, tt.wantFinds, tt.wantAdds, tt.wantTxCalls)
+			if store.writes != tt.wantWrites {
+				t.Fatalf("writes = %d, want %d", store.writes, tt.wantWrites)
 			}
 
 			assertErrors(t, err, tt.wantErrs)
 
-			if (user == member) != (len(tt.wantErrs) == 0) || (user != nil && len(tt.wantErrs) > 0) {
-				t.Fatalf("AddMemberByEmail() user = %v, want the member only on success", user)
+			if len(tt.wantErrs) > 0 && user != nil {
+				t.Fatalf("AddMemberByEmail() user = %v, want nil on error", user)
+			} else if len(tt.wantErrs) == 0 && (user == nil || user.ID != testNewcomerID || store.role(testNewcomerID) != tt.wantRole) {
+				t.Fatalf("AddMemberByEmail() user = %v with role %q, want the newcomer as %q", user, store.role(testNewcomerID), tt.wantRole)
 			}
 		})
 	}
 }
 
+// An owner changes any member's role, their own included, as long as the
+// workspace keeps an owner.
+
+func TestWorkspaceServiceChangeMemberRole(t *testing.T) {
+	twoOwners := append(testMemberships(), membershipOf(testNewcomerID, workspaces.RoleOwner))
+
+	for _, tt := range []struct {
+		name        string
+		memberships []workspaces.Membership
+		actorID     users.UserID
+		request     input.ChangeMemberRoleInput
+		writeErr    error
+		wantRole    workspaces.Role
+		wantErrs    []error
+		wantWrites  int
+	}{
+		{
+			name:       "editor promoted",
+			actorID:    testOwnerID,
+			request:    input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testEditorID, Role: "owner"},
+			wantRole:   workspaces.RoleOwner,
+			wantWrites: 1,
+		},
+		{
+			name:       "viewer made an editor",
+			actorID:    testOwnerID,
+			request:    input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testViewerID, Role: "editor"},
+			wantRole:   workspaces.RoleEditor,
+			wantWrites: 1,
+		},
+		{
+			name:        "another owner demoted",
+			memberships: twoOwners,
+			actorID:     testOwnerID,
+			request:     input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testNewcomerID, Role: "viewer"},
+			wantRole:    workspaces.RoleViewer,
+			wantWrites:  1,
+		},
+		{
+			name:        "owner demotes themselves beside another owner",
+			memberships: twoOwners,
+			actorID:     testOwnerID,
+			request:     input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testOwnerID, Role: "editor"},
+			wantRole:    workspaces.RoleEditor,
+			wantWrites:  1,
+		},
+		{
+			name:     "last owner demoted",
+			actorID:  testOwnerID,
+			request:  input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testOwnerID, Role: "editor"},
+			wantRole: workspaces.RoleOwner,
+			wantErrs: []error{workspaces.ErrMembershipLastOwner},
+		},
+		{
+			name:       "last owner kept an owner",
+			actorID:    testOwnerID,
+			request:    input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testOwnerID, Role: "owner"},
+			wantRole:   workspaces.RoleOwner,
+			wantWrites: 1,
+		},
+		{
+			name:    "invalid fields",
+			request: input.ChangeMemberRoleInput{Role: "admin"},
+			wantErrs: []error{
+				input.ErrChangeMemberRoleInputInvalid,
+				workspaces.ErrWorkspaceIDInvalid,
+				users.ErrUserIDInvalid,
+				workspaces.ErrRoleInvalid,
+			},
+		},
+		{
+			name:     "missing role",
+			actorID:  testOwnerID,
+			request:  input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testEditorID},
+			wantRole: workspaces.RoleEditor,
+			wantErrs: []error{input.ErrChangeMemberRoleInputInvalid, workspaces.ErrRoleInvalid},
+		},
+		{
+			name:     "not a member",
+			actorID:  testOwnerID,
+			request:  input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testNewcomerID, Role: "editor"},
+			wantErrs: []error{workspaces.ErrMembershipNotFound},
+		},
+		{
+			name:       "write failure",
+			actorID:    testOwnerID,
+			request:    input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testEditorID, Role: "viewer"},
+			writeErr:   context.DeadlineExceeded,
+			wantRole:   workspaces.RoleEditor,
+			wantErrs:   []error{context.DeadlineExceeded},
+			wantWrites: 1,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			memberships := tt.memberships
+
+			if memberships == nil {
+				memberships = testMemberships()
+			}
+
+			store := newWorkspaceStore(t, memberships...)
+			store.writeErr = tt.writeErr
+			service := newStoreService(t, store, &usersmock.UserRepository{})
+
+			err := service.ChangeMemberRole(t.Context(), tt.actorID, tt.request)
+
+			if store.writes != tt.wantWrites {
+				t.Fatalf("writes = %d, want %d", store.writes, tt.wantWrites)
+			}
+
+			assertErrors(t, err, tt.wantErrs)
+
+			if role := store.role(tt.request.UserID); role != tt.wantRole {
+				t.Fatalf("stored role = %q, want %q", role, tt.wantRole)
+			}
+		})
+	}
+}
+
+// An owner removes any member while the workspace keeps an owner.
+
+func TestWorkspaceServiceRemoveMember(t *testing.T) {
+	twoOwners := append(testMemberships(), membershipOf(testNewcomerID, workspaces.RoleOwner))
+
+	for _, tt := range []struct {
+		name        string
+		memberships []workspaces.Membership
+		userID      users.UserID
+		writeErr    error
+		wantRemoved bool
+		wantErrs    []error
+		wantWrites  int
+	}{
+		{name: "editor removed", userID: testEditorID, wantRemoved: true, wantWrites: 1},
+		{name: "another owner removed", memberships: twoOwners, userID: testNewcomerID, wantRemoved: true, wantWrites: 1},
+		{name: "owner leaves beside another owner", memberships: twoOwners, userID: testOwnerID, wantRemoved: true, wantWrites: 1},
+		{name: "last owner removed", userID: testOwnerID, wantErrs: []error{workspaces.ErrMembershipLastOwner}},
+		{name: "not a member", userID: testNewcomerID, wantErrs: []error{workspaces.ErrMembershipNotFound}},
+		{name: "invalid user", wantErrs: []error{users.ErrUserIDInvalid}},
+		{
+			name:       "write failure",
+			userID:     testViewerID,
+			writeErr:   context.DeadlineExceeded,
+			wantErrs:   []error{context.DeadlineExceeded},
+			wantWrites: 1,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			memberships := tt.memberships
+
+			if memberships == nil {
+				memberships = testMemberships()
+			}
+
+			store := newWorkspaceStore(t, memberships...)
+			store.writeErr = tt.writeErr
+			before := store.role(tt.userID)
+			service := newStoreService(t, store, &usersmock.UserRepository{})
+
+			err := service.RemoveMember(t.Context(), testOwnerID, testWorkspaceID, tt.userID)
+
+			if store.writes != tt.wantWrites {
+				t.Fatalf("writes = %d, want %d", store.writes, tt.wantWrites)
+			}
+
+			assertErrors(t, err, tt.wantErrs)
+
+			if removed := before != "" && store.role(tt.userID) == ""; removed != tt.wantRemoved {
+				t.Fatalf("member removed = %t, want %t", removed, tt.wantRemoved)
+			}
+		})
+	}
+}
+
+// Every member sees the members in name order, each with their role.
+
 func TestWorkspaceServiceListMembers(t *testing.T) {
-	member := testUser()
 	storageErr := errors.New("storage unavailable")
 
 	for _, tt := range []struct {
 		name      string
 		id        workspaces.WorkspaceID
-		idsErr    error
+		readErr   error
 		usersErr  error
 		wantErrs  []error
-		wantCalls int
-		wantCount int
+		wantNames []string
+		wantRoles []workspaces.Role
 	}{
-		{name: "listed", id: testWorkspaceID, wantCalls: 2, wantCount: 1},
+		{
+			name:      "listed",
+			id:        testWorkspaceID,
+			wantNames: []string{"Edgar", "Olga", "Vera"},
+			wantRoles: []workspaces.Role{workspaces.RoleEditor, workspaces.RoleOwner, workspaces.RoleViewer},
+		},
 		{name: "invalid ID", wantErrs: []error{workspaces.ErrWorkspaceIDInvalid}},
-		{name: "membership failure", id: testWorkspaceID, idsErr: storageErr, wantErrs: []error{storageErr}, wantCalls: 1},
-		{name: "user failure", id: testWorkspaceID, usersErr: storageErr, wantErrs: []error{storageErr}, wantCalls: 2},
+		{name: "membership failure", id: testWorkspaceID, readErr: storageErr, wantErrs: []error{storageErr}},
+		{name: "user failure", id: testWorkspaceID, usersErr: storageErr, wantErrs: []error{storageErr}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			calls := 0
+			store := newWorkspaceStore(t, testMemberships()...)
+			store.readErr = tt.readErr
+			userRepository := testUserRepository(testMembers()...)
+			findByIDs := userRepository.FindByIDsFunc
+			userRepository.FindByIDsFunc = func(ctx context.Context, ids []users.UserID) ([]*users.User, error) {
+				found, err := findByIDs(ctx, ids)
 
-			repository := &workspacesmock.WorkspaceRepository{
-				FindMemberIDsFunc: func(_ context.Context, id workspaces.WorkspaceID) ([]users.UserID, error) {
-					calls++
+				if tt.usersErr != nil {
+					found, err = nil, tt.usersErr
+				}
 
-					if id != tt.id {
-						t.Errorf("FindMemberIDs() called with %v", id)
-					}
-
-					return []users.UserID{member.ID}, tt.idsErr
-				},
+				return found, err
 			}
 
-			userRepository := &usersmock.UserRepository{
-				FindByIDsFunc: func(_ context.Context, ids []users.UserID) ([]*users.User, error) {
-					calls++
+			service := newStoreService(t, store, userRepository)
 
-					if len(ids) != 1 || ids[0] != member.ID {
-						t.Errorf("FindByIDs() called with %v", ids)
-					}
-
-					return []*users.User{member}, tt.usersErr
-				},
-			}
-
-			service, err := NewWorkspaceService(&appmock.Transactor{}, repository, userRepository)
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			members, err := service.ListMembers(t.Context(), tt.id)
-
-			if calls != tt.wantCalls {
-				t.Fatalf("repository calls = %d, want %d", calls, tt.wantCalls)
-			}
+			members, err := service.ListMembers(t.Context(), testViewerID, tt.id)
 
 			assertErrors(t, err, tt.wantErrs)
 
-			if len(members) != tt.wantCount || (tt.wantCount > 0 && members[0] != member) {
-				t.Fatalf("ListMembers() = %v, want %d members", members, tt.wantCount)
+			if len(members) != len(tt.wantNames) {
+				t.Fatalf("ListMembers() = %v, want %v", members, tt.wantNames)
+			}
+
+			for index, member := range members {
+				if string(member.User.FirstName) != tt.wantNames[index] || member.Role != tt.wantRoles[index] {
+					t.Fatalf("member %d = %s as %q, want %s as %q", index, member.User.FirstName, member.Role, tt.wantNames[index], tt.wantRoles[index])
+				}
 			}
 		})
+	}
+}
+
+//
+// Workspace store
+//
+
+// The workspace has an owner, an editor, and a viewer. The newcomer has an
+// account but no membership, and the outsider is neither.
+
+var (
+	testOwnerID    = users.UserID(uuid.MustParse("01920000-0000-7000-8000-0000000000a1"))
+	testEditorID   = users.UserID(uuid.MustParse("01920000-0000-7000-8000-0000000000a2"))
+	testViewerID   = users.UserID(uuid.MustParse("01920000-0000-7000-8000-0000000000a3"))
+	testNewcomerID = users.UserID(uuid.MustParse("01920000-0000-7000-8000-0000000000a4"))
+	testOutsiderID = users.UserID(uuid.MustParse("01920000-0000-7000-8000-0000000000a5"))
+)
+
+func testMemberships() []workspaces.Membership {
+	return []workspaces.Membership{
+		membershipOf(testOwnerID, workspaces.RoleOwner),
+		membershipOf(testEditorID, workspaces.RoleEditor),
+		membershipOf(testViewerID, workspaces.RoleViewer),
+	}
+}
+
+func membershipOf(userID users.UserID, role workspaces.Role) workspaces.Membership {
+	return workspaces.NewMembership(testWorkspaceID, userID, role)
+}
+
+func testMembers() []*users.User {
+	return []*users.User{
+		testMember(testOwnerID, "olga@example.com", "Olga"),
+		testMember(testEditorID, "edgar@example.com", "Edgar"),
+		testMember(testViewerID, "vera@example.com", "Vera"),
+		testMember(testNewcomerID, "grace@example.com", "Grace"),
+	}
+}
+
+func testMember(id users.UserID, email users.Email, firstName users.FirstName) *users.User {
+	user := testUser()
+	user.ID, user.Email, user.FirstName = id, email, firstName
+
+	return user
+}
+
+// Users are found by email ignoring letter case, and by IDs in first-name
+// order.
+
+func testUserRepository(found ...*users.User) *usersmock.UserRepository {
+	return &usersmock.UserRepository{
+		FindByEmailFunc: func(_ context.Context, email users.Email) (*users.User, error) {
+			var (
+				user *users.User
+				err  = users.ErrUserNotFound
+			)
+
+			for _, candidate := range found {
+				if strings.EqualFold(string(candidate.Email), string(email)) {
+					user, err = candidate, nil
+				}
+			}
+
+			return user, err
+		},
+		FindByIDsFunc: func(_ context.Context, ids []users.UserID) ([]*users.User, error) {
+			result := []*users.User{}
+
+			for _, candidate := range found {
+				if slices.Contains(ids, candidate.ID) {
+					result = append(result, candidate)
+				}
+			}
+
+			slices.SortFunc(result, func(a, b *users.User) int {
+				return strings.Compare(string(a.FirstName), string(b.FirstName))
+			})
+
+			return result, nil
+		},
+	}
+}
+
+// workspaceStore keeps one workspace and its memberships in memory behind the
+// complete repository contract. Every write must run in a transaction, and
+// every write but adding a member must follow the workspace's lock, like the
+// service's own. Writes are counted, and fail with writeErr when it is set.
+
+type workspaceStore struct {
+	t           *testing.T
+	workspace   *workspaces.Workspace
+	memberships workspaces.Memberships
+	lockErr     error
+	readErr     error
+	writeErr    error
+	locked      bool
+	writes      int
+}
+
+func newWorkspaceStore(t *testing.T, memberships ...workspaces.Membership) *workspaceStore {
+	return &workspaceStore{
+		t:           t,
+		workspace:   workspaces.NewWorkspace(testWorkspaceID, "Design"),
+		memberships: slices.Clone(memberships),
+	}
+}
+
+func newStoreService(t *testing.T, store *workspaceStore, userRepository users.UserRepository) *WorkspaceService {
+	t.Helper()
+
+	service, err := NewWorkspaceService(&appmock.Transactor{}, store.repository(), userRepository)
+
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	return service
+}
+
+func (s *workspaceStore) role(userID users.UserID) workspaces.Role {
+	var role workspaces.Role
+
+	if index := s.index(userID); index >= 0 {
+		role = s.memberships[index].Role
+	}
+
+	return role
+}
+
+func (s *workspaceStore) index(userID users.UserID) int {
+	return slices.IndexFunc(s.memberships, func(membership workspaces.Membership) bool {
+		return membership.UserID == userID
+	})
+}
+
+func (s *workspaceStore) write(ctx context.Context, needsLock bool) error {
+	s.writes++
+
+	if !appmock.InTransaction(ctx) {
+		s.t.Error("write ran outside a transaction")
+	}
+
+	if needsLock && !s.locked {
+		s.t.Error("write ran before the workspace was locked")
+	}
+
+	return s.writeErr
+}
+
+func (s *workspaceStore) repository() *workspacesmock.WorkspaceRepository {
+	return &workspacesmock.WorkspaceRepository{
+		FindByIDFunc: func(_ context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
+			var (
+				found *workspaces.Workspace
+				err   = workspaces.ErrWorkspaceNotFound
+			)
+
+			if s.readErr != nil {
+				err = s.readErr
+			} else if id == s.workspace.ID {
+				found, err = s.workspace, nil
+			}
+
+			return found, err
+		},
+		FindByIDForUpdateFunc: func(ctx context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
+			var (
+				found *workspaces.Workspace
+				err   = workspaces.ErrWorkspaceNotFound
+			)
+
+			if !appmock.InTransaction(ctx) {
+				s.t.Error("FindByIDForUpdate() ran outside a transaction")
+			}
+
+			if s.lockErr != nil {
+				err = s.lockErr
+			} else if id == s.workspace.ID {
+				copied := *s.workspace
+				found, err, s.locked = &copied, nil, true
+			}
+
+			return found, err
+		},
+		UpdateFunc: func(ctx context.Context, workspace *workspaces.Workspace) workspaces.ErrWorkspaceUpdateFailed {
+			var err workspaces.ErrWorkspaceUpdateFailed
+
+			if writeErr := s.write(ctx, true); writeErr != nil {
+				err = workspacesmock.NewErrWorkspaceUpdateFailed(workspace, writeErr)
+			} else {
+				s.workspace = workspace
+			}
+
+			return err
+		},
+		AddMemberFunc: func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipAddFailed {
+			var err workspaces.ErrMembershipAddFailed
+
+			writeErr := s.write(ctx, false)
+
+			if writeErr == nil && s.index(membership.UserID) >= 0 {
+				writeErr = workspaces.ErrMembershipAlreadyExists
+			}
+
+			if writeErr != nil {
+				err = workspacesmock.NewErrMembershipAddFailed(membership, writeErr)
+			} else {
+				s.memberships = append(s.memberships, membership)
+			}
+
+			return err
+		},
+		UpdateMemberFunc: func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipUpdateFailed {
+			var err workspaces.ErrMembershipUpdateFailed
+
+			writeErr := s.write(ctx, true)
+			index := s.index(membership.UserID)
+
+			if writeErr == nil && index < 0 {
+				writeErr = workspaces.ErrMembershipNotFound
+			}
+
+			if writeErr != nil {
+				err = workspacesmock.NewErrMembershipUpdateFailed(membership, writeErr)
+			} else {
+				s.memberships[index] = membership
+			}
+
+			return err
+		},
+		RemoveMemberFunc: func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipRemoveFailed {
+			var err workspaces.ErrMembershipRemoveFailed
+
+			writeErr := s.write(ctx, true)
+			index := s.index(membership.UserID)
+
+			if writeErr == nil && index < 0 {
+				writeErr = workspaces.ErrMembershipNotFound
+			}
+
+			if writeErr != nil {
+				err = workspacesmock.NewErrMembershipRemoveFailed(membership, writeErr)
+			} else {
+				s.memberships = slices.Delete(s.memberships, index, index+1)
+			}
+
+			return err
+		},
+		FindMemberFunc: func(_ context.Context, id workspaces.WorkspaceID, userID users.UserID) (workspaces.Membership, error) {
+			var membership workspaces.Membership
+
+			err := s.readErr
+			index := s.index(userID)
+
+			if err == nil && (id != s.workspace.ID || index < 0) {
+				err = workspaces.ErrMembershipNotFound
+			} else if err == nil {
+				membership = s.memberships[index]
+			}
+
+			return membership, err
+		},
+		FindMembersFunc: func(_ context.Context, id workspaces.WorkspaceID) (workspaces.Memberships, error) {
+			var result workspaces.Memberships
+
+			err := s.readErr
+
+			if err == nil && id == s.workspace.ID {
+				result = slices.Clone(s.memberships)
+			} else if err == nil {
+				result = workspaces.Memberships{}
+			}
+
+			return result, err
+		},
 	}
 }

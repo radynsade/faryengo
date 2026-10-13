@@ -59,7 +59,8 @@ func TestNewWorkspaceRepositoryRejectsNilDB(t *testing.T) {
 func TestWorkspaceMethodsRejectMissingPool(t *testing.T) {
 	ctx := context.Background()
 	id := workspaces.WorkspaceID(uuid.Must(uuid.NewV7()))
-	membership := workspaces.Membership{WorkspaceID: id, UserID: users.UserID(uuid.Must(uuid.NewV7()))}
+	userID := users.UserID(uuid.Must(uuid.NewV7()))
+	membership := workspaces.NewMembership(id, userID, workspaces.RoleViewer)
 
 	tests := []struct {
 		name string
@@ -73,9 +74,10 @@ func TestWorkspaceMethodsRejectMissingPool(t *testing.T) {
 		{"find", func() error { _, err := (&WorkspaceRepository{}).Find(ctx, workspaces.WorkspaceQuery{}); return err }},
 		{"count", func() error { _, err := (&WorkspaceRepository{}).Count(ctx, workspaces.WorkspaceFilter{}); return err }},
 		{"add member", func() error { return (&WorkspaceRepository{}).AddMember(ctx, membership) }},
+		{"update member", func() error { return (&WorkspaceRepository{}).UpdateMember(ctx, membership) }},
 		{"remove member", func() error { return (&WorkspaceRepository{}).RemoveMember(ctx, membership) }},
-		{"has member", func() error { _, err := (&WorkspaceRepository{}).HasMember(ctx, membership); return err }},
-		{"find member IDs", func() error { _, err := (&WorkspaceRepository{}).FindMemberIDs(ctx, id); return err }},
+		{"find member", func() error { _, err := (&WorkspaceRepository{}).FindMember(ctx, id, userID); return err }},
+		{"find members", func() error { _, err := (*WorkspaceRepository)(nil).FindMembers(ctx, id); return err }},
 	}
 
 	for _, test := range tests {
@@ -91,6 +93,7 @@ func TestWorkspaceMethodsValidateBeforeIO(t *testing.T) {
 	ctx := context.Background()
 	repository := &WorkspaceRepository{pool: newLazyPool(t)}
 	validID := workspaces.WorkspaceID(uuid.Must(uuid.NewV7()))
+	validUserID := users.UserID(uuid.Must(uuid.NewV7()))
 	untrimmed := workspaces.NewWorkspace(validID, " Design")
 
 	tests := []struct {
@@ -138,21 +141,34 @@ func TestWorkspaceMethodsValidateBeforeIO(t *testing.T) {
 			return err
 		}, workspaces.ErrWorkspaceFilterInvalid},
 		{"add member without a user", func() error {
-			return repository.AddMember(ctx, workspaces.Membership{WorkspaceID: validID})
+			return repository.AddMember(ctx, workspaces.NewMembership(validID, users.UserID{}, workspaces.RoleViewer))
 		}, users.ErrUserIDInvalid},
 		{"add member without a workspace", func() error {
-			return repository.AddMember(ctx, workspaces.Membership{UserID: users.UserID(uuid.Must(uuid.NewV7()))})
+			return repository.AddMember(ctx, workspaces.NewMembership(workspaces.WorkspaceID{}, validUserID, workspaces.RoleViewer))
 		}, workspaces.ErrMembershipInvalid},
-		{"find member IDs of an invalid workspace", func() error {
-			_, err := repository.FindMemberIDs(ctx, workspaces.WorkspaceID{})
+		{"add member without a role", func() error {
+			return repository.AddMember(ctx, workspaces.NewMembership(validID, validUserID, ""))
+		}, workspaces.ErrRoleInvalid},
+		{"update member with an unknown role", func() error {
+			return repository.UpdateMember(ctx, workspaces.NewMembership(validID, validUserID, "admin"))
+		}, workspaces.ErrRoleInvalid},
+		{"update member without a user", func() error {
+			return repository.UpdateMember(ctx, workspaces.NewMembership(validID, users.UserID{}, workspaces.RoleOwner))
+		}, workspaces.ErrMembershipInvalid},
+		{"find members of an invalid workspace", func() error {
+			_, err := repository.FindMembers(ctx, workspaces.WorkspaceID{})
 			return err
 		}, workspaces.ErrWorkspaceIDInvalid},
-		{"has member without a user", func() error {
-			_, err := repository.HasMember(ctx, workspaces.Membership{WorkspaceID: validID})
+		{"find member without a user", func() error {
+			_, err := repository.FindMember(ctx, validID, users.UserID{})
 			return err
-		}, workspaces.ErrMembershipInvalid},
+		}, users.ErrUserIDInvalid},
+		{"find member of an invalid workspace", func() error {
+			_, err := repository.FindMember(ctx, workspaces.WorkspaceID{}, validUserID)
+			return err
+		}, workspaces.ErrWorkspaceIDInvalid},
 		{"remove member without a user", func() error {
-			return repository.RemoveMember(ctx, workspaces.Membership{WorkspaceID: validID})
+			return repository.RemoveMember(ctx, workspaces.NewMembership(validID, users.UserID{}, workspaces.RoleViewer))
 		}, workspaces.ErrMembershipInvalid},
 	}
 
@@ -186,6 +202,10 @@ func TestWorkspaceWriteFailuresExposeInput(t *testing.T) {
 
 	if err := repository.AddMember(ctx, membership); err == nil || err.Membership() != membership {
 		t.Fatalf("AddMember() = %v, want a failure exposing the membership", err)
+	}
+
+	if err := repository.UpdateMember(ctx, membership); err == nil || err.Membership() != membership {
+		t.Fatalf("UpdateMember() = %v, want a failure exposing the membership", err)
 	}
 
 	if err := repository.RemoveMember(ctx, membership); err == nil || err.Membership() != membership {

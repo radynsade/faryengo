@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 
 	"github.com/a-h/templ"
 
+	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
@@ -21,18 +23,19 @@ import (
 //
 
 // A workspace's settings belong to the workspace in the address, and only its
-// members reach them.
+// members reach them. The member's role decides what they may change there.
 
 type workspaceSettingsScope struct {
-	current   *security.Identity
-	workspace *workspaces.Workspace
-	url       string
+	current *security.Identity
+	found   app.MemberWorkspace
+	url     string
 }
 
-// Workspace settings page
+// Every member sees the settings; only those whose role allows a change see
+// its form.
 
 func (h *Handler) workspaceSettings(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.workspaceSettingsScope(writer, request)
+	scope, ok := h.workspaceSettingsScope(writer, request, workspaces.ActionViewContent)
 
 	if ok {
 		notices, err := h.settingsNotices(request, scope.current.Session)
@@ -41,32 +44,36 @@ func (h *Handler) workspaceSettings(writer http.ResponseWriter, request *http.Re
 			slog.ErrorContext(request.Context(), "office flash storage", "error", err)
 			utils.Fail(writer, request, http.StatusServiceUnavailable, "errors.settings_unavailable")
 		} else {
-			content := utils.WorkspaceSettingsContentProps(scope.workspace, scope.url, notices)
+			content := utils.WorkspaceSettingsContentProps(request.Context(), scope.found, scope.url, notices)
 
 			h.renderWorkspaceSettings(writer, request, http.StatusOK, scope, content, "")
 		}
 	}
 }
 
-// A workspace's name is the same for every member, so any member may change
-// it; the scope has already checked the membership.
+// A workspace's name is the same for every member, so only an owner may
+// change it.
 
 func (h *Handler) renameWorkspace(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.workspaceSettingsScope(writer, request)
+	scope, ok := h.workspaceSettingsScope(writer, request, workspaces.ActionRename)
 
 	if ok {
 		form, err := utils.ParseWorkspaceForm(writer, request)
 
 		if err == nil {
-			_, err = h.workspaces.Rename(request.Context(), input.RenameWorkspaceInput{ID: scope.workspace.ID, Name: form.Name})
+			_, err = h.workspaces.Rename(
+				request.Context(),
+				scope.current.User.ID,
+				input.RenameWorkspaceInput{ID: scope.found.Workspace.ID, Name: form.Name},
+			)
 		}
 
 		if err == nil {
 			h.settingsSaved(writer, request, scope.current.Session, scope.url, []string{officei18n.T(request.Context(), "settings.workspace_saved")})
-		} else if errors.Is(err, workspaces.ErrWorkspaceNotFound) {
-			http.Redirect(writer, request, utils.WorkspacesPath(request), http.StatusSeeOther)
+		} else if isWorkspaceAccessError(err) {
+			h.settingsUnavailable(writer, request, err)
 		} else {
-			content := utils.WorkspaceSettingsContentProps(scope.workspace, scope.url, nil)
+			content := utils.WorkspaceSettingsContentProps(request.Context(), scope.found, scope.url, nil)
 			content.Workspace.Name = form.Name
 			content.Workspace.FieldErrors = utils.WorkspaceFieldErrors(request.Context(), err)
 			status := http.StatusUnprocessableEntity
@@ -81,11 +88,11 @@ func (h *Handler) renameWorkspace(writer http.ResponseWriter, request *http.Requ
 	}
 }
 
-// Any member may add another existing User by email; the scope has already
-// checked the membership. The confirmation names the added User.
+// An owner may add another existing User by email, with the role they get in
+// the workspace. The confirmation names the added User.
 
 func (h *Handler) addWorkspaceMember(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.workspaceSettingsScope(writer, request)
+	scope, ok := h.workspaceSettingsScope(writer, request, workspaces.ActionManageMembers)
 
 	if ok {
 		var member *users.User
@@ -93,9 +100,10 @@ func (h *Handler) addWorkspaceMember(writer http.ResponseWriter, request *http.R
 		form, err := utils.ParseMemberForm(writer, request)
 
 		if err == nil {
-			member, err = h.workspaces.AddMemberByEmail(request.Context(), input.AddMemberByEmailInput{
-				WorkspaceID: scope.workspace.ID,
+			member, err = h.workspaces.AddMemberByEmail(request.Context(), scope.current.User.ID, input.AddMemberByEmailInput{
+				WorkspaceID: scope.found.Workspace.ID,
 				Email:       form.Email,
+				Role:        form.Role,
 			})
 		}
 
@@ -106,11 +114,12 @@ func (h *Handler) addWorkspaceMember(writer http.ResponseWriter, request *http.R
 			})
 
 			h.settingsSaved(writer, request, scope.current.Session, scope.url, []string{message})
-		} else if errors.Is(err, workspaces.ErrWorkspaceNotFound) {
-			http.Redirect(writer, request, utils.WorkspacesPath(request), http.StatusSeeOther)
+		} else if isWorkspaceAccessError(err) {
+			h.settingsUnavailable(writer, request, err)
 		} else {
-			content := utils.WorkspaceSettingsContentProps(scope.workspace, scope.url, nil)
+			content := utils.WorkspaceSettingsContentProps(request.Context(), scope.found, scope.url, nil)
 			content.Member.Email = form.Email
+			content.Member.Role = form.Role
 			content.Member.FieldErrors = utils.MemberFieldErrors(request.Context(), err)
 			status := http.StatusUnprocessableEntity
 
@@ -124,13 +133,50 @@ func (h *Handler) addWorkspaceMember(writer http.ResponseWriter, request *http.R
 	}
 }
 
-// Any member may remove another one, who can be added again by email. The
+// An owner may change any member's role, their own included, as long as the
+// workspace keeps an owner. A request for a User who is no longer a member
+// changes nothing and shows the current members.
+
+func (h *Handler) changeWorkspaceMemberRole(writer http.ResponseWriter, request *http.Request) {
+	scope, ok := h.workspaceSettingsScope(writer, request, workspaces.ActionManageMembers)
+
+	if ok {
+		var member *users.User
+
+		form, err := utils.ParseRoleForm(writer, request)
+
+		if err == nil {
+			member, err = h.users.FindByID(request.Context(), form.UserID)
+		}
+
+		if err == nil {
+			err = h.workspaces.ChangeMemberRole(request.Context(), scope.current.User.ID, input.ChangeMemberRoleInput{
+				WorkspaceID: scope.found.Workspace.ID,
+				UserID:      form.UserID,
+				Role:        form.Role,
+			})
+		}
+
+		if err == nil {
+			message := officei18n.T(request.Context(), "settings.member_role_changed", map[string]any{
+				"Name": utils.FullName(member),
+				"Role": utils.RoleLabel(request.Context(), workspaces.Role(form.Role)),
+			})
+
+			h.settingsSaved(writer, request, scope.current.Session, scope.url, []string{message})
+		} else {
+			h.memberChangeFailed(writer, request, scope, err)
+		}
+	}
+}
+
+// An owner may remove another member, who can be added again by email. The
 // signed-in User does not remove themselves from here, so such a request, and
 // one for a User who is no longer a member, changes nothing and shows the
 // current members.
 
 func (h *Handler) removeWorkspaceMember(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.workspaceSettingsScope(writer, request)
+	scope, ok := h.workspaceSettingsScope(writer, request, workspaces.ActionManageMembers)
 
 	if ok {
 		var member *users.User
@@ -141,7 +187,7 @@ func (h *Handler) removeWorkspaceMember(writer http.ResponseWriter, request *htt
 			member, err = h.users.FindByID(request.Context(), id)
 
 			if err == nil {
-				err = h.workspaces.RemoveMember(request.Context(), scope.workspace.ID, id)
+				err = h.workspaces.RemoveMember(request.Context(), scope.current.User.ID, scope.found.Workspace.ID, id)
 			}
 		}
 
@@ -149,13 +195,10 @@ func (h *Handler) removeWorkspaceMember(writer http.ResponseWriter, request *htt
 			message := officei18n.T(request.Context(), "settings.member_removed", map[string]any{"Name": utils.FullName(member)})
 
 			h.settingsSaved(writer, request, scope.current.Session, scope.url, []string{message})
-		} else if err == nil || errors.Is(err, users.ErrUserNotFound) || errors.Is(err, workspaces.ErrMembershipNotFound) {
+		} else if err == nil {
 			http.Redirect(writer, request, scope.url, http.StatusSeeOther)
-		} else if errors.Is(err, utils.ErrFormInvalid) {
-			utils.Fail(writer, request, http.StatusBadRequest, "errors.form")
 		} else {
-			slog.ErrorContext(request.Context(), "office workspace member removal", "error", err)
-			utils.Fail(writer, request, http.StatusServiceUnavailable, "errors.settings_unavailable")
+			h.memberChangeFailed(writer, request, scope, err)
 		}
 	}
 }
@@ -164,11 +207,13 @@ func (h *Handler) removeWorkspaceMember(writer http.ResponseWriter, request *htt
 // Helpers
 //
 
-// The response is written when the scope cannot be resolved.
+// The response is written when the scope cannot be resolved, or when the
+// member's role does not allow the action.
 
 func (h *Handler) workspaceSettingsScope(
 	writer http.ResponseWriter,
 	request *http.Request,
+	action workspaces.Action,
 ) (workspaceSettingsScope, bool) {
 	var scope workspaceSettingsScope
 
@@ -176,16 +221,50 @@ func (h *Handler) workspaceSettingsScope(
 
 	if err == nil {
 		scope.current = current
-		scope.workspace, err = h.findWorkspace(request, current)
+		scope.found, err = h.findWorkspace(request, current)
+	}
+
+	if err == nil && !scope.found.Role.Allows(action) {
+		err = fmt.Errorf("%w: a workspace %s may not %s", workspaces.ErrRolePermissionDenied, scope.found.Role, action)
 	}
 
 	if err == nil {
-		scope.url = utils.WorkspacePath(request, scope.workspace.ID) + "/settings"
+		scope.url = utils.WorkspacePath(request, scope.found.Workspace.ID) + "/settings"
 	} else {
 		h.settingsUnavailable(writer, request, err)
 	}
 
 	return scope, err == nil
+}
+
+// A change to a member who is gone changes nothing and shows the current
+// members; one that would leave the workspace without an owner conflicts
+// with it.
+
+func (h *Handler) memberChangeFailed(
+	writer http.ResponseWriter,
+	request *http.Request,
+	scope workspaceSettingsScope,
+	err error,
+) {
+	if errors.Is(err, users.ErrUserNotFound) || errors.Is(err, workspaces.ErrMembershipNotFound) {
+		http.Redirect(writer, request, scope.url, http.StatusSeeOther)
+	} else if isWorkspaceAccessError(err) {
+		h.settingsUnavailable(writer, request, err)
+	} else if errors.Is(err, utils.ErrFormInvalid) || errors.Is(err, input.ErrChangeMemberRoleInputInvalid) {
+		utils.Fail(writer, request, http.StatusBadRequest, "errors.form")
+	} else if errors.Is(err, workspaces.ErrMembershipLastOwner) {
+		utils.Fail(writer, request, http.StatusConflict, "errors.last_owner")
+	} else {
+		slog.ErrorContext(request.Context(), "office workspace member change", "error", err)
+		utils.Fail(writer, request, http.StatusServiceUnavailable, "errors.settings_unavailable")
+	}
+}
+
+// The membership or role may have changed since the scope was resolved.
+
+func isWorkspaceAccessError(err error) bool {
+	return errors.Is(err, workspaces.ErrWorkspaceNotFound) || errors.Is(err, workspaces.ErrRolePermissionDenied)
 }
 
 // A failed in-page submission replaces only its form, so the other fields
@@ -205,16 +284,16 @@ func (h *Handler) renderWorkspaceSettings(
 		utils.RenderFormRegion(writer, request, status, region, pages.SettingsFormFailure(workspaceSettingsRegion(region, content)))
 	} else {
 		title := officei18n.T(request.Context(), "settings.workspace_title")
-		members, err := h.workspaces.ListMembers(request.Context(), scope.workspace.ID)
+		members, err := h.workspaces.ListMembers(request.Context(), scope.current.User.ID, scope.found.Workspace.ID)
 
 		if err != nil {
 			slog.ErrorContext(request.Context(), "office workspace members", "error", err)
 			content.MembersError = officei18n.T(request.Context(), "errors.members_unavailable")
 		} else {
-			content.Members = utils.MemberItems(members, scope.current, scope.url)
+			content.Members = utils.MemberItems(request.Context(), members, scope.current, content.CanManageMembers, scope.url)
 		}
 
-		dashboard := utils.DashboardProps(request, scope.current, scope.workspace, utils.WorkspaceSettingsSection, title)
+		dashboard := utils.DashboardProps(request, scope.current, scope.found.Workspace, utils.WorkspaceSettingsSection, title)
 		dashboard.Narrow = true
 
 		utils.Render(writer, request, status, title, pages.WorkspaceSettings(dashboard, content))

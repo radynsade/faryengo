@@ -218,8 +218,8 @@ func TestCreateWorkspace(t *testing.T) {
 		t.Fatalf("created %q, Location = %q, want %q", created.Name, response.Header().Get("Location"), location)
 	}
 
-	if members := f.members[created.ID]; len(members) != 1 || members[0] != f.user.ID {
-		t.Fatalf("members = %v, want only the creator", members)
+	if members := f.members[created.ID]; len(members) != 1 || members[0].UserID != f.user.ID || members[0].Role != workspaces.RoleOwner {
+		t.Fatalf("members = %v, want only the creator, as the owner", members)
 	}
 
 	// The browser follows the redirect with the same headers, and the

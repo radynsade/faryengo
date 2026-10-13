@@ -296,6 +296,36 @@
   "settings.member_removed": {
     "other": "{{.Name}} удалён(а) из рабочего пространства."
   },
+  "fields.role": {
+    "other": "Роль"
+  },
+  "roles.viewer": {
+    "other": "Наблюдатель"
+  },
+  "roles.editor": {
+    "other": "Редактор"
+  },
+  "roles.owner": {
+    "other": "Владелец"
+  },
+  "settings.members_read_only": {
+    "other": "Изменять название и участников рабочего пространства могут только его владельцы."
+  },
+  "settings.member_role": {
+    "other": "Роль: {{.Name}}"
+  },
+  "settings.member_role_save": {
+    "other": "Сохранить роль: {{.Name}}"
+  },
+  "settings.member_role_changed": {
+    "other": "{{.Name}}: роль изменена на «{{.Role}}»."
+  },
+  "errors.permission_denied": {
+    "other": "Ваша роль в этом рабочем пространстве не позволяет внести это изменение."
+  },
+  "errors.last_owner": {
+    "other": "В рабочем пространстве должен остаться хотя бы один владелец."
+  },
   "errors.code": {
     "other": "Код ошибки"
   },

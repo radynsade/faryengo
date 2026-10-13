@@ -42,6 +42,34 @@
 		display: contents;
 	}
 
+	// The role an owner changes in place, with its own save button.
+	&__role-form {
+		display: flex;
+		flex: none;
+		align-items: center;
+		gap: 0.25rem;
+	}
+
+	&__role-select {
+		width: auto;
+		height: 2.125rem;
+		font-size: 0.8125rem;
+	}
+
+	// The select saves on its own; the button serves only without scripting.
+	&__role-save {
+		@media (scripting: enabled) {
+			display: none;
+		}
+	}
+
+	&__role {
+		flex: none;
+		color: var(--color-muted);
+		font-size: 0.8125rem;
+		font-weight: 600;
+	}
+
 	&__badge {
 		flex: none;
 		padding: 0.125rem 0.5rem;

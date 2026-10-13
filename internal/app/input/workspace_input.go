@@ -3,6 +3,7 @@ package input
 import (
 	"errors"
 
+	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 )
 
@@ -35,9 +36,24 @@ type RenameWorkspaceInput struct {
 // Add member by email input
 //
 
+// An empty Role adds a viewer.
+
 var ErrAddMemberByEmailInputInvalid = errors.New("invalid add member by email input")
 
 type AddMemberByEmailInput struct {
 	WorkspaceID workspaces.WorkspaceID
 	Email       string
+	Role        string
+}
+
+//
+// Change member role input
+//
+
+var ErrChangeMemberRoleInputInvalid = errors.New("invalid change member role input")
+
+type ChangeMemberRoleInput struct {
+	WorkspaceID workspaces.WorkspaceID
+	UserID      users.UserID
+	Role        string
 }

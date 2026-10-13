@@ -195,6 +195,12 @@ type ErrMembershipAddFailed interface {
 	Unwrap() error
 }
 
+type ErrMembershipUpdateFailed interface {
+	error
+	Membership() Membership
+	Unwrap() error
+}
+
 type ErrMembershipRemoveFailed interface {
 	error
 	Membership() Membership
@@ -202,7 +208,9 @@ type ErrMembershipRemoveFailed interface {
 }
 
 // Memberships belong to the Workspace aggregate, so this repository writes
-// them too. Deleting a Workspace removes its memberships.
+// them too. Deleting a Workspace removes its memberships. Updating a
+// membership changes only its Role. A User who is not a member is reported
+// as ErrMembershipNotFound.
 
 type WorkspaceRepository interface {
 	Create(ctx context.Context, workspace *Workspace) ErrWorkspaceCreateFailed
@@ -213,7 +221,8 @@ type WorkspaceRepository interface {
 	Find(ctx context.Context, query WorkspaceQuery) ([]*Workspace, error)
 	Count(ctx context.Context, filter WorkspaceFilter) (int, error)
 	AddMember(ctx context.Context, membership Membership) ErrMembershipAddFailed
+	UpdateMember(ctx context.Context, membership Membership) ErrMembershipUpdateFailed
 	RemoveMember(ctx context.Context, membership Membership) ErrMembershipRemoveFailed
-	HasMember(ctx context.Context, membership Membership) (bool, error)
-	FindMemberIDs(ctx context.Context, id WorkspaceID) ([]users.UserID, error)
+	FindMember(ctx context.Context, id WorkspaceID, userID users.UserID) (Membership, error)
+	FindMembers(ctx context.Context, id WorkspaceID) (Memberships, error)
 }

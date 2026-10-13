@@ -52,7 +52,7 @@ type fixture struct {
 	role       *users.Role
 	version    uuid.UUID
 	workspaces []*workspaces.Workspace
-	members    map[workspaces.WorkspaceID][]users.UserID
+	members    map[workspaces.WorkspaceID]workspaces.Memberships
 	findErr    error
 	createErr  error
 	updateErr  error
@@ -60,9 +60,9 @@ type fixture struct {
 	others     []*users.User
 }
 
-// The fixture has one signed-in User with an ordinary Role, who belongs to two
-// of three Workspaces, and another User who belongs to none. Its repositories keep them in memory behind the complete domain
-// contracts.
+// The fixture has one signed-in User with an ordinary Role, who owns two of
+// three Workspaces, and another User who belongs to none. Its repositories
+// keep them in memory behind the complete domain contracts.
 
 func newFixture(t *testing.T) *fixture {
 	t.Helper()
@@ -113,9 +113,9 @@ func newFixture(t *testing.T) *fixture {
 	family := workspaces.NewWorkspace(workspaces.WorkspaceID(uuid.MustParse(familyID)), "Family budget")
 	other := workspaces.NewWorkspace(workspaces.WorkspaceID(uuid.MustParse(otherID)), "Someone else's")
 	f.workspaces = []*workspaces.Workspace{family, design, other}
-	f.members = map[workspaces.WorkspaceID][]users.UserID{
-		design.ID: {f.user.ID},
-		family.ID: {f.user.ID},
+	f.members = map[workspaces.WorkspaceID]workspaces.Memberships{
+		design.ID: {workspaces.NewMembership(design.ID, f.user.ID, workspaces.RoleOwner)},
+		family.ID: {workspaces.NewMembership(family.ID, f.user.ID, workspaces.RoleOwner)},
 	}
 
 	hasher := &usersmock.PasswordHasher{
@@ -348,7 +348,7 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 		result := make([]*workspaces.Workspace, 0, len(f.workspaces))
 
 		for _, workspace := range f.workspaces {
-			if filter.MemberID == nil || slices.Contains(f.members[workspace.ID], *filter.MemberID) {
+			if filter.MemberID == nil || f.memberIndex(workspace.ID, *filter.MemberID) >= 0 {
 				result = append(result, workspace)
 			}
 		}
@@ -394,28 +394,49 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 		RemoveMemberFunc: func(_ context.Context, membership workspaces.Membership) workspaces.ErrMembershipRemoveFailed {
 			var err workspaces.ErrMembershipRemoveFailed
 
-			members := f.members[membership.WorkspaceID]
-			index := slices.Index(members, membership.UserID)
+			index := f.memberIndex(membership.WorkspaceID, membership.UserID)
 
 			if index < 0 {
 				err = workspacesmock.NewErrMembershipRemoveFailed(membership, workspaces.ErrMembershipNotFound)
 			} else {
-				f.members[membership.WorkspaceID] = slices.Delete(slices.Clone(members), index, index+1)
+				f.members[membership.WorkspaceID] = slices.Delete(slices.Clone(f.members[membership.WorkspaceID]), index, index+1)
 			}
 
 			return err
 		},
-		FindMemberIDsFunc: func(_ context.Context, id workspaces.WorkspaceID) ([]users.UserID, error) {
-			var ids []users.UserID
+		UpdateMemberFunc: func(_ context.Context, membership workspaces.Membership) workspaces.ErrMembershipUpdateFailed {
+			var err workspaces.ErrMembershipUpdateFailed
 
-			if f.membersErr == nil {
-				ids = slices.Clone(f.members[id])
+			index := f.memberIndex(membership.WorkspaceID, membership.UserID)
+
+			if index < 0 {
+				err = workspacesmock.NewErrMembershipUpdateFailed(membership, workspaces.ErrMembershipNotFound)
+			} else {
+				f.members[membership.WorkspaceID][index] = membership
 			}
 
-			return ids, f.membersErr
+			return err
 		},
-		HasMemberFunc: func(_ context.Context, membership workspaces.Membership) (bool, error) {
-			return slices.Contains(f.members[membership.WorkspaceID], membership.UserID), nil
+		FindMembersFunc: func(_ context.Context, id workspaces.WorkspaceID) (workspaces.Memberships, error) {
+			var memberships workspaces.Memberships
+
+			if f.membersErr == nil {
+				memberships = slices.Clone(f.members[id])
+			}
+
+			return memberships, f.membersErr
+		},
+		FindMemberFunc: func(_ context.Context, id workspaces.WorkspaceID, userID users.UserID) (workspaces.Membership, error) {
+			var (
+				membership workspaces.Membership
+				err        = workspaces.ErrMembershipNotFound
+			)
+
+			if index := f.memberIndex(id, userID); index >= 0 {
+				membership, err = f.members[id][index], nil
+			}
+
+			return membership, err
 		},
 		FindByIDForUpdateFunc: func(_ context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
 			var (
@@ -463,17 +484,45 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 			var err workspaces.ErrMembershipAddFailed
 
 			if f.members == nil {
-				f.members = make(map[workspaces.WorkspaceID][]users.UserID)
+				f.members = make(map[workspaces.WorkspaceID]workspaces.Memberships)
 			}
 
-			if slices.Contains(f.members[membership.WorkspaceID], membership.UserID) {
+			if f.memberIndex(membership.WorkspaceID, membership.UserID) >= 0 {
 				err = workspacesmock.NewErrMembershipAddFailed(membership, workspaces.ErrMembershipAlreadyExists)
 			} else {
-				f.members[membership.WorkspaceID] = append(f.members[membership.WorkspaceID], membership.UserID)
+				f.members[membership.WorkspaceID] = append(f.members[membership.WorkspaceID], membership)
 			}
 
 			return err
 		},
+	}
+}
+
+func (f *fixture) memberIndex(workspaceID workspaces.WorkspaceID, userID users.UserID) int {
+	return slices.IndexFunc(f.members[workspaceID], func(membership workspaces.Membership) bool {
+		return membership.UserID == userID
+	})
+}
+
+// The role is empty for a User who is not a member.
+
+func (f *fixture) memberRole(workspaceID workspaces.WorkspaceID, userID users.UserID) workspaces.Role {
+	var role workspaces.Role
+
+	if index := f.memberIndex(workspaceID, userID); index >= 0 {
+		role = f.members[workspaceID][index].Role
+	}
+
+	return role
+}
+
+// A User who is not yet a member joins with the role.
+
+func (f *fixture) setMemberRole(workspaceID workspaces.WorkspaceID, userID users.UserID, role workspaces.Role) {
+	if index := f.memberIndex(workspaceID, userID); index >= 0 {
+		f.members[workspaceID][index].Role = role
+	} else {
+		f.members[workspaceID] = append(f.members[workspaceID], workspaces.NewMembership(workspaceID, userID, role))
 	}
 }
 

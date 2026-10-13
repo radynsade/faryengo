@@ -132,6 +132,82 @@ func TestWorkspaceValidate(t *testing.T) {
 	}
 }
 
+func TestNewRole(t *testing.T) {
+	tests := []struct {
+		value string
+		want  error
+	}{
+		{"viewer", nil},
+		{"editor", nil},
+		{"owner", nil},
+		{"", ErrRoleInvalid},
+		{"Owner", ErrRoleInvalid},
+		{"admin", ErrRoleInvalid},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.value, func(t *testing.T) {
+			role, err := NewRole(tt.value)
+
+			if role != Role(tt.value) || !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
+				t.Fatalf("NewRole(%q) = (%q, %v), want %v", tt.value, role, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestRoleValidate(t *testing.T) {
+	tests := []struct {
+		name string
+		role Role
+		want error
+	}{
+		{"viewer", RoleViewer, nil},
+		{"editor", RoleEditor, nil},
+		{"owner", RoleOwner, nil},
+		{"empty", "", ErrRoleInvalid},
+		{"surrounding spaces", " owner ", ErrRoleInvalid},
+		{"unknown", "admin", ErrRoleInvalid},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.role.Validate(); !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
+				t.Fatalf("Validate() = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+// Every role and action pair is listed, so a new role or action must decide
+// its permissions here too. An invalid role and an unknown action allow
+// nothing.
+
+func TestRoleAllows(t *testing.T) {
+	actions := []Action{ActionViewContent, ActionEditContent, ActionRename, ActionManageMembers, "delete"}
+
+	tests := []struct {
+		role Role
+		want []bool
+	}{
+		{RoleViewer, []bool{true, false, false, false, false}},
+		{RoleEditor, []bool{true, true, false, false, false}},
+		{RoleOwner, []bool{true, true, true, true, false}},
+		{"", []bool{false, false, false, false, false}},
+		{"admin", []bool{false, false, false, false, false}},
+	}
+
+	for _, tt := range tests {
+		for index, action := range actions {
+			t.Run(string(tt.role)+" "+string(action), func(t *testing.T) {
+				if got := tt.role.Allows(action); got != tt.want[index] {
+					t.Fatalf("Role(%q).Allows(%q) = %t, want %t", tt.role, action, got, tt.want[index])
+				}
+			})
+		}
+	}
+}
+
 // The constructor only assigns, so an invalid membership is reported by its
 // validation.
 
@@ -140,19 +216,28 @@ func TestMembershipValidate(t *testing.T) {
 		name        string
 		workspaceID WorkspaceID
 		userID      users.UserID
+		role        Role
 		wantErrs    []error
 	}{
-		{"valid", testWorkspaceID, testUserID, nil},
-		{"nil workspace", WorkspaceID{}, testUserID, []error{ErrWorkspaceIDInvalid}},
-		{"nil user", testWorkspaceID, users.UserID{}, []error{users.ErrUserIDInvalid}},
-		{"nil workspace and user", WorkspaceID{}, users.UserID{}, []error{ErrWorkspaceIDInvalid, users.ErrUserIDInvalid}},
+		{"valid", testWorkspaceID, testUserID, RoleViewer, nil},
+		{"nil workspace", WorkspaceID{}, testUserID, RoleOwner, []error{ErrWorkspaceIDInvalid}},
+		{"nil user", testWorkspaceID, users.UserID{}, RoleEditor, []error{users.ErrUserIDInvalid}},
+		{"missing role", testWorkspaceID, testUserID, "", []error{ErrRoleInvalid}},
+		{"unknown role", testWorkspaceID, testUserID, "admin", []error{ErrRoleInvalid}},
+		{
+			"nil workspace and user and unknown role",
+			WorkspaceID{},
+			users.UserID{},
+			"admin",
+			[]error{ErrWorkspaceIDInvalid, users.ErrUserIDInvalid, ErrRoleInvalid},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			membership := NewMembership(tt.workspaceID, tt.userID, RoleViewer)
+			membership := NewMembership(tt.workspaceID, tt.userID, tt.role)
 
-			if membership.WorkspaceID != tt.workspaceID || membership.UserID != tt.userID || membership.Role != RoleViewer {
+			if membership.WorkspaceID != tt.workspaceID || membership.UserID != tt.userID || membership.Role != tt.role {
 				t.Fatalf("NewMembership() = %+v, want the given workspace, user, and role", membership)
 			}
 
@@ -170,6 +255,55 @@ func TestMembershipValidate(t *testing.T) {
 
 			if err != nil && !errors.Is(err, ErrMembershipInvalid) {
 				t.Fatalf("Validate() = %v, want it wrapped in %v", err, ErrMembershipInvalid)
+			}
+		})
+	}
+}
+
+func TestMembershipsValidate(t *testing.T) {
+	valid := NewMembership(testWorkspaceID, testUserID, RoleOwner)
+
+	tests := []struct {
+		name        string
+		memberships Memberships
+		want        error
+	}{
+		{"empty", NewMemberships(nil), nil},
+		{"valid", NewMemberships([]Membership{valid}), nil},
+		{"invalid role", NewMemberships([]Membership{valid, NewMembership(testWorkspaceID, testUserID, "admin")}), ErrRoleInvalid},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.memberships.Validate(); !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
+				t.Fatalf("Validate() = %v, want %v", err, tt.want)
+			}
+		})
+	}
+}
+
+func TestMembershipsIsLastOwner(t *testing.T) {
+	otherID := users.UserID(uuid.MustParse("01920000-0000-7000-8000-000000000002"))
+	member := func(userID users.UserID, role Role) Membership {
+		return NewMembership(testWorkspaceID, userID, role)
+	}
+
+	tests := []struct {
+		name        string
+		memberships Memberships
+		want        bool
+	}{
+		{"the only owner", Memberships{member(testUserID, RoleOwner), member(otherID, RoleEditor)}, true},
+		{"one of two owners", Memberships{member(testUserID, RoleOwner), member(otherID, RoleOwner)}, false},
+		{"not an owner", Memberships{member(testUserID, RoleEditor), member(otherID, RoleOwner)}, false},
+		{"not a member", Memberships{member(otherID, RoleOwner)}, false},
+		{"no members", nil, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := tt.memberships.IsLastOwner(testUserID); got != tt.want {
+				t.Fatalf("IsLastOwner() = %t, want %t", got, tt.want)
 			}
 		})
 	}

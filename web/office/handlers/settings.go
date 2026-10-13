@@ -40,14 +40,17 @@ func (h *Handler) settingsSaved(
 	http.Redirect(writer, request, settingsURL, http.StatusSeeOther)
 }
 
-// A visitor who is not signed in is sent to the sign-in page. Settings inside
-// a workspace that is missing or that the User does not belong to are not
+// A visitor who is not signed in is sent to the sign-in page. A change the
+// member's workspace role does not allow is forbidden. Settings inside a
+// workspace that is missing or that the User does not belong to are not
 // found; a form posted to them, such as from a page left open after the User
 // was removed, leads back to choosing a workspace.
 
 func (h *Handler) settingsUnavailable(writer http.ResponseWriter, request *http.Request, err error) {
 	if utils.IsUnauthenticated(err) {
 		http.Redirect(writer, request, utils.OfficePath(request)+"/sign-in", http.StatusSeeOther)
+	} else if errors.Is(err, workspaces.ErrRolePermissionDenied) {
+		utils.Fail(writer, request, http.StatusForbidden, "errors.permission_denied")
 	} else if errors.Is(err, workspaces.ErrWorkspaceNotFound) && request.Method == http.MethodGet {
 		utils.Fail(writer, request, http.StatusNotFound, "errors.not_found")
 	} else if errors.Is(err, workspaces.ErrWorkspaceNotFound) {

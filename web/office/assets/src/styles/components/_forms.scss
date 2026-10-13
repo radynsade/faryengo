@@ -90,6 +90,17 @@
 		&--with-action {
 			padding-right: 2.75rem;
 		}
+
+		&--select {
+			padding-right: 0.5rem;
+			cursor: pointer;
+		}
+	}
+
+	// A value shown to someone who may not change it.
+	&__value {
+		margin: 0;
+		overflow-wrap: anywhere;
 	}
 
 	&__hint {

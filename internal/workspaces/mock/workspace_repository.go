@@ -119,6 +119,22 @@ func (e *ErrMembershipAddFailed) Error() string {
 	return "failed to add a workspace member"
 }
 
+// Implementation of workspaces.ErrMembershipUpdateFailed
+
+type ErrMembershipUpdateFailed struct {
+	errMembershipWriteFailed
+}
+
+func NewErrMembershipUpdateFailed(membership workspaces.Membership, err error) *ErrMembershipUpdateFailed {
+	return &ErrMembershipUpdateFailed{
+		errMembershipWriteFailed: errMembershipWriteFailed{membership, err},
+	}
+}
+
+func (e *ErrMembershipUpdateFailed) Error() string {
+	return "failed to update a workspace member"
+}
+
 // Implementation of workspaces.ErrMembershipRemoveFailed
 
 type ErrMembershipRemoveFailed struct {
@@ -148,9 +164,10 @@ type WorkspaceRepository struct {
 	FindFunc              func(ctx context.Context, query workspaces.WorkspaceQuery) ([]*workspaces.Workspace, error)
 	CountFunc             func(ctx context.Context, filter workspaces.WorkspaceFilter) (int, error)
 	AddMemberFunc         func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipAddFailed
+	UpdateMemberFunc      func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipUpdateFailed
 	RemoveMemberFunc      func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipRemoveFailed
-	HasMemberFunc         func(ctx context.Context, membership workspaces.Membership) (bool, error)
-	FindMemberIDsFunc     func(ctx context.Context, id workspaces.WorkspaceID) ([]users.UserID, error)
+	FindMemberFunc        func(ctx context.Context, id workspaces.WorkspaceID, userID users.UserID) (workspaces.Membership, error)
+	FindMembersFunc       func(ctx context.Context, id workspaces.WorkspaceID) (workspaces.Memberships, error)
 }
 
 var _ workspaces.WorkspaceRepository = (*WorkspaceRepository)(nil)
@@ -295,6 +312,23 @@ func (r *WorkspaceRepository) AddMember(
 	return err
 }
 
+// Update a member's role
+
+func (r *WorkspaceRepository) UpdateMember(
+	ctx context.Context,
+	membership workspaces.Membership,
+) workspaces.ErrMembershipUpdateFailed {
+	var err workspaces.ErrMembershipUpdateFailed
+
+	if r.UpdateMemberFunc != nil {
+		err = r.UpdateMemberFunc(ctx, membership)
+	} else {
+		err = NewErrMembershipUpdateFailed(membership, ErrNotConfigured)
+	}
+
+	return err
+}
+
 // Remove a member
 
 func (r *WorkspaceRepository) RemoveMember(
@@ -312,37 +346,38 @@ func (r *WorkspaceRepository) RemoveMember(
 	return err
 }
 
-// Report whether a user is a member of a workspace
+// Find a member
 
-func (r *WorkspaceRepository) HasMember(
-	ctx context.Context,
-	membership workspaces.Membership,
-) (bool, error) {
-	var (
-		isMember bool
-		err      = ErrNotConfigured
-	)
-
-	if r.HasMemberFunc != nil {
-		isMember, err = r.HasMemberFunc(ctx, membership)
-	}
-
-	return isMember, err
-}
-
-// Find the IDs of a workspace's members
-
-func (r *WorkspaceRepository) FindMemberIDs(
+func (r *WorkspaceRepository) FindMember(
 	ctx context.Context,
 	id workspaces.WorkspaceID,
-) ([]users.UserID, error) {
+	userID users.UserID,
+) (workspaces.Membership, error) {
 	var (
-		result []users.UserID
+		membership workspaces.Membership
+		err        = ErrNotConfigured
+	)
+
+	if r.FindMemberFunc != nil {
+		membership, err = r.FindMemberFunc(ctx, id, userID)
+	}
+
+	return membership, err
+}
+
+// Find a workspace's members
+
+func (r *WorkspaceRepository) FindMembers(
+	ctx context.Context,
+	id workspaces.WorkspaceID,
+) (workspaces.Memberships, error) {
+	var (
+		result workspaces.Memberships
 		err    = ErrNotConfigured
 	)
 
-	if r.FindMemberIDsFunc != nil {
-		result, err = r.FindMemberIDsFunc(ctx, id)
+	if r.FindMembersFunc != nil {
+		result, err = r.FindMembersFunc(ctx, id)
 	}
 
 	return result, err

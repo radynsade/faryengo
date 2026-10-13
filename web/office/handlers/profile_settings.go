@@ -7,6 +7,7 @@ import (
 
 	"github.com/a-h/templ"
 
+	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
@@ -168,7 +169,10 @@ func (h *Handler) profileSettingsScope(
 		scope.current, scope.url = current, utils.ProfileSettingsPath(request)
 
 		if request.PathValue("workspace") != "" {
-			scope.workspace, err = h.findWorkspace(request, current)
+			var found app.MemberWorkspace
+
+			found, err = h.findWorkspace(request, current)
+			scope.workspace = found.Workspace
 		}
 	}
 

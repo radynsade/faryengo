@@ -91,6 +91,19 @@ func (n WorkspaceName) Validate() error {
 }
 
 //
+// Action
+//
+
+type Action string
+
+const (
+	ActionViewContent   Action = "view_content"
+	ActionEditContent   Action = "edit_content"
+	ActionRename        Action = "rename"
+	ActionManageMembers Action = "manage_members"
+)
+
+//
 // Role
 //
 
@@ -102,32 +115,51 @@ var (
 type Role string
 
 const (
-	// Allowed only to view a content of a workspace.
 	RoleViewer Role = "viewer"
-	// Allowed to view and edit a content of a workspace.
 	RoleEditor Role = "editor"
-	// Allowed to view, edit and manage users of a workspace.
-	RoleOwner Role = "owner"
+	RoleOwner  Role = "owner"
 )
 
 func NewRole(value string) (Role, error) {
 	var (
-		err        error
-		permission Role
+		err  error
+		role Role
 	)
 
-	permission = Role(value)
-	err = permission.Validate()
-	return permission, err
+	role = Role(value)
+	err = role.Validate()
+	return role, err
 }
 
-func (p Role) Validate() error {
-	switch p {
+func (r Role) Validate() error {
+	var err error
+
+	switch r {
 	case RoleViewer, RoleEditor, RoleOwner:
-		return nil
 	default:
-		return ErrRoleInvalid
+		err = ErrRoleInvalid
 	}
+
+	return err
+}
+
+// A viewer only views a Workspace's content, an editor also edits it, and an
+// owner also renames the Workspace and manages its members. An invalid Role
+// allows nothing.
+
+func (r Role) Allows(action Action) bool {
+	var allowed bool
+
+	switch action {
+	case ActionViewContent:
+		allowed = r == RoleViewer || r == RoleEditor || r == RoleOwner
+	case ActionEditContent:
+		allowed = r == RoleEditor || r == RoleOwner
+	case ActionRename, ActionManageMembers:
+		allowed = r == RoleOwner
+	}
+
+	return allowed
 }
 
 //
@@ -154,6 +186,7 @@ func (m Membership) Validate() error {
 	err := errors.Join(
 		m.WorkspaceID.Validate(),
 		m.UserID.Validate(),
+		m.Role.Validate(),
 	)
 
 	if err != nil {
@@ -161,6 +194,50 @@ func (m Membership) Validate() error {
 	}
 
 	return err
+}
+
+//
+// Memberships
+//
+
+var ErrMembershipLastOwner = errors.New("user is the last owner of the workspace")
+
+type Memberships []Membership
+
+func NewMemberships(memberships []Membership) Memberships {
+	return Memberships(memberships)
+}
+
+func (m Memberships) Validate() error {
+	var err error
+
+	for _, membership := range m {
+		err = membership.Validate()
+
+		if err != nil {
+			break
+		}
+	}
+
+	return err
+}
+
+// A Workspace that has an owner keeps one, so its only owner can be neither
+// removed nor demoted.
+
+func (m Memberships) IsLastOwner(userID users.UserID) bool {
+	var isOwner bool
+
+	owners := 0
+
+	for _, membership := range m {
+		if membership.Role == RoleOwner {
+			owners++
+			isOwner = isOwner || membership.UserID == userID
+		}
+	}
+
+	return isOwner && owners == 1
 }
 
 //
