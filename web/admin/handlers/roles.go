@@ -3,7 +3,6 @@ package handlers
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/radynsade/faryengo/internal/security"
 
@@ -77,9 +76,8 @@ func (h *Handler) roleView(writer http.ResponseWriter, request *http.Request) {
 
 // Role delete
 
-// A failed deletion keeps the confirmation dialog open with the error. With
-// in-page updates only the dialog is replaced; otherwise the role page is
-// rendered with the dialog already open.
+// A failed deletion keeps the confirmation dialog open with the error; only
+// the dialog is replaced.
 
 func (h *Handler) roleDelete(writer http.ResponseWriter, request *http.Request) {
 	h.withPanel(writer, request, layouts.SectionRoles, users.PermissionManageRole, func(current *security.Identity, panel layouts.PanelProps) {
@@ -107,16 +105,10 @@ func (h *Handler) roleDelete(writer http.ResponseWriter, request *http.Request) 
 
 			if flashErr != nil {
 				utils.FlashUnavailable(writer, request, flashErr)
-			} else if utils.IsPartial(request) {
+			} else {
 				dialog := pages.RoleDeleteDialog(request.Context(), request.URL.Path, props.Role.Name, messages)
 
 				utils.RenderFragment(writer, request, status, components.ConfirmDelete(dialog))
-			} else if props.Role.ID == "" {
-				h.render(writer, request, status, panel.Title, pages.PanelSection(panel, strings.Join(messages, " ")))
-			} else {
-				props.DeleteErrors = messages
-
-				h.render(writer, request, status, props.Role.Name, pages.RoleView(props))
 			}
 		}
 	})
@@ -175,7 +167,7 @@ func (h *Handler) roleList(writer http.ResponseWriter, request *http.Request, lo
 				flashErr = h.flashes.Add(writer, request, flashmsg.Error, admini18n.T(request.Context(), messageID))
 			}
 
-			if flashErr == nil && load && utils.IsPartial(request) {
+			if flashErr == nil && load {
 				var bag *flashmsg.Bag
 
 				bag, flashErr = h.flashes.Take(request, flashmsg.Error)
@@ -190,7 +182,7 @@ func (h *Handler) roleList(writer http.ResponseWriter, request *http.Request, lo
 
 		if flashErr != nil {
 			utils.FlashUnavailable(writer, request, flashErr)
-		} else if load && utils.IsPartial(request) {
+		} else if load {
 			utils.RenderFragment(writer, request, status, pages.RolesTable(props))
 		} else {
 			h.render(writer, request, status, panel.Title, pages.Roles(props))
@@ -289,7 +281,7 @@ func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, ed
 				props.Permissions = utils.PermissionOptions(request.Context(), utils.PermissionsOf(form.Permissions))
 				props.IsSuper = form.IsSuper == "1"
 
-				if request.Method == http.MethodPost && utils.IsPartial(request) {
+				if request.Method == http.MethodPost {
 					utils.RenderFormRegion(writer, request, status, pages.RoleFormID, pages.RoleFieldsForm(props))
 				} else {
 					h.render(writer, request, status, props.Title, pages.RoleForm(props))
@@ -324,8 +316,8 @@ func (h *Handler) roleSaved(
 	}
 }
 
-// An in-page deletion is answered with the location to navigate to, because
-// the request targeted the dialog rather than the page.
+// A deletion is answered with the location to navigate to, because the
+// request targeted the dialog rather than the page.
 
 func (h *Handler) roleDeleted(
 	writer http.ResponseWriter,
@@ -338,11 +330,9 @@ func (h *Handler) roleDeleted(
 
 	if err := h.flashes.Add(writer, request, flashmsg.Success, message); err != nil {
 		utils.FlashUnavailable(writer, request, err)
-	} else if utils.IsPartial(request) {
+	} else {
 		writer.Header().Set("HX-Location", utils.NavigationLocation(location))
 		writer.WriteHeader(http.StatusOK)
-	} else {
-		http.Redirect(writer, request, location, http.StatusSeeOther)
 	}
 }
 

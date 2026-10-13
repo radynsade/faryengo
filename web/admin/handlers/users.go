@@ -3,7 +3,6 @@ package handlers
 import (
 	"errors"
 	"net/http"
-	"strings"
 
 	"github.com/google/uuid"
 
@@ -77,9 +76,8 @@ func (h *Handler) userView(writer http.ResponseWriter, request *http.Request) {
 
 // User delete
 
-// A failed deletion keeps the confirmation dialog open with the error. With
-// in-page updates only the dialog is replaced; otherwise the user page is
-// rendered with the dialog already open.
+// A failed deletion keeps the confirmation dialog open with the error; only
+// the dialog is replaced.
 
 func (h *Handler) userDelete(writer http.ResponseWriter, request *http.Request) {
 	h.withPanel(writer, request, layouts.SectionUsers, users.PermissionManageUser, func(current *security.Identity, panel layouts.PanelProps) {
@@ -108,16 +106,10 @@ func (h *Handler) userDelete(writer http.ResponseWriter, request *http.Request) 
 
 			if flashErr != nil {
 				utils.FlashUnavailable(writer, request, flashErr)
-			} else if utils.IsPartial(request) {
+			} else {
 				dialog := pages.UserDeleteDialog(request.Context(), request.URL.Path, name, messages)
 
 				utils.RenderFragment(writer, request, status, components.ConfirmDelete(dialog))
-			} else if props.User.ID == "" {
-				h.render(writer, request, status, panel.Title, pages.PanelSection(panel, strings.Join(messages, " ")))
-			} else {
-				props.DeleteErrors = messages
-
-				h.render(writer, request, status, name, pages.UserView(props))
 			}
 		}
 	})
@@ -181,7 +173,7 @@ func (h *Handler) userList(writer http.ResponseWriter, request *http.Request, lo
 				flashErr = h.flashes.Add(writer, request, flashmsg.Error, admini18n.T(request.Context(), messageID))
 			}
 
-			if flashErr == nil && load && utils.IsPartial(request) {
+			if flashErr == nil && load {
 				var bag *flashmsg.Bag
 
 				bag, flashErr = h.flashes.Take(request, flashmsg.Error)
@@ -202,7 +194,7 @@ func (h *Handler) userList(writer http.ResponseWriter, request *http.Request, lo
 
 		if flashErr != nil {
 			utils.FlashUnavailable(writer, request, flashErr)
-		} else if load && utils.IsPartial(request) {
+		} else if load {
 			utils.RenderFragment(writer, request, status, pages.UsersTable(props))
 		} else {
 			h.render(writer, request, status, panel.Title, pages.Users(props))
@@ -325,7 +317,7 @@ func (h *Handler) userForm(writer http.ResponseWriter, request *http.Request, ed
 					props.UpdatedAt = utils.FormatUpdatedAt(form.UpdatedAt)
 				}
 
-				if request.Method == http.MethodPost && utils.IsPartial(request) {
+				if request.Method == http.MethodPost {
 					utils.RenderFormRegion(writer, request, status, pages.UserFormID, pages.UserFieldsForm(props))
 				} else {
 					h.render(writer, request, status, props.Title, pages.UserForm(props))
@@ -363,8 +355,8 @@ func (h *Handler) userSaved(
 	}
 }
 
-// An in-page deletion is answered with the location to navigate to, because
-// the request targeted the dialog rather than the page.
+// A deletion is answered with the location to navigate to, because the
+// request targeted the dialog rather than the page.
 
 func (h *Handler) userDeleted(
 	writer http.ResponseWriter,
@@ -377,11 +369,9 @@ func (h *Handler) userDeleted(
 
 	if err := h.flashes.Add(writer, request, flashmsg.Success, message); err != nil {
 		utils.FlashUnavailable(writer, request, err)
-	} else if utils.IsPartial(request) {
+	} else {
 		writer.Header().Set("HX-Location", utils.NavigationLocation(location))
 		writer.WriteHeader(http.StatusOK)
-	} else {
-		http.Redirect(writer, request, location, http.StatusSeeOther)
 	}
 }
 

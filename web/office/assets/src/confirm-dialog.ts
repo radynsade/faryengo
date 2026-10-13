@@ -1,7 +1,6 @@
 // Asks for the current password in a modal before a form submits a change
 // that needs it, and turns a confirmation the server opened into a modal.
-// Delegated, so it keeps working when the forms are morphed. Without
-// JavaScript the server opens the confirmation inline instead.
+// Delegated, so it keeps working when the forms are morphed.
 
 // A form needs confirmation always, or when the named field differs from the
 // value it was rendered with. A repeated field that does not match yet, such as
@@ -67,22 +66,13 @@ document.addEventListener('htmx:confirm', (event) => {
 	}
 });
 
-// Cancel closes the modal; without JavaScript its link reloads the settings.
-document.addEventListener(
-	'click',
-	(event) => {
-		const target = event.target instanceof Element ? event.target : null;
-		const cancel = target?.closest('[data-dialog-close]');
-		const dialog = cancel?.closest('dialog');
+// Cancel closes the modal.
+document.addEventListener('click', (event) => {
+	const target = event.target instanceof Element ? event.target : null;
+	const dialog = target?.closest('[data-dialog-close]')?.closest('dialog');
 
-		if (cancel && dialog) {
-			event.preventDefault();
-			event.stopImmediatePropagation();
-			dialog.close();
-		}
-	},
-	true,
-);
+	if (dialog) dialog.close();
+});
 
 // A click on the backdrop closes the modal. The backdrop belongs to the
 // dialog element, so the click lands on the dialog itself, outside its box.

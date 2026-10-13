@@ -75,8 +75,7 @@ The sign-in and password restoration pages are available at
 `/admin/en/sign-in` and `/admin/en/restore-password`. Their navigation links keep
 the current language path. The sign-in form posts credentials to the admin web
 handler and redirects to
-the authenticated admin page. It works without JavaScript and renders inline
-errors for failed attempts. Password recovery remains presentation only.
+the authenticated admin page. It renders inline errors for failed attempts. Password recovery remains presentation only.
 
 Templates in `../templates` are organized into three packages:
 
@@ -129,9 +128,8 @@ role name, following Monoshop's flash modal. Creation and updates use the same
 dialog. The close button, Escape, and backdrop dismiss it. Success notice query
 parameters have been replaced by session-backed messages through `pkg/flashmsg`.
 The admin consumes messages while rendering, so reload and Back do not repeat
-them, including without JavaScript. Both dialog variants share panel colors, spacing, borders,
-and corners. Other forms and links work without JavaScript;
-HTMX enhances filtering, sorting, pagination, and navigation.
+them. Both dialog variants share panel colors, spacing, borders, and corners.
+HTMX handles filtering, sorting, pagination, and navigation.
 
 Admin success and error notifications are stored and read in `web/admin` using
 the existing Redis/Dragonfly session storage. Errors still retain submitted form
@@ -151,8 +149,7 @@ native language links for English, Latvian, and Russian; see
 [admin interface translations](../../../docs/admin-i18n.md).
 The server renders the complete initial widget: search input, selected tags,
 count, option rows, ARIA state, and hidden dropdown. The native multiple select is
-hidden in the initial HTML and submits repeated values. A `scripting: none` CSS
-fallback displays the native select when JavaScript is disabled.
+hidden in the initial HTML and submits repeated values.
 `src/multiselect.ts` hydrates existing markup without rebuilding it or changing
 visibility, including after HTMX swaps, and removes listeners when content is
 replaced. Only subsequent interactions update the widget state.
@@ -161,12 +158,11 @@ Role name translations use `TranslationsInput`, with grouped language tabs based
 on Monoshop's language switcher. Tabs show native language names and initially
 select the current admin language, falling back to the first available language.
 Switching tabs preserves all values; every translation submits with the form.
-Left/Right arrows, Home, and End move between tabs. JavaScript-free forms show
-all language fields. Delegated interactions also work in HTMX fragments.
+Left/Right arrows, Home, and End move between tabs. Delegated interactions also
+work in HTMX fragments.
 The initial HTML includes selected tab state, focus order, ARIA panel attributes,
 and `hidden` on inactive panels. JavaScript hydrates delegated interactions
-without changing the initial state, including after HTMX swaps. A
-`scripting: none` CSS fallback reveals all native fields without JavaScript.
+without changing the initial state, including after HTMX swaps.
 
 Role management authorization is currently deferred. Signed-in users can view,
 create, update, and delete roles through the common role service methods. All
@@ -214,8 +210,10 @@ links and `hx-swap="morph:outerHTML show:none"` to morph `#page-content`. Role f
 use the same morph swap. Idiomorph reuses matching DOM nodes while updating their
 attributes and children. Multiselects release cached controls before their roots
 are morphed or removed, then hydrate the server markup on `htmx:load`. Dialog-only
-deletion errors retain their `outerHTML` swap. Native forms, modified clicks, and
-JavaScript-free navigation retain standard browser behavior.
+deletion errors retain their `outerHTML` swap. Links and forms keep native
+`href`, `method`, and `action`, so modified and middle clicks and new tabs retain
+standard browser behavior. The panel requires JavaScript; without it every page
+shows only a translated notice asking the user to enable it.
 
 Handlers return HTML fragments for `HX-Request: true` and full documents for
 ordinary navigation and `HX-History-Restore-Request: true`. Fragments include a

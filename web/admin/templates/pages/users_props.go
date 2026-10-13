@@ -167,7 +167,6 @@ type UserViewProps struct {
 	User         UserRow
 	CanManage    bool
 	CanViewRoles bool
-	DeleteErrors []string
 }
 
 //

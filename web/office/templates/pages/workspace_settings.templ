@@ -142,10 +142,9 @@ templ workspaceName(name string) {
 
 // Each row carries its member's ID, so morphing matches rows between renders.
 // Every row shows its member's role, which an owner changes in place: the
-// role is saved as soon as it is chosen, and the save button is there only
-// for browsers without JavaScript. The
-// signed-in User's own row is marked and has no remove button; an owner can
-// remove every other member, who can be added again by email.
+// role is saved as soon as it is chosen. The signed-in User's own row is
+// marked and has no remove button; an owner can remove every other member,
+// who can be added again by email.
 templ memberList(members []MemberItem, roles []components.SelectOption, loadError string) {
 	if loadError != "" {
 		@components.FormAlert(loadError)
@@ -177,14 +176,6 @@ templ memberList(members []MemberItem, roles []components.SelectOption, loadErro
 								AriaLabel:  officei18n.T(ctx, "settings.member_role", map[string]any{"Name": member.Name}),
 								AutoSubmit: true,
 							})
-							<button
-								class="icon-button member-list__role-save"
-								type="submit"
-								aria-label={ officei18n.T(ctx, "settings.member_role_save", map[string]any{"Name": member.Name}) }
-								title={ officei18n.T(ctx, "settings.member_role_save", map[string]any{"Name": member.Name}) }
-							>
-								@components.Icon("check")
-							</button>
 						</form>
 					} else {
 						<span class="member-list__role">{ member.RoleLabel }</span>

@@ -1,20 +1,11 @@
 // A select whose options open as a list styled like the dropdown's, below
-// its toggle and above the page content. Without scripting the native select
-// is shown instead of the toggle and the list.
+// its toggle and above the page content. The native select only holds the
+// value the form submits.
 .select {
 	position: relative;
 
-	@media (scripting: enabled) {
-		&__native {
-			display: none;
-		}
-	}
-
-	@media not (scripting: enabled) {
-		&__toggle,
-		&__list {
-			display: none;
-		}
+	&__native {
+		display: none;
 	}
 
 	&__toggle {

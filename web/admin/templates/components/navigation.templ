@@ -4,8 +4,9 @@ package components
 // layout, which is the whole page region in the authentication layout and the
 // content region inside the dashboard.
 
-// NavigationAttributes wire a link for in-page navigation. The browser keeps
-// the native href, so links work without JavaScript and in new tabs.
+// NavigationAttributes wire a link for in-page navigation. The link keeps its
+// native href, so modifier and middle clicks and opening it in a new tab keep
+// working.
 func NavigationAttributes() templ.Attributes {
 	return templ.Attributes{
 		"hx-boost":  "true",

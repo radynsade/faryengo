@@ -36,14 +36,6 @@ templ Home(props layouts.PanelProps) {
 
 // PanelSection is a destination for sections without their own pages and for
 // errors that leave no other content to show.
-templ PanelSection(props layouts.PanelProps, message string) {
-	@layouts.Panel(props) {
-		if message != "" {
-			<div class="panel-page">
-				<section class="card">
-					<p>{ message }</p>
-				</section>
-			</div>
-		}
-	}
+templ PanelSection(props layouts.PanelProps) {
+	@layouts.Panel(props)
 }

@@ -154,9 +154,6 @@ templ UsersTable(props UserListProps) {
 									<span class="data-table__spinner" aria-hidden="true"></span>
 									<span class="visually-hidden">{ admini18n.T(ctx, "users.loading") }</span>
 								</div>
-								<noscript>
-									<a class="text-link" href={ templ.URL(props.TableURL()) }>{ admini18n.T(ctx, "actions.list") }</a>
-								</noscript>
 							</td>
 						</tr>
 					}
@@ -389,7 +386,7 @@ templ UserFieldsForm(props UserFormProps) {
 templ UserView(props UserViewProps) {
 	@layouts.Panel(props.Panel) {
 		if props.CanManage && !props.User.Current {
-			@components.ConfirmDelete(UserDeleteDialog(ctx, props.Panel.BasePath+"/users/"+props.User.ID+"/delete", props.User.FullName(ctx), props.DeleteErrors))
+			@components.ConfirmDelete(UserDeleteDialog(ctx, props.Panel.BasePath+"/users/"+props.User.ID+"/delete", props.User.FullName(ctx), nil))
 		}
 		<div class="panel-page">
 			<div class="panel-page__content">

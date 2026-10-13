@@ -267,9 +267,9 @@ func isWorkspaceAccessError(err error) bool {
 	return errors.Is(err, workspaces.ErrWorkspaceNotFound) || errors.Is(err, workspaces.ErrRolePermissionDenied)
 }
 
-// A failed in-page submission replaces only its form, so the other fields
-// keep what was typed; every other response is the whole page, inside the
-// workspace with its members. A member list that cannot be loaded shows its
+// A failed submission replaces only its form, so the other fields keep what
+// was typed; every other response is the whole page, inside the workspace
+// with its members. A member list that cannot be loaded shows its
 // error instead.
 
 func (h *Handler) renderWorkspaceSettings(
@@ -280,7 +280,7 @@ func (h *Handler) renderWorkspaceSettings(
 	content pages.WorkspaceSettingsContentProps,
 	region string,
 ) {
-	if region != "" && utils.IsPartial(request) {
+	if region != "" {
 		utils.RenderFormRegion(writer, request, status, region, pages.SettingsFormFailure(workspaceSettingsRegion(region, content)))
 	} else {
 		title := officei18n.T(request.Context(), "settings.workspace_title")

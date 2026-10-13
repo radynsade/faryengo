@@ -161,9 +161,6 @@ templ RolesTable(props RoleListProps) {
 									<span class="data-table__spinner" aria-hidden="true"></span>
 									<span class="visually-hidden">{ admini18n.T(ctx, "roles.loading") }</span>
 								</div>
-								<noscript>
-									<a class="text-link" href={ templ.URL(props.TableURL()) }>{ admini18n.T(ctx, "actions.list") }</a>
-								</noscript>
 							</td>
 						</tr>
 					}
@@ -354,7 +351,7 @@ templ RoleFieldsForm(props RoleFormProps) {
 templ RoleView(props RoleViewProps) {
 	@layouts.Panel(props.Panel) {
 		if props.CanManage {
-			@components.ConfirmDelete(RoleDeleteDialog(ctx, props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", props.Role.Name, props.DeleteErrors))
+			@components.ConfirmDelete(RoleDeleteDialog(ctx, props.Panel.BasePath+"/roles/"+props.Role.ID+"/delete", props.Role.Name, nil))
 		}
 		<div class="panel-page">
 			<div class="panel-page__content">

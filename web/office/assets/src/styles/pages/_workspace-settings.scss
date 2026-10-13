@@ -59,13 +59,6 @@
 		}
 	}
 
-	// The select saves on its own; the button serves only without scripting.
-	&__role-save {
-		@media (scripting: enabled) {
-			display: none;
-		}
-	}
-
 	&__role {
 		flex: none;
 		color: var(--color-muted);

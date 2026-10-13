@@ -34,11 +34,11 @@ func TestPanelAuthorization(t *testing.T) {
 		}},
 		{"manage roles without viewing", manage, false, map[string]int{
 			"GET /admin/en/roles": 403, "GET view": 403, "GET /admin/en/roles/create": 200, "GET edit": 200,
-			"POST /admin/en/roles/create": 303, "POST edit": 303, "POST delete": 303,
+			"POST /admin/en/roles/create": 303, "POST edit": 303, "POST delete": 200,
 		}},
 		{"super role", nil, true, map[string]int{
 			"GET /admin/en/users": 200, "GET /admin/en/roles": 200, "GET view": 200, "GET edit": 200,
-			"POST /admin/en/roles/create": 303, "POST delete": 303,
+			"POST /admin/en/roles/create": 303, "POST delete": 200,
 		}},
 	}
 
@@ -259,18 +259,14 @@ func TestRoleFormMarksTheFallbackTranslationRequired(t *testing.T) {
 
 func TestRoleDelete(t *testing.T) {
 	tests := []struct {
-		name         string
-		own          bool
-		headers      map[string]string
-		wantStatus   int
-		wantLocation string
-		wantHeader   string
-		wantBody     string
+		name       string
+		own        bool
+		wantStatus int
+		wantHeader string
+		wantBody   string
 	}{
-		{"without scripts", false, nil, http.StatusSeeOther, "/admin/en/roles", "", ""},
-		{"in place", false, partial, http.StatusOK, "", "/admin/en/roles", ""},
-		{"assigned role without scripts", true, nil, http.StatusConflict, "", "", "data-dialog-open"},
-		{"assigned role in place", true, partial, http.StatusConflict, "", "", `<dialog id="confirm-delete"`},
+		{"unused role", false, http.StatusOK, "/admin/en/roles", ""},
+		{"assigned role", true, http.StatusConflict, "", `<dialog id="confirm-delete"`},
 	}
 
 	for _, tt := range tests {
@@ -288,18 +284,14 @@ func TestRoleDelete(t *testing.T) {
 				path:    "/admin/en/roles/" + roleID(target) + "/delete",
 				body:    "confirm=delete",
 				cookies: cookies,
-				headers: tt.headers,
+				headers: partial,
 			})
 
 			if response.Code != tt.wantStatus {
 				t.Fatalf("status = %d, want %d: %s", response.Code, tt.wantStatus, response.Body.String())
 			}
 
-			if location := response.Header().Get("Location"); location != tt.wantLocation {
-				t.Fatalf("Location = %q, want %q", location, tt.wantLocation)
-			}
-
-			if response.Header().Get("HX-Redirect") != "" {
+			if response.Header().Get("Location") != "" || response.Header().Get("HX-Redirect") != "" {
 				t.Fatal("a deletion reloads the whole document")
 			}
 
@@ -323,8 +315,8 @@ func TestRoleDelete(t *testing.T) {
 				t.Fatal("the conflict is not explained")
 			}
 
-			if tt.own && tt.headers != nil && strings.Contains(body, "<html") {
-				t.Fatal("a failed in-place deletion returned a document")
+			if tt.own && strings.Contains(body, "<html") {
+				t.Fatal("a failed deletion returned a document")
 			}
 
 			_, exists := f.roles[target.ID]

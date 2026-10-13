@@ -387,15 +387,13 @@ func ProfileSettingsContentProps(
 		Notices: notices,
 		Profile: pages.ProfileFormProps{
 			Action:    settingsURL + "/profile",
-			CancelURL: settingsURL,
 			FirstName: string(user.FirstName),
 			LastName:  string(user.LastName),
 			Email:     string(user.Email),
 			UpdatedAt: user.UpdatedAt.Format(time.RFC3339Nano),
 		},
 		Password: pages.PasswordFormProps{
-			Action:    settingsURL + "/password",
-			CancelURL: settingsURL,
+			Action: settingsURL + "/password",
 		},
 	}
 }

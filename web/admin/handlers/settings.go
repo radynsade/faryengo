@@ -241,7 +241,7 @@ func (h *Handler) settingsFailure(
 	return status, messages, flashErr != nil
 }
 
-// A failed in-page submission replaces only its form, or only the form's
+// A failed submission replaces only its form, or only the form's
 // confirmation when the current password is missing or wrong, so the other
 // fields keep what was typed; every other response is the whole page.
 
@@ -252,7 +252,7 @@ func (h *Handler) renderSettings(
 	props pages.SettingsProps,
 	region string,
 ) {
-	if region != "" && utils.IsPartial(request) {
+	if region != "" {
 		utils.RenderFormRegion(writer, request, status, region, settingsRegion(region, props))
 	} else {
 		h.render(writer, request, status, props.Panel.Title, pages.Settings(props))

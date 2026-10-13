@@ -1,8 +1,7 @@
 // Asks for the current password in a modal before a form submits a change
 // that needs it. Delegated, so it keeps working when the forms are morphed.
 // Opening a dialog the server asks for, closing on the backdrop, and the
-// close control belong to the shared dialog behavior. Without JavaScript the
-// server opens the confirmation inline instead.
+// close control, including Cancel, belong to the shared dialog behavior.
 
 // A form needs confirmation always, or when the named field differs from the
 // value it was rendered with. A repeated field that does not match yet, such as
@@ -52,23 +51,6 @@ document.addEventListener('htmx:confirm', (event) => {
 		dialog.showModal();
 	}
 });
-
-// Cancel closes the modal; without JavaScript its link reloads the settings.
-document.addEventListener(
-	'click',
-	(event) => {
-		const target = event.target instanceof Element ? event.target : null;
-		const cancel = target?.closest('[data-confirm-cancel]');
-		const dialog = cancel?.closest('dialog');
-
-		if (cancel && dialog) {
-			event.preventDefault();
-			event.stopImmediatePropagation();
-			dialog.close();
-		}
-	},
-	true,
-);
 
 // A response that replaces anything but the confirmation itself ends it.
 document.addEventListener('htmx:beforeSwap', (event) => {

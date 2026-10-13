@@ -153,7 +153,7 @@ func TestSettingsRejected(t *testing.T) {
 			path:     "/admin/en/settings/profile",
 			body:     func(f *fixture) string { return adminProfileBody(f, "Ada", "Lovelace", "ada@lovelace.example", "") },
 			status:   http.StatusUnprocessableEntity,
-			contains: []string{`data-confirm-dialog open data-dialog-open>`, `value="ada@lovelace.example"`},
+			contains: []string{`<dialog id="profile-confirm"`, `data-confirm-dialog open data-dialog-open>`},
 			excludes: []string{`id="profile-confirm-password-errors"`},
 		},
 		{

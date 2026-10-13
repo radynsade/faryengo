@@ -31,8 +31,7 @@ type DashboardProps struct {
 // only the main region is rendered, together with out-of-band updates of the
 // menu and the top bar's parts, which depend on the page.
 //
-// On narrow screens the sidebar becomes a drawer opened from the top bar;
-// without JavaScript it stays above the content.
+// On narrow screens the sidebar becomes a drawer opened from the top bar.
 templ Dashboard(props DashboardProps) {
 	{{ markDashboardRendered(ctx) }}
 	if contentOnly(ctx) {

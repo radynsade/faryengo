@@ -32,7 +32,7 @@ func OfficePath(request *http.Request) string {
 // history restoration asks for the complete document, because there is no
 // cached page to restore into.
 
-func IsPartial(request *http.Request) bool {
+func isPartial(request *http.Request) bool {
 	return request.Header.Get("HX-Request") == "true" && request.Header.Get("HX-History-Restore-Request") != "true"
 }
 
@@ -46,7 +46,7 @@ func varyByForm(writer http.ResponseWriter) {
 // the dashboard, so only the main region is sent.
 
 func targetsContent(request *http.Request) bool {
-	return IsPartial(request) && request.Header.Get("HX-Target") == layouts.ContentRegionID
+	return isPartial(request) && request.Header.Get("HX-Target") == layouts.ContentRegionID
 }
 
 //
@@ -142,7 +142,7 @@ func writePage(
 	writer.Header().Del("HX-Reswap")
 	varyByForm(writer)
 
-	if IsPartial(request) {
+	if isPartial(request) {
 		page = layouts.PageFragment(title, content)
 
 		// A form shown again in place keeps the address of the page it was

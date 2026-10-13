@@ -3,15 +3,20 @@ package layouts
 import (
 	"github.com/radynsade/faryengo/web/admin/assets"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+	"github.com/radynsade/faryengo/web/admin/templates/components"
 )
 
-// Root is the complete document for first loads, history restoration without
-// a cache, and browsers without JavaScript.
+// Root is the complete document for first loads and history restoration
+// without a cache. The panel requires JavaScript; without it the stylesheet
+// hides the page and only the notice inside noscript shows.
 templ Root(title string) {
 	<!DOCTYPE html>
 	<html lang={ admini18n.Language(ctx) }>
 		@Head(title)
 		<body hx-ext="head-support, morph" hx-history="false" hx-target={ "#" + PageRegionID }>
+			<noscript>
+				@scriptRequired()
+			</noscript>
 			{ children... }
 			<p id="navigation-error" class="navigation-error" role="alert" hidden>
 				{ admini18n.T(ctx, "navigation.error") }
@@ -45,6 +50,26 @@ templ Page(title string, content templ.Component) {
 	@Root(title) {
 		@content
 	}
+}
+
+// scriptRequired frames the notice like the sign-in page. The language links
+// are native navigation, so they work without JavaScript.
+templ scriptRequired() {
+	<main class="auth-layout">
+		<section class="auth-panel" aria-labelledby="script-required-title">
+			<div class="auth-panel__brand">
+				@components.Brand()
+				<span class="auth-panel__badge">{ admini18n.T(ctx, "common.admin") }</span>
+			</div>
+			<header class="auth-panel__heading">
+				<h1 id="script-required-title">{ admini18n.T(ctx, "noscript.title") }</h1>
+				<p>{ admini18n.T(ctx, "noscript.message") }</p>
+			</header>
+			<div class="auth-panel__languages">
+				@components.LanguageSwitcher()
+			</div>
+		</section>
+	</main>
 }
 
 // PageFragment is the partial form of a page: its head and its content

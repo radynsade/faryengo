@@ -5,15 +5,20 @@ import (
 
 	"github.com/radynsade/faryengo/web/office/assets"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
 )
 
-// Root is the complete document for first loads, history restoration without
-// a cache, and browsers without JavaScript.
+// Root is the complete document for first loads and history restoration
+// without a cache. The office requires JavaScript; without it the stylesheet
+// hides the page and only the notice inside noscript shows.
 templ Root(title string) {
 	<!DOCTYPE html>
 	<html lang={ officei18n.Language(ctx) }>
 		@Head(title)
 		<body hx-ext="head-support, morph" hx-history="false" hx-target={ "#" + PageRegionID }>
+			<noscript>
+				@scriptRequired()
+			</noscript>
 			{ children... }
 			<p id="navigation-error" class="navigation-error" role="alert" hidden>
 				{ officei18n.T(ctx, "navigation.error") }
@@ -33,6 +38,25 @@ templ Head(title string) {
 		<link rel="stylesheet" href={ assets.BuiltCSS("style.scss") }/>
 		<script type="module" src={ assets.BuiltAsset("main.ts") }></script>
 	</head>
+}
+
+// scriptRequired frames the notice like an error page. The language links are
+// native navigation, so they work without JavaScript.
+templ scriptRequired() {
+	<div class="error-page">
+		<header class="error-page__header">
+			<span class="error-page__brand">
+				@components.Brand(false)
+			</span>
+			@components.LanguageSwitcher()
+		</header>
+		<main class="error-page__main" aria-labelledby="script-required-title">
+			<section class="error-page__card">
+				<h1 id="script-required-title">{ officei18n.T(ctx, "noscript.title") }</h1>
+				<p class="error-page__message">{ officei18n.T(ctx, "noscript.message") }</p>
+			</section>
+		</main>
+	</div>
 }
 
 // pageRegion carries the interface language and the translated navigation

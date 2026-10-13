@@ -94,6 +94,6 @@ func (h *Handler) renderPanelError(
 	if err := h.flashes.Add(writer, request, flashmsg.Error, admini18n.T(request.Context(), messageID)); err != nil {
 		utils.FlashUnavailable(writer, request, err)
 	} else {
-		h.render(writer, request, status, panel.Title, pages.PanelSection(panel, ""))
+		h.render(writer, request, status, panel.Title, pages.PanelSection(panel))
 	}
 }

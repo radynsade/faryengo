@@ -124,8 +124,8 @@ func (h *Handler) submitWorkspace(
 	}
 }
 
-// A failed in-page submission replaces only the form; every other response is
-// the whole page.
+// A failed submission replaces only the form; every other response is the
+// whole page.
 
 func (h *Handler) renderCreateWorkspace(
 	writer http.ResponseWriter,
@@ -133,7 +133,7 @@ func (h *Handler) renderCreateWorkspace(
 	status int,
 	props pages.CreateWorkspaceProps,
 ) {
-	if request.Method == http.MethodPost && utils.IsPartial(request) {
+	if request.Method == http.MethodPost {
 		utils.RenderFormRegion(writer, request, status, pages.CreateWorkspaceFormID, pages.CreateWorkspaceForm(props))
 	} else {
 		utils.Render(writer, request, status, officei18n.T(request.Context(), "workspaces.create"), pages.CreateWorkspace(props))

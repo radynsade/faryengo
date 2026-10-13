@@ -157,10 +157,9 @@ type RoleFormProps struct {
 //
 
 type RoleViewProps struct {
-	Panel        layouts.PanelProps
-	Role         RoleRow
-	CanManage    bool
-	DeleteErrors []string
+	Panel     layouts.PanelProps
+	Role      RoleRow
+	CanManage bool
 }
 
 //

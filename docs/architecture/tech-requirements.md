@@ -129,7 +129,9 @@ Keep authoritative business state on the server and validate all input from
 the browser. Render full documents and partial responses through the same
 component system. Follow the
 [admin technical requirements](../admin/tech-requirements.md) for navigation,
-DOM updates, minimized responses, and progressive enhancement.
+DOM updates, and minimized responses. The admin panel and the office require
+JavaScript; without it they show only a translated notice asking the user to
+enable it.
 
 User-facing interface text comes from translation catalogs. Keep interface
 localization distinct from translated domain data. Follow

@@ -50,8 +50,7 @@ templ TextInput(props TextInputProps) {
 }
 
 // PasswordInput adds a visibility toggle. The toggle carries both of its
-// labels, so the script switches them without its own copy; without
-// JavaScript the toggle is hidden and the field stays a plain password field.
+// labels, so the script switches them without its own copy.
 templ PasswordInput(props TextInputProps) {
 	<div class="field">
 		<label class="field__label" for={ props.ID }>{ props.Label }</label>
@@ -142,10 +141,9 @@ type SelectControlProps struct {
 	AutoSubmit bool
 }
 
-// SelectControl is a select whose options open as a styled list. The list
-// and its toggle are shown only with scripting, which keeps the native select
-// in sync, so the form submits the native select either way; without
-// scripting the native select is shown instead.
+// SelectControl is a select whose options open as a styled list. The native
+// select stays hidden; the script keeps it in sync with the list, so the form
+// submits it.
 templ SelectControl(props SelectControlProps) {
 	<div class={ "select", props.Class } data-select>
 		<select

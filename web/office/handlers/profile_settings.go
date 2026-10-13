@@ -248,7 +248,7 @@ func (h *Handler) renewSession(
 	return session, err
 }
 
-// A failed in-page submission replaces only its form, or only the form's
+// A failed submission replaces only its form, or only the form's
 // confirmation when the current password is missing or wrong, so the other
 // fields keep what was typed; every other response is the whole page, inside
 // the workspace when the settings are shown in one.
@@ -263,7 +263,7 @@ func (h *Handler) renderProfileSettings(
 ) {
 	title := officei18n.T(request.Context(), "nav.settings")
 
-	if region != "" && utils.IsPartial(request) {
+	if region != "" {
 		utils.RenderFormRegion(writer, request, status, region, pages.SettingsFormFailure(profileSettingsRegion(region, content)))
 	} else if scope.workspace != nil {
 		dashboard := utils.DashboardProps(request, scope.current, scope.workspace, utils.ProfileSettingsSection, title)

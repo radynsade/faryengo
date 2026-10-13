@@ -152,8 +152,8 @@ func (h *Handler) signOut(writer http.ResponseWriter, request *http.Request) {
 // Helpers
 //
 
-// A failed in-page submission replaces only the sign-in form; every other
-// response is the whole page.
+// A failed submission replaces only the sign-in form; every other response is
+// the whole page.
 
 func (h *Handler) renderSignIn(
 	writer http.ResponseWriter,
@@ -163,7 +163,7 @@ func (h *Handler) renderSignIn(
 ) {
 	props.Action = utils.OfficePath(request) + "/sign-in"
 
-	if request.Method == http.MethodPost && utils.IsPartial(request) {
+	if request.Method == http.MethodPost {
 		utils.RenderFormRegion(writer, request, status, pages.SignInFormID, pages.SignInForm(props))
 	} else {
 		utils.Render(writer, request, status, officei18n.T(request.Context(), "auth.sign_in"), pages.SignIn(props))

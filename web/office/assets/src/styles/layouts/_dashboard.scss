@@ -86,7 +86,7 @@ $rail-width: 6.25rem;
 	background: var(--color-surface);
 
 	// The drawer on narrow screens.
-	@media (max-width: #{$wide - 1px}) and (scripting: enabled) {
+	@media (max-width: #{$wide - 1px}) {
 		position: fixed;
 		inset: 0 auto 0 0;
 		z-index: 30;
@@ -104,10 +104,6 @@ $rail-width: 6.25rem;
 			visibility: visible;
 			transition: transform 220ms ease;
 		}
-	}
-
-	@media (scripting: none) and (max-width: #{$wide - 1px}) {
-		border-bottom: 1px solid var(--color-border);
 	}
 
 	@media (min-width: $wide) {
@@ -130,7 +126,7 @@ $rail-width: 6.25rem;
 		padding-inline: 0.5rem;
 		min-height: 2.125rem;
 
-		@media (min-width: $wide), (scripting: none) {
+		@media (min-width: $wide) {
 			display: none;
 		}
 	}

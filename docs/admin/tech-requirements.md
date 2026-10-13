@@ -3,6 +3,11 @@
 These requirements apply to every page, form, and component of the admin panel.
 A change that breaks one of them is a bug, even when the feature otherwise works.
 
+The panel requires JavaScript. Without it, every page shows only a translated
+notice that asks the user to enable JavaScript, built with the panel's layout
+and styles. Nothing else is designed to work without JavaScript, and no code
+exists only for that case.
+
 | # | Requirement |
 | --- | --- |
 | 1 | Navigation and form submissions never trigger a full page reload. |
@@ -19,9 +24,8 @@ bug.
 A full document load is allowed only for:
 
 - the first request to the panel (direct URL entry, bookmark, or browser refresh),
-- history restoration when no cached state is available,
-- opening a link in a new tab or window, and
-- requests made with JavaScript disabled.
+- history restoration when no cached state is available, and
+- opening a link in a new tab or window.
 
 ### Server
 
@@ -37,8 +41,9 @@ A full document load is allowed only for:
   `Vary` header so caches never serve one form in place of the other.
 - A successful form submission follows Post/Redirect/Get: the server redirects,
   and the client updates the page with the result of the redirected request.
-- A failed validation returns the same form with its field errors and an error
-  status, and the client shows it in place.
+- A failed validation returns only the form region with its field errors and an
+  error status, and the client shows it in place. The server never renders a
+  whole page only because a request did not come from the client script.
 - The server can tell the client to update a different region than the one the
   request targeted, or to navigate elsewhere, without returning a full document.
 
@@ -56,8 +61,8 @@ A full document load is allowed only for:
   usable. It never falls back to a full reload.
 - After the main content changes, the document language and title are updated,
   and focus moves to the new content for keyboard and screen reader users.
-- Every link and form keeps a working `href`, `method`, and `action`, so the panel
-  stays usable without JavaScript.
+- Every link and form keeps a working `href`, `method`, and `action`, so
+  modifier clicks, middle clicks, and opening a link in a new tab keep working.
 - Content received from the server never executes inline scripts. Client
   behavior is loaded once and must keep working for content inserted later.
 
@@ -124,6 +129,8 @@ Automated tests cover each requirement:
 
 - Requests for in-page updates receive partial responses, other requests receive
   complete documents, and both declare `Vary`.
+- Every complete document carries the translated notice for browsers without
+  JavaScript, and partial responses never do.
 - Links and forms are wired for in-page updates with morphing.
 - Every page and message renders in every supported language without text from
   another language.

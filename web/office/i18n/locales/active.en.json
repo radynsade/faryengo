@@ -162,6 +162,12 @@
   "navigation.error": {
     "other": "The page could not be loaded. Check your connection and try again."
   },
+  "noscript.title": {
+    "other": "JavaScript is required"
+  },
+  "noscript.message": {
+    "other": "This app needs JavaScript to work. Enable JavaScript in your browser, then reload the page."
+  },
   "navigation.skip": {
     "other": "Skip to content"
   },
@@ -307,9 +313,6 @@
   },
   "settings.member_role": {
     "other": "Role of {{.Name}}"
-  },
-  "settings.member_role_save": {
-    "other": "Save the role of {{.Name}}"
   },
   "settings.member_role_changed": {
     "other": "{{.Name}}'s role has been changed to {{.Role}}."

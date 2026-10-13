@@ -83,7 +83,7 @@ func TestWorkspaceProfileSettingsPage(t *testing.T) {
 		`<h2 id="password-title">Password change</h2>`,
 		`<form id="profile-form" class="form" method="post" action="` + designPath + `/profile-settings/profile" novalidate`,
 		`<form id="password-form" class="form" method="post" action="` + designPath + `/profile-settings/password" novalidate`,
-		`<a class="confirm-dialog__cancel" href="` + designPath + `/profile-settings"`,
+		`<button class="confirm-dialog__cancel" type="button" data-dialog-close>`,
 		`value="Ada"`,
 	} {
 		if !strings.Contains(body, want) {
@@ -233,7 +233,7 @@ func TestProfileSettingsRejected(t *testing.T) {
 			path:     "/office/en/profile-settings/profile",
 			body:     func(f *fixture) string { return profileBody(f, "Ada", "Lovelace", "ada@lovelace.example", "") },
 			status:   http.StatusUnprocessableEntity,
-			contains: []string{`data-confirm-dialog open>`, `value="ada@lovelace.example"`},
+			contains: []string{`<dialog id="profile-confirm"`, `data-confirm-dialog open>`},
 			excludes: []string{`id="profile-confirm-password-error"`},
 		},
 		{

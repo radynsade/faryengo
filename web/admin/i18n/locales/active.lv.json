@@ -58,6 +58,12 @@
   "navigation.error": {
     "other": "Neizdevās ielādēt šo lapu. Lūdzu, mēģiniet vēlreiz."
   },
+  "noscript.title": {
+    "other": "Nepieciešams JavaScript"
+  },
+  "noscript.message": {
+    "other": "Šai lietotnei ir nepieciešams JavaScript. Ieslēdziet JavaScript savā pārlūkprogrammā un pārlādējiet lapu."
+  },
   "actions.sign_in": {
     "other": "Pieslēgties"
   },

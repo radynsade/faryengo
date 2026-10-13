@@ -57,6 +57,12 @@
   "navigation.error": {
     "other": "Unable to load this page. Please try again."
   },
+  "noscript.title": {
+    "other": "JavaScript is required"
+  },
+  "noscript.message": {
+    "other": "This app needs JavaScript to work. Enable JavaScript in your browser, then reload the page."
+  },
   "actions.sign_in": {
     "other": "Sign in"
   },

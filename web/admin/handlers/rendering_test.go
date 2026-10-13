@@ -78,25 +78,22 @@ func TestResponseForms(t *testing.T) {
 }
 
 // Every link and form inside the content region updates the page in place
-// with morphing, keeping a native href or action for browsers without
-// JavaScript. Language links are the one deliberate full navigation.
+// with morphing, keeping a native href or action for modifier clicks and new
+// tabs. Language links are the one deliberate full navigation.
 
 var (
 	tagPattern       = regexp.MustCompile(`<(a|form)\s[^>]*>`)
-	noscriptPattern  = regexp.MustCompile(`<noscript>.*?</noscript>`)
 	attributePattern = regexp.MustCompile(`([a-z-]+)=(?:"([^"]*)"|'([^']*)')`)
 )
 
 func TestLinksAndFormsUpdateInPlace(t *testing.T) {
 	f := newFixture(t, nil, true)
 	cookies := f.signIn(t)
-	paths := append(panelPages(f), "/admin/en/roles/table", "/admin/en/users/table")
+	paths := panelPages(f)
+	tables := []string{"/admin/en/roles/table", "/admin/en/users/table"}
 	guest := []string{"/admin/en/sign-in", "/admin/en/restore-password"}
 
 	check := func(path, body string) {
-		// Content for browsers without JavaScript is never enhanced.
-		body = noscriptPattern.ReplaceAllString(body, "")
-
 		for _, tag := range tagPattern.FindAllString(body, -1) {
 			attributes := make(map[string]string)
 
@@ -148,8 +145,42 @@ func TestLinksAndFormsUpdateInPlace(t *testing.T) {
 		check(path, body)
 	}
 
+	for _, path := range tables {
+		check(path, f.do(request{path: path, cookies: cookies, headers: partial}).Body.String())
+	}
+
 	for _, path := range guest {
 		check(path, f.do(request{path: path}).Body.String())
+	}
+}
+
+// The panel requires JavaScript: every document opens with a translated
+// notice that shows only without it, and partial responses never repeat it.
+
+func TestDocumentsRequireJavaScript(t *testing.T) {
+	f := newFixture(t, nil, true)
+	cookies := f.signIn(t)
+	notice := `<body hx-ext="head-support, morph" hx-history="false" hx-target="#page-content"><noscript><main class="auth-layout">`
+
+	lv := f.do(request{path: "/admin/lv/sign-in"}).Body.String()
+	bodies := map[string]string{"/admin/lv/sign-in": lv}
+
+	for _, path := range panelPages(f) {
+		bodies[path] = f.do(request{path: path, cookies: cookies}).Body.String()
+	}
+
+	for path, body := range bodies {
+		if !strings.Contains(body, notice) || strings.Count(body, "<noscript>") != 1 {
+			t.Fatalf("GET %s lacks the notice:\n%.600s", path, body)
+		}
+	}
+
+	if !strings.Contains(lv, `<h1 id="script-required-title">Nepieciešams JavaScript</h1>`) {
+		t.Fatalf("the notice is not translated:\n%.600s", lv)
+	}
+
+	if body := f.do(request{path: "/admin/en", cookies: cookies, headers: partial}).Body.String(); strings.Contains(body, "<noscript>") {
+		t.Fatalf("a partial response repeats the notice:\n%.300s", body)
 	}
 }
 
@@ -336,8 +367,7 @@ func catalogMessages(t *testing.T, language string) map[string]string {
 	return messages
 }
 
-// A failed in-page submission replaces only its form, keeping the rest of the
-// page; the same failure without in-page updates is the whole page.
+// A failed submission replaces only its form, keeping the rest of the page.
 
 func TestFailedSubmissionsReplaceOnlyTheForm(t *testing.T) {
 	tests := []struct {
@@ -384,13 +414,6 @@ func TestFailedSubmissionsReplaceOnlyTheForm(t *testing.T) {
 				response.Header().Get("HX-Reswap") != "morph:outerHTML" ||
 				response.Header().Get("HX-Push-Url") != "false" {
 				t.Fatalf("headers = %v", response.Header())
-			}
-
-			full := f.do(request{method: http.MethodPost, path: tt.path, body: tt.body, cookies: cookies})
-
-			if full.Code != tt.wantStatus || !strings.HasPrefix(full.Body.String(), "<!doctype html>") ||
-				!strings.Contains(full.Body.String(), tt.wantText) || full.Header().Get("HX-Retarget") != "" {
-				t.Fatalf("full = %d: %.300s", full.Code, full.Body.String())
 			}
 		})
 	}

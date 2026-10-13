@@ -73,7 +73,7 @@ func TestResponseForms(t *testing.T) {
 }
 
 // Every link and form updates the page in place with morphing, keeping a
-// native href or action for browsers without JavaScript. Language links are
+// native href or action for modifier clicks and new tabs. Language links are
 // the one deliberate full navigation.
 
 var (
@@ -153,6 +153,37 @@ func TestLinksAndFormsUpdateInPlace(t *testing.T) {
 	}
 }
 
+// The office requires JavaScript: every document opens with a translated
+// notice that shows only without it, and partial responses never repeat it.
+
+func TestDocumentsRequireJavaScript(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+	notice := `<body hx-ext="head-support, morph" hx-history="false" hx-target="#page-content"><noscript><div class="error-page">`
+
+	for _, path := range slices.Concat(dashboardPages, standalonePages, guestPages) {
+		body := f.do(request{path: path, cookies: cookies}).Body.String()
+
+		if slices.Contains(guestPages, path) {
+			body = f.do(request{path: path}).Body.String()
+		}
+
+		if !strings.Contains(body, notice) || strings.Count(body, "<noscript>") != 1 {
+			t.Fatalf("GET %s lacks the notice:\n%.600s", path, body)
+		}
+	}
+
+	ru := f.do(request{path: strings.Replace(guestPages[0], "/en", "/ru", 1)}).Body.String()
+
+	if !strings.Contains(ru, `<h1 id="script-required-title">Требуется JavaScript</h1>`) {
+		t.Fatalf("the notice is not translated:\n%.600s", ru)
+	}
+
+	if body := f.do(request{path: dashboardPages[0], cookies: cookies, headers: partial}).Body.String(); strings.Contains(body, "<noscript>") {
+		t.Fatalf("a partial response repeats the notice:\n%.300s", body)
+	}
+}
+
 // Every signed-in layout shares the top bar with the account controls; the
 // dashboard's sidebar holds only the workspace navigation.
 
@@ -162,13 +193,13 @@ func TestTopBar(t *testing.T) {
 
 	for _, path := range slices.Concat(dashboardPages, standalonePages) {
 		body := f.do(request{path: path, cookies: cookies}).Body.String()
-		start, end := strings.Index(body, `<header class="topbar`), strings.Index(body, "</header>")
+		_, rest, found := strings.Cut(body, `<header class="topbar`)
+		topBar, _, closed := strings.Cut(rest, "</header>")
 
-		if start < 0 || end < start {
+		if !found || !closed {
 			t.Fatalf("GET %s lacks the top bar", path)
 		}
 
-		topBar := body[start:end]
 		// The settings link leads to the profile settings, inside the
 		// workspace when there is one.
 		settingsHref := "/office/en/profile-settings"

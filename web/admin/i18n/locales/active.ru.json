@@ -59,6 +59,12 @@
   "navigation.error": {
     "other": "Не удалось загрузить страницу. Попробуйте ещё раз."
   },
+  "noscript.title": {
+    "other": "Требуется JavaScript"
+  },
+  "noscript.message": {
+    "other": "Для работы этого приложения нужен JavaScript. Включите JavaScript в браузере и перезагрузите страницу."
+  },
   "actions.sign_in": {
     "other": "Войти"
   },

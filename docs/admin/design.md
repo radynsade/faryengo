@@ -167,7 +167,7 @@ page hooks alongside it.
 | Page titles | `.page-title`, `__heading`, `.breadcrumbs`, `__list`, `__item`, `__link`, `__separator`; `PageTitle` renders the title and an ordered breadcrumb list |
 | Collection layout | `.list-toolbar`, `__controls`, `.action-group`, `.tag-list`, `.pagination`, `__current` |
 | Tables | `.data-table-scroll`, `.data-table`, `--fixed`, `__actions`, `__empty`, `__loading`, `__spinner`, `.table-sort`; page rules own domain-specific column widths |
-| Filters | `.filter-menu`, `__form`; native `details` and `summary` remain usable without JavaScript |
+| Filters | `.filter-menu`, `__form`; native `details` and `summary` |
 | Details | `.details-list`, `__row`; semantic `dl` with one `div` per `dt`/`dd` pair; rows are subgrids, so the label column fits the longest label (wrapping past 40% of the width) and stacks above values on phones; role-view permissions use the same badges as the role list |
 | Copyable values | `CopyValue` and `.copy-value`; inline scalar values with Tabler `copy` on hover/focus and `copy-check` after successful copying; localized clipboard status and keyboard activation |
 | Status | `.badge`, `--negative`; `.notice`, `--error` for inline feedback |
@@ -199,8 +199,8 @@ options: search placeholder, selected tags, count badge, listbox options, and
 ARIA state. The dropdown and native submission select are hidden in the initial
 HTML. JavaScript hydrates the existing elements by attaching listeners; it does
 not rebuild the layout or change visibility on load or after HTMX swaps. Later
-selection, search, and reset interactions update that state. A `scripting: none`
-CSS fallback shows the native select and its label when JavaScript is disabled.
+selection, search, and reset interactions update that state. The native select
+stays hidden and only carries the submitted values.
 
 Translation fields render the initial language selection on the server, falling
 back to the first configured language when the requested language is unavailable.
@@ -209,8 +209,6 @@ panel ARIA attributes, and `hidden` on inactive panels. JavaScript hydrates
 delegated interactions and changes state only in response to tab navigation,
 form reset, or validation; it does not recompute or rewrite the initial state.
 HTMX fragments carry the same complete markup and need no initialization pass.
-The `scripting: none` CSS fallback hides the tab bar and reveals all native
-fields when JavaScript is disabled.
 
 Field validation uses `.form-field--invalid`, red labels and control borders,
 and `.form-field__errors` messages directly below the relevant controls. Invalid
@@ -222,16 +220,15 @@ opens the first tab with a field error. The fallback language's name field is
 translation is an error on that field and its tab, and other translations remain
 optional. When the catalog has no fallback language, supplying no name at all is
 a group error beside the name input. Checkbox errors appear beneath the checkbox. Messages use the interface
-catalogs and apply to full pages, HTMX fragments, and native forms without
-JavaScript. Field errors live only in the submission response. Form-wide
+catalogs and apply to full pages and HTMX fragments. Field errors live only in
+the submission response. Form-wide
 failures, such as wrong credentials or a malformed form, appear inside the form
 region: above the sign-in form with `.form-error`, and below the role form's
 toolbar with `.notice--error`.
 
-A failed submission during an in-page update returns only its form region, the
-`#sign-in-form` wrapper or the `#role-form` section, retargeted and morphed in
-place; the head, layout, and sidebar are not sent again, and the address does not
-change. Without JavaScript, the same failure renders the whole page.
+A failed submission returns only its form region, the `#sign-in-form` wrapper or
+the `#role-form` section, retargeted and morphed in place; the head, layout, and
+sidebar are not sent again, and the address does not change.
 
 ## Layout and page responsibilities
 
@@ -302,7 +299,7 @@ the initial render and replaces only `#roles-list-table` with the populated
 collection; the first page request does not query the role list. Sorting,
 filtering, and pagination retain their ordinary page URLs and repeat this flow.
 The loading row announces its localized status, and its spinner respects reduced
-motion. A native link inside `noscript` opens the populated table as a full page.
+motion. `/roles/table` returns only the table fragment.
 Loading errors consume error flashes in the table fragment and provide a Retry
 link. Background table swaps do not move keyboard focus.
 Create and edit pages share `.role-form` with the same compact toolbar as the
@@ -346,19 +343,32 @@ shows a current-password field. Submitting the password form, or the profile
 form with a changed email, opens the `.password-confirm` dialog inside that
 form; Confirm submits the form with the current password, which is never
 rendered back. A missing or wrong current password replaces only the dialog,
-so the form keeps what was typed; other failures replace the form. Without
-JavaScript the server renders the dialog open inline. A saved change redirects
+so the form keeps what was typed; other failures replace the form. Cancel and
+the close control close the dialog. A saved change redirects
 to the settings page, whose success dialog confirms it; changing the email or
 password signs out the user's other devices and keeps the current one signed
 in.
 
 The shared dialog script turns a server-opened dialog (`data-dialog-open`) into
-a modal, including one rendered with the `open` attribute so that it shows
-inline without JavaScript.
+a modal. The password confirmation also carries the `open` attribute, so a
+morph keeps a dialog that is already a modal open.
+
+## JavaScript requirement
+
+The panel requires JavaScript. `Root` renders a `noscript` notice as the first
+child of `body`: the authentication layout's `.auth-layout` and `.auth-panel`
+with the brand, a translated title and message (`noscript.title`,
+`noscript.message`) asking the user to enable JavaScript, and the language
+switcher. Without JavaScript, a `scripting: none` rule in the base styles hides
+every other child of `body`, so each page shows only the notice. Partial
+responses never include it. No component keeps a fallback for browsers without
+JavaScript.
 
 ## Accessibility and interaction rules
 
-- Preserve native forms, links, `details`, and dialogs; JavaScript enhances them.
+- Preserve native forms, links, `details`, and dialogs. Links and forms keep
+  their `href`, `method`, and `action`, so modifier clicks, middle clicks, and
+  opening a link in a new tab keep working.
 - Use the common focus ring for interactive components, with inset offsets where
   scrolling or grouped tabs could clip an outer ring.
 - Apply transitions through `motion()` so reduced-motion preferences are honored.
@@ -379,7 +389,7 @@ inline without JavaScript.
 4. Check ordinary, hover, keyboard focus, selected, disabled, error, and success
    states relevant to the changed component.
 5. Compare desktop and narrow-screen rendering, including long content,
-   popovers, dialog overflow, and pages with JavaScript disabled.
+   popovers, dialog overflow, and the notice shown with JavaScript disabled.
 6. Run `make check`: it builds assets, generates templ code, checks formatting,
    runs Go vet and lint, and runs the race-enabled uncached test suite.
 

@@ -34,11 +34,11 @@ func TestUserAuthorization(t *testing.T) {
 		}},
 		{"manage users without viewing", manage, false, map[string]int{
 			"GET /admin/en/users": 403, "GET view": 403, "GET /admin/en/users/create": 200, "GET edit": 200,
-			"POST /admin/en/users/create": 303, "POST edit": 303, "POST delete": 303,
+			"POST /admin/en/users/create": 303, "POST edit": 303, "POST delete": 200,
 		}},
 		{"super role", nil, true, map[string]int{
 			"GET /admin/en/users": 200, "GET /admin/en/users/table": 200, "GET view": 200, "GET edit": 200,
-			"POST /admin/en/users/create": 303, "POST edit": 303, "POST delete": 303,
+			"POST /admin/en/users/create": 303, "POST edit": 303, "POST delete": 200,
 		}},
 	}
 

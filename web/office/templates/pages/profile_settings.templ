@@ -16,8 +16,8 @@ const (
 	PasswordConfirmID = "password-confirm"
 )
 
-// The confirmation opens on its own when the server asks for the current
-// password, and with JavaScript before a submission that needs it.
+// The confirmation opens when the server asks for the current password, and
+// before a submission that needs it.
 
 type ConfirmProps struct {
 	Open  bool
@@ -26,7 +26,6 @@ type ConfirmProps struct {
 
 type ProfileFormProps struct {
 	Action      string
-	CancelURL   string
 	FirstName   string
 	LastName    string
 	Email       string
@@ -38,7 +37,6 @@ type ProfileFormProps struct {
 
 type PasswordFormProps struct {
 	Action      string
-	CancelURL   string
 	Error       string
 	FieldErrors map[string]string
 	Confirm     ConfirmProps
@@ -154,7 +152,7 @@ templ ProfileForm(props ProfileFormProps) {
 }
 
 templ ProfileConfirm(props ProfileFormProps) {
-	@passwordConfirm(ProfileConfirmID, props.Confirm, officei18n.T(ctx, "settings.confirm_email"), props.CancelURL)
+	@passwordConfirm(ProfileConfirmID, props.Confirm, officei18n.T(ctx, "settings.confirm_email"))
 }
 
 // PasswordForm asks for the new password twice, then for the current one in
@@ -196,16 +194,16 @@ templ PasswordForm(props PasswordFormProps) {
 }
 
 templ PasswordConfirm(props PasswordFormProps) {
-	@passwordConfirm(PasswordConfirmID, props.Confirm, officei18n.T(ctx, "settings.confirm_password"), props.CancelURL)
+	@passwordConfirm(PasswordConfirmID, props.Confirm, officei18n.T(ctx, "settings.confirm_password"))
 }
 
 // passwordConfirm belongs to its form, so confirming submits the form's
 // fields together with the current password, which is never rendered back.
 // Its submit button names the confirmation, so the server can tell an empty
-// password from a submission that has not asked for one yet. Without
-// JavaScript an open confirmation shows inline and Cancel reloads the
-// settings; with JavaScript it is a modal and Cancel closes it.
-templ passwordConfirm(id string, props ConfirmProps, description string, cancelURL string) {
+// password from a submission that has not asked for one yet. The server opens
+// it with the open attribute, which a morph keeps on a dialog that is already
+// a modal; the script turns a newly opened one into a modal. Cancel closes it.
+templ passwordConfirm(id string, props ConfirmProps, description string) {
 	<dialog
 		id={ id }
 		class="confirm-dialog"
@@ -230,12 +228,9 @@ templ passwordConfirm(id string, props ConfirmProps, description string, cancelU
 				Error:        props.Error,
 			})
 			<div class="confirm-dialog__actions">
-				<a
-					class="confirm-dialog__cancel"
-					href={ templ.URL(cancelURL) }
-					data-dialog-close
-					{ components.NavigationAttributes()... }
-				>{ officei18n.T(ctx, "common.cancel") }</a>
+				<button class="confirm-dialog__cancel" type="button" data-dialog-close>
+					{ officei18n.T(ctx, "common.cancel") }
+				</button>
 				<button class="button" type="submit" name="confirm" value="1" data-confirm-submit>
 					{ officei18n.T(ctx, "common.confirm") }
 				</button>

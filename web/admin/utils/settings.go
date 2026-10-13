@@ -155,15 +155,13 @@ func SettingsProps(current *security.Identity, settingsURL string) (pages.Profil
 
 	profile := pages.ProfileFormProps{
 		Action:    settingsURL + "/profile",
-		CancelURL: settingsURL,
 		FirstName: string(user.FirstName),
 		LastName:  string(user.LastName),
 		Email:     string(user.Email),
 		UpdatedAt: FormatUpdatedAt(user.UpdatedAt),
 	}
 	password := pages.PasswordFormProps{
-		Action:    settingsURL + "/password",
-		CancelURL: settingsURL,
+		Action: settingsURL + "/password",
 	}
 
 	return profile, password

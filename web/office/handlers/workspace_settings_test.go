@@ -718,9 +718,8 @@ func TestWorkspaceSettingsPostsByRole(t *testing.T) {
 }
 
 // An owner changes another member's role in place: the select's styled list
-// saves as soon as an option is chosen, and the native select and its button
-// remain for browsers without JavaScript. The
-// confirmation names the member and the new role.
+// saves as soon as an option is chosen. The confirmation names the member and
+// the new role.
 
 func TestChangeWorkspaceMemberRole(t *testing.T) {
 	f, cookies := withRole(t, workspaces.RoleOwner)
@@ -735,7 +734,6 @@ func TestChangeWorkspaceMemberRole(t *testing.T) {
 		`<select class="field__input field__input--select select__native" id="member-` + uuid.UUID(grace.ID).String() + `-role" name="role" data-auto-submit aria-label="Role of Grace Hopper">`,
 		`<option value="editor" selected>Editor</option>`,
 		`<li class="select__option" role="option" tabindex="-1" data-value="editor" aria-selected="true"><span>Editor</span>`,
-		`<button class="icon-button member-list__role-save" type="submit" aria-label="Save the role of Grace Hopper"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("settings lack %s:\n%s", want, body)

@@ -19,6 +19,14 @@ body {
 	font-size: var(--font-size-base);
 }
 
+// The app does not work without JavaScript, so without it the page is hidden
+// and only the notice inside noscript shows.
+@media (scripting: none) {
+	body > :not(noscript) {
+		display: none !important;
+	}
+}
+
 button,
 input,
 select,

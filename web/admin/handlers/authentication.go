@@ -164,8 +164,8 @@ func (h *Handler) restorePasswordPage(writer http.ResponseWriter, request *http.
 // Helpers
 //
 
-// A failed in-page submission replaces only the sign-in form; every other
-// response is the whole page.
+// A failed submission replaces only the sign-in form; every other response is
+// the whole page.
 
 func (h *Handler) renderSignIn(
 	writer http.ResponseWriter,
@@ -183,7 +183,7 @@ func (h *Handler) renderSignIn(
 		FieldErrors:        fields,
 	}
 
-	if request.Method == http.MethodPost && utils.IsPartial(request) {
+	if request.Method == http.MethodPost {
 		utils.RenderFormRegion(writer, request, status, pages.SignInFormID, pages.SignInForm(props))
 	} else {
 		h.render(writer, request, status, admini18n.T(request.Context(), "actions.sign_in"), pages.SignIn(props))

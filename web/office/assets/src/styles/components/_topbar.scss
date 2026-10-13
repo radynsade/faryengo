@@ -132,9 +132,9 @@ $wide: 960px;
 	}
 
 	// The menu button opens the sidebar drawer, which exists only on narrow
-	// screens with JavaScript.
+	// screens.
 	&__menu {
-		@media (min-width: $wide), (scripting: none) {
+		@media (min-width: $wide) {
 			display: none;
 		}
 	}

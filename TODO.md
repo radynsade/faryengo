@@ -12,6 +12,6 @@
 - [x] Separate section to control workspace members, roles and permissions. Don't do per permission access, prepare prebuilt roles.
 - [x] 404 page.
 - [x] 5XX page.
-- [ ] Remove the requirement of working without javascript.
+- [x] Remove the requirement of working without javascript.
 
 ## Admin panel

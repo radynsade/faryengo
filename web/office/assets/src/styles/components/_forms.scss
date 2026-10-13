@@ -146,10 +146,6 @@
 		&[aria-pressed='true'] .field__action-hide {
 			display: block;
 		}
-
-		@media (scripting: none) {
-			display: none;
-		}
 	}
 }
 

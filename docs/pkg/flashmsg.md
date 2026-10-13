@@ -232,7 +232,7 @@ flashes.
 | Deletion failure | Stay in the confirmation dialog and consume only errors, leaving pending successes for a normal page render. |
 
 Consume messages server-side for both full documents and HTMX fragments. A
-consumed message must not reappear on Reload or Back, even without JavaScript.
+consumed message must not reappear on Reload or Back.
 Escape notification text with templ and send admin responses with `Cache-Control: no-store`.
 Use atomic additions and consumption; disable automatic storage retries because
 replaying an ambiguous operation can duplicate or lose messages.
