@@ -168,16 +168,15 @@ templ memberList(members []MemberItem, roles []components.SelectOption, loadErro
 							action={ templ.URL(member.RoleURL) }
 							{ components.FormAttributes()... }
 						>
-							<select
-								class="field__input field__input--select member-list__role-select"
-								name="role"
-								data-auto-submit
-								aria-label={ officei18n.T(ctx, "settings.member_role", map[string]any{"Name": member.Name}) }
-							>
-								for _, role := range roles {
-									<option value={ role.Value } selected?={ role.Value == member.Role }>{ role.Label }</option>
-								}
-							</select>
+							@components.SelectControl(components.SelectControlProps{
+								ID:         "member-" + member.ID + "-role",
+								Name:       "role",
+								Value:      member.Role,
+								Options:    roles,
+								Class:      "member-list__role-select",
+								AriaLabel:  officei18n.T(ctx, "settings.member_role", map[string]any{"Name": member.Name}),
+								AutoSubmit: true,
+							})
 							<button
 								class="icon-button member-list__role-save"
 								type="submit"

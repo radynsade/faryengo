@@ -51,9 +51,12 @@
 	}
 
 	&__role-select {
-		width: auto;
-		height: 2.125rem;
 		font-size: 0.8125rem;
+
+		.field__input {
+			width: auto;
+			height: 2.125rem;
+		}
 	}
 
 	// The select saves on its own; the button serves only without scripting.

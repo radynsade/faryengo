@@ -558,8 +558,9 @@ func TestWorkspaceSettingsByRole(t *testing.T) {
 			contains: []string{
 				`<form id="workspace-form"`,
 				`<form id="workspace-member-form"`,
-				`<select class="field__input field__input--select" id="member-role" name="role">`,
+				`<select class="field__input field__input--select select__native" id="member-role" name="role">`,
 				`<option value="viewer" selected>Viewer</option>`,
+				`aria-labelledby="member-role-label member-role-toggle"><span class="select__value">Viewer</span>`,
 				`aria-label="Role of Grace Hopper"`,
 			},
 			unwanted:   []string{`class="field__value"`, "Only the workspace's owners"},
@@ -716,8 +717,9 @@ func TestWorkspaceSettingsPostsByRole(t *testing.T) {
 	}
 }
 
-// An owner changes another member's role in place: the select saves as it
-// changes, and the button remains for browsers without JavaScript. The
+// An owner changes another member's role in place: the select's styled list
+// saves as soon as an option is chosen, and the native select and its button
+// remain for browsers without JavaScript. The
 // confirmation names the member and the new role.
 
 func TestChangeWorkspaceMemberRole(t *testing.T) {
@@ -730,8 +732,9 @@ func TestChangeWorkspaceMemberRole(t *testing.T) {
 
 	for _, want := range []string{
 		`<form class="member-list__role-form" method="post" action="` + rolePath + `"`,
-		`<select class="field__input field__input--select member-list__role-select" name="role" data-auto-submit aria-label="Role of Grace Hopper">`,
+		`<select class="field__input field__input--select select__native" id="member-` + uuid.UUID(grace.ID).String() + `-role" name="role" data-auto-submit aria-label="Role of Grace Hopper">`,
 		`<option value="editor" selected>Editor</option>`,
+		`<li class="select__option" role="option" tabindex="-1" data-value="editor" aria-selected="true"><span>Editor</span>`,
 		`<button class="icon-button member-list__role-save" type="submit" aria-label="Save the role of Grace Hopper"`,
 	} {
 		if !strings.Contains(body, want) {

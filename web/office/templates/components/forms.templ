@@ -1,6 +1,7 @@
 package components
 
 import (
+	"strconv"
 	"strings"
 
 	"github.com/radynsade/faryengo/web/office/assets"
@@ -109,24 +110,134 @@ type SelectProps struct {
 // starts selected.
 templ Select(props SelectProps) {
 	<div class="field">
-		<label class="field__label" for={ props.ID }>{ props.Label }</label>
+		<label class="field__label" id={ props.ID + "-label" } for={ props.ID }>{ props.Label }</label>
+		@SelectControl(SelectControlProps{
+			ID:          props.ID,
+			Name:        props.Name,
+			Value:       props.Value,
+			Options:     props.Options,
+			LabelledBy:  props.ID + "-label",
+			Invalid:     props.Error != "",
+			DescribedBy: errorID(props.ID, props.Error),
+		})
+		if props.Error != "" {
+			<p class="field__error" id={ props.ID + "-error" }>{ props.Error }</p>
+		}
+	</div>
+}
+
+type SelectControlProps struct {
+	ID      string
+	Name    string
+	Value   string
+	Options []SelectOption
+	// Class is added to the control's wrapper.
+	Class string
+	// Exactly one of AriaLabel and LabelledBy names the control.
+	AriaLabel   string
+	LabelledBy  string
+	Invalid     bool
+	DescribedBy string
+	// AutoSubmit submits the form as soon as the value changes.
+	AutoSubmit bool
+}
+
+// SelectControl is a select whose options open as a styled list. The list
+// and its toggle are shown only with scripting, which keeps the native select
+// in sync, so the form submits the native select either way; without
+// scripting the native select is shown instead.
+templ SelectControl(props SelectControlProps) {
+	<div class={ "select", props.Class } data-select>
 		<select
-			class="field__input field__input--select"
+			class="field__input field__input--select select__native"
 			id={ props.ID }
 			name={ props.Name }
-			if props.Error != "" {
+			if props.AutoSubmit {
+				data-auto-submit
+			}
+			if props.AriaLabel != "" {
+				aria-label={ props.AriaLabel }
+			}
+			if props.Invalid {
 				aria-invalid="true"
-				aria-describedby={ props.ID + "-error" }
+			}
+			if props.DescribedBy != "" {
+				aria-describedby={ props.DescribedBy }
 			}
 		>
 			for _, option := range props.Options {
 				<option value={ option.Value } selected?={ option.Value == props.Value }>{ option.Label }</option>
 			}
 		</select>
-		if props.Error != "" {
-			<p class="field__error" id={ props.ID + "-error" }>{ props.Error }</p>
-		}
+		<button
+			class="field__input select__toggle"
+			id={ props.ID + "-toggle" }
+			type="button"
+			aria-haspopup="listbox"
+			aria-expanded="false"
+			aria-controls={ props.ID + "-list" }
+			if props.AriaLabel != "" {
+				aria-label={ props.AriaLabel }
+			} else {
+				aria-labelledby={ props.LabelledBy + " " + props.ID + "-toggle" }
+			}
+			if props.Invalid {
+				aria-invalid="true"
+			}
+			if props.DescribedBy != "" {
+				aria-describedby={ props.DescribedBy }
+			}
+		>
+			<span class="select__value">{ selectedLabel(props) }</span>
+			@Icon("chevron-down")
+		</button>
+		<ul
+			class="select__list"
+			id={ props.ID + "-list" }
+			role="listbox"
+			if props.AriaLabel != "" {
+				aria-label={ props.AriaLabel }
+			} else {
+				aria-labelledby={ props.LabelledBy }
+			}
+			hidden
+		>
+			for _, option := range props.Options {
+				<li
+					class="select__option"
+					role="option"
+					tabindex="-1"
+					data-value={ option.Value }
+					aria-selected={ strconv.FormatBool(option.Value == props.Value) }
+				>
+					<span>{ option.Label }</span>
+					@Icon("check")
+				</li>
+			}
+		</ul>
 	</div>
+}
+
+func selectedLabel(props SelectControlProps) string {
+	for _, option := range props.Options {
+		if option.Value == props.Value {
+			return option.Label
+		}
+	}
+
+	if len(props.Options) > 0 {
+		return props.Options[0].Label
+	}
+
+	return ""
+}
+
+func errorID(id, message string) string {
+	if message == "" {
+		return ""
+	}
+
+	return id + "-error"
 }
 
 // The hint stays while an error explains what went wrong.

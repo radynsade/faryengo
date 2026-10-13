@@ -2,6 +2,7 @@ import 'vite/modulepreload-polyfill';
 import './style.scss';
 import './navigation';
 import './auto-submit';
+import './select';
 import './password-toggle';
 import './sidebar';
 import './dropdown';
