@@ -4,6 +4,7 @@
 
 - [ ] Workspace-scoped roles and permissions.
 - [ ] Validate domain entities, VOs, aggregates, etc on create right in the domain layer. Don't worry about cases when domain layer object created without a constructor, because it is a convention to use them.
+- [ ] Add Errors() method to domain objects. Instead of returning the first error of validation, it must validate all possible errors and return them. See `newRole` in the application layer.
 
 ## Office
 
