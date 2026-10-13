@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/google/uuid"
+
+	"github.com/radynsade/faryengo/pkg/domquery"
 )
 
 func TestUserQueryValidate(t *testing.T) {
@@ -80,6 +82,45 @@ func TestUserFilterCount(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := tt.filter.Count(); got != tt.want {
 				t.Fatalf("Count() = %d, want %d", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewUserQuery(t *testing.T) {
+	roleID := RoleID(uuid.MustParse("01920000-0000-7000-8000-000000000002"))
+
+	tests := []struct {
+		name          string
+		emailLike     string
+		roleID        RoleID
+		page          uint
+		wantFilterErr error
+		wantQueryErr  error
+	}{
+		{"valid", "ada", roleID, 1, nil, nil},
+		{"invalid filter", "\xff", roleID, 1, ErrUserFilterInvalid, ErrUserFilterInvalid},
+		{"nil role", "ada", RoleID{}, 1, ErrRoleIDInvalid, ErrRoleIDInvalid},
+		{"missing page", "ada", roleID, 0, nil, ErrInvalidUserQuery},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			filter, filterErr := NewUserFilter("", tt.emailLike, "", &tt.roleID)
+			query, queryErr := NewUserQuery(filter, domquery.SortOrderDesc, UserSortCreatedAt, 20, tt.page)
+
+			if query.Filter.EmailLike != tt.emailLike || query.Filter.RoleID != &tt.roleID ||
+				query.SortOrder != domquery.SortOrderDesc || query.SortBy != UserSortCreatedAt ||
+				query.Limit != 20 || query.Page != tt.page {
+				t.Fatalf("NewUserQuery() = %+v, want the given values", query)
+			}
+
+			if !errors.Is(filterErr, tt.wantFilterErr) || (filterErr == nil) != (tt.wantFilterErr == nil) {
+				t.Fatalf("NewUserFilter() error = %v, want %v", filterErr, tt.wantFilterErr)
+			}
+
+			if !errors.Is(queryErr, tt.wantQueryErr) || (queryErr == nil) != (tt.wantQueryErr == nil) {
+				t.Fatalf("NewUserQuery() error = %v, want %v", queryErr, tt.wantQueryErr)
 			}
 		})
 	}

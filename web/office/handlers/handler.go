@@ -70,7 +70,9 @@ func NewHandler(
 
 // Every office route shares one wrapper: responses are never cached, the
 // interface language comes from the route before anything renders, and
-// cross-origin unsafe requests are rejected before a handler runs.
+// cross-origin unsafe requests are rejected before a handler runs. Any other
+// address or method under the office is answered with the office's own error
+// page, in the language its address names.
 
 func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 	var err error
@@ -108,12 +110,23 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"GET /office/{language}/sign-in", h.signInPage},
 			{"POST /office/{language}/sign-in", h.signIn},
 			{"POST /office/{language}/sign-out", h.signOut},
+			{"/office", h.notFound},
+			{"/office/{language}", h.notFound},
+			{"/office/{language}/{path...}", h.notFound},
 		} {
 			mux.Handle(route.pattern, wrapRoute(protection, route.handler))
 		}
 	}
 
 	return err
+}
+
+//
+// Not found
+//
+
+func (h *Handler) notFound(writer http.ResponseWriter, request *http.Request) {
+	utils.Fail(writer, request, http.StatusNotFound, "errors.not_found")
 }
 
 //

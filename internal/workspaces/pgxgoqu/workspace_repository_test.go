@@ -59,7 +59,7 @@ func TestNewWorkspaceRepositoryRejectsNilDB(t *testing.T) {
 func TestWorkspaceMethodsRejectMissingPool(t *testing.T) {
 	ctx := context.Background()
 	id := workspaces.WorkspaceID(uuid.Must(uuid.NewV7()))
-	membership := workspaces.NewMembership(id, users.UserID(uuid.Must(uuid.NewV7())))
+	membership := workspaces.Membership{WorkspaceID: id, UserID: users.UserID(uuid.Must(uuid.NewV7()))}
 
 	tests := []struct {
 		name string
@@ -138,21 +138,21 @@ func TestWorkspaceMethodsValidateBeforeIO(t *testing.T) {
 			return err
 		}, workspaces.ErrWorkspaceFilterInvalid},
 		{"add member without a user", func() error {
-			return repository.AddMember(ctx, workspaces.NewMembership(validID, users.UserID{}))
+			return repository.AddMember(ctx, workspaces.Membership{WorkspaceID: validID})
 		}, users.ErrUserIDInvalid},
 		{"add member without a workspace", func() error {
-			return repository.AddMember(ctx, workspaces.NewMembership(workspaces.WorkspaceID{}, users.UserID(uuid.Must(uuid.NewV7()))))
+			return repository.AddMember(ctx, workspaces.Membership{UserID: users.UserID(uuid.Must(uuid.NewV7()))})
 		}, workspaces.ErrMembershipInvalid},
 		{"find member IDs of an invalid workspace", func() error {
 			_, err := repository.FindMemberIDs(ctx, workspaces.WorkspaceID{})
 			return err
 		}, workspaces.ErrWorkspaceIDInvalid},
 		{"has member without a user", func() error {
-			_, err := repository.HasMember(ctx, workspaces.NewMembership(validID, users.UserID{}))
+			_, err := repository.HasMember(ctx, workspaces.Membership{WorkspaceID: validID})
 			return err
 		}, workspaces.ErrMembershipInvalid},
 		{"remove member without a user", func() error {
-			return repository.RemoveMember(ctx, workspaces.NewMembership(validID, users.UserID{}))
+			return repository.RemoveMember(ctx, workspaces.Membership{WorkspaceID: validID})
 		}, workspaces.ErrMembershipInvalid},
 	}
 
@@ -169,7 +169,7 @@ func TestWorkspaceWriteFailuresExposeInput(t *testing.T) {
 	ctx := context.Background()
 	workspace := &workspaces.Workspace{}
 	id := workspaces.WorkspaceID{}
-	membership := workspaces.NewMembership(workspaces.WorkspaceID{}, users.UserID{})
+	membership := workspaces.Membership{}
 	repository := &WorkspaceRepository{}
 
 	if err := repository.Create(ctx, workspace); err == nil || err.Workspace() != workspace {

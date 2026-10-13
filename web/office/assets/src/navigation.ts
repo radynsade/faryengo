@@ -30,7 +30,7 @@ function focusPageContent() {
 	showNavigationError(false);
 	document
 		.querySelector<HTMLElement>(
-			'#dashboard-main, #standalone-main, #auth-title',
+			'#dashboard-main, #standalone-main, #error-main, #auth-title',
 		)
 		?.focus({ preventScroll: true });
 }
@@ -59,9 +59,10 @@ document.addEventListener('htmx:beforeRequest', () =>
 	showNavigationError(false),
 );
 
-// The server answers failed validation and rejected sign-ins with rendered
-// HTML, which replaces its target like any other result. Other error
-// responses keep the current page and show the translated navigation error.
+// The server answers every failure with rendered HTML, either the form shown
+// again or an error page, which replaces its target like any other result.
+// Responses without HTML, such as from a proxy, keep the current page and
+// show the translated navigation error.
 document.addEventListener('htmx:beforeSwap', (event) => {
 	const detail = (event as CustomEvent).detail;
 	const type = detail.xhr?.getResponseHeader('Content-Type') ?? '';

@@ -60,7 +60,13 @@ func newSnapshot(t *testing.T) *users.CredentialsSnapshot {
 		time.Now(),
 	)
 
-	return users.NewCredentialsSnapshot(user, uuid.Must(uuid.NewV7()))
+	snapshot, err := users.NewCredentialsSnapshot(user, uuid.Must(uuid.NewV7()))
+
+	if err != nil {
+		t.Fatalf("NewCredentialsSnapshot() error = %v", err)
+	}
+
+	return snapshot
 }
 
 func TestNewAuthenticatorRejectsInvalidConfig(t *testing.T) {

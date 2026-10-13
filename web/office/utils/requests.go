@@ -24,7 +24,9 @@ import (
 
 func init() {
 	if err := requestvalidation.RegisterStringRule("office_mailbox", func(value string) bool {
-		return users.Email(value).Validate() == nil
+		_, err := users.NewEmail(value)
+
+		return err == nil
 	}); err != nil {
 		panic(err)
 	}

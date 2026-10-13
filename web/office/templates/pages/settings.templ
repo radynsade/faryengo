@@ -80,8 +80,8 @@ type SettingsContentProps struct {
 	Members      []MemberItem
 	MembersError string
 	Member       *MemberFormProps
-	Profile   ProfileFormProps
-	Password  PasswordFormProps
+	Profile      ProfileFormProps
+	Password     PasswordFormProps
 }
 
 type SettingsProps struct {
@@ -110,10 +110,10 @@ templ WorkspaceSettings(dashboard layouts.DashboardProps, content SettingsConten
 	}
 }
 
-// SettingsContent opens with the confirmations of a saved change, which come
-// from the flash messages the redirect left for this page.
+// SettingsContent shows the confirmations of a saved change as messages,
+// which come from the flash messages the redirect left for this page.
 templ SettingsContent(props SettingsContentProps) {
-	@settingsNotices(props.Notices, false)
+	@components.Messages(props.Notices, false)
 	if props.Workspace != nil {
 		<section class="settings__section" aria-labelledby="workspace-title">
 			<header class="settings__heading">
@@ -154,34 +154,11 @@ templ SettingsContent(props SettingsContentProps) {
 	</section>
 }
 
-// The confirmations keep a stable region, so a later failed submission can
-// clear an outdated one out of band while it replaces only its form.
-templ settingsNotices(notices []string, outOfBand bool) {
-	<div
-		id="settings-notices"
-		class="settings__notices"
-		if outOfBand {
-			hx-swap-oob="morph"
-		}
-	>
-		if len(notices) > 0 {
-			<div class="notice" role="status">
-				@components.Icon("check")
-				<div class="notice__messages">
-					for _, notice := range notices {
-						<p>{ notice }</p>
-					}
-				</div>
-			</div>
-		}
-	</div>
-}
-
 // SettingsFormFailure is the response to a failed in-page submission: the
 // form with its errors, and no confirmation of an earlier change.
 templ SettingsFormFailure(form templ.Component) {
 	@form
-	@settingsNotices(nil, true)
+	@components.Messages(nil, true)
 }
 
 // WorkspaceForm renames the current workspace for every member.

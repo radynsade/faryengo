@@ -5,3 +5,4 @@ import './password-toggle';
 import './sidebar';
 import './dropdown';
 import './confirm-dialog';
+import './messages';

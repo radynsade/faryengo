@@ -283,5 +283,35 @@
   },
   "settings.member_removed": {
     "other": "{{.Name}} has been removed from the workspace."
+  },
+  "errors.code": {
+    "other": "Error code"
+  },
+  "errors.title_bad_request": {
+    "other": "The request could not be handled"
+  },
+  "errors.title_forbidden": {
+    "other": "Access denied"
+  },
+  "errors.title_not_found": {
+    "other": "Page not found"
+  },
+  "errors.title_unavailable": {
+    "other": "Temporarily unavailable"
+  },
+  "errors.title_server": {
+    "other": "Something went wrong"
+  },
+  "errors.not_found": {
+    "other": "The page you are looking for does not exist or has been moved."
+  },
+  "errors.unexpected": {
+    "other": "An unexpected error occurred. Please try again later."
+  },
+  "errors.retry": {
+    "other": "Try again"
+  },
+  "errors.home": {
+    "other": "Go to the home page"
   }
 }

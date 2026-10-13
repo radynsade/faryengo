@@ -233,7 +233,14 @@ func decodeSession(
 ) (*security.Session, uuid.UUID, error) {
 	var session *security.Session
 
-	userID, userErr := uuid.Parse(fields["user_id"])
+	var userID users.UserID
+
+	storedUserID, userErr := uuid.Parse(fields["user_id"])
+
+	if userErr == nil {
+		userID, userErr = users.NewUserID(storedUserID)
+	}
+
 	version, versionErr := uuid.Parse(fields["credentials_version"])
 	expiresAt, expiresErr := strconv.ParseInt(fields["expires_at"], 10, 64)
 	refreshID, refreshErr := uuid.Parse(fields["refresh_id"])
@@ -247,7 +254,7 @@ func decodeSession(
 	if err == nil {
 		session = &security.Session{
 			ID:                 id,
-			UserID:             users.UserID(userID),
+			UserID:             userID,
 			CredentialsVersion: version,
 			ExpiresAt:          time.UnixMilli(expiresAt),
 		}

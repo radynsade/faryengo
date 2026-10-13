@@ -1,0 +1,24 @@
+package layouts
+
+import "github.com/radynsade/faryengo/web/office/templates/components"
+
+// ErrorMainID names the region that receives focus after a navigation.
+const ErrorMainID = "error-main"
+
+// ErrorLayout frames a failed request. It depends on nothing that can fail
+// itself, such as the signed-in User, so it renders while authentication or
+// storage is down. The brand leads back into the office, which sends the
+// visitor on to signing in or choosing a workspace.
+templ ErrorLayout(homeURL string) {
+	<div class="error-page" { pageRegion(ctx)... }>
+		<header class="error-page__header">
+			<a class="error-page__brand" href={ templ.URL(homeURL) } { components.NavigationAttributes()... }>
+				@components.Brand(false)
+			</a>
+			@components.LanguageSwitcher()
+		</header>
+		<main id={ ErrorMainID } class="error-page__main" tabindex="-1" aria-labelledby="page-title">
+			{ children... }
+		</main>
+	</div>
+}

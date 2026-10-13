@@ -223,7 +223,7 @@ func (f *fixture) credentials() *usersmock.CredentialsRepository {
 			)
 
 			if email == f.user.Email {
-				snapshot, err = users.NewCredentialsSnapshot(f.user, f.version), nil
+				snapshot, err = users.NewCredentialsSnapshot(f.user, f.version)
 			}
 
 			return snapshot, err
@@ -383,6 +383,10 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 				if workspace.ID == id {
 					found, err = workspace, nil
 				}
+			}
+
+			if f.findErr != nil {
+				found, err = nil, f.findErr
 			}
 
 			return found, err

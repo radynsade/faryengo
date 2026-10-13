@@ -67,14 +67,21 @@ func (h *Handler) findWorkspace(
 	request *http.Request,
 	current *security.Identity,
 ) (*workspaces.Workspace, error) {
-	var workspace *workspaces.Workspace
+	var (
+		workspace *workspaces.Workspace
+		id        workspaces.WorkspaceID
+	)
 
-	id, err := uuid.Parse(request.PathValue("workspace"))
+	parsed, err := uuid.Parse(request.PathValue("workspace"))
 
-	if err != nil || id == uuid.Nil {
+	if err == nil {
+		id, err = workspaces.NewWorkspaceID(parsed)
+	}
+
+	if err != nil {
 		err = fmt.Errorf("parse workspace ID %q: %w", request.PathValue("workspace"), workspaces.ErrWorkspaceNotFound)
 	} else {
-		workspace, err = h.workspaces.FindForMember(request.Context(), workspaces.WorkspaceID(id), current.User.ID)
+		workspace, err = h.workspaces.FindForMember(request.Context(), id, current.User.ID)
 	}
 
 	return workspace, err

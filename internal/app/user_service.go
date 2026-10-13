@@ -70,19 +70,32 @@ func (s *UserService) Create(
 	request input.CreateUserInput,
 ) (*users.User, error) {
 	var (
-		user *users.User
-		hash users.PasswordHash
-		err  error
+		user      *users.User
+		email     users.Email
+		phone     users.Phone
+		password  users.Password
+		hash      users.PasswordHash
+		firstName users.FirstName
+		lastName  users.LastName
+		err       error
 	)
 
 	if err = s.check(); err == nil {
+		var emailErr, phoneErr, passwordErr, firstNameErr, lastNameErr error
+
+		email, emailErr = users.NewEmail(request.Email)
+		phone, phoneErr = users.NewPhone(request.Phone)
+		password, passwordErr = users.NewPassword(request.Password)
+		firstName, firstNameErr = users.NewFirstName(request.FirstName)
+		lastName, lastNameErr = users.NewLastName(request.LastName)
+
 		err = errors.Join(
 			request.RoleID.Validate(),
-			users.Email(request.Email).Validate(),
-			users.Phone(request.Phone).Validate(),
-			users.Password(request.Password).Validate(),
-			users.FirstName(request.FirstName).Validate(),
-			users.LastName(request.LastName).Validate(),
+			emailErr,
+			phoneErr,
+			passwordErr,
+			firstNameErr,
+			lastNameErr,
 		)
 
 		if err != nil {
@@ -91,14 +104,21 @@ func (s *UserService) Create(
 	}
 
 	if err == nil {
-		var id uuid.UUID
+		var (
+			id     uuid.UUID
+			userID users.UserID
+		)
 
 		id, err = uuid.NewV7()
+
+		if err == nil {
+			userID, err = users.NewUserID(id)
+		}
 
 		if err != nil {
 			err = fmt.Errorf("generate user ID: %w", err)
 		} else {
-			hash, err = s.hasher.Hash(ctx, request.Password)
+			hash, err = s.hasher.Hash(ctx, string(password))
 
 			if err != nil {
 				err = fmt.Errorf("hash password of user %s: %w", id, err)
@@ -107,16 +127,16 @@ func (s *UserService) Create(
 
 		if err == nil {
 			user = users.NewUser(
-				users.UserID(id),
+				userID,
 				request.RoleID,
-				users.Email(request.Email),
+				email,
 				time.Time{},
-				users.Phone(request.Phone),
+				phone,
 				time.Time{},
 				hash,
 				time.Time{},
-				users.FirstName(request.FirstName),
-				users.LastName(request.LastName),
+				firstName,
+				lastName,
 				time.Time{},
 				time.Time{},
 			)
@@ -213,26 +233,37 @@ func (s *UserService) Update(
 	request input.UpdateUserInput,
 ) (*users.User, error) {
 	var (
-		user *users.User
-		hash users.PasswordHash
-		err  error
+		user      *users.User
+		email     users.Email
+		phone     users.Phone
+		password  users.Password
+		hash      users.PasswordHash
+		firstName users.FirstName
+		lastName  users.LastName
+		err       error
 	)
 
 	if err = s.check(); err == nil {
-		var passwordErr error
+		var emailErr, phoneErr, passwordErr, firstNameErr, lastNameErr error
+
+		email, emailErr = users.NewEmail(request.Email)
+		phone, phoneErr = users.NewPhone(request.Phone)
 
 		if request.Password != nil {
-			passwordErr = users.Password(*request.Password).Validate()
+			password, passwordErr = users.NewPassword(*request.Password)
 		}
+
+		firstName, firstNameErr = users.NewFirstName(request.FirstName)
+		lastName, lastNameErr = users.NewLastName(request.LastName)
 
 		err = errors.Join(
 			request.ID.Validate(),
 			request.RoleID.Validate(),
-			users.Email(request.Email).Validate(),
-			users.Phone(request.Phone).Validate(),
+			emailErr,
+			phoneErr,
 			passwordErr,
-			users.FirstName(request.FirstName).Validate(),
-			users.LastName(request.LastName).Validate(),
+			firstNameErr,
+			lastNameErr,
 		)
 
 		if err != nil {
@@ -241,7 +272,7 @@ func (s *UserService) Update(
 	}
 
 	if err == nil && request.Password != nil {
-		hash, err = s.hasher.Hash(ctx, *request.Password)
+		hash, err = s.hasher.Hash(ctx, string(password))
 
 		if err != nil {
 			err = fmt.Errorf("hash password of user %s: %w", uuid.UUID(request.ID), err)
@@ -260,14 +291,14 @@ func (s *UserService) Update(
 				user = users.NewUser(
 					existing.ID,
 					request.RoleID,
-					users.Email(request.Email),
+					email,
 					existing.EmailChangedAt,
-					users.Phone(request.Phone),
+					phone,
 					existing.PhoneChangedAt,
 					hash,
 					existing.PasswordChangedAt,
-					users.FirstName(request.FirstName),
-					users.LastName(request.LastName),
+					firstName,
+					lastName,
 					request.UpdatedAt,
 					existing.CreatedAt,
 				)
@@ -365,17 +396,26 @@ func (s *UserService) UpdateProfile(
 	request input.UpdateProfileInput,
 ) (*users.User, error) {
 	var (
-		user     *users.User
-		existing *users.User
-		err      error
+		user      *users.User
+		existing  *users.User
+		firstName users.FirstName
+		lastName  users.LastName
+		email     users.Email
+		err       error
 	)
 
 	if err = s.check(); err == nil {
+		var firstNameErr, lastNameErr, emailErr error
+
+		firstName, firstNameErr = users.NewFirstName(request.FirstName)
+		lastName, lastNameErr = users.NewLastName(request.LastName)
+		email, emailErr = users.NewEmail(request.Email)
+
 		err = errors.Join(
 			request.ID.Validate(),
-			users.FirstName(request.FirstName).Validate(),
-			users.LastName(request.LastName).Validate(),
-			users.Email(request.Email).Validate(),
+			firstNameErr,
+			lastNameErr,
+			emailErr,
 		)
 
 		if err != nil {
@@ -386,7 +426,7 @@ func (s *UserService) UpdateProfile(
 	if err == nil {
 		existing, err = s.repository.FindByID(ctx, request.ID)
 
-		if err == nil && existing.Email != users.Email(request.Email) {
+		if err == nil && existing.Email != email {
 			err = s.verifyCurrentPassword(ctx, existing, request.CurrentPassword)
 		}
 	}
@@ -395,14 +435,14 @@ func (s *UserService) UpdateProfile(
 		user = users.NewUser(
 			existing.ID,
 			existing.RoleID,
-			users.Email(request.Email),
+			email,
 			existing.EmailChangedAt,
 			existing.Phone,
 			existing.PhoneChangedAt,
 			existing.PasswordHash,
 			existing.PasswordChangedAt,
-			users.FirstName(request.FirstName),
-			users.LastName(request.LastName),
+			firstName,
+			lastName,
 			request.UpdatedAt,
 			existing.CreatedAt,
 		)
@@ -430,14 +470,19 @@ func (s *UserService) ChangePassword(
 	var (
 		user     *users.User
 		existing *users.User
+		password users.Password
 		hash     users.PasswordHash
 		err      error
 	)
 
 	if err = s.check(); err == nil {
+		var passwordErr error
+
+		password, passwordErr = users.NewPassword(request.NewPassword)
+
 		err = errors.Join(
 			request.ID.Validate(),
-			users.Password(request.NewPassword).Validate(),
+			passwordErr,
 		)
 
 		if err != nil {
@@ -453,7 +498,7 @@ func (s *UserService) ChangePassword(
 		}
 
 		if err == nil {
-			hash, err = s.hasher.Hash(ctx, request.NewPassword)
+			hash, err = s.hasher.Hash(ctx, string(password))
 		}
 	}
 

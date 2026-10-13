@@ -21,6 +21,17 @@ var (
 	codePattern         = regexp.MustCompile(`^[a-z]{2}$`)
 )
 
+func NewCode(value string) (Code, error) {
+	var (
+		err  error
+		code Code
+	)
+
+	code = Code(value)
+	err = code.Validate()
+	return code, err
+}
+
 func (c Code) Validate() error {
 	var err error
 
@@ -51,6 +62,17 @@ var (
 	ErrEnglishNameEmpty        = errors.New("is empty")
 	ErrEnglishNameTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxEnglishNameLength)
 )
+
+func NewEnglishName(value string) (EnglishName, error) {
+	var (
+		err  error
+		name EnglishName
+	)
+
+	name = EnglishName(value)
+	err = name.Validate()
+	return name, err
+}
 
 func (n EnglishName) Validate() error {
 	var err error
@@ -84,6 +106,17 @@ var (
 	ErrNativeNameEmpty        = errors.New("is empty")
 	ErrNativeNameTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxNativeNameLength)
 )
+
+func NewNativeName(value string) (NativeName, error) {
+	var (
+		err  error
+		name NativeName
+	)
+
+	name = NativeName(value)
+	err = name.Validate()
+	return name, err
+}
 
 func (n NativeName) Validate() error {
 	var err error
@@ -138,18 +171,12 @@ func (l *Language) Validate() error {
 
 	if l == nil {
 		err = ErrLanguageNil
-	}
-
-	if err == nil {
-		err = l.Code.Validate()
-	}
-
-	if err == nil {
-		err = l.EnglishName.Validate()
-	}
-
-	if err == nil {
-		err = l.NativeName.Validate()
+	} else {
+		err = errors.Join(
+			l.Code.Validate(),
+			l.EnglishName.Validate(),
+			l.NativeName.Validate(),
+		)
 	}
 
 	if err != nil {

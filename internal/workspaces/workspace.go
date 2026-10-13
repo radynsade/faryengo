@@ -19,6 +19,17 @@ var ErrWorkspaceIDInvalid = errors.New("invalid workspace ID")
 
 type WorkspaceID uuid.UUID
 
+func NewWorkspaceID(value uuid.UUID) (WorkspaceID, error) {
+	var (
+		err error
+		id  WorkspaceID
+	)
+
+	id = WorkspaceID(value)
+	err = id.Validate()
+	return id, err
+}
+
 func (id WorkspaceID) Validate() error {
 	var err error
 
@@ -46,10 +57,17 @@ var (
 type WorkspaceName string
 
 // A Workspace name is stored trimmed, so a name given by a person is trimmed
-// before it is validated.
+// before it is constructed.
 
-func TrimWorkspaceName(name string) WorkspaceName {
-	return WorkspaceName(strings.TrimSpace(name))
+func NewWorkspaceName(value string) (WorkspaceName, error) {
+	var (
+		err  error
+		name WorkspaceName
+	)
+
+	name = WorkspaceName(value)
+	err = name.Validate()
+	return name, err
 }
 
 func (n WorkspaceName) Validate() error {
@@ -83,19 +101,26 @@ type Membership struct {
 	UserID      users.UserID
 }
 
-func NewMembership(workspaceID WorkspaceID, userID users.UserID) Membership {
-	return Membership{
+func NewMembership(workspaceID WorkspaceID, userID users.UserID) (Membership, error) {
+	var (
+		err        error
+		membership Membership
+	)
+
+	membership = Membership{
 		WorkspaceID: workspaceID,
 		UserID:      userID,
 	}
+
+	err = membership.Validate()
+	return membership, err
 }
 
 func (m Membership) Validate() error {
-	err := m.WorkspaceID.Validate()
-
-	if err == nil {
-		err = m.UserID.Validate()
-	}
+	err := errors.Join(
+		m.WorkspaceID.Validate(),
+		m.UserID.Validate(),
+	)
 
 	if err != nil {
 		err = fmt.Errorf("%w: %w", ErrMembershipInvalid, err)
@@ -131,11 +156,10 @@ func (w *Workspace) Validate() error {
 	if w == nil {
 		err = ErrWorkspaceNil
 	} else {
-		err = w.ID.Validate()
-	}
-
-	if err == nil {
-		err = w.Name.Validate()
+		err = errors.Join(
+			w.ID.Validate(),
+			w.Name.Validate(),
+		)
 	}
 
 	if err != nil {

@@ -650,26 +650,61 @@ func (u *userRecord) targets() []any {
 }
 
 func (u *userRecord) user() (*users.User, error) {
-	user := users.NewUser(
-		users.UserID(u.id.Bytes),
-		users.RoleID(u.roleID.Bytes),
-		users.Email(u.email),
-		u.emailChangedAt,
-		users.Phone(u.phone),
-		u.phoneChangedAt,
-		users.PasswordHash(u.passwordHash),
-		u.passwordChangedAt,
-		users.FirstName(u.firstName),
-		users.LastName(u.lastName),
-		u.updatedAt,
-		u.createdAt,
+	var (
+		user         *users.User
+		id           users.UserID
+		roleID       users.RoleID
+		email        users.Email
+		phone        users.Phone
+		passwordHash users.PasswordHash
+		firstName    users.FirstName
+		lastName     users.LastName
+		err          error
 	)
 
-	err := user.Validate()
+	id, err = users.NewUserID(uuid.UUID(u.id.Bytes))
 
-	if err != nil {
-		err = fmt.Errorf("failed to decode a user: %w", err)
-		user = nil
+	if err == nil {
+		roleID, err = users.NewRoleID(uuid.UUID(u.roleID.Bytes))
+	}
+
+	if err == nil {
+		email, err = users.NewEmail(u.email)
+	}
+
+	if err == nil {
+		phone, err = users.NewPhone(u.phone)
+	}
+
+	if err == nil {
+		passwordHash, err = users.NewPasswordHash(u.passwordHash)
+	}
+
+	if err == nil {
+		firstName, err = users.NewFirstName(u.firstName)
+	}
+
+	if err == nil {
+		lastName, err = users.NewLastName(u.lastName)
+	}
+
+	if err == nil {
+		user = users.NewUser(
+			id,
+			roleID,
+			email,
+			u.emailChangedAt,
+			phone,
+			u.phoneChangedAt,
+			passwordHash,
+			u.passwordChangedAt,
+			firstName,
+			lastName,
+			u.updatedAt,
+			u.createdAt,
+		)
+	} else {
+		err = fmt.Errorf("failed to decode a user: %w: %w", users.ErrUserInvalid, err)
 	}
 
 	return user, err

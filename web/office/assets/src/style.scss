@@ -12,9 +12,11 @@
 @use 'styles/components/icon-button';
 @use 'styles/components/avatar';
 @use 'styles/components/navigation-feedback';
+@use 'styles/components/messages';
 @use 'styles/components/topbar';
 @use 'styles/layouts/auth';
 @use 'styles/layouts/dashboard';
 @use 'styles/layouts/standalone';
+@use 'styles/layouts/error';
 @use 'styles/pages/workspace-select';
 @use 'styles/pages/settings';

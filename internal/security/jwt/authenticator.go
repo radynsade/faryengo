@@ -383,12 +383,17 @@ func (a *Authenticator) findSession(
 ) (*security.Session, uuid.UUID, error) {
 	var (
 		session   *security.Session
+		userID    users.UserID
 		refreshID uuid.UUID
 		err       error
 	)
 
 	sessionID, sessionErr := uuid.Parse(parsed.SessionID)
-	userID, userErr := uuid.Parse(parsed.Subject)
+	subject, userErr := uuid.Parse(parsed.Subject)
+
+	if userErr == nil {
+		userID, userErr = users.NewUserID(subject)
+	}
 
 	if sessionErr != nil || userErr != nil || sessionID == uuid.Nil {
 		err = fmt.Errorf("%w: %w", security.ErrCredentialsInvalid, ErrTokenInvalid)
@@ -403,7 +408,7 @@ func (a *Authenticator) findSession(
 			err = validationErr
 		} else if session.ID != sessionID {
 			err = security.ErrSessionInvalid
-		} else if session.UserID != users.UserID(userID) {
+		} else if session.UserID != userID {
 			err = fmt.Errorf("%w: %w", security.ErrCredentialsInvalid, ErrTokenInvalid)
 		} else if !time.Now().Before(session.ExpiresAt) {
 			err = fmt.Errorf("%w: %w", security.ErrSessionRevoked, ErrSessionExpired)

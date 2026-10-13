@@ -59,6 +59,7 @@ func TestParseRoleCommand(t *testing.T) {
 		{name: "delete without UUID", args: []string{"users", "delete-role"}, wantErr: ErrCommandInvalid},
 		{name: "delete with braced UUID", args: []string{"users", "delete-role", "{" + testRoleUUID + "}"}, wantErr: ErrUUIDInvalid},
 		{name: "delete with malformed UUID", args: []string{"users", "delete-role", strings.Repeat("x", 36)}, wantErr: ErrUUIDInvalid},
+		{name: "delete nil UUID", args: []string{"users", "delete-role", uuid.Nil.String()}, wantErr: users.ErrRoleIDInvalid},
 		{name: "wrong action", args: []string{"users", "remove-role", testRoleUUID}, wantErr: ErrCommandInvalid},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -101,12 +102,6 @@ func TestExecuteRoleCommand(t *testing.T) {
 			writeErr: users.ErrRoleAlreadyInUse,
 			wantErrs: []error{users.ErrRoleAlreadyInUse},
 			wantText: "role is assigned to users",
-		},
-		{
-			name:     "delete nil UUID",
-			args:     []string{"users", "delete-role", uuid.Nil.String()},
-			wantErrs: []error{users.ErrRoleIDInvalid},
-			wantText: "invalid role ID",
 		},
 		{
 			name:     "create with unknown permission",

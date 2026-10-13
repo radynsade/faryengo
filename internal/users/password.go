@@ -27,6 +27,17 @@ var (
 
 type Password string
 
+func NewPassword(value string) (Password, error) {
+	var (
+		err      error
+		password Password
+	)
+
+	password = Password(value)
+	err = password.Validate()
+	return password, err
+}
+
 func (p Password) Validate() error {
 	var err error
 
@@ -57,6 +68,17 @@ var (
 )
 
 type PasswordHash string
+
+func NewPasswordHash(value string) (PasswordHash, error) {
+	var (
+		err  error
+		hash PasswordHash
+	)
+
+	hash = PasswordHash(value)
+	err = hash.Validate()
+	return hash, err
+}
 
 func (p PasswordHash) Validate() error {
 	var err error

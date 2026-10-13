@@ -34,7 +34,7 @@ func init() {
 		name  string
 		check func(string) bool
 	}{
-		{"mailbox", func(value string) bool { return users.Email(value).Validate() == nil }},
+		{"mailbox", func(value string) bool { _, err := users.NewEmail(value); return err == nil }},
 		{"uuid_input", func(value string) bool { _, err := uuid.Parse(value); return err == nil }},
 	} {
 		if err := requestvalidation.RegisterStringRule(rule.name, rule.check); err != nil {
@@ -230,12 +230,14 @@ func ParseUserForm(writer http.ResponseWriter, request *http.Request, edit bool)
 }
 
 // A role value that is not a UUID was rejected by the transport rules, so
-// only an absent role reaches the domain as the nil identity.
+// only an absent role reaches the domain as the nil identity. Its error is
+// left to the service, which reports it together with the other fields.
 
 func (f UserForm) Role() users.RoleID {
 	parsed, _ := uuid.Parse(f.RoleID)
+	id, _ := users.NewRoleID(parsed)
 
-	return users.RoleID(parsed)
+	return id
 }
 
 //
@@ -274,11 +276,10 @@ func ParseRoleID(request *http.Request) (users.RoleID, error) {
 		var parsed uuid.UUID
 
 		parsed, err = uuid.Parse(parameter.ID)
-		id = users.RoleID(parsed)
-	}
 
-	if err == nil {
-		err = id.Validate()
+		if err == nil {
+			id, err = users.NewRoleID(parsed)
+		}
 	}
 
 	if err != nil {
@@ -307,11 +308,10 @@ func ParseUserID(request *http.Request) (users.UserID, error) {
 		var parsed uuid.UUID
 
 		parsed, err = uuid.Parse(parameter.ID)
-		id = users.UserID(parsed)
-	}
 
-	if err == nil {
-		err = id.Validate()
+		if err == nil {
+			id, err = users.NewUserID(parsed)
+		}
 	}
 
 	if err != nil {

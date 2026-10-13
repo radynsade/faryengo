@@ -624,24 +624,32 @@ func scanRole(row pgx.Row) (*users.Role, error) {
 	} else if len(codes) != len(contents) {
 		err = errors.New("failed to decode a role: mismatched name translations")
 	} else {
-		name := make(users.RoleName, len(codes))
+		var (
+			roleID          users.RoleID
+			name            users.RoleName
+			rolePermissions users.Permissions
+		)
+
+		translations := make(map[string]string, len(codes))
 
 		for index, code := range codes {
-			name[languages.Code(code)] = languages.Translation(contents[index])
+			translations[code] = contents[index]
 		}
 
-		rolePermissions := make(users.Permissions, len(permissions))
+		roleID, err = users.NewRoleID(uuid.UUID(id.Bytes))
 
-		for index, permission := range permissions {
-			rolePermissions[index] = users.Permission(permission)
+		if err == nil {
+			name, err = users.NewRoleName(translations)
 		}
 
-		role = users.NewRole(users.RoleID(id.Bytes), name, rolePermissions, isSuper)
-		err = role.Validate()
+		if err == nil {
+			rolePermissions, err = users.NewPermissions(permissions)
+		}
 
-		if err != nil {
-			err = fmt.Errorf("failed to decode a role: %w", err)
-			role = nil
+		if err == nil {
+			role = users.NewRole(roleID, name, rolePermissions, isSuper)
+		} else {
+			err = fmt.Errorf("failed to decode a role: %w: %w", users.ErrRoleInvalid, err)
 		}
 	}
 

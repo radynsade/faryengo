@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/radynsade/faryengo/internal/languages"
+	"github.com/radynsade/faryengo/pkg/domquery"
 )
 
 func TestRoleGrants(t *testing.T) {
@@ -52,6 +53,43 @@ func TestRoleNameValidateWithFallback(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if err := tt.roleName.ValidateWithFallback(tt.fallback); !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
 				t.Fatalf("ValidateWithFallback(%q) = %v, want %v", tt.fallback, err, tt.want)
+			}
+		})
+	}
+}
+
+func TestNewRoleQuery(t *testing.T) {
+	isSuper := true
+
+	tests := []struct {
+		name          string
+		nameLike      string
+		limit         uint
+		wantFilterErr error
+		wantQueryErr  error
+	}{
+		{"valid", "edit", 20, nil, nil},
+		{"invalid filter", "a\x00", 20, ErrRoleFilterNameLikeInvalidChars, ErrRoleFilterInvalid},
+		{"missing limit", "edit", 0, nil, ErrInvalidRoleQuery},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			permissions := Permissions{PermissionViewRole}
+			filter, filterErr := NewRoleFilter("", tt.nameLike, permissions, &isSuper)
+			query, queryErr := NewRoleQuery(filter, domquery.SortOrderAsc, RoleSortName, tt.limit, 1)
+
+			if query.Filter.NameLike != tt.nameLike || len(query.Filter.Permissions) != 1 ||
+				query.Filter.IsSuper != &isSuper || query.SortBy != RoleSortName || query.Limit != tt.limit {
+				t.Fatalf("NewRoleQuery() = %+v, want the given values", query)
+			}
+
+			if !errors.Is(filterErr, tt.wantFilterErr) || (filterErr == nil) != (tt.wantFilterErr == nil) {
+				t.Fatalf("NewRoleFilter() error = %v, want %v", filterErr, tt.wantFilterErr)
+			}
+
+			if !errors.Is(queryErr, tt.wantQueryErr) || (queryErr == nil) != (tt.wantQueryErr == nil) {
+				t.Fatalf("NewRoleQuery() error = %v, want %v", queryErr, tt.wantQueryErr)
 			}
 		})
 	}

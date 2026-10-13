@@ -94,13 +94,20 @@ func (h *Handler) signIn(writer http.ResponseWriter, request *http.Request) {
 	} else {
 		var (
 			session *security.Session
+			email   users.Email
 			id      sessionid.ID
 		)
 
-		session, err = h.passwords.SignIn(request.Context(), emailpass.Credentials{
-			Email:    users.Email(form.Email),
-			Password: form.Password,
-		})
+		email, err = users.NewEmail(form.Email)
+
+		if err != nil {
+			err = fmt.Errorf("%w: %w: %w", security.ErrCredentialsInvalid, emailpass.ErrCredentialsEmailInvalid, err)
+		} else {
+			session, err = h.passwords.SignIn(request.Context(), emailpass.Credentials{
+				Email:    email,
+				Password: form.Password,
+			})
+		}
 
 		if err == nil {
 			id, err = h.sessions.Issue(request.Context(), session)

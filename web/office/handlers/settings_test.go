@@ -78,7 +78,7 @@ func TestSettingsPage(t *testing.T) {
 				}
 			}
 
-			for _, unwanted := range append(tt.excludes, `class="notice"`, `hx-swap-oob`, `data-confirm-dialog open`, `id="password-current"`) {
+			for _, unwanted := range append(tt.excludes, `class="message"`, `hx-swap-oob`, `data-confirm-dialog open`, `id="password-current"`) {
 				if strings.Contains(body, unwanted) {
 					t.Fatalf("body contains %s", unwanted)
 				}
@@ -115,7 +115,7 @@ func TestUpdateProfileNames(t *testing.T) {
 		t.Fatalf("settings lack only the profile confirmation:\n%s", body)
 	}
 
-	if strings.Contains(f.do(request{path: designPath + "/settings", cookies: cookies}).Body.String(), `class="notice"`) {
+	if strings.Contains(f.do(request{path: designPath + "/settings", cookies: cookies}).Body.String(), `class="message"`) {
 		t.Fatal("the confirmation shows again after a reload")
 	}
 }
@@ -370,7 +370,7 @@ func TestSettingsReplaceOnlyTheForm(t *testing.T) {
 		}
 
 		// An earlier confirmation must not stand beside the new errors.
-		if !strings.HasSuffix(body, `<div id="settings-notices" class="settings__notices" hx-swap-oob="morph"></div>`) {
+		if !strings.HasSuffix(body, `<div id="messages" class="messages" hx-swap-oob="morph"></div>`) {
 			t.Fatalf("POST %s does not clear the confirmations:\n%s", tt.path, body)
 		}
 	}

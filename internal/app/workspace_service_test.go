@@ -256,7 +256,7 @@ func TestWorkspaceServiceCreateAsUser(t *testing.T) {
 
 					adds++
 
-					if !appmock.InTransaction(ctx) || membership != workspaces.NewMembership(stored.ID, tt.creatorID) {
+					if !appmock.InTransaction(ctx) || membership != (workspaces.Membership{WorkspaceID: stored.ID, UserID: tt.creatorID}) {
 						t.Errorf("AddMember() called with (%v, %+v), want the creator of the stored workspace in a transaction", ctx, membership)
 					}
 
@@ -427,7 +427,7 @@ func TestWorkspaceServiceFindForMember(t *testing.T) {
 				HasMemberFunc: func(_ context.Context, membership workspaces.Membership) (bool, error) {
 					checks++
 
-					if membership != workspaces.NewMembership(tt.workspaceID, tt.userID) {
+					if membership != (workspaces.Membership{WorkspaceID: tt.workspaceID, UserID: tt.userID}) {
 						t.Errorf("HasMember() called with %+v", membership)
 					}
 
@@ -838,7 +838,7 @@ func TestWorkspaceServiceMembers(t *testing.T) {
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			writes := 0
-			want := workspaces.NewMembership(tt.workspaceID, tt.userID)
+			want := workspaces.Membership{WorkspaceID: tt.workspaceID, UserID: tt.userID}
 			checkWrite := func(ctx context.Context, membership workspaces.Membership) {
 				writes++
 
@@ -990,7 +990,7 @@ func TestWorkspaceServiceAddMemberByEmail(t *testing.T) {
 
 					adds++
 
-					if !appmock.InTransaction(ctx) || membership != workspaces.NewMembership(tt.request.WorkspaceID, member.ID) {
+					if !appmock.InTransaction(ctx) || membership != (workspaces.Membership{WorkspaceID: tt.request.WorkspaceID, UserID: member.ID}) {
 						t.Errorf("AddMember() called with (%v, %+v), want the found user in a transaction", ctx, membership)
 					}
 

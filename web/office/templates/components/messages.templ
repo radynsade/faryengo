@@ -1,0 +1,28 @@
+package components
+
+import "crypto/rand"
+
+// MessagesID names the region of the messages, so a later response can clear
+// outdated ones out of band.
+const MessagesID = "messages"
+
+// Messages confirm a completed action in short notes that float centered
+// below the top bar and fade away on their own, wherever the region is
+// rendered. Each message has an ID of its own, so a morph that brings the
+// same text again shows a new message rather than keeping the faded one.
+templ Messages(messages []string, outOfBand bool) {
+	<div
+		id={ MessagesID }
+		class="messages"
+		if outOfBand {
+			hx-swap-oob="morph"
+		}
+	>
+		for _, message := range messages {
+			<div id={ "message-" + rand.Text() } class="message" role="status" data-message>
+				@Icon("check")
+				<p>{ message }</p>
+			</div>
+		}
+	</div>
+}

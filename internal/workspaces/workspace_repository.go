@@ -36,6 +36,26 @@ type WorkspaceFilter struct {
 	MemberID *users.UserID
 }
 
+func NewWorkspaceFilter(
+	idLike string,
+	nameLike string,
+	memberID *users.UserID,
+) (WorkspaceFilter, error) {
+	var (
+		err    error
+		filter WorkspaceFilter
+	)
+
+	filter = WorkspaceFilter{
+		IDLike:   idLike,
+		NameLike: nameLike,
+		MemberID: memberID,
+	}
+
+	err = filter.Validate()
+	return filter, err
+}
+
 func (f WorkspaceFilter) Validate() error {
 	var err error
 
@@ -85,6 +105,17 @@ const (
 	WorkspaceSortName = WorkspaceSort("name")
 )
 
+func NewWorkspaceSort(value string) (WorkspaceSort, error) {
+	var (
+		err  error
+		sort WorkspaceSort
+	)
+
+	sort = WorkspaceSort(value)
+	err = sort.Validate()
+	return sort, err
+}
+
 func (s WorkspaceSort) Validate() error {
 	var err error
 
@@ -104,6 +135,30 @@ func (s WorkspaceSort) Validate() error {
 var ErrWorkspaceQueryInvalid = errors.New("invalid workspace query")
 
 type WorkspaceQuery domquery.Query[WorkspaceFilter, WorkspaceSort]
+
+func NewWorkspaceQuery(
+	filter WorkspaceFilter,
+	sortOrder domquery.SortOrder,
+	sortBy WorkspaceSort,
+	limit uint,
+	page uint,
+) (WorkspaceQuery, error) {
+	var (
+		err   error
+		query WorkspaceQuery
+	)
+
+	query = WorkspaceQuery{
+		Filter:    filter,
+		SortOrder: sortOrder,
+		SortBy:    sortBy,
+		Limit:     limit,
+		Page:      page,
+	}
+
+	err = query.Validate()
+	return query, err
+}
 
 // Page is 1-based, and both Limit and Page must be set.
 

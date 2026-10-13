@@ -23,8 +23,8 @@ in that order. Domain repository files that define query types use `Filter`,
 
 | Section | Declaration order |
 | --- | --- |
-| Value type | Limits, error declarations and related patterns, type, validation methods. |
-| Enum-like value type | Type, explicitly typed constants, validation methods. |
+| Value type | Limits, error declarations and related patterns, type, constructor, validation methods. |
+| Enum-like value type | Type, explicitly typed constants, constructor, validation methods. |
 | Aggregate | Error declarations, struct, constructor, validation methods. |
 | Domain repository | Sentinels, typed create/update/delete failure contracts, repository interface. |
 | Adapter errors | Shared failure behavior, operation-specific failure implementations. |
@@ -46,6 +46,17 @@ var (
 )
 
 type Title string
+
+func NewTitle(value string) (Title, error) {
+	var (
+		err   error
+		title Title
+	)
+
+	title = Title(value)
+	err = title.Validate()
+	return title, err
+}
 
 func (t Title) Validate() error {
 	// ...
@@ -170,7 +181,7 @@ and `n` for name values.
 | `<step>Err` | An error belonging to a particular step. |
 | `index` | A slice index; avoid `i`. |
 | `Is<Adjective>` | Boolean state fields. |
-| `New<Entity>` | Aggregate constructors. |
+| `New<Type>` | Constructors of aggregates, entities, and values. |
 | `Max<Subject><Unit>`, `Min<Subject><Unit>` | Named limits; distinguish character lengths from byte sizes. |
 
 Derive related limits from one authoritative constant rather than repeating
@@ -207,9 +218,16 @@ Aggregate fields use those types; timestamps and boolean flags retain their
 ordinary representations where appropriate.
 
 Domain values expose explicit validation. Scalar and collection values use
-value receivers; aggregates use pointer receivers. Constructors take fields
-in declaration order and only assign them. Validation, identity generation,
-and defaults are separate responsibilities governed by the architecture.
+value receivers; aggregates use pointer receivers.
+
+A value or entity constructor takes the raw input in its underlying
+representation, such as a string, a UUID, a slice of strings, or a map of
+strings, builds the value, calls its `Validate` method, and returns
+`(<Type>, error)`. It returns the built value even when validation fails, so a
+caller can still show invalid input. An aggregate constructor takes values
+that are already valid, in declaration order, and only assigns them; it does
+not validate and does not return an error. Identity generation and defaults
+stay outside constructors, as the architecture requires.
 
 Validate without changing the value. For text, check blankness before invalid
 content and length. Match the measurement to the declared unit: character

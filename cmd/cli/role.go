@@ -154,8 +154,9 @@ func parseCreateRole(args []string) (input.CreateRoleInput, error) {
 
 func parseDeleteRole(args []string) (users.RoleID, error) {
 	var (
-		id  uuid.UUID
-		err error
+		id     uuid.UUID
+		roleID users.RoleID
+		err    error
 	)
 
 	if len(args) != 1 {
@@ -164,7 +165,11 @@ func parseDeleteRole(args []string) (users.RoleID, error) {
 		id, err = parseUUID(args[0])
 	}
 
-	return users.RoleID(id), err
+	if err == nil {
+		roleID, err = users.NewRoleID(id)
+	}
+
+	return roleID, err
 }
 
 // Each entry holds exactly one colon, so names cannot contain ":" or "|".

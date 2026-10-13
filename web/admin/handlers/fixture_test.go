@@ -240,7 +240,7 @@ func (f *fixture) credentials() *usersmock.CredentialsRepository {
 			)
 
 			if email == f.user.Email {
-				snapshot, err = users.NewCredentialsSnapshot(f.user, f.version), nil
+				snapshot, err = users.NewCredentialsSnapshot(f.user, f.version)
 			}
 
 			return snapshot, err

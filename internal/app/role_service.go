@@ -76,17 +76,22 @@ func (s *RoleService) Create(
 	if err = s.check(); err == nil {
 		var (
 			id       uuid.UUID
+			roleID   users.RoleID
 			fallback languages.Code
 		)
 
 		id, err = uuid.NewV7()
+
+		if err == nil {
+			roleID, err = users.NewRoleID(id)
+		}
 
 		if err != nil {
 			err = fmt.Errorf("generate role ID: %w", err)
 		} else if fallback, err = s.fallback(ctx); err != nil {
 			err = fmt.Errorf("create role: %w", err)
 		} else {
-			role, err = newRole(users.RoleID(id), request.Name, request.Permissions, request.IsSuper, fallback)
+			role, err = newRole(roleID, request.Name, request.Permissions, request.IsSuper, fallback)
 
 			if err != nil {
 				err = fmt.Errorf("create role: %w: %w", input.ErrCreateRoleInputInvalid, err)
@@ -309,37 +314,22 @@ func newRole(
 	isSuper bool,
 	fallback languages.Code,
 ) (*users.Role, error) {
-	var (
-		roleName        users.RoleName
-		rolePermissions users.Permissions
-	)
+	var role *users.Role
 
-	if name != nil {
-		roleName = make(users.RoleName, len(name))
+	roleName, nameErr := users.NewRoleName(name)
 
-		for code, translation := range name {
-			roleName[languages.Code(code)] = languages.Translation(translation)
-		}
+	// A missing fallback translation is reported before any other failure of
+	// the name.
+	if fallbackErr := roleName.ValidateWithFallback(fallback); fallbackErr != nil {
+		nameErr = fallbackErr
 	}
 
-	if permissions != nil {
-		rolePermissions = make(users.Permissions, 0, len(permissions))
+	rolePermissions, permissionsErr := users.NewPermissions(permissions)
 
-		for _, permission := range permissions {
-			rolePermissions = append(rolePermissions, users.Permission(permission))
-		}
-	}
+	err := errors.Join(id.Validate(), nameErr, permissionsErr)
 
-	role := users.NewRole(id, roleName, rolePermissions, isSuper)
-
-	err := errors.Join(
-		role.ID.Validate(),
-		role.Name.ValidateWithFallback(fallback),
-		role.Permissions.Validate(),
-	)
-
-	if err != nil {
-		role = nil
+	if err == nil {
+		role = users.NewRole(id, roleName, rolePermissions, isSuper)
 	}
 
 	return role, err

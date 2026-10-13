@@ -90,21 +90,35 @@ func ParseUserQuery(request *http.Request) (users.UserQuery, error) {
 		err = requestvalidation.Validate(request.Context(), parameters)
 	}
 
-	query := users.UserQuery{
-		Filter: users.UserFilter{
-			IDLike:    parameters.IDLike,
-			EmailLike: parameters.EmailLike,
-			NameLike:  parameters.NameLike,
-		},
-		SortBy:    users.UserSort(parameters.Sort),
-		SortOrder: domquery.SortOrder(parameters.Order == "asc"),
-		Limit:     uint(max(parameters.Size, 0)),
-		Page:      uint(max(parameters.Page, 0)),
-	}
+	var (
+		roleID    *users.RoleID
+		roleIDErr error
+	)
 
 	if parsed, parseErr := uuid.Parse(parameters.RoleID); parseErr == nil {
-		roleID := users.RoleID(parsed)
-		query.Filter.RoleID = &roleID
+		var id users.RoleID
+
+		id, roleIDErr = users.NewRoleID(parsed)
+		roleID = &id
+	}
+
+	// The values are kept even when they are invalid, so the filter form
+	// shows them; the transport rules above report the first failure.
+	sortBy, sortErr := users.NewUserSort(parameters.Sort)
+	filter, filterErr := users.NewUserFilter(parameters.IDLike, parameters.EmailLike, parameters.NameLike, roleID)
+
+	query, queryErr := users.NewUserQuery(
+		filter,
+		domquery.SortOrder(parameters.Order == "asc"),
+		sortBy,
+		uint(max(parameters.Size, 0)),
+		uint(max(parameters.Page, 0)),
+	)
+
+	for _, domainErr := range []error{roleIDErr, sortErr, filterErr, queryErr} {
+		if err == nil {
+			err = domainErr
+		}
 	}
 
 	if err != nil {

@@ -250,10 +250,13 @@ func ParseRemoveMemberForm(writer http.ResponseWriter, request *http.Request) (u
 	if err == nil {
 		parsed, parseErr := uuid.Parse(request.PathValue("user"))
 
-		if parseErr != nil || parsed == uuid.Nil {
+		if parseErr == nil {
+			id, parseErr = users.NewUserID(parsed)
+		}
+
+		if parseErr != nil {
+			id = users.UserID{}
 			err = errors.Join(ErrFormInvalid, users.ErrUserIDInvalid)
-		} else {
-			id = users.UserID(parsed)
 		}
 	}
 

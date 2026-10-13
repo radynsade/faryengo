@@ -29,8 +29,15 @@ Follow [project layout](layout.md) for package boundaries and
 
 - Generate all new UUIDs as version 7 for time-ordered identifiers.
 - Preserve valid existing identities regardless of their UUID version.
-- Treat identity generation, construction, validation, and persistence as
-  separate responsibilities. Constructing a value does not prove it is valid.
+- Treat identity generation, validation, and persistence as separate
+  responsibilities.
+- Value objects and entities validate themselves when they are constructed:
+  their constructors return the value together with its validation error.
+  Aggregates are the exception: their constructors take values that are
+  already valid, do not validate again, and do not return an error.
+- Build domain values from external input, such as requests, command
+  arguments, and stored rows, only through their constructors, and handle the
+  constructor's error. Do not convert raw input to a domain type directly.
 - Keep authoritative business constraints in the owning domain, and perform
   validation before side effects. Validation must not modify domain state.
 

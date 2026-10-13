@@ -1,0 +1,138 @@
+// A failed request: the brand and the language switcher above one centered
+// card. The status code is the card's artwork, set in the showcase gradient
+// inside soft rings.
+$narrow: 560px;
+
+.error-page {
+	position: relative;
+	display: flex;
+	flex-direction: column;
+	min-height: 100dvh;
+	overflow: hidden;
+
+	// A faint glow behind the card, echoing the sign-in showcase.
+	&::before {
+		content: '';
+		position: absolute;
+		top: -18rem;
+		left: 50%;
+		width: 44rem;
+		aspect-ratio: 1;
+		border-radius: 50%;
+		background: radial-gradient(
+			circle,
+			var(--color-primary-soft),
+			transparent 65%
+		);
+		transform: translateX(-50%);
+		pointer-events: none;
+	}
+
+	&__header {
+		position: relative;
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		min-height: var(--topbar-height);
+		padding: 0.5rem 1rem;
+		border-bottom: 1px solid var(--color-border);
+
+		@media (min-width: $narrow) {
+			padding-inline: 1.5rem;
+		}
+	}
+
+	&__brand {
+		display: inline-flex;
+		border-radius: var(--radius-sm);
+		color: inherit;
+		text-decoration: none;
+	}
+
+	&__main {
+		position: relative;
+		display: flex;
+		flex: 1;
+		align-items: center;
+		justify-content: center;
+		padding: 2.5rem 1rem 4rem;
+	}
+
+	&__card {
+		display: grid;
+		justify-items: center;
+		gap: 0.75rem;
+		width: min(100%, 26rem);
+		text-align: center;
+
+		h1 {
+			font-size: clamp(1.5rem, 3.5vw, 1.875rem);
+			font-weight: 800;
+			line-height: 1.15;
+			letter-spacing: -0.03em;
+		}
+	}
+
+	&__art {
+		position: relative;
+		display: grid;
+		place-items: center;
+		width: 11rem;
+		aspect-ratio: 1;
+		margin-bottom: 0.75rem;
+	}
+
+	&__ring {
+		position: absolute;
+		border-radius: 50%;
+
+		&--outer {
+			inset: 0;
+			border: 1px dashed var(--color-border-strong);
+		}
+
+		&--inner {
+			inset: 1.375rem;
+			background: var(--color-surface);
+			box-shadow: var(--shadow-soft);
+		}
+	}
+
+	&__code {
+		position: relative;
+		background: var(--gradient-showcase);
+		background-clip: text;
+		color: transparent;
+		font-size: 3rem;
+		font-weight: 800;
+		line-height: 1;
+		letter-spacing: -0.05em;
+		font-variant-numeric: tabular-nums;
+	}
+
+	&__code-caption {
+		position: absolute;
+		width: 1px;
+		height: 1px;
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
+	}
+
+	&__message {
+		max-width: 22rem;
+		color: var(--color-muted);
+	}
+
+	&__actions {
+		display: grid;
+		gap: 0.625rem;
+		width: min(100%, 18rem);
+		margin-top: 1rem;
+
+		.button {
+			margin-top: 0;
+		}
+	}
+}

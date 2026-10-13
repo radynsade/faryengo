@@ -102,19 +102,24 @@ func executeUserCommand(
 func parseCreateUser(args []string) (input.CreateUserInput, error) {
 	var (
 		request input.CreateUserInput
-		roleID  uuid.UUID
+		id      uuid.UUID
+		roleID  users.RoleID
 		err     error
 	)
 
 	if len(args) != 6 {
 		err = ErrCommandInvalid
 	} else {
-		roleID, err = parseUUID(args[5])
+		id, err = parseUUID(args[5])
+	}
+
+	if err == nil {
+		roleID, err = users.NewRoleID(id)
 	}
 
 	if err == nil {
 		request = input.CreateUserInput{
-			RoleID:    users.RoleID(roleID),
+			RoleID:    roleID,
 			Email:     args[0],
 			Phone:     args[4],
 			Password:  args[3],
@@ -128,8 +133,9 @@ func parseCreateUser(args []string) (input.CreateUserInput, error) {
 
 func parseDeleteUser(args []string) (users.UserID, error) {
 	var (
-		id  uuid.UUID
-		err error
+		id     uuid.UUID
+		userID users.UserID
+		err    error
 	)
 
 	if len(args) != 1 {
@@ -138,5 +144,9 @@ func parseDeleteUser(args []string) (users.UserID, error) {
 		id, err = parseUUID(args[0])
 	}
 
-	return users.UserID(id), err
+	if err == nil {
+		userID, err = users.NewUserID(id)
+	}
+
+	return userID, err
 }

@@ -1,0 +1,51 @@
+package pages
+
+import (
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
+	"github.com/radynsade/faryengo/web/office/templates/layouts"
+)
+
+// RetryURL is set only when repeating the request can succeed, such as a page
+// that failed to load while a service was unavailable; the home link is then
+// the secondary action.
+
+type ErrorProps struct {
+	Code     string
+	Title    string
+	Message  string
+	HomeURL  string
+	RetryURL string
+}
+
+templ Error(props ErrorProps) {
+	@layouts.ErrorLayout(props.HomeURL) {
+		<section class="error-page__card">
+			<p class="error-page__art">
+				<span class="error-page__ring error-page__ring--outer" aria-hidden="true"></span>
+				<span class="error-page__ring error-page__ring--inner" aria-hidden="true"></span>
+				<span class="error-page__code">
+					<span class="error-page__code-caption">{ officei18n.T(ctx, "errors.code") }</span>
+					{ props.Code }
+				</span>
+			</p>
+			<h1 id="page-title">{ props.Title }</h1>
+			<p class="error-page__message">{ props.Message }</p>
+			<div class="error-page__actions">
+				if props.RetryURL != "" {
+					<a class="button" href={ templ.URL(props.RetryURL) } { components.NavigationAttributes()... }>
+						{ officei18n.T(ctx, "errors.retry") }
+					</a>
+				}
+				<a
+					class={ "button", templ.KV("button--secondary", props.RetryURL != "") }
+					href={ templ.URL(props.HomeURL) }
+					{ components.NavigationAttributes()... }
+				>
+					{ officei18n.T(ctx, "errors.home") }
+					@components.Icon("arrow-right")
+				</a>
+			</div>
+		</section>
+	}
+}

@@ -107,7 +107,7 @@ func (h *PasswordHasher) Hash(ctx context.Context, password string) (users.Passw
 		err = ErrHasherNil
 	} else if contextErr := ctx.Err(); contextErr != nil {
 		err = contextErr
-	} else if validationErr := users.Password(password).Validate(); validationErr != nil {
+	} else if _, validationErr := users.NewPassword(password); validationErr != nil {
 		err = validationErr
 	} else {
 		salt := make([]byte, saltBytes)
@@ -125,7 +125,7 @@ func (h *PasswordHasher) Hash(ctx context.Context, password string) (users.Passw
 		if contextErr := ctx.Err(); contextErr != nil {
 			err = contextErr
 		} else {
-			hash = encodeHash(h.params, salt, key)
+			hash, err = encodeHash(h.params, salt, key)
 		}
 	}
 
@@ -193,7 +193,7 @@ func (h *PasswordHasher) Verify(
 // Helpers
 //
 
-func encodeHash(params parameters, salt []byte, key []byte) users.PasswordHash {
+func encodeHash(params parameters, salt []byte, key []byte) (users.PasswordHash, error) {
 	encoded := strings.Join([]string{
 		"",
 		algorithmSegment,
@@ -203,7 +203,7 @@ func encodeHash(params parameters, salt []byte, key []byte) users.PasswordHash {
 		base64.RawStdEncoding.EncodeToString(key),
 	}, "$")
 
-	return users.PasswordHash(encoded)
+	return users.NewPasswordHash(encoded)
 }
 
 func decodeHash(hash users.PasswordHash) (parameters, []byte, []byte, error) {

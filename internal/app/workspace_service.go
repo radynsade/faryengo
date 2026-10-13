@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/google/uuid"
 
@@ -143,15 +144,14 @@ func (s *WorkspaceService) FindForMember(
 	userID users.UserID,
 ) (*workspaces.Workspace, error) {
 	var (
-		workspace *workspaces.Workspace
-		isMember  bool
-		err       error
+		workspace  *workspaces.Workspace
+		membership workspaces.Membership
+		isMember   bool
+		err        error
 	)
 
-	membership := workspaces.NewMembership(id, userID)
-
 	if err = s.check(); err == nil {
-		err = membership.Validate()
+		membership, err = workspaces.NewMembership(id, userID)
 
 		if err != nil {
 			err = fmt.Errorf("find workspace of a member: %w", err)
@@ -246,14 +246,16 @@ func (s *WorkspaceService) Rename(
 	)
 
 	if err = s.check(); err == nil {
-		workspace = workspaces.NewWorkspace(request.ID, workspaces.TrimWorkspaceName(request.Name))
+		name, nameErr := workspaces.NewWorkspaceName(strings.TrimSpace(request.Name))
 
 		err = errors.Join(
-			workspace.ID.Validate(),
-			workspace.Name.Validate(),
+			request.ID.Validate(),
+			nameErr,
 		)
 
-		if err != nil {
+		if err == nil {
+			workspace = workspaces.NewWorkspace(request.ID, name)
+		} else {
 			err = fmt.Errorf("rename workspace: %w: %w", input.ErrRenameWorkspaceInputInvalid, err)
 		}
 	}
@@ -324,11 +326,12 @@ func (s *WorkspaceService) AddMember(
 	workspaceID workspaces.WorkspaceID,
 	userID users.UserID,
 ) error {
-	membership := workspaces.NewMembership(workspaceID, userID)
+	var membership workspaces.Membership
+
 	err := s.check()
 
 	if err == nil {
-		err = membership.Validate()
+		membership, err = workspaces.NewMembership(workspaceID, userID)
 
 		if err != nil {
 			err = fmt.Errorf("add workspace member: %w", err)
@@ -402,14 +405,19 @@ func (s *WorkspaceService) AddMemberByEmail(
 	request input.AddMemberByEmailInput,
 ) (*users.User, error) {
 	var (
-		user *users.User
-		err  error
+		user  *users.User
+		email users.Email
+		err   error
 	)
 
 	if err = s.check(); err == nil {
+		var emailErr error
+
+		email, emailErr = users.NewEmail(request.Email)
+
 		err = errors.Join(
 			request.WorkspaceID.Validate(),
-			users.Email(request.Email).Validate(),
+			emailErr,
 		)
 
 		if err != nil {
@@ -418,11 +426,15 @@ func (s *WorkspaceService) AddMemberByEmail(
 	}
 
 	if err == nil {
-		user, err = s.users.FindByEmail(ctx, users.Email(request.Email))
+		var membership workspaces.Membership
+
+		user, err = s.users.FindByEmail(ctx, email)
 
 		if err == nil {
-			membership := workspaces.NewMembership(request.WorkspaceID, user.ID)
+			membership, err = workspaces.NewMembership(request.WorkspaceID, user.ID)
+		}
 
+		if err == nil {
 			err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
 				var err error
 
@@ -454,11 +466,12 @@ func (s *WorkspaceService) RemoveMember(
 	workspaceID workspaces.WorkspaceID,
 	userID users.UserID,
 ) error {
-	membership := workspaces.NewMembership(workspaceID, userID)
+	var membership workspaces.Membership
+
 	err := s.check()
 
 	if err == nil {
-		err = membership.Validate()
+		membership, err = workspaces.NewMembership(workspaceID, userID)
 
 		if err != nil {
 			err = fmt.Errorf("remove workspace member: %w", err)
@@ -511,20 +524,26 @@ func (s *WorkspaceService) create(
 ) (*workspaces.Workspace, error) {
 	var workspace *workspaces.Workspace
 
-	name := workspaces.TrimWorkspaceName(request.Name)
-	err := name.Validate()
+	name, err := workspaces.NewWorkspaceName(strings.TrimSpace(request.Name))
 
 	if err != nil {
 		err = fmt.Errorf("create workspace: %w: %w", input.ErrCreateWorkspaceInputInvalid, err)
 	} else {
-		var id uuid.UUID
+		var (
+			id          uuid.UUID
+			workspaceID workspaces.WorkspaceID
+		)
 
 		id, err = uuid.NewV7()
+
+		if err == nil {
+			workspaceID, err = workspaces.NewWorkspaceID(id)
+		}
 
 		if err != nil {
 			err = fmt.Errorf("generate workspace ID: %w", err)
 		} else {
-			workspace = workspaces.NewWorkspace(workspaces.WorkspaceID(id), name)
+			workspace = workspaces.NewWorkspace(workspaceID, name)
 		}
 	}
 
@@ -535,7 +554,11 @@ func (s *WorkspaceService) create(
 			if createErr := s.repository.Create(ctx, workspace); createErr != nil {
 				err = createErr
 			} else if creatorID != nil {
-				if addErr := s.repository.AddMember(ctx, workspaces.NewMembership(workspace.ID, *creatorID)); addErr != nil {
+				membership, membershipErr := workspaces.NewMembership(workspace.ID, *creatorID)
+
+				if membershipErr != nil {
+					err = membershipErr
+				} else if addErr := s.repository.AddMember(ctx, membership); addErr != nil {
 					err = addErr
 				}
 			}

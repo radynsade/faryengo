@@ -29,6 +29,17 @@ const (
 	PermissionViewRole   Permission = "view_role"
 )
 
+func NewPermission(value string) (Permission, error) {
+	var (
+		err        error
+		permission Permission
+	)
+
+	permission = Permission(value)
+	err = permission.Validate()
+	return permission, err
+}
+
 func (p Permission) Validate() error {
 	switch p {
 	case PermissionManageUser, PermissionViewUser, PermissionManageRole, PermissionViewRole:
@@ -39,6 +50,24 @@ func (p Permission) Validate() error {
 }
 
 type Permissions []Permission
+
+func NewPermissions(values []string) (Permissions, error) {
+	var (
+		err         error
+		permissions Permissions
+	)
+
+	if values != nil {
+		permissions = make(Permissions, 0, len(values))
+
+		for _, value := range values {
+			permissions = append(permissions, Permission(value))
+		}
+	}
+
+	err = permissions.Validate()
+	return permissions, err
+}
 
 func (p Permissions) Validate() error {
 	var err error
@@ -71,6 +100,17 @@ var ErrRoleIDInvalid = errors.New("invalid role ID")
 
 type RoleID uuid.UUID
 
+func NewRoleID(value uuid.UUID) (RoleID, error) {
+	var (
+		err error
+		id  RoleID
+	)
+
+	id = RoleID(value)
+	err = id.Validate()
+	return id, err
+}
+
 func (id RoleID) Validate() error {
 	var err error
 
@@ -94,6 +134,26 @@ var (
 )
 
 type RoleName languages.Text
+
+// The value maps language codes to translations.
+
+func NewRoleName(value map[string]string) (RoleName, error) {
+	var (
+		err  error
+		name RoleName
+	)
+
+	if value != nil {
+		name = make(RoleName, len(value))
+
+		for code, translation := range value {
+			name[languages.Code(code)] = languages.Translation(translation)
+		}
+	}
+
+	err = name.Validate()
+	return name, err
+}
 
 func (r RoleName) Validate() error {
 	var err error
@@ -162,15 +222,11 @@ func (r *Role) Validate() error {
 	if r == nil {
 		err = ErrRoleNil
 	} else {
-		err = r.ID.Validate()
-	}
-
-	if err == nil {
-		err = r.Name.Validate()
-	}
-
-	if err == nil {
-		err = r.Permissions.Validate()
+		err = errors.Join(
+			r.ID.Validate(),
+			r.Name.Validate(),
+			r.Permissions.Validate(),
+		)
 	}
 
 	if err != nil {

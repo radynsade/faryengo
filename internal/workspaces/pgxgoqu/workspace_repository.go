@@ -621,19 +621,22 @@ func (r *WorkspaceRepository) scanMemberIDs(
 		defer rows.Close()
 
 		for rows.Next() {
-			var id pgtype.UUID
+			var (
+				id       pgtype.UUID
+				memberID users.UserID
+			)
 
 			err = rows.Scan(&id)
 
 			if err == nil {
-				err = users.UserID(id.Bytes).Validate()
+				memberID, err = users.NewUserID(uuid.UUID(id.Bytes))
 			}
 
 			if err != nil {
 				break
 			}
 
-			result = append(result, users.UserID(id.Bytes))
+			result = append(result, memberID)
 		}
 
 		if err == nil {
@@ -717,12 +720,21 @@ func scanWorkspace(row pgx.Row) (*workspaces.Workspace, error) {
 	} else if scanErr != nil {
 		err = fmt.Errorf("scan workspace: %w", scanErr)
 	} else {
-		workspace = workspaces.NewWorkspace(workspaces.WorkspaceID(id.Bytes), workspaces.WorkspaceName(name))
-		err = workspace.Validate()
+		var (
+			workspaceID   workspaces.WorkspaceID
+			workspaceName workspaces.WorkspaceName
+		)
 
-		if err != nil {
-			err = fmt.Errorf("failed to decode a workspace: %w", err)
-			workspace = nil
+		workspaceID, err = workspaces.NewWorkspaceID(uuid.UUID(id.Bytes))
+
+		if err == nil {
+			workspaceName, err = workspaces.NewWorkspaceName(name)
+		}
+
+		if err == nil {
+			workspace = workspaces.NewWorkspace(workspaceID, workspaceName)
+		} else {
+			err = fmt.Errorf("failed to decode a workspace: %w: %w", workspaces.ErrWorkspaceInvalid, err)
 		}
 	}
 

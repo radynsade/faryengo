@@ -6,11 +6,6 @@ $narrow: 560px;
 	align-content: start;
 	gap: 1.25rem;
 
-	// Empty until a saved change is confirmed.
-	&__notices:empty {
-		display: none;
-	}
-
 	&__section {
 		display: grid;
 		gap: 1.25rem;
@@ -57,24 +52,6 @@ $narrow: 560px;
 
 .standalone__section.settings {
 	width: min(100%, 36rem);
-}
-
-// A confirmation of a saved change.
-.notice {
-	display: flex;
-	align-items: flex-start;
-	gap: 0.625rem;
-	padding: 0.75rem 0.875rem;
-	border: 1px solid rgb(46 125 50 / 0.25);
-	border-radius: var(--radius-md);
-	background: #edf7ee;
-	color: #1f6b2a;
-	font-weight: 600;
-
-	&__messages {
-		display: grid;
-		gap: 0.25rem;
-	}
 }
 
 // The members of a workspace, one row each.

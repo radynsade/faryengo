@@ -286,5 +286,35 @@
   },
   "settings.member_removed": {
     "other": "{{.Name}} ir noņemts no darbvietas."
+  },
+  "errors.code": {
+    "other": "Kļūdas kods"
+  },
+  "errors.title_bad_request": {
+    "other": "Pieprasījumu nevarēja apstrādāt"
+  },
+  "errors.title_forbidden": {
+    "other": "Piekļuve liegta"
+  },
+  "errors.title_not_found": {
+    "other": "Lapa nav atrasta"
+  },
+  "errors.title_unavailable": {
+    "other": "Īslaicīgi nav pieejams"
+  },
+  "errors.title_server": {
+    "other": "Kaut kas nogāja greizi"
+  },
+  "errors.not_found": {
+    "other": "Meklētā lapa neeksistē vai ir pārvietota."
+  },
+  "errors.unexpected": {
+    "other": "Radās neparedzēta kļūda. Lūdzu, mēģiniet vēlreiz vēlāk."
+  },
+  "errors.retry": {
+    "other": "Mēģināt vēlreiz"
+  },
+  "errors.home": {
+    "other": "Uz sākumlapu"
   }
 }

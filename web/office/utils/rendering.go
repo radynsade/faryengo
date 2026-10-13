@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 
 	"github.com/a-h/templ"
 	"github.com/tdewolff/minify/v2"
@@ -12,6 +13,7 @@ import (
 
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 	"github.com/radynsade/faryengo/web/office/templates/layouts"
+	"github.com/radynsade/faryengo/web/office/templates/pages"
 )
 
 //
@@ -62,30 +64,10 @@ func Render(
 	pageTitle string,
 	content templ.Component,
 ) {
-	title := officei18n.T(request.Context(), "document.title", map[string]any{"Page": pageTitle})
-	page := layouts.Page(title, content)
-	state := &layouts.RenderState{ContentOnly: targetsContent(request)}
-
-	varyByForm(writer)
-
-	if IsPartial(request) {
-		page = layouts.PageFragment(title, content)
-
-		// A form shown again in place keeps the address of the page it was
-		// submitted from.
-		if request.Method != http.MethodGet {
-			writer.Header().Set("HX-Push-Url", "false")
-		}
+	if err := writePage(writer, request, status, pageTitle, content); err != nil {
+		slog.ErrorContext(request.Context(), "render an office page", "error", err)
+		Fail(writer, request, http.StatusInternalServerError, "errors.unexpected")
 	}
-
-	body, err := render(request.WithContext(layouts.WithRenderState(request.Context(), state)), page)
-
-	if err == nil && state.ContentOnly && !state.DashboardRendered {
-		writer.Header().Set("HX-Retarget", "#"+layouts.PageRegionID)
-		writer.Header().Set("HX-Reswap", "morph:outerHTML show:none")
-	}
-
-	send(writer, request, status, body, err)
 }
 
 // A failed in-page submission replaces only its form region, which the page
@@ -107,23 +89,86 @@ func RenderFormRegion(
 
 	body, err := render(request, content)
 
-	send(writer, request, status, body, err)
+	if err != nil {
+		slog.ErrorContext(request.Context(), "render an office form", "error", err)
+		Fail(writer, request, http.StatusInternalServerError, "errors.unexpected")
+	} else {
+		send(writer, request, status, body)
+	}
 }
 
-// Transport rejections and unavailable services are plain-text errors; the
-// client shows its translated navigation error and keeps the page usable.
+// Every failure is an error page that replaces the whole page region, so the
+// visitor always has a way back into the office. A failed page load can be
+// repeated; a failed submission cannot, because its address accepts only the
+// form. Only when the error page itself cannot render is the error plain
+// text.
 
 func Fail(writer http.ResponseWriter, request *http.Request, status int, messageID string) {
-	http.Error(writer, officei18n.T(request.Context(), messageID), status)
+	ctx := request.Context()
+	props := pages.ErrorProps{
+		Code:    strconv.Itoa(status),
+		Title:   officei18n.T(ctx, errorTitleID(status)),
+		Message: officei18n.T(ctx, messageID),
+		HomeURL: OfficePath(request),
+	}
+
+	if status >= http.StatusInternalServerError && request.Method == http.MethodGet {
+		props.RetryURL = request.URL.RequestURI()
+	}
+
+	if err := writePage(writer, request, status, props.Title, pages.Error(props)); err != nil {
+		slog.ErrorContext(ctx, "render an office error page", "error", err)
+		http.Error(writer, props.Message, status)
+	}
 }
 
 //
 // Helpers
 //
 
+func writePage(
+	writer http.ResponseWriter,
+	request *http.Request,
+	status int,
+	pageTitle string,
+	content templ.Component,
+) error {
+	title := officei18n.T(request.Context(), "document.title", map[string]any{"Page": pageTitle})
+	page := layouts.Page(title, content)
+	state := &layouts.RenderState{ContentOnly: targetsContent(request)}
+
+	// A failure while rendering a form region leaves its retargeting behind.
+	writer.Header().Del("HX-Retarget")
+	writer.Header().Del("HX-Reswap")
+	varyByForm(writer)
+
+	if IsPartial(request) {
+		page = layouts.PageFragment(title, content)
+
+		// A form shown again in place keeps the address of the page it was
+		// submitted from.
+		if request.Method != http.MethodGet {
+			writer.Header().Set("HX-Push-Url", "false")
+		}
+	}
+
+	body, err := render(request.WithContext(layouts.WithRenderState(request.Context(), state)), page)
+
+	if err == nil {
+		if state.ContentOnly && !state.DashboardRendered {
+			writer.Header().Set("HX-Retarget", "#"+layouts.PageRegionID)
+			writer.Header().Set("HX-Reswap", "morph:outerHTML show:none")
+		}
+
+		send(writer, request, status, body)
+	}
+
+	return err
+}
+
 // Rendering completes before anything is written, so headers can depend on
-// what was rendered and a failed render is reported with an error status
-// instead of a truncated page.
+// what was rendered and a failed render is reported with an error page
+// instead of a truncated one.
 
 func render(request *http.Request, content templ.Component) ([]byte, error) {
 	var rendered, minified bytes.Buffer
@@ -137,24 +182,34 @@ func render(request *http.Request, content templ.Component) ([]byte, error) {
 	return minified.Bytes(), err
 }
 
-func send(
-	writer http.ResponseWriter,
-	request *http.Request,
-	status int,
-	body []byte,
-	err error,
-) {
-	if err != nil {
-		slog.ErrorContext(request.Context(), "render an office page", "error", err)
-		Fail(writer, request, http.StatusInternalServerError, "navigation.error")
-	} else {
-		writer.Header().Set("Content-Type", "text/html; charset=utf-8")
-		writer.WriteHeader(status)
+func send(writer http.ResponseWriter, request *http.Request, status int, body []byte) {
+	writer.Header().Set("Content-Type", "text/html; charset=utf-8")
+	writer.WriteHeader(status)
 
-		if _, writeErr := writer.Write(body); writeErr != nil {
-			slog.DebugContext(request.Context(), "write an office page", "error", writeErr)
-		}
+	if _, err := writer.Write(body); err != nil {
+		slog.DebugContext(request.Context(), "write an office page", "error", err)
 	}
+}
+
+// The title names the kind of failure; the message says what failed.
+
+func errorTitleID(status int) string {
+	var id string
+
+	switch {
+	case status == http.StatusForbidden:
+		id = "errors.title_forbidden"
+	case status == http.StatusNotFound:
+		id = "errors.title_not_found"
+	case status == http.StatusServiceUnavailable:
+		id = "errors.title_unavailable"
+	case status >= http.StatusInternalServerError:
+		id = "errors.title_server"
+	default:
+		id = "errors.title_bad_request"
+	}
+
+	return id
 }
 
 // Whitespace and comments go, but every attribute, including defaults and

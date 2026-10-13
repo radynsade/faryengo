@@ -39,6 +39,28 @@ type UserFilter struct {
 	RoleID    *RoleID
 }
 
+func NewUserFilter(
+	idLike string,
+	emailLike string,
+	nameLike string,
+	roleID *RoleID,
+) (UserFilter, error) {
+	var (
+		err    error
+		filter UserFilter
+	)
+
+	filter = UserFilter{
+		IDLike:    idLike,
+		EmailLike: emailLike,
+		NameLike:  nameLike,
+		RoleID:    roleID,
+	}
+
+	err = filter.Validate()
+	return filter, err
+}
+
 func (f UserFilter) Validate() error {
 	var err error
 
@@ -96,6 +118,17 @@ const (
 	UserSortCreatedAt = UserSort("created_at")
 )
 
+func NewUserSort(value string) (UserSort, error) {
+	var (
+		err  error
+		sort UserSort
+	)
+
+	sort = UserSort(value)
+	err = sort.Validate()
+	return sort, err
+}
+
 func (s UserSort) Validate() error {
 	var err error
 
@@ -115,6 +148,30 @@ func (s UserSort) Validate() error {
 var ErrInvalidUserQuery = errors.New("invalid user query")
 
 type UserQuery domquery.Query[UserFilter, UserSort]
+
+func NewUserQuery(
+	filter UserFilter,
+	sortOrder domquery.SortOrder,
+	sortBy UserSort,
+	limit uint,
+	page uint,
+) (UserQuery, error) {
+	var (
+		err   error
+		query UserQuery
+	)
+
+	query = UserQuery{
+		Filter:    filter,
+		SortOrder: sortOrder,
+		SortBy:    sortBy,
+		Limit:     limit,
+		Page:      page,
+	}
+
+	err = query.Validate()
+	return query, err
+}
 
 // Page is 1-based, and both Limit and Page must be set.
 

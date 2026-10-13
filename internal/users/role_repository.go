@@ -34,6 +34,28 @@ type RoleFilter struct {
 	IsSuper     *bool
 }
 
+func NewRoleFilter(
+	idLike string,
+	nameLike string,
+	permissions Permissions,
+	isSuper *bool,
+) (RoleFilter, error) {
+	var (
+		err    error
+		filter RoleFilter
+	)
+
+	filter = RoleFilter{
+		IDLike:      idLike,
+		NameLike:    nameLike,
+		Permissions: permissions,
+		IsSuper:     isSuper,
+	}
+
+	err = filter.Validate()
+	return filter, err
+}
+
 func (f RoleFilter) Validate() error {
 	var err error
 
@@ -89,6 +111,17 @@ const (
 	RoleSortIsSuper = RoleSort("is_super")
 )
 
+func NewRoleSort(value string) (RoleSort, error) {
+	var (
+		err  error
+		sort RoleSort
+	)
+
+	sort = RoleSort(value)
+	err = sort.Validate()
+	return sort, err
+}
+
 func (s RoleSort) Validate() error {
 	var err error
 
@@ -106,6 +139,30 @@ func (s RoleSort) Validate() error {
 var ErrInvalidRoleQuery = errors.New("invalid role query")
 
 type RoleQuery domquery.Query[RoleFilter, RoleSort]
+
+func NewRoleQuery(
+	filter RoleFilter,
+	sortOrder domquery.SortOrder,
+	sortBy RoleSort,
+	limit uint,
+	page uint,
+) (RoleQuery, error) {
+	var (
+		err   error
+		query RoleQuery
+	)
+
+	query = RoleQuery{
+		Filter:    filter,
+		SortOrder: sortOrder,
+		SortBy:    sortBy,
+		Limit:     limit,
+		Page:      page,
+	}
+
+	err = query.Validate()
+	return query, err
+}
 
 // Page is 1-based, and both Limit and Page must be set.
 

@@ -416,18 +416,26 @@ func scanLanguage(row pgx.Row) (*languages.Language, error) {
 	} else if scanErr != nil {
 		err = fmt.Errorf("scan language: %w", scanErr)
 	} else {
-		language = languages.NewLanguage(
-			languages.Code(code),
-			languages.EnglishName(english),
-			languages.NativeName(native),
-			fallback,
+		var (
+			languageCode languages.Code
+			englishName  languages.EnglishName
+			nativeName   languages.NativeName
 		)
 
-		err = language.Validate()
+		languageCode, err = languages.NewCode(code)
 
-		if err != nil {
-			err = fmt.Errorf("failed to decode a language: %w", err)
-			language = nil
+		if err == nil {
+			englishName, err = languages.NewEnglishName(english)
+		}
+
+		if err == nil {
+			nativeName, err = languages.NewNativeName(native)
+		}
+
+		if err == nil {
+			language = languages.NewLanguage(languageCode, englishName, nativeName, fallback)
+		} else {
+			err = fmt.Errorf("failed to decode a language: %w: %w", languages.ErrLanguageInvalid, err)
 		}
 	}
 

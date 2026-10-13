@@ -26,11 +26,19 @@ type CredentialsSnapshot struct {
 	Version uuid.UUID
 }
 
-func NewCredentialsSnapshot(user *User, version uuid.UUID) *CredentialsSnapshot {
-	return &CredentialsSnapshot{
+func NewCredentialsSnapshot(user *User, version uuid.UUID) (*CredentialsSnapshot, error) {
+	var (
+		err      error
+		snapshot *CredentialsSnapshot
+	)
+
+	snapshot = &CredentialsSnapshot{
 		User:    user,
 		Version: version,
 	}
+
+	err = snapshot.Validate()
+	return snapshot, err
 }
 
 func (s *CredentialsSnapshot) Validate() error {
@@ -39,15 +47,24 @@ func (s *CredentialsSnapshot) Validate() error {
 	if s == nil {
 		err = ErrCredentialsSnapshotNil
 	} else {
-		err = s.User.Validate()
-	}
-
-	if err == nil && s.Version == uuid.Nil {
-		err = ErrCredentialsVersionNil
+		err = errors.Join(
+			s.User.Validate(),
+			s.validateVersion(),
+		)
 	}
 
 	if err != nil {
 		err = fmt.Errorf("%w: %w", ErrCredentialsSnapshotInvalid, err)
+	}
+
+	return err
+}
+
+func (s *CredentialsSnapshot) validateVersion() error {
+	var err error
+
+	if s.Version == uuid.Nil {
+		err = ErrCredentialsVersionNil
 	}
 
 	return err

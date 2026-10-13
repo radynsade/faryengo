@@ -90,16 +90,17 @@ func (s *LanguageService) Create(
 
 func (s *LanguageService) FindByCode(ctx context.Context, code string) (*languages.Language, error) {
 	var (
-		language *languages.Language
-		err      error
+		language     *languages.Language
+		languageCode languages.Code
+		err          error
 	)
 
 	if s == nil || s.repository == nil {
 		err = ErrLanguageRepositoryNil
-	} else if validationErr := languages.Code(code).Validate(); validationErr != nil {
-		err = fmt.Errorf("find language: %w", validationErr)
+	} else if languageCode, err = languages.NewCode(code); err != nil {
+		err = fmt.Errorf("find language: %w", err)
 	} else {
-		language, err = s.repository.FindByCode(ctx, languages.Code(code))
+		language, err = s.repository.FindByCode(ctx, languageCode)
 
 		if err != nil {
 			err = fmt.Errorf("find language %s: %w", code, err)
@@ -182,10 +183,12 @@ func (s *LanguageService) Update(
 // Delete
 
 func (s *LanguageService) Delete(ctx context.Context, code string) error {
+	var languageCode languages.Code
+
 	err := s.check()
 
 	if err == nil {
-		err = languages.Code(code).Validate()
+		languageCode, err = languages.NewCode(code)
 
 		if err != nil {
 			err = fmt.Errorf("delete language: %w", err)
@@ -196,7 +199,7 @@ func (s *LanguageService) Delete(ctx context.Context, code string) error {
 		err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
 			var err error
 
-			if deleteErr := s.repository.Delete(ctx, languages.Code(code)); deleteErr != nil {
+			if deleteErr := s.repository.Delete(ctx, languageCode); deleteErr != nil {
 				err = deleteErr
 			}
 
@@ -236,21 +239,16 @@ func newLanguage(
 	nativeName string,
 	isFallback bool,
 ) (*languages.Language, error) {
-	language := languages.NewLanguage(
-		languages.Code(code),
-		languages.EnglishName(englishName),
-		languages.NativeName(nativeName),
-		isFallback,
-	)
+	var language *languages.Language
 
-	err := errors.Join(
-		language.Code.Validate(),
-		language.EnglishName.Validate(),
-		language.NativeName.Validate(),
-	)
+	languageCode, codeErr := languages.NewCode(code)
+	languageEnglishName, englishNameErr := languages.NewEnglishName(englishName)
+	languageNativeName, nativeNameErr := languages.NewNativeName(nativeName)
 
-	if err != nil {
-		language = nil
+	err := errors.Join(codeErr, englishNameErr, nativeNameErr)
+
+	if err == nil {
+		language = languages.NewLanguage(languageCode, languageEnglishName, languageNativeName, isFallback)
 	}
 
 	return language, err

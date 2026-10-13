@@ -93,24 +93,31 @@ func ParseRoleQuery(request *http.Request) (users.RoleQuery, error) {
 		err = requestvalidation.Validate(request.Context(), parameters)
 	}
 
-	query := users.RoleQuery{
-		Filter: users.RoleFilter{
-			IDLike:   parameters.IDLike,
-			NameLike: parameters.NameLike,
-		},
-		SortBy:    users.RoleSort(parameters.Sort),
-		SortOrder: domquery.SortOrder(parameters.Order == "asc"),
-		Limit:     uint(max(parameters.Size, 0)),
-		Page:      uint(max(parameters.Page, 0)),
-	}
-
-	for _, permission := range parameters.Permissions {
-		query.Filter.Permissions = append(query.Filter.Permissions, users.Permission(permission))
-	}
+	var isSuper *bool
 
 	if parameters.Super == "true" || parameters.Super == "false" {
-		isSuper := parameters.Super == "true"
-		query.Filter.IsSuper = &isSuper
+		super := parameters.Super == "true"
+		isSuper = &super
+	}
+
+	// The values are kept even when they are invalid, so the filter form
+	// shows them; the transport rules above report the first failure.
+	permissions, permissionsErr := users.NewPermissions(parameters.Permissions)
+	sortBy, sortErr := users.NewRoleSort(parameters.Sort)
+	filter, filterErr := users.NewRoleFilter(parameters.IDLike, parameters.NameLike, permissions, isSuper)
+
+	query, queryErr := users.NewRoleQuery(
+		filter,
+		domquery.SortOrder(parameters.Order == "asc"),
+		sortBy,
+		uint(max(parameters.Size, 0)),
+		uint(max(parameters.Page, 0)),
+	)
+
+	for _, domainErr := range []error{permissionsErr, sortErr, filterErr, queryErr} {
+		if err == nil {
+			err = domainErr
+		}
 	}
 
 	if err != nil {
@@ -217,7 +224,14 @@ func RoleError(request *http.Request, err error) (int, string) {
 // language, then in the first language by code.
 
 func RoleName(role *users.Role, code string, catalog []*languages.Language) string {
-	translation, found := role.Name[languages.Code(code)]
+	var (
+		translation languages.Translation
+		found       bool
+	)
+
+	if languageCode, codeErr := languages.NewCode(code); codeErr == nil {
+		translation, found = role.Name[languageCode]
+	}
 
 	for _, language := range catalog {
 		if !found && language.IsFallback {
@@ -277,7 +291,9 @@ func PermissionsOf(values []string) users.Permissions {
 	permissions := make(users.Permissions, 0, len(values))
 
 	for _, value := range values {
-		permissions = append(permissions, users.Permission(value))
+		if permission, err := users.NewPermission(value); err == nil {
+			permissions = append(permissions, permission)
+		}
 	}
 
 	return permissions

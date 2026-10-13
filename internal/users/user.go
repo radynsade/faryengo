@@ -20,6 +20,17 @@ var ErrUserIDInvalid = errors.New("invalid user ID")
 
 type UserID uuid.UUID
 
+func NewUserID(value uuid.UUID) (UserID, error) {
+	var (
+		err error
+		id  UserID
+	)
+
+	id = UserID(value)
+	err = id.Validate()
+	return id, err
+}
+
 func (id UserID) Validate() error {
 	var err error
 
@@ -37,6 +48,17 @@ func (id UserID) Validate() error {
 var ErrEmailInvalid = errors.New("invalid email")
 
 type Email string
+
+func NewEmail(value string) (Email, error) {
+	var (
+		err   error
+		email Email
+	)
+
+	email = Email(value)
+	err = email.Validate()
+	return email, err
+}
 
 func (e Email) Validate() error {
 	address, err := mail.ParseAddress(string(e))
@@ -58,6 +80,17 @@ var (
 )
 
 type Phone string
+
+func NewPhone(value string) (Phone, error) {
+	var (
+		err   error
+		phone Phone
+	)
+
+	phone = Phone(value)
+	err = phone.Validate()
+	return phone, err
+}
 
 func (p Phone) Validate() error {
 	if !phonePattern.MatchString(string(p)) {
@@ -81,6 +114,17 @@ var (
 )
 
 type FirstName string
+
+func NewFirstName(value string) (FirstName, error) {
+	var (
+		err  error
+		name FirstName
+	)
+
+	name = FirstName(value)
+	err = name.Validate()
+	return name, err
+}
 
 func (n FirstName) Validate() error {
 	var err error
@@ -114,6 +158,17 @@ var (
 )
 
 type LastName string
+
+func NewLastName(value string) (LastName, error) {
+	var (
+		err  error
+		name LastName
+	)
+
+	name = LastName(value)
+	err = name.Validate()
+	return name, err
+}
 
 func (n LastName) Validate() error {
 	var err error
@@ -193,31 +248,15 @@ func (u *User) Validate() error {
 	if u == nil {
 		err = ErrUserNil
 	} else {
-		err = u.ID.Validate()
-	}
-
-	if err == nil {
-		err = u.RoleID.Validate()
-	}
-
-	if err == nil {
-		err = u.Email.Validate()
-	}
-
-	if err == nil {
-		err = u.Phone.Validate()
-	}
-
-	if err == nil {
-		err = u.PasswordHash.Validate()
-	}
-
-	if err == nil {
-		err = u.FirstName.Validate()
-	}
-
-	if err == nil {
-		err = u.LastName.Validate()
+		err = errors.Join(
+			u.ID.Validate(),
+			u.RoleID.Validate(),
+			u.Email.Validate(),
+			u.Phone.Validate(),
+			u.PasswordHash.Validate(),
+			u.FirstName.Validate(),
+			u.LastName.Validate(),
+		)
 	}
 
 	if err != nil {
