@@ -77,6 +77,9 @@
   "nav.settings": {
     "other": "Настройки"
   },
+  "nav.workspace_settings": {
+    "other": "Настройки"
+  },
   "dashboard.navigation": {
     "other": "Главное меню"
   },
@@ -247,6 +250,9 @@
   },
   "settings.workspace": {
     "other": "Рабочее пространство"
+  },
+  "settings.workspace_title": {
+    "other": "Настройки рабочего пространства"
   },
   "settings.workspace_description": {
     "other": "Название, которое видят все участники этого рабочего пространства."

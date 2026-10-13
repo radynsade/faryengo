@@ -20,7 +20,8 @@ type WorkspaceSummary struct {
 
 // Workspace is set only inside a workspace, where the top bar shows it beside
 // the brand. Outside a workspace, SelectURL leads back to choosing one; it is
-// empty on the choosing page itself.
+// empty on the choosing page itself. SettingsURL leads to the profile settings,
+// inside the current workspace when there is one; SettingsActive marks them.
 
 type TopBarProps struct {
 	Workspace      *WorkspaceSummary
@@ -106,7 +107,7 @@ templ topBarSelectWorkspace(selectURL string) {
 }
 
 // The language links lead to the current page and the profile menu marks the
-// settings page, so every navigation updates the actions; the morph also
+// profile settings page, so every navigation updates the actions; the morph also
 // closes an open menu. Signing out leaves the layout, so it replaces the
 // whole page. An out-of-band swap finds its element by ID; "morph" morphs the
 // whole element.

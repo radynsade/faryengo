@@ -41,20 +41,6 @@ func TestValueConstructors(t *testing.T) {
 		{"nil role ID", func() (any, error) { return constructed(NewRoleID(uuid.Nil)) }, RoleID{}, ErrRoleIDInvalid},
 		{"permission", func() (any, error) { return constructed(NewPermission("view_role")) }, PermissionViewRole, nil},
 		{"unknown permission", func() (any, error) { return constructed(NewPermission("fly")) }, Permission("fly"), ErrPermissionInvalid},
-		{"permissions", func() (any, error) {
-			return constructed(NewPermissions([]string{"view_role", "view_user"}))
-		}, Permissions{PermissionViewRole, PermissionViewUser}, nil},
-		{"no permissions", func() (any, error) { return constructed(NewPermissions(nil)) }, Permissions(nil), nil},
-		{"unknown permission among permissions", func() (any, error) {
-			return constructed(NewPermissions([]string{"view_role", "fly"}))
-		}, Permissions{PermissionViewRole, "fly"}, ErrPermissionInvalid},
-		{"role name", func() (any, error) {
-			return constructed(NewRoleName(map[string]string{"en": "Editor", "lv": "Redaktors"}))
-		}, RoleName{"en": "Editor", "lv": "Redaktors"}, nil},
-		{"missing role name", func() (any, error) { return constructed(NewRoleName(nil)) }, RoleName(nil), languages.ErrTextNil},
-		{"role name with an invalid code", func() (any, error) {
-			return constructed(NewRoleName(map[string]string{"english": "Editor"}))
-		}, RoleName{"english": "Editor"}, languages.ErrCodeInvalid},
 		{"role sort", func() (any, error) { return constructed(NewRoleSort("name")) }, RoleSortName, nil},
 		{"unknown role sort", func() (any, error) { return constructed(NewRoleSort("email")) }, RoleSort("email"), ErrInvalidRoleQuery},
 		{"user sort", func() (any, error) { return constructed(NewUserSort("email")) }, UserSortEmail, nil},
@@ -71,6 +57,40 @@ func TestValueConstructors(t *testing.T) {
 
 			if !errors.Is(err, tt.wantErr) || (err == nil) != (tt.wantErr == nil) {
 				t.Fatalf("got error %v, want %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// Composite constructors only assign, so they keep invalid elements for
+// their validation to report.
+
+func TestCompositeValueValidate(t *testing.T) {
+	tests := []struct {
+		name     string
+		validate func() error
+		want     error
+	}{
+		{"permissions", func() error {
+			return NewPermissions([]Permission{PermissionViewRole, PermissionViewUser}).Validate()
+		}, nil},
+		{"no permissions", func() error { return NewPermissions(nil).Validate() }, nil},
+		{"unknown permission among permissions", func() error {
+			return NewPermissions([]Permission{PermissionViewRole, "fly"}).Validate()
+		}, ErrPermissionInvalid},
+		{"role name", func() error {
+			return NewRoleName(languages.Text{"en": "Editor", "lv": "Redaktors"}).Validate()
+		}, nil},
+		{"missing role name", func() error { return NewRoleName(nil).Validate() }, languages.ErrTextNil},
+		{"role name with an invalid code", func() error {
+			return NewRoleName(languages.Text{"english": "Editor"}).Validate()
+		}, languages.ErrCodeInvalid},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := tt.validate(); !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
+				t.Fatalf("Validate() = %v, want %v", err, tt.want)
 			}
 		})
 	}

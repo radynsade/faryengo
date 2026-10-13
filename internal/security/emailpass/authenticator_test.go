@@ -60,10 +60,10 @@ func newSnapshot(t *testing.T) *users.CredentialsSnapshot {
 		time.Now(),
 	)
 
-	snapshot, err := users.NewCredentialsSnapshot(user, uuid.Must(uuid.NewV7()))
+	snapshot := users.NewCredentialsSnapshot(user, uuid.Must(uuid.NewV7()))
 
-	if err != nil {
-		t.Fatalf("NewCredentialsSnapshot() error = %v", err)
+	if err := snapshot.Validate(); err != nil {
+		t.Fatalf("Validate() = %v", err)
 	}
 
 	return snapshot

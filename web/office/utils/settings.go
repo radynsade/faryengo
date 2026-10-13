@@ -293,18 +293,16 @@ func PasswordConfirmation(ctx context.Context, err error, confirmed bool) (pages
 
 // The profile form starts from the User's current details; a failed
 // submission shows the submitted values instead. Passwords are never
-// rendered back.
+// rendered back. The forms post to the address the page was shown at.
 
-func SettingsContentProps(
-	request *http.Request,
+func ProfileSettingsContentProps(
 	current *security.Identity,
-	workspace *workspaces.Workspace,
 	settingsURL string,
 	notices []string,
-) pages.SettingsContentProps {
+) pages.ProfileSettingsContentProps {
 	user := current.User
 
-	props := pages.SettingsContentProps{
+	return pages.ProfileSettingsContentProps{
 		Notices: notices,
 		Profile: pages.ProfileFormProps{
 			Action:    settingsURL + "/profile",
@@ -319,16 +317,21 @@ func SettingsContentProps(
 			CancelURL: settingsURL,
 		},
 	}
+}
 
-	if workspace != nil {
-		props.Workspace = &pages.WorkspaceFormProps{
-			Action: settingsURL + "/workspace",
-			Name:   string(workspace.Name),
-		}
-		props.Member = &pages.MemberFormProps{Action: settingsURL + "/members"}
+// The workspace form starts from the workspace's current name. The members
+// are loaded only for a whole page.
+
+func WorkspaceSettingsContentProps(
+	workspace *workspaces.Workspace,
+	settingsURL string,
+	notices []string,
+) pages.WorkspaceSettingsContentProps {
+	return pages.WorkspaceSettingsContentProps{
+		Notices:   notices,
+		Workspace: pages.WorkspaceFormProps{Action: settingsURL + "/workspace", Name: string(workspace.Name)},
+		Member:    pages.MemberFormProps{Action: settingsURL + "/members"},
 	}
-
-	return props
 }
 
 // A profile that changed after the form was built cannot be saved over the

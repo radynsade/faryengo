@@ -21,6 +21,17 @@ func WorkspacesPath(request *http.Request) string {
 	return OfficePath(request) + "/workspaces"
 }
 
+// The profile settings have an address outside any workspace and one inside
+// each workspace, where they keep the workspace's dashboard.
+
+func ProfileSettingsPath(request *http.Request) string {
+	return OfficePath(request) + "/profile-settings"
+}
+
+func WorkspaceProfileSettingsPath(request *http.Request, id workspaces.WorkspaceID) string {
+	return WorkspacePath(request, id) + "/profile-settings"
+}
+
 func WorkspacePath(request *http.Request, id workspaces.WorkspaceID) string {
 	return WorkspacesPath(request) + "/" + uuid.UUID(id).String()
 }
@@ -29,10 +40,27 @@ func WorkspacePath(request *http.Request, id workspaces.WorkspaceID) string {
 // Dashboard
 //
 
-var sections = []string{"overview", "budgets", "transactions", "goals", "reports"}
+// WorkspaceSettingsSection is the menu item of the workspace's own settings.
+// ProfileSettingsSection marks the profile settings inside a workspace, which
+// the top bar's settings link leads to rather than a menu item.
 
-// Every section, the settings among them, belongs to the workspace in the
-// address.
+const (
+	WorkspaceSettingsSection = "workspace_settings"
+	ProfileSettingsSection   = "profile_settings"
+)
+
+// Every section belongs to the workspace in the address. The workspace's
+// settings close the menu, with their own icon, apart from the profile
+// settings' one in the top bar.
+
+var sections = []layouts.NavigationItem{
+	{Key: "overview", Icon: "overview"},
+	{Key: "budgets", Icon: "budgets", Href: "/budgets"},
+	{Key: "transactions", Icon: "transactions", Href: "/transactions"},
+	{Key: "goals", Icon: "goals", Href: "/goals"},
+	{Key: "reports", Icon: "reports", Href: "/reports"},
+	{Key: WorkspaceSettingsSection, Icon: "workspace-settings", Href: "/settings"},
+}
 
 func DashboardProps(
 	request *http.Request,
@@ -44,22 +72,19 @@ func DashboardProps(
 	base := WorkspacePath(request, workspace.ID)
 	navigation := make([]layouts.NavigationItem, 0, len(sections))
 
-	for _, key := range sections {
-		href := base + "/" + key
-
-		if key == "overview" {
-			href = base
-		}
-
-		navigation = append(navigation, layouts.NavigationItem{Key: key, Href: href})
+	for _, item := range sections {
+		item.Href = base + item.Href
+		navigation = append(navigation, item)
 	}
 
 	props := layouts.DashboardProps{
 		Title:      title,
 		Active:     active,
 		Navigation: navigation,
-		TopBar:     topBarProps(request, current, base+"/settings", active == "settings"),
+		TopBar:     topBarProps(request, current, active == ProfileSettingsSection),
 	}
+
+	props.TopBar.SettingsURL = WorkspaceProfileSettingsPath(request, workspace.ID)
 
 	props.TopBar.Workspace = &layouts.WorkspaceSummary{
 		Name:      string(workspace.Name),
@@ -71,12 +96,12 @@ func DashboardProps(
 }
 
 //
-// Settings
+// Profile settings
 //
 
-func SettingsLayoutProps(request *http.Request, current *security.Identity) layouts.StandaloneProps {
+func ProfileSettingsLayoutProps(request *http.Request, current *security.Identity) layouts.StandaloneProps {
 	props := layouts.StandaloneProps{
-		TopBar: topBarProps(request, current, OfficePath(request)+"/settings", true),
+		TopBar: topBarProps(request, current, true),
 	}
 
 	props.TopBar.SelectURL = WorkspacesPath(request)
@@ -88,17 +113,17 @@ func SettingsLayoutProps(request *http.Request, current *security.Identity) layo
 // Helpers
 //
 
-// Inside a workspace the settings button leads to the workspace's settings;
-// elsewhere it leads to the settings without a workspace.
+// The settings link leads to the profile settings; inside a workspace the
+// dashboard leads to its own address for them. A workspace's own settings are
+// in its sidebar.
 
 func topBarProps(
 	request *http.Request,
 	current *security.Identity,
-	settingsURL string,
 	settingsActive bool,
 ) layouts.TopBarProps {
 	return layouts.TopBarProps{
-		SettingsURL:    settingsURL,
+		SettingsURL:    ProfileSettingsPath(request),
 		SignOutURL:     OfficePath(request) + "/sign-out",
 		SettingsActive: settingsActive,
 		Profile:        profile(current),

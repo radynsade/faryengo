@@ -314,22 +314,44 @@ func newRole(
 	isSuper bool,
 	fallback languages.Code,
 ) (*users.Role, error) {
-	var role *users.Role
+	var (
+		role            *users.Role
+		translations    map[languages.Code]languages.Translation
+		rolePermissions []users.Permission
+	)
 
-	roleName, nameErr := users.NewRoleName(name)
+	// The primitive constructors return their values even when they are
+	// invalid; the name and permissions validation below reports them, so a
+	// missing fallback translation comes before any other failure of the name.
+	if name != nil {
+		translations = make(map[languages.Code]languages.Translation, len(name))
 
-	// A missing fallback translation is reported before any other failure of
-	// the name.
-	if fallbackErr := roleName.ValidateWithFallback(fallback); fallbackErr != nil {
-		nameErr = fallbackErr
+		for code, translation := range name {
+			languageCode, _ := languages.NewCode(code)
+			translations[languageCode], _ = languages.NewTranslation(translation)
+		}
 	}
 
-	rolePermissions, permissionsErr := users.NewPermissions(permissions)
+	if permissions != nil {
+		rolePermissions = make([]users.Permission, 0, len(permissions))
 
-	err := errors.Join(id.Validate(), nameErr, permissionsErr)
+		for _, value := range permissions {
+			permission, _ := users.NewPermission(value)
+			rolePermissions = append(rolePermissions, permission)
+		}
+	}
+
+	roleName := users.NewRoleName(languages.NewText(translations))
+	permissionSet := users.NewPermissions(rolePermissions)
+
+	err := errors.Join(
+		id.Validate(),
+		roleName.ValidateWithFallback(fallback),
+		permissionSet.Validate(),
+	)
 
 	if err == nil {
-		role = users.NewRole(id, roleName, rolePermissions, isSuper)
+		role = users.NewRole(id, roleName, permissionSet, isSuper)
 	}
 
 	return role, err

@@ -44,21 +44,13 @@ func NewUserFilter(
 	emailLike string,
 	nameLike string,
 	roleID *RoleID,
-) (UserFilter, error) {
-	var (
-		err    error
-		filter UserFilter
-	)
-
-	filter = UserFilter{
+) UserFilter {
+	return UserFilter{
 		IDLike:    idLike,
 		EmailLike: emailLike,
 		NameLike:  nameLike,
 		RoleID:    roleID,
 	}
-
-	err = filter.Validate()
-	return filter, err
 }
 
 func (f UserFilter) Validate() error {
@@ -155,22 +147,14 @@ func NewUserQuery(
 	sortBy UserSort,
 	limit uint,
 	page uint,
-) (UserQuery, error) {
-	var (
-		err   error
-		query UserQuery
-	)
-
-	query = UserQuery{
+) UserQuery {
+	return UserQuery{
 		Filter:    filter,
 		SortOrder: sortOrder,
 		SortBy:    sortBy,
 		Limit:     limit,
 		Page:      page,
 	}
-
-	err = query.Validate()
-	return query, err
 }
 
 // Page is 1-based, and both Limit and Page must be set.

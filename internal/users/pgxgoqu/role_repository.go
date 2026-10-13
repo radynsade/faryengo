@@ -626,29 +626,57 @@ func scanRole(row pgx.Row) (*users.Role, error) {
 	} else {
 		var (
 			roleID          users.RoleID
-			name            users.RoleName
-			rolePermissions users.Permissions
+			translations    = make(map[languages.Code]languages.Translation, len(codes))
+			rolePermissions = make([]users.Permission, 0, len(permissions))
 		)
-
-		translations := make(map[string]string, len(codes))
-
-		for index, code := range codes {
-			translations[code] = contents[index]
-		}
 
 		roleID, err = users.NewRoleID(uuid.UUID(id.Bytes))
 
-		if err == nil {
-			name, err = users.NewRoleName(translations)
+		for index, code := range codes {
+			var (
+				languageCode languages.Code
+				translation  languages.Translation
+			)
+
+			if err == nil {
+				languageCode, err = languages.NewCode(code)
+			}
+
+			if err == nil {
+				translation, err = languages.NewTranslation(contents[index])
+			}
+
+			if err != nil {
+				break
+			}
+
+			translations[languageCode] = translation
+		}
+
+		for _, value := range permissions {
+			var permission users.Permission
+
+			if err == nil {
+				permission, err = users.NewPermission(value)
+			}
+
+			if err != nil {
+				break
+			}
+
+			rolePermissions = append(rolePermissions, permission)
 		}
 
 		if err == nil {
-			rolePermissions, err = users.NewPermissions(permissions)
+			name := users.NewRoleName(languages.NewText(translations))
+			err = name.Validate()
+
+			if err == nil {
+				role = users.NewRole(roleID, name, users.NewPermissions(rolePermissions), isSuper)
+			}
 		}
 
-		if err == nil {
-			role = users.NewRole(roleID, name, rolePermissions, isSuper)
-		} else {
+		if err != nil {
 			err = fmt.Errorf("failed to decode a role: %w: %w", users.ErrRoleInvalid, err)
 		}
 	}

@@ -77,6 +77,9 @@
   "nav.settings": {
     "other": "Settings"
   },
+  "nav.workspace_settings": {
+    "other": "Settings"
+  },
   "dashboard.navigation": {
     "other": "Main menu"
   },
@@ -241,6 +244,9 @@
   },
   "settings.workspace": {
     "other": "Workspace"
+  },
+  "settings.workspace_title": {
+    "other": "Workspace settings"
   },
   "settings.workspace_description": {
     "other": "The name every member of this workspace sees."

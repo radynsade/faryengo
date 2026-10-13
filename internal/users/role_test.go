@@ -58,40 +58,25 @@ func TestRoleNameValidateWithFallback(t *testing.T) {
 	}
 }
 
+// The filter and query constructors only assign, so they keep invalid values
+// for their validation to report.
+
 func TestNewRoleQuery(t *testing.T) {
 	isSuper := true
+	permissions := NewPermissions([]Permission{PermissionViewRole})
+	filter := NewRoleFilter("", "a\x00", permissions, &isSuper)
+	query := NewRoleQuery(filter, domquery.SortOrderAsc, RoleSortName, 20, 1)
 
-	tests := []struct {
-		name          string
-		nameLike      string
-		limit         uint
-		wantFilterErr error
-		wantQueryErr  error
-	}{
-		{"valid", "edit", 20, nil, nil},
-		{"invalid filter", "a\x00", 20, ErrRoleFilterNameLikeInvalidChars, ErrRoleFilterInvalid},
-		{"missing limit", "edit", 0, nil, ErrInvalidRoleQuery},
+	if filter.NameLike != "a\x00" || len(filter.Permissions) != 1 || filter.IsSuper != &isSuper {
+		t.Fatalf("NewRoleFilter() = %+v, want the given values", filter)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			permissions := Permissions{PermissionViewRole}
-			filter, filterErr := NewRoleFilter("", tt.nameLike, permissions, &isSuper)
-			query, queryErr := NewRoleQuery(filter, domquery.SortOrderAsc, RoleSortName, tt.limit, 1)
+	if query.Filter.NameLike != filter.NameLike || query.SortBy != RoleSortName || query.Limit != 20 || query.Page != 1 {
+		t.Fatalf("NewRoleQuery() = %+v, want the given values", query)
+	}
 
-			if query.Filter.NameLike != tt.nameLike || len(query.Filter.Permissions) != 1 ||
-				query.Filter.IsSuper != &isSuper || query.SortBy != RoleSortName || query.Limit != tt.limit {
-				t.Fatalf("NewRoleQuery() = %+v, want the given values", query)
-			}
-
-			if !errors.Is(filterErr, tt.wantFilterErr) || (filterErr == nil) != (tt.wantFilterErr == nil) {
-				t.Fatalf("NewRoleFilter() error = %v, want %v", filterErr, tt.wantFilterErr)
-			}
-
-			if !errors.Is(queryErr, tt.wantQueryErr) || (queryErr == nil) != (tt.wantQueryErr == nil) {
-				t.Fatalf("NewRoleQuery() error = %v, want %v", queryErr, tt.wantQueryErr)
-			}
-		})
+	if err := query.Validate(); !errors.Is(err, ErrRoleFilterNameLikeInvalidChars) || !errors.Is(err, ErrRoleFilterInvalid) {
+		t.Fatalf("Validate() = %v, want %v wrapped in %v", err, ErrRoleFilterNameLikeInvalidChars, ErrRoleFilterInvalid)
 	}
 }
 

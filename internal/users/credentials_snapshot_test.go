@@ -11,7 +11,7 @@ import (
 
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 
-func TestNewCredentialsSnapshot(t *testing.T) {
+func TestCredentialsSnapshotValidate(t *testing.T) {
 	user := NewUser(
 		UserID(uuid.Must(uuid.NewV7())),
 		RoleID(uuid.Must(uuid.NewV7())),
@@ -42,11 +42,13 @@ func TestNewCredentialsSnapshot(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			snapshot, err := NewCredentialsSnapshot(test.user, test.version)
+			snapshot := NewCredentialsSnapshot(test.user, test.version)
 
 			if snapshot == nil || snapshot.User != test.user || snapshot.Version != test.version {
 				t.Fatalf("got %+v, want the given user and version", snapshot)
 			}
+
+			err := snapshot.Validate()
 
 			if (err == nil) != (len(test.wantErrs) == 0) {
 				t.Fatalf("got %v, want %v", err, test.wantErrs)

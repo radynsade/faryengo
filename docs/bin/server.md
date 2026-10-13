@@ -43,15 +43,20 @@ users choose one of their workspaces at `/office/<language>/workspaces`, or
 create one at `/office/<language>/workspaces/new`; the creator becomes the new
 workspace's first member and lands on its overview. A workspace's dashboard is served at
 `/office/<language>/workspaces/<workspace>` and has Overview, Budgets,
-Transactions, Goals, Reports, and Settings pages, which are empty for now. A
-workspace's settings list its members and let any member rename it, add
-another existing user to it by email, and remove other members. A workspace the user does
-not belong to sends them back to choosing one. The
-settings are also available outside any workspace at
-`/office/<language>/settings`, without the workspace sidebar. There users
-change their names and email, and their password; changing the email or the
-password signs them out on every other device and keeps the current one
-signed in. A visitor who is
+Transactions, Goals, Reports, and Settings pages, which are empty for now except
+the Settings. A workspace's settings, at
+`/office/<language>/workspaces/<workspace>/settings`, list its members and let
+any member rename it, add another existing user to it by email, and remove
+other members. A workspace the user does not belong to sends them back to
+choosing one, and its settings are not found. The profile settings are served at
+`/office/<language>/profile-settings`, without the workspace sidebar, and
+inside each workspace at
+`/office/<language>/workspaces/<workspace>/profile-settings`, where the
+workspace's dashboard and sidebar stay. The Settings link in the account menu
+leads to the profile settings, inside the current workspace when there is one.
+There users change their names and email, and their password; changing
+the email or the password signs them out on every other device and keeps the
+current one signed in. A visitor who is
 not signed in is sent to the sign-in page.
 
 Press Ctrl+C or send SIGTERM to stop the server gracefully. Startup and runtime

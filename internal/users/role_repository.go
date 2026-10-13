@@ -39,21 +39,13 @@ func NewRoleFilter(
 	nameLike string,
 	permissions Permissions,
 	isSuper *bool,
-) (RoleFilter, error) {
-	var (
-		err    error
-		filter RoleFilter
-	)
-
-	filter = RoleFilter{
+) RoleFilter {
+	return RoleFilter{
 		IDLike:      idLike,
 		NameLike:    nameLike,
 		Permissions: permissions,
 		IsSuper:     isSuper,
 	}
-
-	err = filter.Validate()
-	return filter, err
 }
 
 func (f RoleFilter) Validate() error {
@@ -146,22 +138,14 @@ func NewRoleQuery(
 	sortBy RoleSort,
 	limit uint,
 	page uint,
-) (RoleQuery, error) {
-	var (
-		err   error
-		query RoleQuery
-	)
-
-	query = RoleQuery{
+) RoleQuery {
+	return RoleQuery{
 		Filter:    filter,
 		SortOrder: sortOrder,
 		SortBy:    sortBy,
 		Limit:     limit,
 		Page:      page,
 	}
-
-	err = query.Validate()
-	return query, err
 }
 
 // Page is 1-based, and both Limit and Page must be set.

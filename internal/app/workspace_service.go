@@ -151,7 +151,8 @@ func (s *WorkspaceService) FindForMember(
 	)
 
 	if err = s.check(); err == nil {
-		membership, err = workspaces.NewMembership(id, userID)
+		membership = workspaces.NewMembership(id, userID)
+		err = membership.Validate()
 
 		if err != nil {
 			err = fmt.Errorf("find workspace of a member: %w", err)
@@ -331,7 +332,8 @@ func (s *WorkspaceService) AddMember(
 	err := s.check()
 
 	if err == nil {
-		membership, err = workspaces.NewMembership(workspaceID, userID)
+		membership = workspaces.NewMembership(workspaceID, userID)
+		err = membership.Validate()
 
 		if err != nil {
 			err = fmt.Errorf("add workspace member: %w", err)
@@ -431,7 +433,8 @@ func (s *WorkspaceService) AddMemberByEmail(
 		user, err = s.users.FindByEmail(ctx, email)
 
 		if err == nil {
-			membership, err = workspaces.NewMembership(request.WorkspaceID, user.ID)
+			membership = workspaces.NewMembership(request.WorkspaceID, user.ID)
+			err = membership.Validate()
 		}
 
 		if err == nil {
@@ -471,7 +474,8 @@ func (s *WorkspaceService) RemoveMember(
 	err := s.check()
 
 	if err == nil {
-		membership, err = workspaces.NewMembership(workspaceID, userID)
+		membership = workspaces.NewMembership(workspaceID, userID)
+		err = membership.Validate()
 
 		if err != nil {
 			err = fmt.Errorf("remove workspace member: %w", err)
@@ -554,9 +558,9 @@ func (s *WorkspaceService) create(
 			if createErr := s.repository.Create(ctx, workspace); createErr != nil {
 				err = createErr
 			} else if creatorID != nil {
-				membership, membershipErr := workspaces.NewMembership(workspace.ID, *creatorID)
+				membership := workspaces.NewMembership(workspace.ID, *creatorID)
 
-				if membershipErr != nil {
+				if membershipErr := membership.Validate(); membershipErr != nil {
 					err = membershipErr
 				} else if addErr := s.repository.AddMember(ctx, membership); addErr != nil {
 					err = addErr

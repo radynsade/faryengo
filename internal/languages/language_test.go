@@ -31,16 +31,6 @@ func TestValueConstructors(t *testing.T) {
 		}, NativeName(strings.Repeat("ā", MaxNativeNameLength+1)), ErrNativeNameTooLong},
 		{"translation", func() (any, error) { return constructed(NewTranslation("Redaktors")) }, Translation("Redaktors"), nil},
 		{"empty translation", func() (any, error) { return constructed(NewTranslation("")) }, Translation(""), ErrTranslationEmpty},
-		{"text", func() (any, error) {
-			return constructed(NewText(map[string]string{"en": "Editor", "lv": "Redaktors"}))
-		}, Text{"en": "Editor", "lv": "Redaktors"}, nil},
-		{"missing text", func() (any, error) { return constructed(NewText(nil)) }, Text(nil), ErrTextNil},
-		{"text without translations", func() (any, error) {
-			return constructed(NewText(map[string]string{}))
-		}, Text{}, ErrTextWithoutTranslations},
-		{"text with a blank translation", func() (any, error) {
-			return constructed(NewText(map[string]string{"en": " "}))
-		}, Text{"en": " "}, ErrTranslationEmpty},
 	}
 
 	for _, tt := range tests {
@@ -53,6 +43,43 @@ func TestValueConstructors(t *testing.T) {
 
 			if !errors.Is(err, tt.wantErr) || (err == nil) != (tt.wantErr == nil) {
 				t.Fatalf("got error %v, want %v", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// The text constructor only assigns, so it keeps invalid translations for
+// its validation to report.
+
+func TestTextValidate(t *testing.T) {
+	tests := []struct {
+		name         string
+		translations map[Code]Translation
+		want         error
+	}{
+		{"valid", map[Code]Translation{"en": "Editor", "lv": "Redaktors"}, nil},
+		{"missing", nil, ErrTextNil},
+		{"without translations", map[Code]Translation{}, ErrTextWithoutTranslations},
+		{"blank translation", map[Code]Translation{"en": " "}, ErrTranslationEmpty},
+		{"invalid code", map[Code]Translation{"english": "Editor"}, ErrCodeInvalid},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			text := NewText(tt.translations)
+
+			if !reflect.DeepEqual(map[Code]Translation(text), tt.translations) {
+				t.Fatalf("NewText() = %#v, want %#v", text, tt.translations)
+			}
+
+			err := text.Validate()
+
+			if !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
+				t.Fatalf("Validate() = %v, want %v", err, tt.want)
+			}
+
+			if tt.want != nil && !errors.Is(err, ErrTextInvalid) {
+				t.Fatalf("Validate() = %v, want it wrapped in %v", err, ErrTextInvalid)
 			}
 		})
 	}

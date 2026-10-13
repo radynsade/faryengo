@@ -4,19 +4,10 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"time"
 
-	"github.com/a-h/templ"
-
-	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/security"
-	"github.com/radynsade/faryengo/internal/security/emailpass"
-	"github.com/radynsade/faryengo/internal/security/sessionid"
-	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
-	officei18n "github.com/radynsade/faryengo/web/office/i18n"
-	"github.com/radynsade/faryengo/web/office/templates/pages"
 	"github.com/radynsade/faryengo/web/office/utils"
 )
 
@@ -24,360 +15,61 @@ import (
 // Settings
 //
 
-// The settings exist outside any workspace, without the sidebar, and as a
-// section of each workspace. Showing them consumes the confirmations a saved
-// change left for them.
+// The profile settings belong to the User and are shown outside any
+// workspace or inside one; a workspace's settings are a section of that
+// workspace. Both confirm a saved change on the page the redirect leads to.
 
-type settingsScope struct {
-	current   *security.Identity
-	workspace *workspaces.Workspace
-	url       string
-}
-
-// Settings page
-
-func (h *Handler) settings(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.settingsScope(writer, request)
-
-	if ok {
-		bag, err := h.flashes.Take(request.Context(), scope.current.Session)
-
-		if err != nil {
-			slog.ErrorContext(request.Context(), "office flash storage", "error", err)
-			utils.Fail(writer, request, http.StatusServiceUnavailable, "errors.settings_unavailable")
-		} else {
-			content := utils.SettingsContentProps(request, scope.current, scope.workspace, scope.url, bag.Get(flashmsg.Success))
-
-			h.renderSettings(writer, request, http.StatusOK, scope, content, "")
-		}
-	}
-}
-
-// Changing the email replaces the credentials, so this device signs in again
-// with the new email and the confirmed password; every other device is signed
-// out. A change of names alone keeps every Session.
-
-func (h *Handler) updateProfile(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.settingsScope(writer, request)
-
-	if ok {
-		var user *users.User
-
-		form, err := utils.ParseProfileForm(writer, request)
-
-		if err == nil {
-			user, err = h.users.UpdateProfile(request.Context(), input.UpdateProfileInput{
-				ID:              scope.current.User.ID,
-				FirstName:       form.FirstName,
-				LastName:        form.LastName,
-				Email:           form.Email,
-				CurrentPassword: form.CurrentPassword,
-				UpdatedAt:       form.UpdatedAt,
-			})
-		}
-
-		if err == nil {
-			messages := []string{officei18n.T(request.Context(), "settings.profile_saved")}
-			password := ""
-
-			if user.Email != scope.current.User.Email {
-				password = form.CurrentPassword
-			}
-
-			h.settingsSaved(writer, request, scope, user, password, messages)
-		} else {
-			content := utils.SettingsContentProps(request, scope.current, scope.workspace, scope.url, nil)
-			content.Profile.FirstName, content.Profile.LastName, content.Profile.Email = form.FirstName, form.LastName, form.Email
-			content.Profile.FieldErrors = utils.ProfileFieldErrors(request.Context(), err)
-
-			if !form.UpdatedAt.IsZero() {
-				content.Profile.UpdatedAt = form.UpdatedAt.Format(time.RFC3339Nano)
-			}
-
-			status, region := http.StatusUnprocessableEntity, pages.ProfileFormID
-			confirm, confirming := utils.PasswordConfirmation(request.Context(), err, form.Confirmed)
-
-			if confirming {
-				content.Profile.Confirm, region = confirm, pages.ProfileConfirmID
-			} else if content.Profile.FieldErrors == nil {
-				status, content.Profile.Error = utils.SettingsFormError(request.Context(), err)
-				h.logSettingsFailure(request, status, err)
-			}
-
-			h.renderSettings(writer, request, status, scope, content, region)
-		}
-	}
-}
-
-// A new password replaces the credentials, so this device signs in again with
-// it; every other device is signed out.
-
-func (h *Handler) changePassword(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.settingsScope(writer, request)
-
-	if ok {
-		var user *users.User
-
-		form, err := utils.ParsePasswordForm(writer, request)
-
-		if err == nil {
-			user, err = h.users.ChangePassword(request.Context(), input.ChangePasswordInput{
-				ID:              scope.current.User.ID,
-				CurrentPassword: form.CurrentPassword,
-				NewPassword:     form.NewPassword,
-			})
-		}
-
-		if err == nil {
-			messages := []string{officei18n.T(request.Context(), "settings.password_changed")}
-
-			h.settingsSaved(writer, request, scope, user, form.NewPassword, messages)
-		} else {
-			content := utils.SettingsContentProps(request, scope.current, scope.workspace, scope.url, nil)
-			content.Password.FieldErrors = utils.PasswordFieldErrors(request.Context(), err)
-			status, region := http.StatusUnprocessableEntity, pages.PasswordFormID
-			confirm, confirming := utils.PasswordConfirmation(request.Context(), err, form.Confirmed)
-
-			if confirming {
-				content.Password.Confirm, region = confirm, pages.PasswordConfirmID
-			} else if content.Password.FieldErrors == nil {
-				status, content.Password.Error = utils.SettingsFormError(request.Context(), err)
-				h.logSettingsFailure(request, status, err)
-			}
-
-			h.renderSettings(writer, request, status, scope, content, region)
-		}
-	}
-}
-
-// A workspace's name is the same for every member, so any member may change
-// it; the scope has already checked the membership.
-
-func (h *Handler) renameWorkspace(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.settingsScope(writer, request)
-
-	if ok {
-		var renamed *workspaces.Workspace
-
-		form, err := utils.ParseWorkspaceForm(writer, request)
-
-		if err == nil {
-			renamed, err = h.workspaces.Rename(request.Context(), input.RenameWorkspaceInput{ID: scope.workspace.ID, Name: form.Name})
-		}
-
-		if err == nil {
-			scope.workspace = renamed
-			h.settingsSaved(writer, request, scope, nil, "", []string{officei18n.T(request.Context(), "settings.workspace_saved")})
-		} else if errors.Is(err, workspaces.ErrWorkspaceNotFound) {
-			http.Redirect(writer, request, utils.WorkspacesPath(request), http.StatusSeeOther)
-		} else {
-			content := utils.SettingsContentProps(request, scope.current, scope.workspace, scope.url, nil)
-			content.Workspace.Name = form.Name
-			content.Workspace.FieldErrors = utils.WorkspaceFieldErrors(request.Context(), err)
-			status := http.StatusUnprocessableEntity
-
-			if content.Workspace.FieldErrors == nil {
-				status, content.Workspace.Error = utils.SettingsFormError(request.Context(), err)
-				h.logSettingsFailure(request, status, err)
-			}
-
-			h.renderSettings(writer, request, status, scope, content, pages.WorkspaceFormID)
-		}
-	}
-}
-
-// Any member may add another existing User by email; the scope has already
-// checked the membership. The confirmation names the added User.
-
-func (h *Handler) addWorkspaceMember(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.settingsScope(writer, request)
-
-	if ok {
-		var member *users.User
-
-		form, err := utils.ParseMemberForm(writer, request)
-
-		if err == nil {
-			member, err = h.workspaces.AddMemberByEmail(request.Context(), input.AddMemberByEmailInput{
-				WorkspaceID: scope.workspace.ID,
-				Email:       form.Email,
-			})
-		}
-
-		if err == nil {
-			message := officei18n.T(request.Context(), "settings.member_added", map[string]any{
-				"Name":  utils.FullName(member),
-				"Email": string(member.Email),
-			})
-
-			h.settingsSaved(writer, request, scope, nil, "", []string{message})
-		} else if errors.Is(err, workspaces.ErrWorkspaceNotFound) {
-			http.Redirect(writer, request, utils.WorkspacesPath(request), http.StatusSeeOther)
-		} else {
-			content := utils.SettingsContentProps(request, scope.current, scope.workspace, scope.url, nil)
-			content.Member.Email = form.Email
-			content.Member.FieldErrors = utils.MemberFieldErrors(request.Context(), err)
-			status := http.StatusUnprocessableEntity
-
-			if content.Member.FieldErrors == nil {
-				status, content.Member.Error = utils.SettingsFormError(request.Context(), err)
-				h.logSettingsFailure(request, status, err)
-			}
-
-			h.renderSettings(writer, request, status, scope, content, pages.MemberFormID)
-		}
-	}
-}
-
-// Any member may remove another one, who can be added again by email. The
-// signed-in User does not remove themselves from here, so such a request, and
-// one for a User who is no longer a member, changes nothing and shows the
-// current members.
-
-func (h *Handler) removeWorkspaceMember(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.settingsScope(writer, request)
-
-	if ok {
-		var member *users.User
-
-		id, err := utils.ParseRemoveMemberForm(writer, request)
-
-		if err == nil && id != scope.current.User.ID {
-			member, err = h.users.FindByID(request.Context(), id)
-
-			if err == nil {
-				err = h.workspaces.RemoveMember(request.Context(), scope.workspace.ID, id)
-			}
-		}
-
-		if err == nil && member != nil {
-			message := officei18n.T(request.Context(), "settings.member_removed", map[string]any{"Name": utils.FullName(member)})
-
-			h.settingsSaved(writer, request, scope, nil, "", []string{message})
-		} else if err == nil || errors.Is(err, users.ErrUserNotFound) || errors.Is(err, workspaces.ErrMembershipNotFound) {
-			http.Redirect(writer, request, scope.url, http.StatusSeeOther)
-		} else if errors.Is(err, utils.ErrFormInvalid) {
-			utils.Fail(writer, request, http.StatusBadRequest, "errors.form")
-		} else {
-			slog.ErrorContext(request.Context(), "office workspace member removal", "error", err)
-			utils.Fail(writer, request, http.StatusServiceUnavailable, "errors.settings_unavailable")
-		}
-	}
-}
-
-//
-// Helpers
-//
-
-// A visitor who is not signed in is sent to the sign-in page, and a workspace
-// that is missing or that the User does not belong to sends them back to
-// choosing one. The response is written when the scope cannot be resolved.
-
-func (h *Handler) settingsScope(
+func (h *Handler) settingsSaved(
 	writer http.ResponseWriter,
 	request *http.Request,
-) (settingsScope, bool) {
-	var scope settingsScope
+	session *security.Session,
+	settingsURL string,
+	messages []string,
+) {
+	var err error
 
-	current, err := h.authenticate(writer, request)
-
-	if err == nil {
-		scope.current, scope.url = current, utils.OfficePath(request)+"/settings"
-
-		if request.PathValue("workspace") != "" {
-			scope.workspace, err = h.findWorkspace(request, current)
-
-			if err == nil {
-				scope.url = utils.WorkspacePath(request, scope.workspace.ID) + "/settings"
-			}
-		}
+	for index := 0; err == nil && index < len(messages); index++ {
+		err = h.flashes.Add(request.Context(), session, flashmsg.Success, messages[index])
 	}
 
-	if err == nil {
-		// The scope is resolved.
-	} else if utils.IsUnauthenticated(err) {
+	if err != nil {
+		// The change is committed; only its confirmation is lost.
+		slog.ErrorContext(request.Context(), "office flash storage", "error", err)
+	}
+
+	http.Redirect(writer, request, settingsURL, http.StatusSeeOther)
+}
+
+// A visitor who is not signed in is sent to the sign-in page. Settings inside
+// a workspace that is missing or that the User does not belong to are not
+// found; a form posted to them, such as from a page left open after the User
+// was removed, leads back to choosing a workspace.
+
+func (h *Handler) settingsUnavailable(writer http.ResponseWriter, request *http.Request, err error) {
+	if utils.IsUnauthenticated(err) {
 		http.Redirect(writer, request, utils.OfficePath(request)+"/sign-in", http.StatusSeeOther)
+	} else if errors.Is(err, workspaces.ErrWorkspaceNotFound) && request.Method == http.MethodGet {
+		utils.Fail(writer, request, http.StatusNotFound, "errors.not_found")
 	} else if errors.Is(err, workspaces.ErrWorkspaceNotFound) {
 		http.Redirect(writer, request, utils.WorkspacesPath(request), http.StatusSeeOther)
 	} else {
 		slog.ErrorContext(request.Context(), "office settings", "error", err)
 		utils.Fail(writer, request, http.StatusServiceUnavailable, "errors.settings_unavailable")
 	}
-
-	return scope, err == nil
 }
 
-// A saved change is confirmed on the settings page the redirect leads to.
-// When a password is given, the change replaced the credentials and ended
-// every Session, so this device signs in again with it and the confirmation
-// waits under the new Session. If signing in again fails, the change stays
-// committed and the User signs in themselves.
+// Showing either page consumes the confirmations a saved change left for it.
 
-func (h *Handler) settingsSaved(
-	writer http.ResponseWriter,
-	request *http.Request,
-	scope settingsScope,
-	user *users.User,
-	password string,
-	messages []string,
-) {
-	var (
-		session            = scope.current.Session
-		renewErr, flashErr error
-	)
+func (h *Handler) settingsNotices(request *http.Request, session *security.Session) ([]string, error) {
+	var notices []string
 
-	if password != "" {
-		session, renewErr = h.renewSession(writer, request, scope.current.Session, user, password)
-		messages = append(messages, officei18n.T(request.Context(), "settings.signed_out_elsewhere"))
-	}
-
-	for index := 0; renewErr == nil && flashErr == nil && index < len(messages); index++ {
-		flashErr = h.flashes.Add(request.Context(), session, flashmsg.Success, messages[index])
-	}
-
-	if renewErr != nil {
-		slog.ErrorContext(request.Context(), "office sign-in after a credentials change", "error", renewErr)
-		http.Redirect(writer, request, utils.OfficePath(request)+"/sign-in", http.StatusSeeOther)
-	} else {
-		if flashErr != nil {
-			// The change is committed; only its confirmation is lost.
-			slog.ErrorContext(request.Context(), "office flash storage", "error", flashErr)
-		}
-
-		http.Redirect(writer, request, scope.url, http.StatusSeeOther)
-	}
-}
-
-// The ended Session's record is removed once the new one is issued; it can no
-// longer authenticate either way, so a failure to remove it is only logged.
-
-func (h *Handler) renewSession(
-	writer http.ResponseWriter,
-	request *http.Request,
-	ended *security.Session,
-	user *users.User,
-	password string,
-) (*security.Session, error) {
-	var id sessionid.ID
-
-	session, err := h.passwords.SignIn(request.Context(), emailpass.Credentials{Email: user.Email, Password: password})
+	bag, err := h.flashes.Take(request.Context(), session)
 
 	if err == nil {
-		id, err = h.sessions.Issue(request.Context(), session)
+		notices = bag.Get(flashmsg.Success)
 	}
 
-	if err == nil {
-		h.cookies.Set(writer, utils.SessionCookie, string(id), session.ExpiresAt)
-
-		if signOutErr := h.sessions.SignOut(request.Context(), ended, false); signOutErr != nil {
-			slog.WarnContext(request.Context(), "office ended session cleanup", "error", signOutErr)
-		}
-	} else {
-		h.cookies.Clear(writer, utils.SessionCookie)
-		session = nil
-	}
-
-	return session, err
+	return notices, err
 }
 
 // Failures shown at the top of a form are logged unless they come from the
@@ -387,64 +79,4 @@ func (h *Handler) logSettingsFailure(request *http.Request, status int, err erro
 	if status >= http.StatusInternalServerError {
 		slog.ErrorContext(request.Context(), "office settings", "error", err)
 	}
-}
-
-// A failed in-page submission replaces only its form, or only the form's
-// confirmation when the current password is missing or wrong, so the other
-// fields keep what was typed; every other response is the whole page, inside
-// the workspace with its members when the settings belong to one. A member
-// list that cannot be loaded shows its error instead.
-
-func (h *Handler) renderSettings(
-	writer http.ResponseWriter,
-	request *http.Request,
-	status int,
-	scope settingsScope,
-	content pages.SettingsContentProps,
-	region string,
-) {
-	title := officei18n.T(request.Context(), "nav.settings")
-
-	if region != "" && utils.IsPartial(request) {
-		utils.RenderFormRegion(writer, request, status, region, pages.SettingsFormFailure(settingsRegion(region, content)))
-	} else if scope.workspace != nil {
-		members, err := h.workspaces.ListMembers(request.Context(), scope.workspace.ID)
-
-		if err != nil {
-			slog.ErrorContext(request.Context(), "office workspace members", "error", err)
-			content.MembersError = officei18n.T(request.Context(), "errors.members_unavailable")
-		} else {
-			content.Members = utils.MemberItems(members, scope.current, scope.url)
-		}
-
-		dashboard := utils.DashboardProps(request, scope.current, scope.workspace, "settings", title)
-		dashboard.Narrow = true
-
-		utils.Render(writer, request, status, title, pages.WorkspaceSettings(dashboard, content))
-	} else {
-		props := pages.SettingsProps{Layout: utils.SettingsLayoutProps(request, scope.current), Content: content}
-
-		utils.Render(writer, request, status, title, pages.Settings(props))
-	}
-}
-
-func settingsRegion(region string, content pages.SettingsContentProps) templ.Component {
-	var component templ.Component
-
-	switch region {
-	case pages.WorkspaceFormID:
-		component = pages.WorkspaceForm(*content.Workspace)
-	case pages.MemberFormID:
-		component = pages.MemberForm(*content.Member)
-	case pages.ProfileConfirmID:
-		component = pages.ProfileConfirm(content.Profile)
-	case pages.PasswordFormID:
-		component = pages.PasswordForm(content.Password)
-	case pages.PasswordConfirmID:
-		component = pages.PasswordConfirm(content.Password)
-	default:
-		component = pages.ProfileForm(content.Profile)
-	}
-
-	return component
 }

@@ -24,6 +24,7 @@ in that order. Domain repository files that define query types use `Filter`,
 | Section | Declaration order |
 | --- | --- |
 | Value type | Limits, error declarations and related patterns, type, constructor, validation methods. |
+| Composite value type | Error declarations, type, constructor, validation methods. |
 | Enum-like value type | Type, explicitly typed constants, constructor, validation methods. |
 | Aggregate | Error declarations, struct, constructor, validation methods. |
 | Domain repository | Sentinels, typed create/update/delete failure contracts, repository interface. |
@@ -181,7 +182,7 @@ and `n` for name values.
 | `<step>Err` | An error belonging to a particular step. |
 | `index` | A slice index; avoid `i`. |
 | `Is<Adjective>` | Boolean state fields. |
-| `New<Type>` | Constructors of aggregates, entities, and values. |
+| `New<Type>` | Constructors of domain objects. |
 | `Max<Subject><Unit>`, `Min<Subject><Unit>` | Named limits; distinguish character lengths from byte sizes. |
 
 Derive related limits from one authoritative constant rather than repeating
@@ -220,14 +221,32 @@ ordinary representations where appropriate.
 Domain values expose explicit validation. Scalar and collection values use
 value receivers; aggregates use pointer receivers.
 
-A value or entity constructor takes the raw input in its underlying
-representation, such as a string, a UUID, a slice of strings, or a map of
-strings, builds the value, calls its `Validate` method, and returns
-`(<Type>, error)`. It returns the built value even when validation fails, so a
-caller can still show invalid input. An aggregate constructor takes values
-that are already valid, in declaration order, and only assigns them; it does
-not validate and does not return an error. Identity generation and defaults
-stay outside constructors, as the architecture requires.
+Only primitive values validate in their constructors. A primitive value wraps
+a single primitive, such as a string or a UUID. Its constructor takes the raw
+input in that representation, builds the value, calls its `Validate` method,
+and returns `(<Type>, error)`. It returns the built value even when
+validation fails, so a caller can still show invalid input.
+
+A composite domain object consists of other domain objects: an aggregate, an
+entity, a struct value such as a membership, a collection such as a set of
+permissions or a translated text, or a repository filter or query. Its
+constructor takes domain objects in declaration order and only assigns them;
+it does not validate and does not return an error. The caller builds the
+parts with their own constructors and calls the composite's `Validate`
+method before relying on it.
+
+```go
+func NewMembership(workspaceID WorkspaceID, userID users.UserID, role Role) Membership {
+	return Membership{
+		WorkspaceID: workspaceID,
+		UserID:      userID,
+		Role:        role,
+	}
+}
+```
+
+Identity generation and defaults stay outside constructors, as the
+architecture requires.
 
 Validate without changing the value. For text, check blankness before invalid
 content and length. Match the measurement to the declared unit: character

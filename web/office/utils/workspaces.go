@@ -22,7 +22,7 @@ func CreateWorkspaceProps(
 ) pages.CreateWorkspaceProps {
 	props := pages.CreateWorkspaceProps{
 		Layout: layouts.StandaloneProps{
-			TopBar: topBarProps(request, current, OfficePath(request)+"/settings", false),
+			TopBar: topBarProps(request, current, false),
 		},
 		Action:    WorkspacesPath(request),
 		CancelURL: WorkspacesPath(request),
@@ -58,7 +58,7 @@ func SelectWorkspaceProps(
 
 	return pages.SelectWorkspaceProps{
 		Layout: layouts.StandaloneProps{
-			TopBar: topBarProps(request, current, OfficePath(request)+"/settings", false),
+			TopBar: topBarProps(request, current, false),
 		},
 		Workspaces: items,
 		RetryURL:   WorkspacesPath(request),

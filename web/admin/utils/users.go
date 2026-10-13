@@ -105,9 +105,9 @@ func ParseUserQuery(request *http.Request) (users.UserQuery, error) {
 	// The values are kept even when they are invalid, so the filter form
 	// shows them; the transport rules above report the first failure.
 	sortBy, sortErr := users.NewUserSort(parameters.Sort)
-	filter, filterErr := users.NewUserFilter(parameters.IDLike, parameters.EmailLike, parameters.NameLike, roleID)
+	filter := users.NewUserFilter(parameters.IDLike, parameters.EmailLike, parameters.NameLike, roleID)
 
-	query, queryErr := users.NewUserQuery(
+	query := users.NewUserQuery(
 		filter,
 		domquery.SortOrder(parameters.Order == "asc"),
 		sortBy,
@@ -115,7 +115,7 @@ func ParseUserQuery(request *http.Request) (users.UserQuery, error) {
 		uint(max(parameters.Page, 0)),
 	)
 
-	for _, domainErr := range []error{roleIDErr, sortErr, filterErr, queryErr} {
+	for _, domainErr := range []error{roleIDErr, sortErr, query.Validate()} {
 		if err == nil {
 			err = domainErr
 		}

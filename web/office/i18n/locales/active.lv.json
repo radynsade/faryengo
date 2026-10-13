@@ -77,6 +77,9 @@
   "nav.settings": {
     "other": "Iestatījumi"
   },
+  "nav.workspace_settings": {
+    "other": "Iestatījumi"
+  },
   "dashboard.navigation": {
     "other": "Galvenā izvēlne"
   },
@@ -244,6 +247,9 @@
   },
   "settings.workspace": {
     "other": "Darbvieta"
+  },
+  "settings.workspace_title": {
+    "other": "Darbvietas iestatījumi"
   },
   "settings.workspace_description": {
     "other": "Nosaukums, ko redz visi šīs darbvietas dalībnieki."

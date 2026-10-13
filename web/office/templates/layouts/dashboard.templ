@@ -5,8 +5,11 @@ import (
 	"github.com/radynsade/faryengo/web/office/templates/components"
 )
 
+// Key names the item's label and marks it active; Icon names its symbol.
+
 type NavigationItem struct {
 	Key  string
+	Icon string
 	Href string
 }
 
@@ -106,7 +109,7 @@ templ dashboardMenu(props DashboardProps, outOfBand bool) {
 						}
 						{ components.NavigationAttributes()... }
 					>
-						@components.Icon(item.Key)
+						@components.Icon(item.Icon)
 						<span>{ officei18n.T(ctx, "nav." + item.Key) }</span>
 					</a>
 				</li>

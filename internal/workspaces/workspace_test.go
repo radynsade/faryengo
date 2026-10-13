@@ -132,7 +132,10 @@ func TestWorkspaceValidate(t *testing.T) {
 	}
 }
 
-func TestNewMembership(t *testing.T) {
+// The constructor only assigns, so an invalid membership is reported by its
+// validation.
+
+func TestMembershipValidate(t *testing.T) {
 	tests := []struct {
 		name        string
 		workspaceID WorkspaceID
@@ -147,69 +150,49 @@ func TestNewMembership(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			membership, err := NewMembership(tt.workspaceID, tt.userID)
+			membership := NewMembership(tt.workspaceID, tt.userID, RoleViewer)
 
-			if membership.WorkspaceID != tt.workspaceID || membership.UserID != tt.userID {
-				t.Fatalf("NewMembership() = %+v, want the given workspace and user", membership)
+			if membership.WorkspaceID != tt.workspaceID || membership.UserID != tt.userID || membership.Role != RoleViewer {
+				t.Fatalf("NewMembership() = %+v, want the given workspace, user, and role", membership)
 			}
 
+			err := membership.Validate()
+
 			if (err == nil) != (len(tt.wantErrs) == 0) {
-				t.Fatalf("NewMembership() error = %v, want %v", err, tt.wantErrs)
+				t.Fatalf("Validate() = %v, want %v", err, tt.wantErrs)
 			}
 
 			for _, want := range tt.wantErrs {
 				if !errors.Is(err, want) {
-					t.Fatalf("NewMembership() error = %v, want %v", err, want)
+					t.Fatalf("Validate() = %v, want %v", err, want)
 				}
 			}
 
 			if err != nil && !errors.Is(err, ErrMembershipInvalid) {
-				t.Fatalf("NewMembership() error = %v, want it wrapped in %v", err, ErrMembershipInvalid)
+				t.Fatalf("Validate() = %v, want it wrapped in %v", err, ErrMembershipInvalid)
 			}
 		})
 	}
 }
 
+// The filter and query constructors only assign, so they keep invalid values
+// for their validation to report.
+
 func TestNewWorkspaceQuery(t *testing.T) {
-	tests := []struct {
-		name          string
-		nameLike      string
-		sortBy        string
-		limit         uint
-		wantFilterErr error
-		wantSortErr   error
-		wantQueryErr  error
-	}{
-		{"valid", "des", "name", 20, nil, nil, nil},
-		{"invalid filter", "\xff", "name", 20, ErrWorkspaceFilterInvalid, nil, ErrWorkspaceFilterInvalid},
-		{"unknown sort", "des", "created_at", 20, nil, ErrWorkspaceQueryInvalid, ErrWorkspaceQueryInvalid},
-		{"missing limit", "des", "name", 0, nil, nil, ErrWorkspaceQueryInvalid},
+	filter := NewWorkspaceFilter("0192", "\xff", &testUserID)
+	query := NewWorkspaceQuery(filter, domquery.SortOrderAsc, WorkspaceSortName, 0, 1)
+
+	if query.Filter != filter || query.SortOrder != domquery.SortOrderAsc ||
+		query.SortBy != WorkspaceSortName || query.Limit != 0 || query.Page != 1 {
+		t.Fatalf("NewWorkspaceQuery() = %+v, want the given values", query)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			filter, filterErr := NewWorkspaceFilter("", tt.nameLike, &testUserID)
-			sortBy, sortErr := NewWorkspaceSort(tt.sortBy)
-			query, queryErr := NewWorkspaceQuery(filter, domquery.SortOrderAsc, sortBy, tt.limit, 1)
+	if filter.IDLike != "0192" || filter.NameLike != "\xff" || filter.MemberID != &testUserID {
+		t.Fatalf("NewWorkspaceFilter() = %+v, want the given values", filter)
+	}
 
-			if query.Filter.NameLike != tt.nameLike || query.Filter.MemberID != &testUserID ||
-				query.SortBy != WorkspaceSort(tt.sortBy) || query.Limit != tt.limit || query.Page != 1 {
-				t.Fatalf("NewWorkspaceQuery() = %+v, want the given values", query)
-			}
-
-			for _, check := range []struct {
-				constructor string
-				err, want   error
-			}{
-				{"NewWorkspaceFilter", filterErr, tt.wantFilterErr},
-				{"NewWorkspaceSort", sortErr, tt.wantSortErr},
-				{"NewWorkspaceQuery", queryErr, tt.wantQueryErr},
-			} {
-				if !errors.Is(check.err, check.want) || (check.err == nil) != (check.want == nil) {
-					t.Fatalf("%s() error = %v, want %v", check.constructor, check.err, check.want)
-				}
-			}
-		})
+	if err := query.Validate(); !errors.Is(err, ErrWorkspaceFilterInvalid) {
+		t.Fatalf("Validate() = %v, want %v", err, ErrWorkspaceFilterInvalid)
 	}
 }
 

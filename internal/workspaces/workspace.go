@@ -91,6 +91,46 @@ func (n WorkspaceName) Validate() error {
 }
 
 //
+// Role
+//
+
+var (
+	ErrRoleInvalid          = errors.New("invalid role")
+	ErrRolePermissionDenied = errors.New("permission denied")
+)
+
+type Role string
+
+const (
+	// Allowed only to view a content of a workspace.
+	RoleViewer Role = "viewer"
+	// Allowed to view and edit a content of a workspace.
+	RoleEditor Role = "editor"
+	// Allowed to view, edit and manage users of a workspace.
+	RoleOwner Role = "owner"
+)
+
+func NewRole(value string) (Role, error) {
+	var (
+		err        error
+		permission Role
+	)
+
+	permission = Role(value)
+	err = permission.Validate()
+	return permission, err
+}
+
+func (p Role) Validate() error {
+	switch p {
+	case RoleViewer, RoleEditor, RoleOwner:
+		return nil
+	default:
+		return ErrRoleInvalid
+	}
+}
+
+//
 // Membership
 //
 
@@ -99,21 +139,15 @@ var ErrMembershipInvalid = errors.New("invalid membership")
 type Membership struct {
 	WorkspaceID WorkspaceID
 	UserID      users.UserID
+	Role        Role
 }
 
-func NewMembership(workspaceID WorkspaceID, userID users.UserID) (Membership, error) {
-	var (
-		err        error
-		membership Membership
-	)
-
-	membership = Membership{
+func NewMembership(workspaceID WorkspaceID, userID users.UserID, role Role) Membership {
+	return Membership{
 		WorkspaceID: workspaceID,
 		UserID:      userID,
+		Role:        role,
 	}
-
-	err = membership.Validate()
-	return membership, err
 }
 
 func (m Membership) Validate() error {

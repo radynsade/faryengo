@@ -20,8 +20,9 @@ var (
 		designPath + "/goals",
 		designPath + "/reports",
 		designPath + "/settings",
+		designPath + "/profile-settings",
 	}
-	standalonePages = []string{"/office/en/workspaces", "/office/en/workspaces/new", "/office/en/settings"}
+	standalonePages = []string{"/office/en/workspaces", "/office/en/workspaces/new", "/office/en/profile-settings"}
 	guestPages      = []string{"/office/en/sign-in"}
 	partial         = map[string]string{"HX-Request": "true"}
 	toContent       = map[string]string{"HX-Request": "true", "HX-Target": "dashboard-main"}
@@ -168,10 +169,12 @@ func TestTopBar(t *testing.T) {
 		}
 
 		topBar := body[start:end]
-		settingsHref := "/office/en/settings"
+		// The settings link leads to the profile settings, inside the
+		// workspace when there is one.
+		settingsHref := "/office/en/profile-settings"
 
 		if slices.Contains(dashboardPages, path) {
-			settingsHref = designPath + "/settings"
+			settingsHref = designPath + "/profile-settings"
 		}
 
 		for _, want := range []string{
@@ -229,7 +232,7 @@ func TestTopBar(t *testing.T) {
 		if start, end := strings.Index(body, "<aside"), strings.Index(body, "</aside>"); start >= 0 {
 			sidebar := body[start:end]
 
-			for _, unwanted := range []string{"language-switcher", "sign-out", "avatar", "/settings", "workspace-name", `href="/office/en/workspaces"`} {
+			for _, unwanted := range []string{"language-switcher", "sign-out", "avatar", "profile-settings", "workspace-name", `href="/office/en/workspaces"`} {
 				if strings.Contains(sidebar, unwanted) {
 					t.Fatalf("GET %s sidebar contains %s", path, unwanted)
 				}
@@ -311,7 +314,7 @@ func TestResponsesAreMinimized(t *testing.T) {
 		{path: designPath, cookies: cookies},
 		{path: designPath + "/budgets", cookies: cookies, headers: toContent},
 		{path: "/office/en/workspaces", cookies: cookies},
-		{path: "/office/en/settings", cookies: cookies},
+		{path: "/office/en/profile-settings", cookies: cookies},
 		{path: "/office/en/sign-in"},
 		{path: "/office/en/sign-in", headers: partial},
 	} {

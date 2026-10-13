@@ -9,7 +9,7 @@
 ## Office
 
 - [x] Replace form messages with alerts from the top. There is an example in the "Ant Design".
-- [ ] Separate section to control workspace members, roles and permissions. Don't do per permission access, prepare prebuilt roles.
+- [x] Separate section to control workspace members, roles and permissions. Don't do per permission access, prepare prebuilt roles.
 - [x] 404 page.
 - [x] 5XX page.
 

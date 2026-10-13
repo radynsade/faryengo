@@ -102,11 +102,24 @@ func ParseRoleQuery(request *http.Request) (users.RoleQuery, error) {
 
 	// The values are kept even when they are invalid, so the filter form
 	// shows them; the transport rules above report the first failure.
-	permissions, permissionsErr := users.NewPermissions(parameters.Permissions)
-	sortBy, sortErr := users.NewRoleSort(parameters.Sort)
-	filter, filterErr := users.NewRoleFilter(parameters.IDLike, parameters.NameLike, permissions, isSuper)
+	var (
+		permissions    []users.Permission
+		permissionsErr error
+	)
 
-	query, queryErr := users.NewRoleQuery(
+	for _, value := range parameters.Permissions {
+		permission, permissionErr := users.NewPermission(value)
+		permissions = append(permissions, permission)
+
+		if permissionsErr == nil {
+			permissionsErr = permissionErr
+		}
+	}
+
+	sortBy, sortErr := users.NewRoleSort(parameters.Sort)
+	filter := users.NewRoleFilter(parameters.IDLike, parameters.NameLike, users.NewPermissions(permissions), isSuper)
+
+	query := users.NewRoleQuery(
 		filter,
 		domquery.SortOrder(parameters.Order == "asc"),
 		sortBy,
@@ -114,7 +127,7 @@ func ParseRoleQuery(request *http.Request) (users.RoleQuery, error) {
 		uint(max(parameters.Page, 0)),
 	)
 
-	for _, domainErr := range []error{permissionsErr, sortErr, filterErr, queryErr} {
+	for _, domainErr := range []error{permissionsErr, sortErr, query.Validate()} {
 		if err == nil {
 			err = domainErr
 		}

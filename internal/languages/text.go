@@ -56,24 +56,8 @@ var (
 	ErrTextWithoutTranslations = errors.New("there is no any translation")
 )
 
-// The value maps language codes to translations.
-
-func NewText(value map[string]string) (Text, error) {
-	var (
-		err  error
-		text Text
-	)
-
-	if value != nil {
-		text = make(Text, len(value))
-
-		for code, translation := range value {
-			text[Code(code)] = Translation(translation)
-		}
-	}
-
-	err = text.Validate()
-	return text, err
+func NewText(translations map[Code]Translation) Text {
+	return Text(translations)
 }
 
 func (t Text) Validate() error {

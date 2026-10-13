@@ -40,20 +40,12 @@ func NewWorkspaceFilter(
 	idLike string,
 	nameLike string,
 	memberID *users.UserID,
-) (WorkspaceFilter, error) {
-	var (
-		err    error
-		filter WorkspaceFilter
-	)
-
-	filter = WorkspaceFilter{
+) WorkspaceFilter {
+	return WorkspaceFilter{
 		IDLike:   idLike,
 		NameLike: nameLike,
 		MemberID: memberID,
 	}
-
-	err = filter.Validate()
-	return filter, err
 }
 
 func (f WorkspaceFilter) Validate() error {
@@ -142,22 +134,14 @@ func NewWorkspaceQuery(
 	sortBy WorkspaceSort,
 	limit uint,
 	page uint,
-) (WorkspaceQuery, error) {
-	var (
-		err   error
-		query WorkspaceQuery
-	)
-
-	query = WorkspaceQuery{
+) WorkspaceQuery {
+	return WorkspaceQuery{
 		Filter:    filter,
 		SortOrder: sortOrder,
 		SortBy:    sortBy,
 		Limit:     limit,
 		Page:      page,
 	}
-
-	err = query.Validate()
-	return query, err
 }
 
 // Page is 1-based, and both Limit and Page must be set.

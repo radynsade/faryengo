@@ -35,7 +35,7 @@ func TestSelectWorkspace(t *testing.T) {
 		`<a class="button button--secondary" href="/office/en/workspaces/new" hx-boost="true"`,
 		"Create a workspace",
 		`href="/office/lv/workspaces"`,
-		`<a class="dropdown__item" href="/office/en/settings"`,
+		`<a class="dropdown__item" href="/office/en/profile-settings"`,
 		`action="/office/en/sign-out"`,
 		"Sign out",
 	} {

@@ -240,7 +240,8 @@ func credentialsSnapshot(
 	user, err := record.user()
 
 	if err == nil {
-		snapshot, err = users.NewCredentialsSnapshot(user, uuid.UUID(version.Bytes))
+		snapshot = users.NewCredentialsSnapshot(user, uuid.UUID(version.Bytes))
+		err = snapshot.Validate()
 	}
 
 	if err != nil {

@@ -87,41 +87,24 @@ func TestUserFilterCount(t *testing.T) {
 	}
 }
 
-func TestNewUserQuery(t *testing.T) {
-	roleID := RoleID(uuid.MustParse("01920000-0000-7000-8000-000000000002"))
+// The filter and query constructors only assign, so they keep invalid values
+// for their validation to report.
 
-	tests := []struct {
-		name          string
-		emailLike     string
-		roleID        RoleID
-		page          uint
-		wantFilterErr error
-		wantQueryErr  error
-	}{
-		{"valid", "ada", roleID, 1, nil, nil},
-		{"invalid filter", "\xff", roleID, 1, ErrUserFilterInvalid, ErrUserFilterInvalid},
-		{"nil role", "ada", RoleID{}, 1, ErrRoleIDInvalid, ErrRoleIDInvalid},
-		{"missing page", "ada", roleID, 0, nil, ErrInvalidUserQuery},
+func TestNewUserQuery(t *testing.T) {
+	roleID := RoleID{}
+	filter := NewUserFilter("", "ada", "", &roleID)
+	query := NewUserQuery(filter, domquery.SortOrderDesc, UserSortCreatedAt, 20, 1)
+
+	if filter.EmailLike != "ada" || filter.RoleID != &roleID {
+		t.Fatalf("NewUserFilter() = %+v, want the given values", filter)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			filter, filterErr := NewUserFilter("", tt.emailLike, "", &tt.roleID)
-			query, queryErr := NewUserQuery(filter, domquery.SortOrderDesc, UserSortCreatedAt, 20, tt.page)
+	if query.Filter != filter || query.SortOrder != domquery.SortOrderDesc ||
+		query.SortBy != UserSortCreatedAt || query.Limit != 20 || query.Page != 1 {
+		t.Fatalf("NewUserQuery() = %+v, want the given values", query)
+	}
 
-			if query.Filter.EmailLike != tt.emailLike || query.Filter.RoleID != &tt.roleID ||
-				query.SortOrder != domquery.SortOrderDesc || query.SortBy != UserSortCreatedAt ||
-				query.Limit != 20 || query.Page != tt.page {
-				t.Fatalf("NewUserQuery() = %+v, want the given values", query)
-			}
-
-			if !errors.Is(filterErr, tt.wantFilterErr) || (filterErr == nil) != (tt.wantFilterErr == nil) {
-				t.Fatalf("NewUserFilter() error = %v, want %v", filterErr, tt.wantFilterErr)
-			}
-
-			if !errors.Is(queryErr, tt.wantQueryErr) || (queryErr == nil) != (tt.wantQueryErr == nil) {
-				t.Fatalf("NewUserQuery() error = %v, want %v", queryErr, tt.wantQueryErr)
-			}
-		})
+	if err := query.Validate(); !errors.Is(err, ErrRoleIDInvalid) || !errors.Is(err, ErrUserFilterInvalid) {
+		t.Fatalf("Validate() = %v, want %v wrapped in %v", err, ErrRoleIDInvalid, ErrUserFilterInvalid)
 	}
 }

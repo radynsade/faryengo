@@ -31,13 +31,19 @@ Follow [project layout](layout.md) for package boundaries and
 - Preserve valid existing identities regardless of their UUID version.
 - Treat identity generation, validation, and persistence as separate
   responsibilities.
-- Value objects and entities validate themselves when they are constructed:
-  their constructors return the value together with its validation error.
-  Aggregates are the exception: their constructors take values that are
-  already valid, do not validate again, and do not return an error.
+- Primitive domain values, which wrap a single primitive such as a string or
+  a UUID, validate themselves when they are constructed: their constructors
+  return the value together with its validation error.
+- Composite domain objects, which consist of other domain objects, are not
+  validated by their constructors. This covers aggregates, entities, and
+  composite value objects, including collections of domain values and
+  repository filters and queries. Their constructors take domain objects,
+  only assign them, and do not return an error; callers validate the
+  composite explicitly before relying on it.
 - Build domain values from external input, such as requests, command
   arguments, and stored rows, only through their constructors, and handle the
-  constructor's error. Do not convert raw input to a domain type directly.
+  errors of primitive constructors. Do not convert raw input to a domain type
+  directly.
 - Keep authoritative business constraints in the owning domain, and perform
   validation before side effects. Validation must not modify domain state.
 
