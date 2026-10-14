@@ -1,0 +1,124 @@
+// The office palette. Every color the interface uses derives from the base
+// colors below, so a rebrand changes only this block. The module emits no CSS;
+// foundations/tokens publishes the results as custom properties.
+@use 'sass:color';
+@use 'sass:math';
+
+// Base colors.
+$primary: #f1563b !default;
+$danger: #b3173c !default;
+$success: #2e7d32 !default;
+$accent: #ffcf6e !default;
+$ink: #231a19 !default;
+$canvas: #f8f6f2 !default;
+$surface: #ffffff !default;
+$light: #ffffff !default;
+
+// Text on filled primary controls. The fill darkens as needed to keep it legible.
+$on-primary: $light !default;
+
+// How much the darker primary shades (fills, hovers, text) lose saturation.
+// Higher values turn them from a bright red toward brown.
+$primary-shade-desaturation: 35% !default;
+
+// WCAG relative luminance of a color.
+@function luminance($color) {
+	$sum: 0;
+	$weights: (
+		'red': 0.2126,
+		'green': 0.7152,
+		'blue': 0.0722,
+	);
+
+	@each $channel, $weight in $weights {
+		$value: math.div(color.channel($color, $channel, $space: rgb), 255);
+		$linear: math.div($value, 12.92);
+
+		@if $value > 0.04045 {
+			$linear: math.pow(math.div($value + 0.055, 1.055), 2.4);
+		}
+
+		$sum: $sum + $linear * $weight;
+	}
+
+	@return $sum;
+}
+
+@function contrast($a, $b) {
+	$la: luminance($a);
+	$lb: luminance($b);
+
+	@return math.div(math.max($la, $lb) + 0.05, math.min($la, $lb) + 0.05);
+}
+
+// The text color, ink or light, that reads best on a background.
+@function on($background) {
+	@if contrast($background, $ink) > contrast($background, $light) {
+		@return $ink;
+	}
+
+	@return $light;
+}
+
+// The nearest shade of a background that reaches text contrast with $text,
+// moving away from the text color.
+@function readable($background, $text, $minimum: 4.5) {
+	$step: 2%;
+
+	@if luminance($text) > luminance($background) {
+		$step: -2%;
+	}
+
+	@while contrast($background, $text) < $minimum {
+		$background: color.scale($background, $lightness: $step);
+	}
+
+	@return $background;
+}
+
+// A hover shade that moves away from the text color, so hovering never lowers
+// the contrast of a filled control.
+@function hover($background, $text: on($background)) {
+	@if $text == $ink {
+		@return color.scale($background, $lightness: 14%);
+	}
+
+	@return color.scale($background, $lightness: -14%);
+}
+
+// Space-separated RGB channels for rgb(var(--rgb-name) / alpha).
+@function channels($color) {
+	@return color.channel($color, 'red', $space: rgb)
+		color.channel($color, 'green', $space: rgb)
+		color.channel($color, 'blue', $space: rgb);
+}
+
+// Derived colors.
+$primary-shade: color.scale(
+	$primary,
+	$saturation: -$primary-shade-desaturation
+);
+$primary-fill: readable($primary-shade, $on-primary);
+$primary-strong: color.scale($primary-shade, $lightness: -25%);
+$primary-deep: color.scale($primary-shade, $lightness: -66%);
+$danger-strong: color.scale($danger, $lightness: -18%);
+$muted: color.mix($ink, $surface, 66%);
+$border: color.mix($ink, $surface, 12%);
+$border-strong: color.mix($ink, $surface, 24%);
+
+// The showcase gradient fills brand panels; light text sits on it.
+$showcase-start: $primary-deep;
+$showcase-middle: $primary-strong;
+$showcase-end: $primary;
+
+@if contrast($primary-strong, $surface) < 4.5 {
+	@warn 'The strong primary shade is too light for text on surfaces.';
+}
+
+@if contrast($danger, $surface) < 4.5 {
+	@warn 'The danger color is too light for text on surfaces.';
+}
+
+@if contrast($muted, $canvas) < 4.5 {
+	@warn 'The muted color is too light for text on the canvas.';
+}

@@ -20,10 +20,10 @@
 	&--inverse {
 		--brand-mark-ink: var(--color-primary-strong);
 
-		color: var(--color-on-primary);
+		color: var(--color-on-showcase);
 
 		.brand__name {
-			color: var(--color-on-primary);
+			color: var(--color-on-showcase);
 		}
 	}
 }

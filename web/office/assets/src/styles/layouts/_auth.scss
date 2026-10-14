@@ -20,8 +20,14 @@ $wide: 960px;
 		padding: 2rem;
 		overflow: hidden;
 		border-radius: var(--radius-lg);
-		background: var(--gradient-showcase);
-		color: var(--color-on-primary);
+		// Leather relief over the brand gradient; the texture is neutral gray, so
+		// soft-light keeps the gradient's colors. The tile is a raster at twice
+		// its displayed size, rendered at build time by plugins/leather-texture.mjs.
+		background:
+			url('@generated/leather.png') 0 0 / 256px 256px,
+			var(--gradient-showcase);
+		background-blend-mode: soft-light, normal;
+		color: var(--color-on-showcase);
 
 		// Soft glow behind the decorative card.
 		&::before {
@@ -34,7 +40,7 @@ $wide: 960px;
 			border-radius: 50%;
 			background: radial-gradient(
 				circle,
-				rgb(255 207 110 / 0.35),
+				rgb(var(--rgb-accent) / 0.35),
 				transparent 70%
 			);
 		}
@@ -59,7 +65,7 @@ $wide: 960px;
 	}
 
 	&__pitch-text {
-		color: rgb(255 255 255 / 0.78);
+		color: rgb(var(--rgb-light) / 0.78);
 		font-size: 0.9375rem;
 	}
 
@@ -85,7 +91,7 @@ $wide: 960px;
 		height: 1.5rem;
 		border-radius: 50%;
 		background: var(--color-accent);
-		color: #2a1d6e;
+		color: var(--color-showcase-deep);
 
 		.icon {
 			width: 0.875rem;
@@ -104,9 +110,9 @@ $wide: 960px;
 		row-gap: 0.625rem;
 		width: min(100%, 19rem);
 		padding: 1.25rem;
-		border: 1px solid rgb(255 255 255 / 0.25);
+		border: 1px solid rgb(var(--rgb-light) / 0.25);
 		border-radius: var(--radius-lg);
-		background: rgb(255 255 255 / 0.12);
+		background: rgb(var(--rgb-light) / 0.12);
 		backdrop-filter: blur(12px);
 		box-shadow: var(--shadow-soft);
 	}
@@ -117,14 +123,18 @@ $wide: 960px;
 		aspect-ratio: 1;
 		border-radius: 50%;
 		background:
-			radial-gradient(closest-side, #5747d4 72%, transparent 73%),
-			conic-gradient(var(--color-accent) 0 68%, rgb(255 255 255 / 0.2) 0);
+			radial-gradient(
+				closest-side,
+				var(--color-primary-strong) 72%,
+				transparent 73%
+			),
+			conic-gradient(var(--color-accent) 0 68%, rgb(var(--rgb-light) / 0.2) 0);
 	}
 
 	&__card-art-bar {
 		height: 0.5rem;
 		border-radius: var(--radius-pill);
-		background: rgb(255 255 255 / 0.85);
+		background: rgb(var(--rgb-light) / 0.85);
 
 		&--1 {
 			width: 90%;

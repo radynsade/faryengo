@@ -10,7 +10,7 @@
 	box-shadow: var(--shadow-soft);
 
 	&::backdrop {
-		background: rgb(29 27 46 / 0.45);
+		background: rgb(var(--rgb-ink) / 0.45);
 	}
 
 	&__body {

@@ -35,8 +35,10 @@
 	}
 }
 
-// A destructive action, such as removing a member.
+// A destructive action, such as removing a member. The crimson outline on
+// hover sets it apart from the primary tint of current-page icons.
 .icon-button--danger:hover {
 	color: var(--color-danger);
 	background: var(--color-danger-soft);
+	box-shadow: inset 0 0 0 1px var(--color-danger-border);
 }

@@ -9,12 +9,12 @@
 	padding: 0 1.25rem;
 	border: 0;
 	border-radius: var(--radius-md);
-	background: var(--color-primary);
+	background: var(--color-primary-fill);
 	color: var(--color-on-primary);
 	font-weight: 700;
 	text-decoration: none;
 	cursor: pointer;
-	box-shadow: 0 8px 16px -10px var(--color-primary);
+	box-shadow: 0 8px 16px -10px var(--color-primary-fill);
 	transition:
 		background-color var(--transition),
 		transform var(--transition);
@@ -24,7 +24,7 @@
 	}
 
 	&:hover {
-		background: var(--color-primary-strong);
+		background: var(--color-primary-hover);
 
 		svg {
 			transform: translateX(3px);
@@ -45,6 +45,25 @@
 		&:hover {
 			border-color: var(--color-primary);
 			background: var(--color-primary-soft);
+
+			svg {
+				transform: none;
+			}
+		}
+	}
+
+	// A destructive action. It never shares the primary fill: crimson text and
+	// border on a surface at rest, a solid crimson fill only while pointed at.
+	&--danger {
+		border: 1.5px solid var(--color-danger);
+		background: var(--color-surface);
+		color: var(--color-danger);
+		box-shadow: none;
+
+		&:hover {
+			border-color: var(--color-danger-strong);
+			background: var(--color-danger-strong);
+			color: var(--color-on-danger);
 
 			svg {
 				transform: none;
