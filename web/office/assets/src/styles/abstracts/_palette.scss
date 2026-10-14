@@ -5,9 +5,9 @@
 @use 'sass:list';
 @use 'sass:math';
 
-// Base colors: teal ink, tangerine highlighter, then states and neutrals.
-$primary: #0b7a6e !default;
-$secondary: #ffb347 !default;
+// Base colors: forest ink, coral accent, then states and neutrals.
+$primary: #2d6a4f !default;
+$secondary: #ff8c61 !default;
 // Highlights: avatar rings, check marks, stitching.
 $accent: $secondary !default;
 $danger: #b3173c !default;
