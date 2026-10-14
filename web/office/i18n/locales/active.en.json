@@ -352,5 +352,329 @@
   },
   "errors.home": {
     "other": "Go to the home page"
+  },
+  "nav.categories": {
+    "other": "Categories"
+  },
+  "categories.new": {
+    "other": "New category"
+  },
+  "categories.new_description": {
+    "other": "Give it a name, a color, and an icon so it is easy to spot."
+  },
+  "categories.list": {
+    "other": "Categories of this workspace"
+  },
+  "categories.read_only": {
+    "other": "Only editors and owners can change categories."
+  },
+  "categories.empty": {
+    "other": "There are no categories yet."
+  },
+  "categories.details": {
+    "other": "Category"
+  },
+  "categories.delete": {
+    "other": "Delete category"
+  },
+  "categories.delete_description": {
+    "other": "The category is removed from the workspace for every member."
+  },
+  "categories.delete_submit": {
+    "other": "Delete"
+  },
+  "categories.delete_confirm_title": {
+    "other": "Delete this category?"
+  },
+  "categories.delete_confirm": {
+    "other": "“{{.Name}}” will be deleted. This cannot be undone."
+  },
+  "categories.no_icon": {
+    "other": "No icon"
+  },
+  "categories.create_submit": {
+    "other": "Add category"
+  },
+  "categories.save_submit": {
+    "other": "Save category"
+  },
+  "categories.created": {
+    "other": "Category “{{.Name}}” was added."
+  },
+  "categories.saved": {
+    "other": "Category “{{.Name}}” was saved."
+  },
+  "categories.deleted": {
+    "other": "Category “{{.Name}}” was deleted."
+  },
+  "fields.category_name": {
+    "other": "Name"
+  },
+  "fields.category_name_placeholder": {
+    "other": "Groceries"
+  },
+  "fields.category_color": {
+    "other": "Color"
+  },
+  "fields.category_icon": {
+    "other": "Icon"
+  },
+  "validation.choose_one": {
+    "other": "Choose one of the options."
+  },
+  "errors.categories_unavailable": {
+    "other": "Categories are unavailable right now. Please try again later."
+  },
+  "pagination.label": {
+    "other": "Pages"
+  },
+  "pagination.previous": {
+    "other": "Previous"
+  },
+  "pagination.next": {
+    "other": "Next"
+  },
+  "pagination.summary": {
+    "other": "Page {{.Page}} of {{.Pages}}"
+  },
+  "category_colors.green": {
+    "other": "Green"
+  },
+  "category_colors.blue": {
+    "other": "Blue"
+  },
+  "category_colors.orange": {
+    "other": "Orange"
+  },
+  "category_colors.red": {
+    "other": "Red"
+  },
+  "category_colors.purple": {
+    "other": "Purple"
+  },
+  "category_colors.brown": {
+    "other": "Brown"
+  },
+  "category_colors.grey": {
+    "other": "Grey"
+  },
+  "category_colors.yellow": {
+    "other": "Yellow"
+  },
+  "category_icons.player-play": {
+    "other": "Play"
+  },
+  "category_icons.device-gamepad-2": {
+    "other": "Gamepad"
+  },
+  "category_icons.trash": {
+    "other": "Trash can"
+  },
+  "category_icons.shopping-cart": {
+    "other": "Shopping cart"
+  },
+  "category_icons.shopping-bag": {
+    "other": "Shopping bag"
+  },
+  "category_icons.car": {
+    "other": "Car"
+  },
+  "category_icons.bus": {
+    "other": "Bus"
+  },
+  "category_icons.moped": {
+    "other": "Moped"
+  },
+  "category_icons.motorbike": {
+    "other": "Motorbike"
+  },
+  "category_icons.ferry": {
+    "other": "Ferry"
+  },
+  "category_icons.bike": {
+    "other": "Bicycle"
+  },
+  "category_icons.scooter": {
+    "other": "Scooter"
+  },
+  "category_icons.helicopter": {
+    "other": "Helicopter"
+  },
+  "category_icons.truck": {
+    "other": "Truck"
+  },
+  "category_icons.camper": {
+    "other": "Camper"
+  },
+  "category_icons.file-invoice": {
+    "other": "Invoice file"
+  },
+  "category_icons.invoice": {
+    "other": "Invoice"
+  },
+  "category_icons.cash-banknote": {
+    "other": "Banknote"
+  },
+  "category_icons.cash-coin": {
+    "other": "Cash and coin"
+  },
+  "category_icons.receipt": {
+    "other": "Receipt"
+  },
+  "category_icons.receipt-2": {
+    "other": "Receipt with a total"
+  },
+  "category_icons.receipt-bitcoin": {
+    "other": "Bitcoin receipt"
+  },
+  "category_icons.receipt-dollar": {
+    "other": "Dollar receipt"
+  },
+  "category_icons.receipt-euro": {
+    "other": "Euro receipt"
+  },
+  "category_icons.receipt-pound": {
+    "other": "Pound receipt"
+  },
+  "category_icons.receipt-rupee": {
+    "other": "Rupee receipt"
+  },
+  "category_icons.receipt-yen": {
+    "other": "Yen receipt"
+  },
+  "category_icons.receipt-yuan": {
+    "other": "Yuan receipt"
+  },
+  "category_icons.sport-billiard": {
+    "other": "Billiards"
+  },
+  "category_icons.exercise-ball": {
+    "other": "Exercise ball"
+  },
+  "category_icons.ball-baseball": {
+    "other": "Baseball"
+  },
+  "category_icons.wallet": {
+    "other": "Wallet"
+  },
+  "category_icons.credit-card": {
+    "other": "Credit card"
+  },
+  "category_icons.ball-american-football": {
+    "other": "American football"
+  },
+  "category_icons.ball-volleyball": {
+    "other": "Volleyball"
+  },
+  "category_icons.pokeball": {
+    "other": "Poké Ball"
+  },
+  "category_icons.wrecking-ball": {
+    "other": "Wrecking ball"
+  },
+  "category_icons.hammer-drill": {
+    "other": "Hammer drill"
+  },
+  "category_icons.balloon": {
+    "other": "Balloon"
+  },
+  "category_icons.ballpen": {
+    "other": "Ballpoint pen"
+  },
+  "category_icons.ball-football": {
+    "other": "Football"
+  },
+  "category_icons.ball-basketball": {
+    "other": "Basketball"
+  },
+  "category_icons.barbell": {
+    "other": "Barbell"
+  },
+  "category_icons.device-mobile": {
+    "other": "Mobile phone"
+  },
+  "category_icons.crystal-ball": {
+    "other": "Crystal ball"
+  },
+  "category_icons.bell": {
+    "other": "Bell"
+  },
+  "category_icons.pill": {
+    "other": "Pill"
+  },
+  "category_icons.grill": {
+    "other": "Grill"
+  },
+  "category_icons.directions": {
+    "other": "Directions"
+  },
+  "category_icons.beach": {
+    "other": "Beach"
+  },
+  "category_icons.globe": {
+    "other": "Globe"
+  },
+  "category_icons.compass": {
+    "other": "Compass"
+  },
+  "category_icons.plane": {
+    "other": "Plane"
+  },
+  "category_icons.luggage": {
+    "other": "Luggage"
+  },
+  "category_icons.world-map": {
+    "other": "World map"
+  },
+  "category_icons.gavel": {
+    "other": "Gavel"
+  },
+  "category_icons.language-katakana": {
+    "other": "Katakana"
+  },
+  "category_icons.language-hiragana": {
+    "other": "Hiragana"
+  },
+  "category_icons.moneybag": {
+    "other": "Money bag"
+  },
+  "category_icons.pig-money": {
+    "other": "Piggy bank"
+  },
+  "category_icons.coins": {
+    "other": "Coins"
+  },
+  "category_icons.scale": {
+    "other": "Scales"
+  },
+  "category_icons.planet": {
+    "other": "Planet"
+  },
+  "category_icons.eyeglass-2": {
+    "other": "Glasses"
+  },
+  "category_icons.flame": {
+    "other": "Flame"
+  },
+  "category_icons.home-2": {
+    "other": "House"
+  },
+  "category_icons.home": {
+    "other": "Home"
+  },
+  "category_icons.horse": {
+    "other": "Horse"
+  },
+  "category_icons.plant": {
+    "other": "Plant"
+  },
+  "category_icons.ironing": {
+    "other": "Ironing"
+  },
+  "category_icons.cactus": {
+    "other": "Cactus"
+  },
+  "category_icons.shirt": {
+    "other": "Shirt"
   }
 }

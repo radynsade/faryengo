@@ -17,6 +17,8 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app"
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
+	"github.com/radynsade/faryengo/internal/categories"
+	categoriesmock "github.com/radynsade/faryengo/internal/categories/mock"
 	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
@@ -47,17 +49,19 @@ const (
 )
 
 type fixture struct {
-	mux        *http.ServeMux
-	user       *users.User
-	role       *users.Role
-	version    uuid.UUID
-	workspaces []*workspaces.Workspace
-	members    map[workspaces.WorkspaceID]workspaces.Memberships
-	findErr    error
-	createErr  error
-	updateErr  error
-	membersErr error
-	others     []*users.User
+	mux         *http.ServeMux
+	user        *users.User
+	role        *users.Role
+	version     uuid.UUID
+	workspaces  []*workspaces.Workspace
+	members     map[workspaces.WorkspaceID]workspaces.Memberships
+	findErr     error
+	createErr   error
+	updateErr   error
+	membersErr  error
+	others      []*users.User
+	categories  []*categories.Category
+	categoryErr error
 }
 
 // The fixture has one signed-in User with an ordinary Role, who owns two of
@@ -145,10 +149,13 @@ func newFixture(t *testing.T) *fixture {
 	userService, err := app.NewUserService(&appmock.Transactor{}, f.users(), hasher)
 	must(t, err)
 
+	categoryService, err := app.NewCategoryService(&appmock.Transactor{}, f.categoryRepository(), f.workspaceRepository())
+	must(t, err)
+
 	flashes, err := flashredis.NewStore(client, "office", time.Minute)
 	must(t, err)
 
-	handler, err := NewHandler(passwords, sessions, identities, workspaceService, userService, flashes, false)
+	handler, err := NewHandler(passwords, sessions, identities, workspaceService, categoryService, userService, flashes, false)
 	must(t, err)
 
 	f.mux = http.NewServeMux()
@@ -536,4 +543,118 @@ func must(t *testing.T, err error) {
 	if err != nil {
 		t.Fatal(err)
 	}
+}
+
+// The categories are kept in memory in name order. Find honors the query's
+// workspace and page, like the PostgreSQL repository; categoryErr fails every
+// read and write.
+
+func (f *fixture) categoryRepository() *categoriesmock.CategoryRepository {
+	matching := func(filter categories.CategoryFilter) []*categories.Category {
+		result := make([]*categories.Category, 0, len(f.categories))
+
+		for _, category := range f.categories {
+			if filter.WorkspaceID == nil || category.WorkspaceID == *filter.WorkspaceID {
+				result = append(result, category)
+			}
+		}
+
+		slices.SortFunc(result, func(a, b *categories.Category) int {
+			return strings.Compare(strings.ToLower(string(a.Name)), strings.ToLower(string(b.Name)))
+		})
+
+		return result
+	}
+
+	index := func(id categories.CategoryID) int {
+		return slices.IndexFunc(f.categories, func(category *categories.Category) bool { return category.ID == id })
+	}
+
+	return &categoriesmock.CategoryRepository{
+		CreateFunc: func(_ context.Context, category *categories.Category) categories.ErrCategoryCreateFailed {
+			var err categories.ErrCategoryCreateFailed
+
+			if f.categoryErr != nil {
+				err = categoriesmock.NewErrCategoryCreateFailed(category, f.categoryErr)
+			} else {
+				f.categories = append(f.categories, category)
+			}
+
+			return err
+		},
+		UpdateFunc: func(_ context.Context, category *categories.Category) categories.ErrCategoryUpdateFailed {
+			var err categories.ErrCategoryUpdateFailed
+
+			if f.categoryErr != nil {
+				err = categoriesmock.NewErrCategoryUpdateFailed(category, f.categoryErr)
+			} else if found := index(category.ID); found < 0 {
+				err = categoriesmock.NewErrCategoryUpdateFailed(category, categories.ErrCategoryNotFound)
+			} else {
+				f.categories[found] = category
+			}
+
+			return err
+		},
+		DeleteFunc: func(_ context.Context, id categories.CategoryID) categories.ErrCategoryDeleteFailed {
+			var err categories.ErrCategoryDeleteFailed
+
+			if f.categoryErr != nil {
+				err = categoriesmock.NewErrCategoryDeleteFailed(id, f.categoryErr)
+			} else if found := index(id); found < 0 {
+				err = categoriesmock.NewErrCategoryDeleteFailed(id, categories.ErrCategoryNotFound)
+			} else {
+				f.categories = slices.Delete(f.categories, found, found+1)
+			}
+
+			return err
+		},
+		FindByIDFunc: func(_ context.Context, id categories.CategoryID) (*categories.Category, error) {
+			var (
+				category *categories.Category
+				err      = categories.ErrCategoryNotFound
+			)
+
+			if f.categoryErr != nil {
+				err = f.categoryErr
+			} else if found := index(id); found >= 0 {
+				copied := *f.categories[found]
+				category, err = &copied, nil
+			}
+
+			return category, err
+		},
+		FindFunc: func(_ context.Context, query categories.CategoryQuery) ([]*categories.Category, error) {
+			var result []*categories.Category
+
+			if f.categoryErr == nil {
+				all := matching(query.Filter)
+				start := min(int((query.Page-1)*query.Limit), len(all))
+				result = all[start:min(start+int(query.Limit), len(all))]
+			}
+
+			return result, f.categoryErr
+		},
+		CountFunc: func(_ context.Context, filter categories.CategoryFilter) (int, error) {
+			return len(matching(filter)), f.categoryErr
+		},
+	}
+}
+
+func (f *fixture) addCategory(workspaceID string, name string, icon string, color categories.Color) *categories.Category {
+	var categoryIcon *categories.Icon
+
+	if icon != "" {
+		categoryIcon = new(categories.Icon(icon))
+	}
+
+	category := categories.NewCategory(
+		categories.CategoryID(uuid.Must(uuid.NewV7())),
+		workspaces.WorkspaceID(uuid.MustParse(workspaceID)),
+		categories.CategoryName(name),
+		categoryIcon,
+		color,
+	)
+	f.categories = append(f.categories, category)
+
+	return category
 }

@@ -19,7 +19,7 @@ import (
 // Home
 
 func (h *Handler) home(writer http.ResponseWriter, request *http.Request) {
-	h.withPanel(writer, request, layouts.SectionHome, "", func(_ *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionHome, "", func(request *http.Request, _ *security.Identity, panel layouts.PanelProps) {
 		h.render(writer, request, http.StatusOK, panel.Title, pages.Home(panel))
 	})
 }
@@ -30,16 +30,17 @@ func (h *Handler) home(writer http.ResponseWriter, request *http.Request) {
 
 // Every panel page authenticates first: a visitor without a valid Session is
 // sent to sign in, and a user without the section's permission sees the
-// panel with an error instead of the section.
+// panel with an error instead of the section. The section is handled with the
+// request whose context carries the identity.
 
 func (h *Handler) withPanel(
 	writer http.ResponseWriter,
 	request *http.Request,
 	section string,
 	permission users.Permission,
-	handle func(current *security.Identity, panel layouts.PanelProps),
+	handle func(request *http.Request, current *security.Identity, panel layouts.PanelProps),
 ) {
-	current, err := h.authenticate(writer, request)
+	request, current, err := h.authenticate(writer, request)
 
 	if utils.IsUnauthenticated(err) {
 		http.Redirect(writer, request, utils.AdminPath(request)+"/sign-in", http.StatusSeeOther)
@@ -49,7 +50,7 @@ func (h *Handler) withPanel(
 		panel := h.panelProps(request, current, section)
 
 		if permission == "" || current.Can(permission) {
-			handle(current, panel)
+			handle(request, current, panel)
 		} else {
 			h.renderPanelError(writer, request, current, http.StatusForbidden, "errors.section")
 		}

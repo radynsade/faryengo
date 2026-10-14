@@ -8,12 +8,12 @@ balances for each period and for the Budget as a whole.
 
 | Concept | Classification | Boundary and relationships |
 | --- | --- | --- |
-| Budget | Aggregate root | Owns Accounts, Categories, and Operation groups; defines their common calculation boundary. |
+| Budget | Aggregate root | Owns Accounts and Operation groups; defines their common calculation boundary. |
 | Account | Entity within Budget | Identified within its Budget; holds an opening balance and receives movements of money. |
-| Category | Entity within Budget | Identified within its Budget; classifies Operations of one kind. |
+| Category | Separate aggregate | Defined by the [Categories](categories.md) domain; referenced by Operations by identity and not owned by the Budget. |
 | Operation group | Owned component within Budget | Contains ordered Operations and an optional Period; has no separately defined identity. |
-| Operation | Owned component within an Operation group | Represents Income, Expense, or Transfer; references Accounts and an optional Category within its Budget. |
-| Account and category identities | Value objects | Identify entities within their respective kinds in a Budget. |
+| Operation | Owned component within an Operation group | Represents Income, Expense, or Transfer; references Accounts within its Budget and an optional Category. |
+| Account identity | Value object | Identifies an Account within a Budget. |
 | Monetary amount, repetition count, operation kind | Value objects | Describe an Operation's amount, multiplicity, and effect. |
 | Period, period boundary, planned date, currency declaration | Value objects | Describe time and monetary notation without an independent lifecycle. |
 | Calculation results | Derived values | Summarize the Budget's planned movements without changing its entities. |
@@ -22,12 +22,11 @@ balances for each period and for the Budget as a whole.
 flowchart LR
     subgraph BudgetAggregate[Budget aggregate]
         Budget[Budget root] -->|owns| Account[Accounts]
-        Budget -->|owns| Category[Categories]
         Budget -->|owns| Group[Operation groups]
         Group -->|contains| Operation[Operations]
         Operation -->|affects| Account
-        Operation -->|optionally classified by| Category
     end
+    Operation -.->|optionally classified by| Category[Category aggregate]
     Group -.->|optional| Period[Period value]
 ```
 
@@ -35,8 +34,9 @@ flowchart LR
 
 ### Budget
 
-The Budget is the consistency boundary for its Accounts, Categories, and
-Operations. Referenced Accounts and Categories must belong to this Budget.
+The Budget is the consistency boundary for its Accounts and Operations.
+Referenced Accounts must belong to this Budget. Categories are not part of the
+Budget; see [Category](#category).
 
 | Field | Domain value | Required | Meaning and rules |
 | --- | --- | --- | --- |
@@ -44,11 +44,11 @@ Operations. Referenced Accounts and Categories must belong to this Budget.
 | Display language | Language choice | No | Determines the language of labels; at most one choice. |
 | Currencies | Ordered collection of currency declarations | No | The first declared currency supplies the monetary symbol shared by Accounts and Operations. |
 | Accounts | Ordered collection of Account entities | Yes; may be empty | Defines the places where money is held; identities are unique within this collection. |
-| Categories | Ordered collection of Category entities | Yes; may be empty | Defines classifications for Operations; identities are unique within this collection. |
 | Operation groups | Ordered collection of Operation groups | Yes; may be empty | Defines calculation order; at most one group per Period and at most one without a Period. |
 
 Account order is preserved when presenting Operations. Within each Account,
-Categories follow their declared order, with uncategorized Operations last.
+uncategorized Operations come last; Categories have no declared order, so the
+order among categorized Operations is unresolved.
 Accounts and Operations have no separate currencies.
 
 ### Account
@@ -64,14 +64,11 @@ Budget and remains the same when its name or opening balance changes.
 
 ### Category
 
-A Category classifies Operations by purpose. Its identity is local to the
-Budget.
-
-| Field | Domain value | Required | Meaning and rules |
-| --- | --- | --- | --- |
-| Identity | Category identity | Yes | Nonempty and unique among this Budget's Categories. |
-| Name | Text | Yes | Gives the Category's display name. |
-| Kind | Operation kind | Yes | Income, Expense, or Transfer; must match every Operation assigned to this Category. |
+A Category classifies Operations by purpose. Categories are defined by the
+[Categories](categories.md) domain as their own aggregate within a Workspace;
+the Budget does not own them. A Category has no kind and no order. Which
+Categories an Operation may reference, and whether a Category restricts the
+kinds of Operations assigned to it, are unresolved.
 
 ## Owned components
 
@@ -97,7 +94,7 @@ references it requires and how its effective amount affects balances.
 | Description | Text | No | Describes the planned movement. |
 | Amount per unit | Monetary amount | Yes | Nonnegative amount for one repetition. |
 | Repetition count | Repetition count | No; defaults to one | Nonnegative whole number multiplying the amount per unit. |
-| Category | Category identity | No | References a Category in this Budget with the same kind; absence means uncategorized. |
+| Category | [Category identity](categories.md#value-objects) | No | References a Category; absence means uncategorized. |
 | Planned dates | Collection of planned dates | No | Describes when the movement is planned; does not affect its amount. |
 | Account | Account identity | For Income and Expense | References the Account credited by Income or debited by Expense. |
 | Source account | Account identity | For Transfer | References the Account from which money moves. |
@@ -118,7 +115,6 @@ Every Account reference must resolve within the owning Budget.
 | Value object | Field | Meaning and rules |
 | --- | --- | --- |
 | Account identity | Identity value | Nonempty reference to one Account within a Budget. |
-| Category identity | Identity value | Nonempty reference to one Category within a Budget. |
 | Monetary amount | Amount | Finite, exact monetary quantity; sign restrictions depend on its use. |
 | Repetition count | Count | Nonnegative whole number; zero produces an effective amount of zero. |
 | Operation kind | Kind | One of Income, Expense, or Transfer. |
@@ -198,10 +194,8 @@ groups in their declared order.
 
 ## Aggregate invariants
 
-- Account and Category identities are nonempty and unique within their
-  respective collections.
-- Every referenced Account and Category belongs to the owning Budget.
-- An Operation's Category, when present, matches its kind.
+- Account identities are nonempty and unique within the Budget's Accounts.
+- Every referenced Account belongs to the owning Budget.
 - Each Period has at most one Operation group; at most one group has no Period.
 - A Period has one or two year or month boundaries.
 - Opening balances are finite; Operation amounts are nonnegative.

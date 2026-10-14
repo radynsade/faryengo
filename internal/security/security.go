@@ -10,6 +10,10 @@ import (
 	"github.com/radynsade/faryengo/internal/users"
 )
 
+//
+// Session
+//
+
 var (
 	ErrCredentialsInvalid           = errors.New("invalid credentials")
 	ErrSessionInvalid               = errors.New("invalid session")
@@ -55,15 +59,59 @@ func (s *Session) Validate() error {
 	return err
 }
 
+//
+// Identity
+//
+
 type Identity struct {
 	Session *Session
 	User    *users.User
 	Role    *users.Role
 }
 
+// An operator acting outside any account, such as through the CLI, holds the
+// system identity: it has no Session or User, and its super Role grants every
+// permission. Only entry points that act for an operator create it; transports
+// that serve accounts never do.
+
+func NewSystemIdentity() *Identity {
+	return &Identity{Role: &users.Role{IsSuper: true}}
+}
+
 func (i *Identity) Can(permission users.Permission) bool {
 	return i != nil && i.Role.Grants(permission)
 }
+
+//
+// Identity context
+//
+
+// The identity of the caller travels to application services in the context.
+// A context without one, or with a nil one, reports ErrIdentityMissing.
+
+var ErrIdentityMissing = errors.New("no identity in the context")
+
+type identityContextKey struct{}
+
+func WithIdentity(ctx context.Context, identity *Identity) context.Context {
+	return context.WithValue(ctx, identityContextKey{}, identity)
+}
+
+func IdentityFromContext(ctx context.Context) (*Identity, error) {
+	var err error
+
+	identity, _ := ctx.Value(identityContextKey{}).(*Identity)
+
+	if identity == nil {
+		err = ErrIdentityMissing
+	}
+
+	return identity, err
+}
+
+//
+// Authenticator
+//
 
 type Authenticator[CredentialsType any] interface {
 	SignIn(ctx context.Context, credentials CredentialsType) (*Session, error)

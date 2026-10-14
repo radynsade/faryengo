@@ -9,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/radynsade/faryengo/internal/app"
-	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 	"github.com/radynsade/faryengo/web/office/templates/pages"
@@ -35,10 +34,10 @@ func (h *Handler) section(key string) http.HandlerFunc {
 	return func(writer http.ResponseWriter, request *http.Request) {
 		var found app.MemberWorkspace
 
-		current, err := h.authenticate(writer, request)
+		request, current, err := h.authenticate(writer, request)
 
 		if err == nil {
-			found, err = h.findWorkspace(request, current)
+			request, found, err = h.enterWorkspace(request)
 		}
 
 		if err == nil {
@@ -62,15 +61,16 @@ func (h *Handler) section(key string) http.HandlerFunc {
 //
 
 // A workspace ID that is not a UUID, or is nil, names no workspace, so it is
-// reported like a missing one. The workspace comes with the User's role in it.
+// reported like a missing one. The User's identity in the workspace is
+// resolved from their membership, and the returned request carries it in its
+// context for the application services. The workspace comes with the User's
+// role in it.
 
-func (h *Handler) findWorkspace(
-	request *http.Request,
-	current *security.Identity,
-) (app.MemberWorkspace, error) {
+func (h *Handler) enterWorkspace(request *http.Request) (*http.Request, app.MemberWorkspace, error) {
 	var (
-		found app.MemberWorkspace
-		id    workspaces.WorkspaceID
+		found    app.MemberWorkspace
+		identity *workspaces.Identity
+		id       workspaces.WorkspaceID
 	)
 
 	parsed, err := uuid.Parse(request.PathValue("workspace"))
@@ -82,8 +82,13 @@ func (h *Handler) findWorkspace(
 	if err != nil {
 		err = fmt.Errorf("parse workspace ID %q: %w", request.PathValue("workspace"), workspaces.ErrWorkspaceNotFound)
 	} else {
-		found, err = h.workspaces.FindForMember(request.Context(), id, current.User.ID)
+		identity, err = h.workspaces.ResolveIdentity(request.Context(), id)
 	}
 
-	return found, err
+	if err == nil {
+		request = request.WithContext(workspaces.WithIdentity(request.Context(), identity))
+		found, err = h.workspaces.FindForMember(request.Context(), id)
+	}
+
+	return request, found, err
 }

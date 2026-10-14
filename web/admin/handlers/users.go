@@ -63,7 +63,7 @@ func (h *Handler) userEdit(writer http.ResponseWriter, request *http.Request) {
 // User view
 
 func (h *Handler) userView(writer http.ResponseWriter, request *http.Request) {
-	h.withPanel(writer, request, layouts.SectionUsers, users.PermissionViewUser, func(current *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionUsers, users.PermissionViewUser, func(request *http.Request, current *security.Identity, panel layouts.PanelProps) {
 		props, err := h.userViewProps(request, current, panel)
 
 		if err != nil {
@@ -80,7 +80,7 @@ func (h *Handler) userView(writer http.ResponseWriter, request *http.Request) {
 // the dialog is replaced.
 
 func (h *Handler) userDelete(writer http.ResponseWriter, request *http.Request) {
-	h.withPanel(writer, request, layouts.SectionUsers, users.PermissionManageUser, func(current *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionUsers, users.PermissionManageUser, func(request *http.Request, current *security.Identity, panel layouts.PanelProps) {
 		var id users.UserID
 
 		props, err := h.userViewProps(request, current, panel)
@@ -95,7 +95,7 @@ func (h *Handler) userDelete(writer http.ResponseWriter, request *http.Request) 
 		}
 
 		if err == nil {
-			err = h.users.DeleteAsUser(request.Context(), current.User.ID, id)
+			err = h.users.Delete(request.Context(), id)
 		}
 
 		if err == nil {
@@ -124,7 +124,7 @@ func (h *Handler) userDelete(writer http.ResponseWriter, request *http.Request) 
 const maxRoleChoices = 1000
 
 func (h *Handler) userList(writer http.ResponseWriter, request *http.Request, load bool) {
-	h.withPanel(writer, request, layouts.SectionUsers, users.PermissionViewUser, func(current *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionUsers, users.PermissionViewUser, func(request *http.Request, current *security.Identity, panel layouts.PanelProps) {
 		code := request.PathValue("language")
 		query, err := utils.ParseUserQuery(request)
 		status := http.StatusOK
@@ -203,7 +203,7 @@ func (h *Handler) userList(writer http.ResponseWriter, request *http.Request, lo
 }
 
 func (h *Handler) userForm(writer http.ResponseWriter, request *http.Request, edit bool) {
-	h.withPanel(writer, request, layouts.SectionUsers, users.PermissionManageUser, func(current *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionUsers, users.PermissionManageUser, func(request *http.Request, current *security.Identity, panel layouts.PanelProps) {
 		var (
 			user *users.User
 			id   users.UserID

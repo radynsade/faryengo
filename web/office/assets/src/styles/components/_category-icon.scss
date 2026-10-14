@@ -1,0 +1,170 @@
+@use 'sass:list';
+
+// A category's icon is a glyph of the Tabler icon font, shown on a tile in
+// the category's color. Only the glyphs of the domain's icon catalog get a
+// class, so the stylesheet does not carry the whole font's thousands of
+// classes; adding an icon to the catalog adds its code point here.
+@font-face {
+	font-family: 'tabler-icons';
+	font-style: normal;
+	font-weight: 400;
+	font-display: block;
+	src: url('@tabler/icons-webfont/dist/fonts/tabler-icons.woff2')
+		format('woff2');
+}
+
+$glyphs: (
+	'player-play': '\ed46',
+	'device-gamepad-2': '\f1d2',
+	'trash': '\eb41',
+	'shopping-cart': '\eb25',
+	'shopping-bag': '\f5f8',
+	'car': '\ebbb',
+	'bus': '\ebe4',
+	'moped': '\ecbc',
+	'motorbike': '\eeb6',
+	'ferry': '\10074',
+	'bike': '\ea36',
+	'scooter': '\ec6c',
+	'helicopter': '\ed8e',
+	'truck': '\ebc4',
+	'camper': '\fa25',
+	'file-invoice': '\eb67',
+	'invoice': '\feab',
+	'cash-banknote': '\ee25',
+	'cash-coin': '\1029e',
+	'receipt': '\edfd',
+	'receipt-2': '\edfa',
+	'receipt-bitcoin': '\fd66',
+	'receipt-dollar': '\fd67',
+	'receipt-euro': '\fd68',
+	'receipt-pound': '\fd69',
+	'receipt-rupee': '\fd82',
+	'receipt-yen': '\fd6a',
+	'receipt-yuan': '\fd6b',
+	'sport-billiard': '\eee4',
+	'exercise-ball': '\1024c',
+	'ball-baseball': '\efa0',
+	'wallet': '\eb75',
+	'credit-card': '\ea84',
+	'ball-american-football': '\ee04',
+	'ball-volleyball': '\ec2b',
+	'pokeball': '\eec1',
+	'wrecking-ball': '\ed97',
+	'hammer-drill': '\10238',
+	'balloon': '\ef3a',
+	'ballpen': '\f06e',
+	'ball-football': '\ee06',
+	'ball-basketball': '\ec28',
+	'barbell': '\eff0',
+	'device-mobile': '\ea8a',
+	'crystal-ball': '\f57b',
+	'bell': '\ea35',
+	'pill': '\ec44',
+	'grill': '\efa9',
+	'directions': '\ea8e',
+	'beach': '\ef3d',
+	'globe': '\eab9',
+	'compass': '\ea79',
+	'plane': '\eb6f',
+	'luggage': '\efad',
+	'world-map': '\101e9',
+	'gavel': '\ef90',
+	'language-katakana': '\ef78',
+	'language-hiragana': '\ef77',
+	'moneybag': '\f506',
+	'pig-money': '\f38c',
+	'coins': '\f65d',
+	'scale': '\ebc2',
+	'planet': '\ec08',
+	'eyeglass-2': '\ee89',
+	'flame': '\ec2c',
+	'home-2': '\eac0',
+	'home': '\eac1',
+	'horse': '\fc46',
+	'plant': '\ed50',
+	'ironing': '\fa7c',
+	'cactus': '\f21b',
+	'shirt': '\ec0a',
+);
+
+// Each color has a soft tile and a strong ink that reads on it.
+$colors: (
+	'green': (
+		#e3f4e8,
+		#1f7a3d,
+	),
+	'blue': (
+		#e2eefc,
+		#1f5fb8,
+	),
+	'orange': (
+		#fdebdc,
+		#b5541a,
+	),
+	'red': (
+		#fbe4e5,
+		#b42832,
+	),
+	'purple': (
+		#eee7fc,
+		#6a3fc4,
+	),
+	'brown': (
+		#f1e8e0,
+		#7a5236,
+	),
+	'grey': (
+		#ecebef,
+		#57546a,
+	),
+	'yellow': (
+		#fcf3cf,
+		#8a6a00,
+	),
+);
+
+.category-icon {
+	display: inline-grid;
+	place-items: center;
+	flex: none;
+	width: 2.25rem;
+	height: 2.25rem;
+	border-radius: var(--radius-md);
+	background: var(--category-soft, var(--color-canvas));
+	color: var(--category-ink, var(--color-muted));
+	font-size: 1.25rem;
+	line-height: 1;
+
+	&::before {
+		font-family: 'tabler-icons' !important;
+		font-style: normal;
+		font-weight: normal;
+		speak: none;
+		-webkit-font-smoothing: antialiased;
+	}
+
+	// A category without an icon shows its color alone.
+	&--empty::before {
+		content: '';
+		width: 0.625rem;
+		height: 0.625rem;
+		border-radius: var(--radius-pill);
+		background: currentColor;
+	}
+
+	@each $name, $code in $glyphs {
+		&--#{$name}::before {
+			content: $code;
+		}
+	}
+}
+
+// The color classes set the tile's colors for an icon and for a color
+// choice alike.
+@each $name, $pair in $colors {
+	.category-color--#{$name} {
+		--category-soft: #{list.nth($pair, 1)};
+		--category-ink: #{list.nth($pair, 2)};
+	}
+}

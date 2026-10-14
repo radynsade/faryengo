@@ -7,7 +7,7 @@ import (
 )
 
 func TestHandlerConfiguration(t *testing.T) {
-	if _, err := NewHandler(nil, nil, nil, nil, nil, nil, false); err != ErrHandlerConfigInvalid {
+	if _, err := NewHandler(nil, nil, nil, nil, nil, nil, nil, false); err != ErrHandlerConfigInvalid {
 		t.Fatalf("NewHandler(nil...) = %v, want %v", err, ErrHandlerConfigInvalid)
 	}
 

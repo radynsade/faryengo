@@ -1,0 +1,356 @@
+package pages
+
+import (
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
+	"github.com/radynsade/faryengo/web/office/templates/layouts"
+)
+
+// The form names the region a failed in-page submission replaces.
+const CategoryFormID = "category-form"
+
+// Icon is empty for a category without one. Href is empty when the viewer may
+// not change the category.
+
+type CategoryItem struct {
+	ID        string
+	Name      string
+	Icon      string
+	Color     string
+	IconLabel string
+	Href      string
+}
+
+// A choice of a color or an icon; an icon choice with an empty value means
+// no icon.
+
+type CategoryChoice struct {
+	Value string
+	Label string
+}
+
+// The form starts from the category's current values, or the first color and
+// no icon for a new one; a failed submission shows the submitted values.
+
+type CategoryFormProps struct {
+	Action      string
+	Name        string
+	Icon        string
+	Color       string
+	Colors      []CategoryChoice
+	Icons       []CategoryChoice
+	Submit      string
+	CancelURL   string
+	Error       string
+	FieldErrors map[string]string
+}
+
+// The URLs are empty on the first and on the last page.
+
+type PaginationProps struct {
+	Summary     string
+	PreviousURL string
+	NextURL     string
+}
+
+// ListError replaces the list when it could not be loaded. NewURL is empty for
+// members who may not edit the workspace's content; they see the categories
+// without ways to add or change them.
+
+type CategoriesContentProps struct {
+	Notices    []string
+	NewURL     string
+	Items      []CategoryItem
+	ListError  string
+	Pagination PaginationProps
+}
+
+type EditCategoryContentProps struct {
+	Form      CategoryFormProps
+	DeleteURL string
+	Name      string
+}
+
+// Categories is a section of the workspace, inside its dashboard.
+templ Categories(dashboard layouts.DashboardProps, content CategoriesContentProps) {
+	@layouts.Dashboard(dashboard) {
+		<div class="settings">
+			@CategoriesContent(content)
+		</div>
+	}
+}
+
+// CategoriesContent shows the confirmations of a saved change as messages,
+// which come from the flash messages the redirect left for this page.
+templ CategoriesContent(props CategoriesContentProps) {
+	@components.Messages(props.Notices, false)
+	<section class="settings__section" aria-labelledby="category-list-title">
+		<div class="categories-header">
+			<header class="settings__heading">
+				<h2 id="category-list-title">{ officei18n.T(ctx, "categories.list") }</h2>
+				if props.NewURL == "" {
+					<p>{ officei18n.T(ctx, "categories.read_only") }</p>
+				}
+			</header>
+			if props.NewURL != "" {
+				<a class="button" href={ templ.URL(props.NewURL) } { components.NavigationAttributes()... }>
+					@components.Icon("plus")
+					{ officei18n.T(ctx, "categories.create_submit") }
+				</a>
+			}
+		</div>
+		@categoryList(props.Items, props.ListError)
+		if props.Pagination.PreviousURL != "" || props.Pagination.NextURL != "" {
+			@pagination(props.Pagination)
+		}
+	</section>
+}
+
+// Each row carries its category's ID, so morphing matches rows between
+// renders. A row leads to the category's own page when the viewer may change
+// it.
+templ categoryList(items []CategoryItem, loadError string) {
+	if loadError != "" {
+		@components.FormAlert(loadError)
+	} else if len(items) == 0 {
+		<p class="category-list__empty">{ officei18n.T(ctx, "categories.empty") }</p>
+	} else {
+		<ul class="category-list" aria-labelledby="category-list-title">
+			for _, item := range items {
+				<li id={ "category-" + item.ID } class="category-list__item">
+					if item.Href != "" {
+						<a class="category-list__link" href={ templ.URL(item.Href) } { components.NavigationAttributes()... }>
+							@CategoryIcon(item.Icon, item.Color, item.IconLabel)
+							<span class="category-list__name">{ item.Name }</span>
+							@components.Icon("arrow-right")
+						</a>
+					} else {
+						<div class="category-list__link">
+							@CategoryIcon(item.Icon, item.Color, item.IconLabel)
+							<span class="category-list__name">{ item.Name }</span>
+						</div>
+					}
+				</li>
+			}
+		</ul>
+	}
+}
+
+templ pagination(props PaginationProps) {
+	<nav class="pagination" aria-label={ officei18n.T(ctx, "pagination.label") }>
+		if props.PreviousURL != "" {
+			<a class="pagination__link" href={ templ.URL(props.PreviousURL) } { components.NavigationAttributes()... }>
+				{ officei18n.T(ctx, "pagination.previous") }
+			</a>
+		} else {
+			<span></span>
+		}
+		<span>{ props.Summary }</span>
+		if props.NextURL != "" {
+			<a class="pagination__link" href={ templ.URL(props.NextURL) } { components.NavigationAttributes()... }>
+				{ officei18n.T(ctx, "pagination.next") }
+			</a>
+		} else {
+			<span></span>
+		}
+	</nav>
+}
+
+// CategoryIcon shows the icon on a tile in the category's color; without an
+// icon the tile shows the color alone. The label names the icon for
+// assistive technology.
+templ CategoryIcon(icon string, color string, label string) {
+	<span
+		class={ "category-icon", templ.KV("category-color--"+color, color != ""), templ.KV("category-icon--"+icon, icon != ""), templ.KV("category-icon--empty", icon == "") }
+		aria-hidden="true"
+	></span>
+	if label != "" {
+		<span class="visually-hidden">{ label }</span>
+	}
+}
+
+// NewCategory is the page that adds a category, inside the workspace's
+// dashboard.
+templ NewCategory(dashboard layouts.DashboardProps, form CategoryFormProps) {
+	@layouts.Dashboard(dashboard) {
+		<div class="settings">
+			<section class="settings__section" aria-labelledby="category-new-title">
+				<header class="settings__heading">
+					<h2 id="category-new-title">{ officei18n.T(ctx, "categories.details") }</h2>
+					<p>{ officei18n.T(ctx, "categories.new_description") }</p>
+				</header>
+				@CategoryForm(form)
+			</section>
+		</div>
+	}
+}
+
+// EditCategory is the page of one category, inside the workspace's dashboard.
+templ EditCategory(dashboard layouts.DashboardProps, content EditCategoryContentProps) {
+	@layouts.Dashboard(dashboard) {
+		<div class="settings">
+			<section class="settings__section" aria-labelledby="category-edit-title">
+				<header class="settings__heading">
+					<h2 id="category-edit-title">{ officei18n.T(ctx, "categories.details") }</h2>
+				</header>
+				@CategoryForm(content.Form)
+			</section>
+			<section class="settings__section" aria-labelledby="category-delete-title">
+				<header class="settings__heading">
+					<h2 id="category-delete-title">{ officei18n.T(ctx, "categories.delete") }</h2>
+				</header>
+				@categoryDelete(content.DeleteURL, content.Name)
+			</section>
+		</div>
+	}
+}
+
+// CategoryForm creates a category or changes one. The colors and icons are
+// radio groups shown as tiles.
+templ CategoryForm(props CategoryFormProps) {
+	<form
+		id={ CategoryFormID }
+		class="form"
+		method="post"
+		action={ templ.URL(props.Action) }
+		novalidate
+		{ components.FormAttributes()... }
+	>
+		@components.FormAlert(props.Error)
+		@components.TextInput(components.TextInputProps{
+			ID:           "category-name",
+			Name:         "name",
+			Type:         "text",
+			Label:        officei18n.T(ctx, "fields.category_name"),
+			Placeholder:  officei18n.T(ctx, "fields.category_name_placeholder"),
+			Autocomplete: "off",
+			Value:        props.Name,
+			Required:     true,
+			Error:        props.FieldErrors["name"],
+		})
+		@choiceGroup(choiceGroupProps{
+			ID:       "category-color",
+			Name:     "color",
+			Legend:   officei18n.T(ctx, "fields.category_color"),
+			Value:    props.Color,
+			Choices:  props.Colors,
+			Error:    props.FieldErrors["color"],
+			IsColors: true,
+		})
+		@choiceGroup(choiceGroupProps{
+			ID:      "category-icon",
+			Name:    "icon",
+			Legend:  officei18n.T(ctx, "fields.category_icon"),
+			Value:   props.Icon,
+			Color:   props.Color,
+			Choices: props.Icons,
+			Error:   props.FieldErrors["icon"],
+		})
+		<div class="form__submit">
+			<a class="form__cancel" href={ templ.URL(props.CancelURL) } { components.NavigationAttributes()... }>
+				{ officei18n.T(ctx, "common.cancel") }
+			</a>
+			<button class="button" type="submit">{ props.Submit }</button>
+		</div>
+	</form>
+}
+
+type choiceGroupProps struct {
+	ID      string
+	Name    string
+	Legend  string
+	Value   string
+	Color   string
+	Choices []CategoryChoice
+	Error   string
+	// IsColors shows each choice as a tile of its color; otherwise each is an
+	// icon on a neutral tile.
+	IsColors bool
+}
+
+// Each choice keeps its label for assistive technology; the tiles show only
+// the colors and the icons.
+templ choiceGroup(props choiceGroupProps) {
+	<fieldset
+		class={ "choice-group", templ.KV("choice-group--icons", !props.IsColors) }
+		if props.Error != "" {
+			aria-invalid="true"
+			aria-describedby={ props.ID + "-error" }
+		}
+	>
+		<legend class="choice-group__legend">{ props.Legend }</legend>
+		<div class="choice-group__options">
+			for _, choice := range props.Choices {
+				<label class="choice-group__option" title={ choice.Label }>
+					<input
+						type="radio"
+						id={ props.ID + "-" + choiceKey(choice.Value) }
+						name={ props.Name }
+						value={ choice.Value }
+						checked?={ choice.Value == props.Value }
+					/>
+					if props.IsColors {
+						@CategoryIcon("", choice.Value, choice.Label)
+					} else {
+						@CategoryIcon(choice.Value, "", choice.Label)
+					}
+				</label>
+			}
+		</div>
+		if props.Error != "" {
+			<p class="field__error" id={ props.ID + "-error" }>{ props.Error }</p>
+		}
+	</fieldset>
+}
+
+func choiceKey(value string) string {
+	if value == "" {
+		return "none"
+	}
+
+	return value
+}
+
+// The deletion asks for confirmation in a dialog before it is sent. Its
+// confirm button names the confirmation, so the server deletes only a
+// confirmed request.
+templ categoryDelete(action string, name string) {
+	<form
+		id="category-delete-form"
+		class="danger-zone"
+		method="post"
+		action={ templ.URL(action) }
+		data-confirm-always
+		{ components.FormAttributes()... }
+	>
+		<p>{ officei18n.T(ctx, "categories.delete_description") }</p>
+		<button class="button button--danger" type="submit">
+			@components.Icon("trash")
+			{ officei18n.T(ctx, "categories.delete_submit") }
+		</button>
+		<dialog
+			id="category-delete-confirm"
+			class="confirm-dialog"
+			aria-labelledby="category-delete-confirm-title"
+			aria-describedby="category-delete-confirm-description"
+			data-confirm-dialog
+		>
+			<div class="confirm-dialog__body">
+				<header class="confirm-dialog__heading">
+					<h2 id="category-delete-confirm-title">{ officei18n.T(ctx, "categories.delete_confirm_title") }</h2>
+					<p id="category-delete-confirm-description">
+						{ officei18n.T(ctx, "categories.delete_confirm", map[string]any{"Name": name}) }
+					</p>
+				</header>
+				<div class="confirm-dialog__actions">
+					<button class="confirm-dialog__cancel" type="button" data-dialog-close>
+						{ officei18n.T(ctx, "common.cancel") }
+					</button>
+					<button class="button button--danger" type="submit" name="confirm" value="1" data-confirm-submit>
+						{ officei18n.T(ctx, "categories.delete_submit") }
+					</button>
+				</div>
+			</div>
+		</dialog>
+	</form>
+}

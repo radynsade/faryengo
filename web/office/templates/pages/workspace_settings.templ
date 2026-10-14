@@ -28,8 +28,8 @@ type MemberFormProps struct {
 	FieldErrors map[string]string
 }
 
-// RoleURL is empty when the viewer may not change the member's role, or the
-// member is the workspace's last owner. RemoveURL is empty when the viewer
+// RoleURL is empty when the viewer may not change the member's role, for the
+// signed-in User, and for the workspace's last owner. RemoveURL is empty when the viewer
 // may not remove members, and for the signed-in User, who is not removed
 // from here.
 
@@ -143,7 +143,7 @@ templ workspaceName(name string) {
 // Each row carries its member's ID, so morphing matches rows between renders.
 // Every row shows its member's role, which an owner changes in place: the
 // role is saved as soon as it is chosen. The signed-in User's own row is
-// marked and has no remove button; an owner can remove every other member,
+// marked, shows their role as text, and has no remove button; an owner can remove every other member,
 // who can be added again by email.
 templ memberList(members []MemberItem, roles []components.SelectOption, loadError string) {
 	if loadError != "" {

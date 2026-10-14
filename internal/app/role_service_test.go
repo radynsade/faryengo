@@ -12,6 +12,7 @@ import (
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
 	"github.com/radynsade/faryengo/internal/languages"
 	languagesmock "github.com/radynsade/faryengo/internal/languages/mock"
+	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/users/mock"
 	"github.com/radynsade/faryengo/pkg/domquery"
@@ -41,7 +42,7 @@ func TestNewRoleService(t *testing.T) {
 }
 
 func TestRoleServiceNilReceiver(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemContext(t)
 
 	var service *RoleService
 
@@ -146,7 +147,7 @@ func TestRoleServiceCreate(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			role, err := service.Create(t.Context(), tt.request)
+			role, err := service.Create(userContext(t, testUserID, users.PermissionManageRole), tt.request)
 
 			if transactor.Calls != tt.wantTxCalls || writes != tt.wantWrites {
 				t.Fatalf("Create() calls = (transaction %d, write %d), want (%d, %d)", transactor.Calls, writes, tt.wantTxCalls, tt.wantWrites)
@@ -190,7 +191,7 @@ func TestRoleServiceFindByID(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
+			ctx := userContext(t, testUserID, users.PermissionViewRole)
 			calls := 0
 
 			repository := &mock.RoleRepository{
@@ -274,7 +275,7 @@ func TestRoleServiceList(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
+			ctx := userContext(t, testUserID, users.PermissionViewUser)
 			calls := 0
 
 			repository := &mock.RoleRepository{
@@ -407,7 +408,7 @@ func TestRoleServiceUpdate(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			role, err := service.Update(t.Context(), tt.request)
+			role, err := service.Update(userContext(t, testUserID, users.PermissionManageRole), tt.request)
 
 			if transactor.Calls != tt.wantTxCalls || locks != tt.wantLocks || writes != tt.wantWrites {
 				t.Fatalf(
@@ -489,7 +490,7 @@ func TestRoleServiceDelete(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			err = service.Delete(t.Context(), tt.id)
+			err = service.Delete(userContext(t, testUserID, users.PermissionManageRole), tt.id)
 
 			if transactor.Calls != tt.wantTxCalls || writes != tt.wantWrites {
 				t.Fatalf("Delete() calls = (transaction %d, write %d), want (%d, %d)", transactor.Calls, writes, tt.wantTxCalls, tt.wantWrites)
@@ -497,6 +498,91 @@ func TestRoleServiceDelete(t *testing.T) {
 
 			assertErrors(t, err, tt.wantErrs)
 		})
+	}
+}
+
+// Managing roles needs PermissionManageRole. Reading them needs permission to
+// view or manage roles or users, since users are shown with their roles. Every
+// refusal comes before any repository call.
+
+func TestRoleServiceAccess(t *testing.T) {
+	operations := []struct {
+		name  string
+		write bool
+		call  func(ctx context.Context, service *RoleService) error
+	}{
+		{"create", true, func(ctx context.Context, service *RoleService) error {
+			_, err := service.Create(ctx, input.CreateRoleInput{Name: map[string]string{"en": "Editor"}})
+			return err
+		}},
+		{"find", false, func(ctx context.Context, service *RoleService) error {
+			_, err := service.FindByID(ctx, testRoleID)
+			return err
+		}},
+		{"list", false, func(ctx context.Context, service *RoleService) error {
+			_, err := service.List(ctx, validRoleQuery())
+			return err
+		}},
+		{"update", true, func(ctx context.Context, service *RoleService) error {
+			_, err := service.Update(ctx, input.UpdateRoleInput{ID: testRoleID, Name: map[string]string{"en": "Editor"}})
+			return err
+		}},
+		{"delete", true, func(ctx context.Context, service *RoleService) error {
+			return service.Delete(ctx, testRoleID)
+		}},
+	}
+
+	for _, tt := range []struct {
+		name        string
+		ctx         context.Context
+		wantErrs    []error
+		readAllowed bool
+	}{
+		{name: "missing identity", ctx: t.Context(), wantErrs: []error{ErrUnauthenticated, security.ErrIdentityMissing}},
+		{name: "no permissions", ctx: userContext(t, testUserID), wantErrs: []error{users.ErrPermissionDenied}},
+		{name: "viewing users", ctx: userContext(t, testUserID, users.PermissionViewUser), wantErrs: []error{users.ErrPermissionDenied}, readAllowed: true},
+		{name: "managing users", ctx: userContext(t, testUserID, users.PermissionManageUser), wantErrs: []error{users.ErrPermissionDenied}, readAllowed: true},
+		{name: "viewing roles", ctx: userContext(t, testUserID, users.PermissionViewRole), wantErrs: []error{users.ErrPermissionDenied}, readAllowed: true},
+	} {
+		for _, operation := range operations {
+			t.Run(tt.name+" "+operation.name, func(t *testing.T) {
+				transactor := &appmock.Transactor{}
+				calls := 0
+				repository := &mock.RoleRepository{
+					FindByIDFunc: func(context.Context, users.RoleID) (*users.Role, error) {
+						calls++
+						return &users.Role{ID: testRoleID}, nil
+					},
+					CountFunc: func(context.Context, users.RoleFilter) (int, error) {
+						calls++
+						return 0, nil
+					},
+					FindFunc: func(context.Context, users.RoleQuery) ([]*users.Role, error) {
+						return nil, nil
+					},
+				}
+
+				service, err := NewRoleService(transactor, repository, catalogWithFallback(""))
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = operation.call(tt.ctx, service)
+
+				if tt.readAllowed && !operation.write {
+					if err != nil || calls != 1 {
+						t.Fatalf("%s = %v after %d repository calls, want it allowed", operation.name, err, calls)
+					}
+				} else {
+					if calls != 0 || transactor.Calls != 0 {
+						t.Fatalf("%s called the repository %d and the transactor %d times, want none", operation.name, calls, transactor.Calls)
+					}
+
+					assertErrors(t, err, tt.wantErrs)
+				}
+			})
+		}
 	}
 }
 
@@ -622,9 +708,9 @@ func TestRoleServiceFallbackTranslation(t *testing.T) {
 					}
 
 					if operation == "create" {
-						_, err = service.Create(t.Context(), input.CreateRoleInput{Name: tt.roleName})
+						_, err = service.Create(userContext(t, testUserID, users.PermissionManageRole), input.CreateRoleInput{Name: tt.roleName})
 					} else {
-						_, err = service.Update(t.Context(), input.UpdateRoleInput{ID: testRoleID, Name: tt.roleName})
+						_, err = service.Update(userContext(t, testUserID, users.PermissionManageRole), input.UpdateRoleInput{ID: testRoleID, Name: tt.roleName})
 					}
 
 					assertErrors(t, err, tt.wantErrs)

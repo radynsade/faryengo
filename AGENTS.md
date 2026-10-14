@@ -16,13 +16,14 @@ in the Go guides.
 | [docs/architecture/tech-stack.md](docs/architecture/tech-stack.md) | Infrastructure services, libraries, and development tools used in the project. |
 | [docs/go/layout.md](docs/go/layout.md) | Go file and package organization, declaration ownership, and dependency wiring. |
 | [docs/go/style.md](docs/go/style.md) | Go code organization within a file, errors, control flow, naming, formatting, interfaces, and concurrency. |
-| [docs/go/usages.md](docs/go/usages.md) | Usage of the project's existing abstractions and utilities: database handles and transactions. |
+| [docs/go/usages.md](docs/go/usages.md) | Usage of the project's existing abstractions and utilities: database handles, transactions, and caller identities. |
 | [docs/go/tests.md](docs/go/tests.md) | Test placement, table-driven tests, goroutine leak detection, and test commands. |
 | [docs/domain/how-to-doc.md](docs/domain/how-to-doc.md) | Domain model documentation structure, schemas, field descriptions, and invariants. |
 | [docs/domain/users.md](docs/domain/users.md) | Users, roles, permissions, and their domain rules. |
 | [docs/domain/security.md](docs/domain/security.md) | Sessions, authenticated access, and how access ends. |
 | [docs/domain/languages.md](docs/domain/languages.md) | Language catalog, fallback languages, and translation rules. |
 | [docs/domain/workspaces.md](docs/domain/workspaces.md) | Workspaces, their memberships, and their domain rules. |
+| [docs/domain/categories.md](docs/domain/categories.md) | Workspace categories: names, icons, colors, and their domain rules. |
 | [docs/domain/budget.md](docs/domain/budget.md) | Budget concepts, relationships, calculations, and invariants. |
 | [docs/admin/design.md](docs/admin/design.md) | The admin panel's visual system, reusable components, styling conventions, layouts, accessibility, and rendering behavior. |
 | [docs/admin/i18n.md](docs/admin/i18n.md) | Admin interface translation catalogs, locale handling, language switching, pluralization, and localized messages. |

@@ -271,9 +271,9 @@ func RoleLabel(ctx context.Context, role workspaces.Role) string {
 // Members
 //
 
-// A member who manages members may change every role but the last owner's,
-// since a workspace keeps an owner, and may remove every member but
-// themselves.
+// A member who manages members may change every role but their own and the
+// last owner's, since a workspace keeps an owner, and may remove every member
+// but themselves.
 
 func MemberItems(
 	ctx context.Context,
@@ -302,7 +302,7 @@ func MemberItems(
 			RoleLabel: RoleLabel(ctx, member.Role),
 		}
 
-		if canManage && (member.Role != workspaces.RoleOwner || owners > 1) {
+		if canManage && !item.IsCurrent && (member.Role != workspaces.RoleOwner || owners > 1) {
 			item.RoleURL = settingsURL + "/members/" + item.ID + "/role"
 		}
 

@@ -11,6 +11,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app/input"
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
+	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
 	usersmock "github.com/radynsade/faryengo/internal/users/mock"
 	"github.com/radynsade/faryengo/internal/workspaces"
@@ -44,149 +45,103 @@ func TestNewWorkspaceService(t *testing.T) {
 }
 
 func TestWorkspaceServiceNilReceiver(t *testing.T) {
-	ctx := t.Context()
+	ctx := memberContext(t, testWorkspaceID, testOwnerID, workspaces.RoleOwner)
 
 	var service *WorkspaceService
 
+	identity, identityErr := service.ResolveIdentity(ctx, testWorkspaceID)
 	created, createErr := service.Create(ctx, input.CreateWorkspaceInput{Name: "Design"})
-	found, findErr := service.FindByID(ctx, testWorkspaceID)
+	member, memberErr := service.FindForMember(ctx, testWorkspaceID)
 	list, listErr := service.List(ctx, validWorkspaceQuery())
-	memberList, memberListErr := service.ListByMember(ctx, testUserID, validWorkspaceQuery())
-	renamed, renameErr := service.Rename(ctx, testUserID, input.RenameWorkspaceInput{ID: testWorkspaceID, Name: "Design"})
-	deleteErr := service.Delete(ctx, testWorkspaceID)
-	addErr := service.AddMember(ctx, testWorkspaceID, testUserID, workspaces.RoleViewer)
-	roleErr := service.ChangeMemberRole(ctx, testUserID, input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testUserID, Role: "owner"})
-	removeErr := service.RemoveMember(ctx, testUserID, testWorkspaceID, testUserID)
-	member, memberErr := service.FindForMember(ctx, testWorkspaceID, testUserID)
-	createdAsUser, createAsUserErr := service.CreateAsUser(ctx, testUserID, input.CreateWorkspaceInput{Name: "Design"})
-	addedByEmail, addByEmailErr := service.AddMemberByEmail(ctx, testUserID, input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "anna@example.com"})
-	listedMembers, listMembersErr := service.ListMembers(ctx, testUserID, testWorkspaceID)
+	renamed, renameErr := service.Rename(ctx, input.RenameWorkspaceInput{ID: testWorkspaceID, Name: "Design"})
+	listedMembers, listMembersErr := service.ListMembers(ctx, testWorkspaceID)
+	addedByEmail, addByEmailErr := service.AddMemberByEmail(ctx, input.AddMemberByEmailInput{WorkspaceID: testWorkspaceID, Email: "anna@example.com"})
+	roleErr := service.ChangeMemberRole(ctx, input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testUserID, Role: "owner"})
+	removeErr := service.RemoveMember(ctx, testWorkspaceID, testUserID)
 
 	for _, err := range []error{
-		createErr, findErr, listErr, memberListErr, renameErr, deleteErr, addErr, roleErr, removeErr, memberErr, createAsUserErr, addByEmailErr, listMembersErr,
+		identityErr, createErr, memberErr, listErr, renameErr, listMembersErr, addByEmailErr, roleErr, removeErr,
 	} {
 		if !errors.Is(err, ErrWorkspaceRepositoryNil) {
 			t.Fatalf("nil receiver error = %v, want ErrWorkspaceRepositoryNil", err)
 		}
 	}
 
-	if created != nil || found != nil || list.Workspaces != nil || memberList.Workspaces != nil || renamed != nil ||
-		member.Workspace != nil || createdAsUser != nil || addedByEmail != nil || listedMembers != nil {
-		t.Fatalf("nil receiver returned values: %v, %v, %v, %v, %v, %v, %v, %v, %v", created, found, list, memberList, renamed, member, createdAsUser, addedByEmail, listedMembers)
+	if identity != nil || created != nil || member.Workspace != nil || list.Workspaces != nil || renamed != nil ||
+		listedMembers != nil || addedByEmail != nil {
+		t.Fatalf("nil receiver returned values: %v, %v, %v, %v, %v, %v, %v", identity, created, member, list, renamed, listedMembers, addedByEmail)
 	}
 }
 
-func TestWorkspaceServiceCreate(t *testing.T) {
+// The identity comes from the caller's membership, so a User who is not a
+// member cannot tell the workspace from a missing one.
+
+func TestWorkspaceServiceResolveIdentity(t *testing.T) {
+	storageErr := errors.New("storage unavailable")
+
 	for _, tt := range []struct {
 		name        string
-		request     input.CreateWorkspaceInput
-		beginErr    error
-		createErr   error
-		wantName    workspaces.WorkspaceName
+		ctx         context.Context
+		workspaceID workspaces.WorkspaceID
+		readErr     error
+		wantRole    workspaces.Role
 		wantErrs    []error
-		wantTxCalls int
-		wantWrites  int
 	}{
-		{name: "created", request: input.CreateWorkspaceInput{Name: "Design"}, wantName: "Design", wantTxCalls: 1, wantWrites: 1},
+		{name: "owner", ctx: userContext(t, testOwnerID), workspaceID: testWorkspaceID, wantRole: workspaces.RoleOwner},
+		{name: "viewer", ctx: userContext(t, testViewerID), workspaceID: testWorkspaceID, wantRole: workspaces.RoleViewer},
 		{
-			name:        "name trimmed",
-			request:     input.CreateWorkspaceInput{Name: "  Design team \n"},
-			wantName:    "Design team",
-			wantTxCalls: 1,
-			wantWrites:  1,
+			name:        "not a member reads as missing",
+			ctx:         userContext(t, testOutsiderID),
+			workspaceID: testWorkspaceID,
+			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
 		},
 		{
-			name:        "limit counted after trimming",
-			request:     input.CreateWorkspaceInput{Name: " " + strings.Repeat("ā", workspaces.MaxWorkspaceNameLength) + " "},
-			wantName:    workspaces.WorkspaceName(strings.Repeat("ā", workspaces.MaxWorkspaceNameLength)),
-			wantTxCalls: 1,
-			wantWrites:  1,
+			name:        "missing workspace",
+			ctx:         userContext(t, testOwnerID),
+			workspaceID: workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")),
+			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
 		},
 		{
-			name:     "blank name",
-			request:  input.CreateWorkspaceInput{Name: " \t "},
-			wantErrs: []error{input.ErrCreateWorkspaceInputInvalid, workspaces.ErrWorkspaceNameEmpty},
+			name:        "missing identity",
+			ctx:         t.Context(),
+			workspaceID: testWorkspaceID,
+			wantErrs:    []error{ErrUnauthenticated, security.ErrIdentityMissing},
 		},
+		{name: "system identity has no user", ctx: systemContext(t), workspaceID: testWorkspaceID, wantErrs: []error{ErrUnauthenticated}},
 		{
-			name:     "long name",
-			request:  input.CreateWorkspaceInput{Name: strings.Repeat("a", workspaces.MaxWorkspaceNameLength+1)},
-			wantErrs: []error{input.ErrCreateWorkspaceInputInvalid, workspaces.ErrWorkspaceNameTooLong},
+			name:        "membership read failure",
+			ctx:         userContext(t, testOwnerID),
+			workspaceID: testWorkspaceID,
+			readErr:     storageErr,
+			wantErrs:    []error{storageErr},
 		},
-		{
-			name:     "invalid UTF-8",
-			request:  input.CreateWorkspaceInput{Name: "Design\xff"},
-			wantErrs: []error{input.ErrCreateWorkspaceInputInvalid, workspaces.ErrWorkspaceNameInvalidChars},
-		},
-		{
-			name:        "transaction not started",
-			request:     input.CreateWorkspaceInput{Name: "Design"},
-			beginErr:    context.DeadlineExceeded,
-			wantErrs:    []error{context.DeadlineExceeded},
-			wantTxCalls: 1,
-		},
-		{
-			name:        "already exists",
-			request:     input.CreateWorkspaceInput{Name: "Design"},
-			createErr:   workspaces.ErrWorkspaceAlreadyExists,
-			wantErrs:    []error{workspaces.ErrWorkspaceAlreadyExists},
-			wantTxCalls: 1,
-			wantWrites:  1,
-		},
+		{name: "invalid workspace ID", ctx: userContext(t, testOwnerID), wantErrs: []error{workspaces.ErrWorkspaceIDInvalid}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			writes := 0
+			store := newWorkspaceStore(t, testMemberships()...)
+			store.readErr = tt.readErr
+			service := newStoreService(t, store, &usersmock.UserRepository{})
 
-			var stored *workspaces.Workspace
-
-			repository := &workspacesmock.WorkspaceRepository{
-				CreateFunc: func(ctx context.Context, workspace *workspaces.Workspace) workspaces.ErrWorkspaceCreateFailed {
-					var err workspaces.ErrWorkspaceCreateFailed
-
-					writes++
-					stored = workspace
-
-					if !appmock.InTransaction(ctx) {
-						t.Error("Create() ran outside a transaction")
-					}
-
-					if tt.createErr != nil {
-						err = workspacesmock.NewErrWorkspaceCreateFailed(workspace, tt.createErr)
-					}
-
-					return err
-				},
-			}
-
-			transactor := &appmock.Transactor{BeginErr: tt.beginErr}
-			service, err := NewWorkspaceService(transactor, repository, &usersmock.UserRepository{})
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			workspace, err := service.Create(t.Context(), tt.request)
-
-			if transactor.Calls != tt.wantTxCalls || writes != tt.wantWrites {
-				t.Fatalf("Create() calls = (transaction %d, write %d), want (%d, %d)", transactor.Calls, writes, tt.wantTxCalls, tt.wantWrites)
-			}
+			identity, err := service.ResolveIdentity(tt.ctx, tt.workspaceID)
 
 			assertErrors(t, err, tt.wantErrs)
 
-			if len(tt.wantErrs) > 0 {
-				if workspace != nil {
-					t.Fatalf("Create() workspace = %v, want nil on error", workspace)
-				}
-			} else if workspace != stored || workspace.Name != tt.wantName || uuid.UUID(workspace.ID).Version() != 7 {
-				t.Fatalf("Create() workspace = %+v, stored = %+v, want the stored workspace %q with a UUIDv7", workspace, stored, tt.wantName)
+			if len(tt.wantErrs) > 0 && identity != nil {
+				t.Fatalf("ResolveIdentity() = %+v, want nil on error", identity)
+			} else if len(tt.wantErrs) == 0 &&
+				(identity.WorkspaceID != tt.workspaceID || identity.Role != tt.wantRole || identity.User == nil) {
+				t.Fatalf("ResolveIdentity() = %+v, want the caller as %q in the workspace", identity, tt.wantRole)
 			}
 		})
 	}
 }
 
-func TestWorkspaceServiceCreateAsUser(t *testing.T) {
+// The caller becomes the workspace's owner in the same transaction.
+
+func TestWorkspaceServiceCreate(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
-		creatorID   users.UserID
+		ctx         context.Context
 		request     input.CreateWorkspaceInput
 		createErr   error
 		addErr      error
@@ -197,26 +152,33 @@ func TestWorkspaceServiceCreateAsUser(t *testing.T) {
 	}{
 		{
 			name:        "created with the creator as its owner",
-			creatorID:   testUserID,
+			ctx:         userContext(t, testUserID),
 			request:     input.CreateWorkspaceInput{Name: " Family budget "},
 			wantTxCalls: 1,
 			wantCreates: 1,
 			wantAdds:    1,
 		},
 		{
-			name:     "missing creator",
+			name:     "missing identity",
+			ctx:      t.Context(),
 			request:  input.CreateWorkspaceInput{Name: "Family budget"},
-			wantErrs: []error{users.ErrUserIDInvalid},
+			wantErrs: []error{ErrUnauthenticated, security.ErrIdentityMissing},
 		},
 		{
-			name:      "invalid name",
-			creatorID: testUserID,
-			request:   input.CreateWorkspaceInput{Name: "  "},
-			wantErrs:  []error{input.ErrCreateWorkspaceInputInvalid, workspaces.ErrWorkspaceNameEmpty},
+			name:     "system identity has no user",
+			ctx:      systemContext(t),
+			request:  input.CreateWorkspaceInput{Name: "Family budget"},
+			wantErrs: []error{ErrUnauthenticated},
+		},
+		{
+			name:     "invalid name",
+			ctx:      userContext(t, testUserID),
+			request:  input.CreateWorkspaceInput{Name: "  "},
+			wantErrs: []error{input.ErrCreateWorkspaceInputInvalid, workspaces.ErrWorkspaceNameEmpty},
 		},
 		{
 			name:        "workspace not written",
-			creatorID:   testUserID,
+			ctx:         userContext(t, testUserID),
 			request:     input.CreateWorkspaceInput{Name: "Family budget"},
 			createErr:   workspaces.ErrWorkspaceAlreadyExists,
 			wantErrs:    []error{workspaces.ErrWorkspaceAlreadyExists},
@@ -225,7 +187,7 @@ func TestWorkspaceServiceCreateAsUser(t *testing.T) {
 		},
 		{
 			name:        "creator deleted meanwhile",
-			creatorID:   testUserID,
+			ctx:         userContext(t, testUserID),
 			request:     input.CreateWorkspaceInput{Name: "Family budget"},
 			addErr:      users.ErrUserNotFound,
 			wantErrs:    []error{users.ErrUserNotFound},
@@ -261,7 +223,7 @@ func TestWorkspaceServiceCreateAsUser(t *testing.T) {
 
 					adds++
 
-					if !appmock.InTransaction(ctx) || membership != workspaces.NewMembership(stored.ID, tt.creatorID, workspaces.RoleOwner) {
+					if !appmock.InTransaction(ctx) || membership != workspaces.NewMembership(stored.ID, testUserID, workspaces.RoleOwner) {
 						t.Errorf("AddMember() called with (%v, %+v), want the creator as the owner of the stored workspace in a transaction", ctx, membership)
 					}
 
@@ -280,11 +242,11 @@ func TestWorkspaceServiceCreateAsUser(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			workspace, err := service.CreateAsUser(t.Context(), tt.creatorID, tt.request)
+			workspace, err := service.Create(tt.ctx, tt.request)
 
 			if transactor.Calls != tt.wantTxCalls || creates != tt.wantCreates || adds != tt.wantAdds {
 				t.Fatalf(
-					"CreateAsUser() calls = (transaction %d, create %d, add %d), want (%d, %d, %d)",
+					"Create() calls = (transaction %d, create %d, add %d), want (%d, %d, %d)",
 					transactor.Calls, creates, adds, tt.wantTxCalls, tt.wantCreates, tt.wantAdds,
 				)
 			}
@@ -292,123 +254,78 @@ func TestWorkspaceServiceCreateAsUser(t *testing.T) {
 			assertErrors(t, err, tt.wantErrs)
 
 			if len(tt.wantErrs) > 0 && workspace != nil {
-				t.Fatalf("CreateAsUser() workspace = %v, want nil on error", workspace)
+				t.Fatalf("Create() workspace = %v, want nil on error", workspace)
 			} else if len(tt.wantErrs) == 0 && (workspace != stored || workspace.Name != "Family budget") {
-				t.Fatalf("CreateAsUser() workspace = %+v, want the stored, trimmed workspace", workspace)
+				t.Fatalf("Create() workspace = %+v, want the stored, trimmed workspace", workspace)
 			}
 		})
 	}
 }
 
-func TestWorkspaceServiceFindByID(t *testing.T) {
-	existing := workspaces.NewWorkspace(testWorkspaceID, "Design")
-
-	for _, tt := range []struct {
-		name      string
-		id        workspaces.WorkspaceID
-		findErr   error
-		wantErrs  []error
-		wantCalls int
-	}{
-		{name: "found", id: testWorkspaceID, wantCalls: 1},
-		{name: "invalid ID", wantErrs: []error{workspaces.ErrWorkspaceIDInvalid}},
-		{
-			name:      "not found",
-			id:        testWorkspaceID,
-			findErr:   workspaces.ErrWorkspaceNotFound,
-			wantErrs:  []error{workspaces.ErrWorkspaceNotFound},
-			wantCalls: 1,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
-			calls := 0
-
-			repository := &workspacesmock.WorkspaceRepository{
-				FindByIDFunc: func(callCtx context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
-					var workspace *workspaces.Workspace
-
-					calls++
-
-					if callCtx != ctx || id != tt.id {
-						t.Errorf("FindByID() called with (%v, %v)", callCtx, id)
-					}
-
-					if tt.findErr == nil {
-						workspace = existing
-					}
-
-					return workspace, tt.findErr
-				},
-			}
-
-			service, err := NewWorkspaceService(&appmock.Transactor{}, repository, &usersmock.UserRepository{})
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			workspace, err := service.FindByID(ctx, tt.id)
-
-			if calls != tt.wantCalls {
-				t.Fatalf("FindByID() repository calls = %d, want %d", calls, tt.wantCalls)
-			}
-
-			assertErrors(t, err, tt.wantErrs)
-
-			if len(tt.wantErrs) > 0 && workspace != nil {
-				t.Fatalf("FindByID() workspace = %v, want nil on error", workspace)
-			} else if len(tt.wantErrs) == 0 && workspace != existing {
-				t.Fatalf("FindByID() workspace = %v, want %v", workspace, existing)
-			}
-		})
-	}
-}
-
-// The workspace comes with the member's role. A User who is not a member
-// cannot tell the workspace from a missing one.
+// The workspace comes with the member's role. An identity for another
+// workspace is no member's identity here, so it reads as missing.
 
 func TestWorkspaceServiceFindForMember(t *testing.T) {
 	storageErr := errors.New("storage unavailable")
+	otherWorkspaceID := workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff"))
 
 	for _, tt := range []struct {
 		name        string
+		ctx         context.Context
 		workspaceID workspaces.WorkspaceID
-		userID      users.UserID
 		readErr     error
 		wantRole    workspaces.Role
 		wantErrs    []error
 	}{
-		{name: "owner", workspaceID: testWorkspaceID, userID: testOwnerID, wantRole: workspaces.RoleOwner},
-		{name: "viewer", workspaceID: testWorkspaceID, userID: testViewerID, wantRole: workspaces.RoleViewer},
 		{
-			name:        "not a member reads as missing",
+			name:        "owner",
+			ctx:         memberContext(t, testWorkspaceID, testOwnerID, workspaces.RoleOwner),
 			workspaceID: testWorkspaceID,
-			userID:      testOutsiderID,
+			wantRole:    workspaces.RoleOwner,
+		},
+		{
+			name:        "viewer",
+			ctx:         memberContext(t, testWorkspaceID, testViewerID, workspaces.RoleViewer),
+			workspaceID: testWorkspaceID,
+			wantRole:    workspaces.RoleViewer,
+		},
+		{
+			name:        "identity for another workspace reads as missing",
+			ctx:         memberContext(t, otherWorkspaceID, testOwnerID, workspaces.RoleOwner),
+			workspaceID: testWorkspaceID,
 			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
 		},
 		{
 			name:        "missing workspace",
-			workspaceID: workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")),
-			userID:      testOwnerID,
+			ctx:         memberContext(t, otherWorkspaceID, testOwnerID, workspaces.RoleOwner),
+			workspaceID: otherWorkspaceID,
 			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
 		},
 		{
-			name:        "membership read failure",
+			name:        "missing identity",
+			ctx:         userContext(t, testOwnerID),
 			workspaceID: testWorkspaceID,
-			userID:      testOwnerID,
+			wantErrs:    []error{ErrUnauthenticated, workspaces.ErrIdentityMissing},
+		},
+		{
+			name:        "workspace read failure",
+			ctx:         memberContext(t, testWorkspaceID, testOwnerID, workspaces.RoleOwner),
+			workspaceID: testWorkspaceID,
 			readErr:     storageErr,
 			wantErrs:    []error{storageErr},
 		},
-		{name: "invalid workspace ID", userID: testOwnerID, wantErrs: []error{workspaces.ErrWorkspaceIDInvalid}},
-		{name: "invalid user ID", workspaceID: testWorkspaceID, wantErrs: []error{users.ErrUserIDInvalid}},
+		{
+			name:     "invalid workspace ID",
+			ctx:      memberContext(t, testWorkspaceID, testOwnerID, workspaces.RoleOwner),
+			wantErrs: []error{workspaces.ErrWorkspaceIDInvalid},
+		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newWorkspaceStore(t, testMemberships()...)
 			store.readErr = tt.readErr
 			service := newStoreService(t, store, &usersmock.UserRepository{})
 
-			found, err := service.FindForMember(t.Context(), tt.workspaceID, tt.userID)
+			found, err := service.FindForMember(tt.ctx, tt.workspaceID)
 
 			assertErrors(t, err, tt.wantErrs)
 
@@ -426,42 +343,7 @@ func TestWorkspaceServiceFindForMember(t *testing.T) {
 // role decides the outcome. A denied operation writes nothing.
 
 func TestWorkspaceServiceRolePermissions(t *testing.T) {
-	operations := []struct {
-		name  string
-		write bool
-		call  func(service *WorkspaceService, actorID, targetID users.UserID) error
-	}{
-		{"view", false, func(service *WorkspaceService, actorID, _ users.UserID) error {
-			_, err := service.FindForMember(t.Context(), testWorkspaceID, actorID)
-			return err
-		}},
-		{"list members", false, func(service *WorkspaceService, actorID, _ users.UserID) error {
-			_, err := service.ListMembers(t.Context(), actorID, testWorkspaceID)
-			return err
-		}},
-		{"rename", true, func(service *WorkspaceService, actorID, _ users.UserID) error {
-			_, err := service.Rename(t.Context(), actorID, input.RenameWorkspaceInput{ID: testWorkspaceID, Name: "Research"})
-			return err
-		}},
-		{"add member", true, func(service *WorkspaceService, actorID, _ users.UserID) error {
-			_, err := service.AddMemberByEmail(t.Context(), actorID, input.AddMemberByEmailInput{
-				WorkspaceID: testWorkspaceID,
-				Email:       "grace@example.com",
-				Role:        "editor",
-			})
-			return err
-		}},
-		{"change role", true, func(service *WorkspaceService, actorID, targetID users.UserID) error {
-			return service.ChangeMemberRole(t.Context(), actorID, input.ChangeMemberRoleInput{
-				WorkspaceID: testWorkspaceID,
-				UserID:      targetID,
-				Role:        "owner",
-			})
-		}},
-		{"remove member", true, func(service *WorkspaceService, actorID, targetID users.UserID) error {
-			return service.RemoveMember(t.Context(), actorID, testWorkspaceID, targetID)
-		}},
-	}
+	operations := workspaceOperations()
 
 	for _, tt := range []struct {
 		role     workspaces.Role
@@ -478,7 +360,7 @@ func TestWorkspaceServiceRolePermissions(t *testing.T) {
 				store := newWorkspaceStore(t, testMemberships()...)
 				service := newStoreService(t, store, testUserRepository(testMembers()...))
 
-				err := operation.call(service, tt.actorID, tt.targetID)
+				err := operation.call(memberContext(t, testWorkspaceID, tt.actorID, tt.role), service, tt.targetID)
 
 				if tt.allowed[index] {
 					if err != nil {
@@ -495,36 +377,90 @@ func TestWorkspaceServiceRolePermissions(t *testing.T) {
 		}
 	}
 
-	// A User outside the workspace, or acting on a missing one, learns
-	// nothing about it. A missing workspace is one the store holds under
-	// another ID, where the actor is an owner.
+	// A caller without a workspace identity is not authenticated for the
+	// workspace, and one whose identity is for another workspace learns
+	// nothing about this one.
 	for _, tt := range []struct {
 		name     string
-		storedID workspaces.WorkspaceID
-		actorID  users.UserID
+		ctx      context.Context
+		wantErr  error
+		otherErr error
 	}{
-		{"not a member", testWorkspaceID, testOutsiderID},
-		{"missing workspace", workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")), testOwnerID},
+		{"missing identity", userContext(t, testOwnerID), ErrUnauthenticated, workspaces.ErrWorkspaceNotFound},
+		{
+			"identity for another workspace",
+			memberContext(t, workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")), testOwnerID, workspaces.RoleOwner),
+			workspaces.ErrWorkspaceNotFound,
+			workspaces.ErrRolePermissionDenied,
+		},
 	} {
 		for _, operation := range operations {
 			t.Run(tt.name+" "+operation.name, func(t *testing.T) {
 				store := newWorkspaceStore(t, testMemberships()...)
-				store.workspace.ID = tt.storedID
-
-				for index := range store.memberships {
-					store.memberships[index].WorkspaceID = tt.storedID
-				}
-
 				service := newStoreService(t, store, testUserRepository(testMembers()...))
-				err := operation.call(service, tt.actorID, testEditorID)
 
-				if !errors.Is(err, workspaces.ErrWorkspaceNotFound) || errors.Is(err, workspaces.ErrRolePermissionDenied) || store.writes != 0 {
-					t.Fatalf("%s = %v after %d writes, want %v and no write", operation.name, err, store.writes, workspaces.ErrWorkspaceNotFound)
+				err := operation.call(tt.ctx, service, testEditorID)
+
+				if !errors.Is(err, tt.wantErr) || errors.Is(err, tt.otherErr) || store.writes != 0 {
+					t.Fatalf("%s = %v after %d writes, want %v and no write", operation.name, err, store.writes, tt.wantErr)
 				}
 			})
 		}
 	}
 }
+
+// The owner's identity was resolved before the write, and the store has
+// changed since: the owner was demoted or removed, or the workspace deleted.
+// Each write reads the role again under the workspace's lock, so it is
+// refused and writes nothing.
+
+func TestWorkspaceServiceStaleIdentity(t *testing.T) {
+	missingID := workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff"))
+
+	for _, tt := range []struct {
+		name       string
+		change     func(store *workspaceStore)
+		wantErr    error
+		wantLocked bool
+	}{
+		{
+			name:       "demoted",
+			change:     func(store *workspaceStore) { store.memberships[store.index(testOwnerID)].Role = workspaces.RoleViewer },
+			wantErr:    workspaces.ErrRolePermissionDenied,
+			wantLocked: true,
+		},
+		{
+			name:       "removed",
+			change:     func(store *workspaceStore) { store.memberships = slices.Delete(store.memberships, 0, 1) },
+			wantErr:    workspaces.ErrWorkspaceNotFound,
+			wantLocked: true,
+		},
+		{
+			name:    "workspace deleted",
+			change:  func(store *workspaceStore) { store.workspace.ID = missingID },
+			wantErr: workspaces.ErrWorkspaceNotFound,
+		},
+	} {
+		for _, operation := range workspaceOperations() {
+			if operation.write {
+				t.Run(tt.name+" "+operation.name, func(t *testing.T) {
+					store := newWorkspaceStore(t, append(testMemberships(), membershipOf(testNewcomerID, workspaces.RoleOwner))...)
+					tt.change(store)
+					service := newStoreService(t, store, testUserRepository(testMembers()...))
+
+					err := operation.call(memberContext(t, testWorkspaceID, testOwnerID, workspaces.RoleOwner), service, testEditorID)
+
+					if !errors.Is(err, tt.wantErr) || store.locked != tt.wantLocked || store.writes != 0 {
+						t.Fatalf("%s = %v after %d writes, locked %t, want %v and no write", operation.name, err, store.writes, store.locked, tt.wantErr)
+					}
+				})
+			}
+		}
+	}
+}
+
+// The member criterion of the query is replaced by the caller, so a member
+// lists only their own workspaces.
 
 func TestWorkspaceServiceList(t *testing.T) {
 	withoutPage := validWorkspaceQuery()
@@ -538,23 +474,30 @@ func TestWorkspaceServiceList(t *testing.T) {
 	withOtherMember.Filter.MemberID = &otherMember
 
 	for _, tt := range []struct {
-		name         string
-		byMember     bool
-		memberID     users.UserID
-		query        workspaces.WorkspaceQuery
-		countErr     error
-		findErr      error
-		wantMemberID *users.UserID
-		wantErrs     []error
-		wantCalls    int
-		wantTotal    int
+		name      string
+		ctx       context.Context
+		query     workspaces.WorkspaceQuery
+		countErr  error
+		findErr   error
+		wantErrs  []error
+		wantCalls int
+		wantTotal int
 	}{
-		{name: "listed", query: validWorkspaceQuery(), wantCalls: 2, wantTotal: 7},
-		{name: "missing page", query: withoutPage, wantErrs: []error{workspaces.ErrWorkspaceQueryInvalid}},
-		{name: "unknown sort", query: unknownSort, wantErrs: []error{workspaces.ErrWorkspaceQueryInvalid}},
-		{name: "invalid filter", query: longFilter, wantErrs: []error{workspaces.ErrWorkspaceFilterNameLikeTooLong}},
+		{name: "listed", ctx: userContext(t, testUserID), query: validWorkspaceQuery(), wantCalls: 2, wantTotal: 7},
+		{name: "caller replaces the query's member", ctx: userContext(t, testUserID), query: withOtherMember, wantCalls: 2, wantTotal: 7},
+		{
+			name:     "missing identity",
+			ctx:      t.Context(),
+			query:    validWorkspaceQuery(),
+			wantErrs: []error{ErrUnauthenticated, security.ErrIdentityMissing},
+		},
+		{name: "system identity has no user", ctx: systemContext(t), query: validWorkspaceQuery(), wantErrs: []error{ErrUnauthenticated}},
+		{name: "missing page", ctx: userContext(t, testUserID), query: withoutPage, wantErrs: []error{workspaces.ErrWorkspaceQueryInvalid}},
+		{name: "unknown sort", ctx: userContext(t, testUserID), query: unknownSort, wantErrs: []error{workspaces.ErrWorkspaceQueryInvalid}},
+		{name: "invalid filter", ctx: userContext(t, testUserID), query: longFilter, wantErrs: []error{workspaces.ErrWorkspaceFilterNameLikeTooLong}},
 		{
 			name:      "count failure",
+			ctx:       userContext(t, testUserID),
 			query:     validWorkspaceQuery(),
 			countErr:  context.DeadlineExceeded,
 			wantErrs:  []error{context.DeadlineExceeded},
@@ -562,53 +505,19 @@ func TestWorkspaceServiceList(t *testing.T) {
 		},
 		{
 			name:      "find failure",
+			ctx:       userContext(t, testUserID),
 			query:     validWorkspaceQuery(),
 			findErr:   context.DeadlineExceeded,
 			wantErrs:  []error{context.DeadlineExceeded},
 			wantCalls: 2,
 		},
-		{
-			name:         "listed by member",
-			byMember:     true,
-			memberID:     testUserID,
-			query:        validWorkspaceQuery(),
-			wantMemberID: &testUserID,
-			wantCalls:    2,
-			wantTotal:    7,
-		},
-		{
-			name:         "member replaces the query's member",
-			byMember:     true,
-			memberID:     testUserID,
-			query:        withOtherMember,
-			wantMemberID: &testUserID,
-			wantCalls:    2,
-			wantTotal:    7,
-		},
-		{
-			name:     "invalid member",
-			byMember: true,
-			query:    validWorkspaceQuery(),
-			wantErrs: []error{users.ErrUserIDInvalid},
-		},
-		{
-			name:     "invalid query by member",
-			byMember: true,
-			memberID: testUserID,
-			query:    withoutPage,
-			wantErrs: []error{workspaces.ErrWorkspaceQueryInvalid},
-		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
 			calls := 0
 			found := []*workspaces.Workspace{workspaces.NewWorkspace(testWorkspaceID, "Design")}
 			checkFilter := func(callCtx context.Context, filter workspaces.WorkspaceFilter) {
-				memberMatches := (filter.MemberID == nil && tt.wantMemberID == nil) ||
-					(filter.MemberID != nil && tt.wantMemberID != nil && *filter.MemberID == *tt.wantMemberID)
-
-				if callCtx != ctx || filter.NameLike != tt.query.Filter.NameLike || !memberMatches {
-					t.Errorf("repository called with (%v, %+v), want member %v", callCtx, filter, tt.wantMemberID)
+				if callCtx != tt.ctx || filter.NameLike != tt.query.Filter.NameLike || filter.MemberID == nil || *filter.MemberID != testUserID {
+					t.Errorf("repository called with (%v, %+v), want member %v", callCtx, filter, testUserID)
 				}
 			}
 
@@ -637,13 +546,7 @@ func TestWorkspaceServiceList(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			var list WorkspaceList
-
-			if tt.byMember {
-				list, err = service.ListByMember(ctx, tt.memberID, tt.query)
-			} else {
-				list, err = service.List(ctx, tt.query)
-			}
+			list, err := service.List(tt.ctx, tt.query)
 
 			if calls != tt.wantCalls {
 				t.Fatalf("list repository calls = %d, want %d", calls, tt.wantCalls)
@@ -660,13 +563,12 @@ func TestWorkspaceServiceList(t *testing.T) {
 	}
 }
 
-// The workspace is locked before the owner's role is read and the new name
-// written.
+// The workspace is locked before the owner's role is read again and the new
+// name written.
 
 func TestWorkspaceServiceRename(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
-		actorID     users.UserID
 		request     input.RenameWorkspaceInput
 		lockErr     error
 		writeErr    error
@@ -677,7 +579,6 @@ func TestWorkspaceServiceRename(t *testing.T) {
 	}{
 		{
 			name:        "renamed",
-			actorID:     testOwnerID,
 			request:     input.RenameWorkspaceInput{ID: testWorkspaceID, Name: " Research "},
 			wantName:    "Research",
 			wantTxCalls: 1,
@@ -689,21 +590,18 @@ func TestWorkspaceServiceRename(t *testing.T) {
 			wantErrs: []error{
 				input.ErrRenameWorkspaceInputInvalid,
 				workspaces.ErrWorkspaceIDInvalid,
-				users.ErrUserIDInvalid,
 				workspaces.ErrWorkspaceNameEmpty,
 			},
 			wantName: "Design",
 		},
 		{
 			name:     "long name",
-			actorID:  testOwnerID,
 			request:  input.RenameWorkspaceInput{ID: testWorkspaceID, Name: strings.Repeat("a", workspaces.MaxWorkspaceNameLength+1)},
 			wantErrs: []error{input.ErrRenameWorkspaceInputInvalid, workspaces.ErrWorkspaceNameTooLong},
 			wantName: "Design",
 		},
 		{
 			name:        "lock failure",
-			actorID:     testOwnerID,
 			request:     input.RenameWorkspaceInput{ID: testWorkspaceID, Name: "Research"},
 			lockErr:     context.DeadlineExceeded,
 			wantErrs:    []error{context.DeadlineExceeded},
@@ -712,7 +610,6 @@ func TestWorkspaceServiceRename(t *testing.T) {
 		},
 		{
 			name:        "update failure",
-			actorID:     testOwnerID,
 			request:     input.RenameWorkspaceInput{ID: testWorkspaceID, Name: "Research"},
 			writeErr:    context.DeadlineExceeded,
 			wantErrs:    []error{context.DeadlineExceeded},
@@ -731,7 +628,7 @@ func TestWorkspaceServiceRename(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			workspace, err := service.Rename(t.Context(), tt.actorID, tt.request)
+			workspace, err := service.Rename(memberContext(t, testWorkspaceID, testOwnerID, workspaces.RoleOwner), tt.request)
 
 			if transactor.Calls != tt.wantTxCalls || store.writes != tt.wantWrites {
 				t.Fatalf("Rename() calls = (transaction %d, write %d), want (%d, %d)", transactor.Calls, store.writes, tt.wantTxCalls, tt.wantWrites)
@@ -749,167 +646,6 @@ func TestWorkspaceServiceRename(t *testing.T) {
 				t.Fatalf("Rename() workspace = %+v, want the stored workspace", workspace)
 			}
 		})
-	}
-}
-
-func TestWorkspaceServiceDelete(t *testing.T) {
-	for _, tt := range []struct {
-		name        string
-		id          workspaces.WorkspaceID
-		deleteErr   error
-		wantErrs    []error
-		wantTxCalls int
-		wantWrites  int
-	}{
-		{name: "deleted", id: testWorkspaceID, wantTxCalls: 1, wantWrites: 1},
-		{name: "invalid ID", wantErrs: []error{workspaces.ErrWorkspaceIDInvalid}},
-		{
-			name:        "not found",
-			id:          testWorkspaceID,
-			deleteErr:   workspaces.ErrWorkspaceNotFound,
-			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
-			wantTxCalls: 1,
-			wantWrites:  1,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			writes := 0
-
-			repository := &workspacesmock.WorkspaceRepository{
-				DeleteFunc: func(ctx context.Context, id workspaces.WorkspaceID) workspaces.ErrWorkspaceDeleteFailed {
-					var err workspaces.ErrWorkspaceDeleteFailed
-
-					writes++
-
-					if !appmock.InTransaction(ctx) || id != tt.id {
-						t.Errorf("Delete() called with (%v, %v), want a transaction", ctx, id)
-					}
-
-					if tt.deleteErr != nil {
-						err = workspacesmock.NewErrWorkspaceDeleteFailed(id, tt.deleteErr)
-					}
-
-					return err
-				},
-			}
-
-			transactor := &appmock.Transactor{}
-			service, err := NewWorkspaceService(transactor, repository, &usersmock.UserRepository{})
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			err = service.Delete(t.Context(), tt.id)
-
-			if transactor.Calls != tt.wantTxCalls || writes != tt.wantWrites {
-				t.Fatalf("Delete() calls = (transaction %d, write %d), want (%d, %d)", transactor.Calls, writes, tt.wantTxCalls, tt.wantWrites)
-			}
-
-			assertErrors(t, err, tt.wantErrs)
-		})
-	}
-}
-
-// Adding a member by ID serves the admin panel and the CLI, so it checks no
-// workspace role and needs no lock: the workspace may have no members at all.
-
-func TestWorkspaceServiceAddMember(t *testing.T) {
-	for _, tt := range []struct {
-		name        string
-		workspaceID workspaces.WorkspaceID
-		userID      users.UserID
-		role        workspaces.Role
-		existing    []workspaces.Membership
-		writeErr    error
-		wantErrs    []error
-		wantTxCalls int
-		wantWrites  int
-	}{
-		{name: "added", workspaceID: testWorkspaceID, userID: testUserID, role: workspaces.RoleEditor, wantTxCalls: 1, wantWrites: 1},
-		{
-			name:        "added beside an owner",
-			workspaceID: testWorkspaceID,
-			userID:      testUserID,
-			role:        workspaces.RoleViewer,
-			existing:    testMemberships(),
-			wantTxCalls: 1,
-			wantWrites:  1,
-		},
-		{
-			name:     "add without a workspace",
-			userID:   testUserID,
-			role:     workspaces.RoleViewer,
-			wantErrs: []error{workspaces.ErrMembershipInvalid, workspaces.ErrWorkspaceIDInvalid},
-		},
-		{
-			name:        "add without a user",
-			workspaceID: testWorkspaceID,
-			role:        workspaces.RoleViewer,
-			wantErrs:    []error{workspaces.ErrMembershipInvalid, users.ErrUserIDInvalid},
-		},
-		{
-			name:        "add without a role",
-			workspaceID: testWorkspaceID,
-			userID:      testUserID,
-			wantErrs:    []error{workspaces.ErrMembershipInvalid, workspaces.ErrRoleInvalid},
-		},
-		{
-			name:        "already a member",
-			workspaceID: testWorkspaceID,
-			userID:      testOwnerID,
-			role:        workspaces.RoleViewer,
-			existing:    testMemberships(),
-			wantErrs:    []error{workspaces.ErrMembershipAlreadyExists},
-			wantTxCalls: 1,
-			wantWrites:  1,
-		},
-		{
-			name:        "add a missing user",
-			workspaceID: testWorkspaceID,
-			userID:      testUserID,
-			role:        workspaces.RoleViewer,
-			writeErr:    users.ErrUserNotFound,
-			wantErrs:    []error{users.ErrUserNotFound},
-			wantTxCalls: 1,
-			wantWrites:  1,
-		},
-	} {
-		t.Run(tt.name, func(t *testing.T) {
-			store := newWorkspaceStore(t, tt.existing...)
-			store.writeErr = tt.writeErr
-			transactor := &appmock.Transactor{}
-			service, err := NewWorkspaceService(transactor, store.repository(), &usersmock.UserRepository{})
-
-			if err != nil {
-				t.Fatal(err)
-			}
-
-			err = service.AddMember(t.Context(), tt.workspaceID, tt.userID, tt.role)
-
-			if transactor.Calls != tt.wantTxCalls || store.writes != tt.wantWrites || store.locked {
-				t.Fatalf(
-					"calls = (transaction %d, write %d, locked %t), want (%d, %d, false)",
-					transactor.Calls, store.writes, store.locked, tt.wantTxCalls, tt.wantWrites,
-				)
-			}
-
-			assertErrors(t, err, tt.wantErrs)
-
-			if len(tt.wantErrs) == 0 && store.role(tt.userID) != tt.role {
-				t.Fatalf("stored role = %q, want %q", store.role(tt.userID), tt.role)
-			}
-		})
-	}
-}
-
-func validWorkspaceQuery() workspaces.WorkspaceQuery {
-	return workspaces.WorkspaceQuery{
-		Filter:    workspaces.WorkspaceFilter{NameLike: "des"},
-		SortOrder: domquery.SortOrderAsc,
-		SortBy:    workspaces.WorkspaceSortName,
-		Limit:     20,
-		Page:      1,
 	}
 }
 
@@ -977,7 +713,7 @@ func TestWorkspaceServiceAddMemberByEmail(t *testing.T) {
 			store.writeErr = tt.writeErr
 			service := newStoreService(t, store, testUserRepository(testMembers()...))
 
-			user, err := service.AddMemberByEmail(t.Context(), testOwnerID, tt.request)
+			user, err := service.AddMemberByEmail(memberContext(t, testWorkspaceID, testOwnerID, workspaces.RoleOwner), tt.request)
 
 			if store.writes != tt.wantWrites {
 				t.Fatalf("writes = %d, want %d", store.writes, tt.wantWrites)
@@ -1003,7 +739,6 @@ func TestWorkspaceServiceChangeMemberRole(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
 		memberships []workspaces.Membership
-		actorID     users.UserID
 		request     input.ChangeMemberRoleInput
 		writeErr    error
 		wantRole    workspaces.Role
@@ -1012,14 +747,12 @@ func TestWorkspaceServiceChangeMemberRole(t *testing.T) {
 	}{
 		{
 			name:       "editor promoted",
-			actorID:    testOwnerID,
 			request:    input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testEditorID, Role: "owner"},
 			wantRole:   workspaces.RoleOwner,
 			wantWrites: 1,
 		},
 		{
 			name:       "viewer made an editor",
-			actorID:    testOwnerID,
 			request:    input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testViewerID, Role: "editor"},
 			wantRole:   workspaces.RoleEditor,
 			wantWrites: 1,
@@ -1027,7 +760,6 @@ func TestWorkspaceServiceChangeMemberRole(t *testing.T) {
 		{
 			name:        "another owner demoted",
 			memberships: twoOwners,
-			actorID:     testOwnerID,
 			request:     input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testNewcomerID, Role: "viewer"},
 			wantRole:    workspaces.RoleViewer,
 			wantWrites:  1,
@@ -1035,24 +767,21 @@ func TestWorkspaceServiceChangeMemberRole(t *testing.T) {
 		{
 			name:        "owner demotes themselves beside another owner",
 			memberships: twoOwners,
-			actorID:     testOwnerID,
 			request:     input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testOwnerID, Role: "editor"},
-			wantRole:    workspaces.RoleEditor,
-			wantWrites:  1,
+			wantRole:    workspaces.RoleOwner,
+			wantErrs:    []error{workspaces.ErrMembershipOwnRole},
 		},
 		{
-			name:     "last owner demoted",
-			actorID:  testOwnerID,
+			name:     "last owner demotes themselves",
 			request:  input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testOwnerID, Role: "editor"},
 			wantRole: workspaces.RoleOwner,
-			wantErrs: []error{workspaces.ErrMembershipLastOwner},
+			wantErrs: []error{workspaces.ErrMembershipOwnRole},
 		},
 		{
-			name:       "last owner kept an owner",
-			actorID:    testOwnerID,
-			request:    input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testOwnerID, Role: "owner"},
-			wantRole:   workspaces.RoleOwner,
-			wantWrites: 1,
+			name:     "owner keeps their own role",
+			request:  input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testOwnerID, Role: "owner"},
+			wantRole: workspaces.RoleOwner,
+			wantErrs: []error{workspaces.ErrMembershipOwnRole},
 		},
 		{
 			name:    "invalid fields",
@@ -1066,20 +795,17 @@ func TestWorkspaceServiceChangeMemberRole(t *testing.T) {
 		},
 		{
 			name:     "missing role",
-			actorID:  testOwnerID,
 			request:  input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testEditorID},
 			wantRole: workspaces.RoleEditor,
 			wantErrs: []error{input.ErrChangeMemberRoleInputInvalid, workspaces.ErrRoleInvalid},
 		},
 		{
 			name:     "not a member",
-			actorID:  testOwnerID,
 			request:  input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testNewcomerID, Role: "editor"},
 			wantErrs: []error{workspaces.ErrMembershipNotFound},
 		},
 		{
 			name:       "write failure",
-			actorID:    testOwnerID,
 			request:    input.ChangeMemberRoleInput{WorkspaceID: testWorkspaceID, UserID: testEditorID, Role: "viewer"},
 			writeErr:   context.DeadlineExceeded,
 			wantRole:   workspaces.RoleEditor,
@@ -1098,7 +824,7 @@ func TestWorkspaceServiceChangeMemberRole(t *testing.T) {
 			store.writeErr = tt.writeErr
 			service := newStoreService(t, store, &usersmock.UserRepository{})
 
-			err := service.ChangeMemberRole(t.Context(), tt.actorID, tt.request)
+			err := service.ChangeMemberRole(memberContext(t, testWorkspaceID, testOwnerID, workspaces.RoleOwner), tt.request)
 
 			if store.writes != tt.wantWrites {
 				t.Fatalf("writes = %d, want %d", store.writes, tt.wantWrites)
@@ -1153,7 +879,7 @@ func TestWorkspaceServiceRemoveMember(t *testing.T) {
 			before := store.role(tt.userID)
 			service := newStoreService(t, store, &usersmock.UserRepository{})
 
-			err := service.RemoveMember(t.Context(), testOwnerID, testWorkspaceID, tt.userID)
+			err := service.RemoveMember(memberContext(t, testWorkspaceID, testOwnerID, workspaces.RoleOwner), testWorkspaceID, tt.userID)
 
 			if store.writes != tt.wantWrites {
 				t.Fatalf("writes = %d, want %d", store.writes, tt.wantWrites)
@@ -1209,7 +935,7 @@ func TestWorkspaceServiceListMembers(t *testing.T) {
 
 			service := newStoreService(t, store, userRepository)
 
-			members, err := service.ListMembers(t.Context(), testViewerID, tt.id)
+			members, err := service.ListMembers(memberContext(t, testWorkspaceID, testViewerID, workspaces.RoleViewer), tt.id)
 
 			assertErrors(t, err, tt.wantErrs)
 
@@ -1223,6 +949,61 @@ func TestWorkspaceServiceListMembers(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+func validWorkspaceQuery() workspaces.WorkspaceQuery {
+	return workspaces.WorkspaceQuery{
+		Filter:    workspaces.WorkspaceFilter{NameLike: "des"},
+		SortOrder: domquery.SortOrderAsc,
+		SortBy:    workspaces.WorkspaceSortName,
+		Limit:     20,
+		Page:      1,
+	}
+}
+
+// Every operation on one workspace, acting on the target member where it
+// needs one. Writes add the newcomer by email, promote the target to owner,
+// or remove the target.
+
+type workspaceOperation struct {
+	name  string
+	write bool
+	call  func(ctx context.Context, service *WorkspaceService, targetID users.UserID) error
+}
+
+func workspaceOperations() []workspaceOperation {
+	return []workspaceOperation{
+		{"view", false, func(ctx context.Context, service *WorkspaceService, _ users.UserID) error {
+			_, err := service.FindForMember(ctx, testWorkspaceID)
+			return err
+		}},
+		{"list members", false, func(ctx context.Context, service *WorkspaceService, _ users.UserID) error {
+			_, err := service.ListMembers(ctx, testWorkspaceID)
+			return err
+		}},
+		{"rename", true, func(ctx context.Context, service *WorkspaceService, _ users.UserID) error {
+			_, err := service.Rename(ctx, input.RenameWorkspaceInput{ID: testWorkspaceID, Name: "Research"})
+			return err
+		}},
+		{"add member", true, func(ctx context.Context, service *WorkspaceService, _ users.UserID) error {
+			_, err := service.AddMemberByEmail(ctx, input.AddMemberByEmailInput{
+				WorkspaceID: testWorkspaceID,
+				Email:       "grace@example.com",
+				Role:        "editor",
+			})
+			return err
+		}},
+		{"change role", true, func(ctx context.Context, service *WorkspaceService, targetID users.UserID) error {
+			return service.ChangeMemberRole(ctx, input.ChangeMemberRoleInput{
+				WorkspaceID: testWorkspaceID,
+				UserID:      targetID,
+				Role:        "owner",
+			})
+		}},
+		{"remove member", true, func(ctx context.Context, service *WorkspaceService, targetID users.UserID) error {
+			return service.RemoveMember(ctx, testWorkspaceID, targetID)
+		}},
 	}
 }
 

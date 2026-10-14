@@ -12,6 +12,7 @@ import (
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
 	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/languages/mock"
+	"github.com/radynsade/faryengo/internal/security"
 )
 
 func TestParseLanguageCommand(t *testing.T) {
@@ -265,7 +266,7 @@ func executeWithMock(
 		t.Fatal(err)
 	}
 
-	err = executeLanguageCommand(t.Context(), command, service, &output)
+	err = executeLanguageCommand(security.WithIdentity(t.Context(), security.NewSystemIdentity()), command, service, &output)
 
 	return output.String(), err
 }

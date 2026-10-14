@@ -3,6 +3,7 @@ package app
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app/input"
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
+	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/users/mock"
 	"github.com/radynsade/faryengo/pkg/domquery"
@@ -21,6 +23,7 @@ var (
 	testRoleID   = users.RoleID(uuid.MustParse("01920000-0000-7000-8000-000000000002"))
 	testMoment   = time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
 	testReloaded = time.Date(2026, 10, 9, 12, 0, 0, 0, time.UTC)
+	testAdminID  = users.UserID(uuid.MustParse("01920000-0000-7000-8000-000000000003"))
 )
 
 func TestNewUserService(t *testing.T) {
@@ -52,7 +55,7 @@ func TestNewUserService(t *testing.T) {
 }
 
 func TestUserServiceNilReceiver(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemContext(t)
 
 	var service *UserService
 
@@ -141,7 +144,7 @@ func TestUserServiceCreate(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
+			ctx := userContext(t, testAdminID, users.PermissionManageUser)
 			hashCalls, writeCalls := 0, 0
 
 			var stored *users.User
@@ -233,7 +236,7 @@ func TestUserServiceFindByID(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
+			ctx := userContext(t, testAdminID, users.PermissionViewUser)
 			calls := 0
 
 			repository := &mock.UserRepository{
@@ -318,7 +321,7 @@ func TestUserServiceList(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
+			ctx := userContext(t, testAdminID, users.PermissionViewUser)
 			calls := 0
 
 			repository := &mock.UserRepository{
@@ -434,7 +437,7 @@ func TestUserServiceUpdate(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
+			ctx := userContext(t, testAdminID, users.PermissionManageUser)
 			hashCalls, writeCalls := 0, 0
 			stored := testUser()
 
@@ -540,7 +543,7 @@ func TestUserServiceDelete(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
+			ctx := userContext(t, testAdminID, users.PermissionManageUser)
 			calls := 0
 
 			repository := &mock.UserRepository{
@@ -578,20 +581,19 @@ func TestUserServiceDelete(t *testing.T) {
 	}
 }
 
-func TestUserServiceDeleteAsUser(t *testing.T) {
-	otherID := users.UserID(uuid.MustParse("01920000-0000-7000-8000-000000000003"))
+// A User cannot delete their own account. The system identity acts for no
+// account, so it deletes any User.
 
+func TestUserServiceDeleteOwnAccount(t *testing.T) {
 	for _, tt := range []struct {
 		name      string
-		actorID   users.UserID
-		id        users.UserID
+		ctx       context.Context
 		wantErrs  []error
 		wantCalls int
 	}{
-		{name: "another user", actorID: otherID, id: testUserID, wantCalls: 1},
-		{name: "own account", actorID: testUserID, id: testUserID, wantErrs: []error{input.ErrDeleteOwnUser}},
-		{name: "missing actor", id: testUserID, wantErrs: []error{users.ErrUserIDInvalid}},
-		{name: "invalid ID", actorID: otherID, wantErrs: []error{users.ErrUserIDInvalid}},
+		{name: "another user", ctx: userContext(t, testAdminID, users.PermissionManageUser), wantCalls: 1},
+		{name: "own account", ctx: userContext(t, testUserID, users.PermissionManageUser), wantErrs: []error{input.ErrDeleteOwnUser}},
+		{name: "system identity", ctx: systemContext(t), wantCalls: 1},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			calls := 0
@@ -599,8 +601,8 @@ func TestUserServiceDeleteAsUser(t *testing.T) {
 				DeleteFunc: func(_ context.Context, id users.UserID) users.ErrUserDeleteFailed {
 					calls++
 
-					if id != tt.id {
-						t.Errorf("Delete() called with %v, want %v", id, tt.id)
+					if id != testUserID {
+						t.Errorf("Delete() called with %v, want %v", id, testUserID)
 					}
 
 					return nil
@@ -613,13 +615,135 @@ func TestUserServiceDeleteAsUser(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			err = service.DeleteAsUser(t.Context(), tt.actorID, tt.id)
+			err = service.Delete(tt.ctx, testUserID)
 
 			if calls != tt.wantCalls {
-				t.Fatalf("DeleteAsUser() repository calls = %d, want %d", calls, tt.wantCalls)
+				t.Fatalf("Delete() repository calls = %d, want %d", calls, tt.wantCalls)
 			}
 
 			assertErrors(t, err, tt.wantErrs)
+		})
+	}
+}
+
+// Every operation is refused before any repository call to a caller without
+// an identity, and to one whose Role lacks the permission it needs. A User
+// always finds themselves and changes their own profile and password; the
+// system identity has no account to change.
+
+func TestUserServiceAccess(t *testing.T) {
+	operations := []struct {
+		name string
+		call func(ctx context.Context, service *UserService) error
+	}{
+		{"create", func(ctx context.Context, service *UserService) error {
+			_, err := service.Create(ctx, input.CreateUserInput{})
+			return err
+		}},
+		{"find another user", func(ctx context.Context, service *UserService) error {
+			_, err := service.FindByID(ctx, testAdminID)
+			return err
+		}},
+		{"list", func(ctx context.Context, service *UserService) error {
+			_, err := service.List(ctx, validUserQuery())
+			return err
+		}},
+		{"update", func(ctx context.Context, service *UserService) error {
+			_, err := service.Update(ctx, input.UpdateUserInput{})
+			return err
+		}},
+		{"delete", func(ctx context.Context, service *UserService) error {
+			return service.Delete(ctx, testAdminID)
+		}},
+		{"update profile", func(ctx context.Context, service *UserService) error {
+			_, err := service.UpdateProfile(ctx, input.UpdateProfileInput{})
+			return err
+		}},
+		{"change password", func(ctx context.Context, service *UserService) error {
+			_, err := service.ChangePassword(ctx, input.ChangePasswordInput{})
+			return err
+		}},
+	}
+
+	for _, tt := range []struct {
+		name     string
+		ctx      context.Context
+		wantErrs []error
+		skip     []string
+	}{
+		{name: "missing identity", ctx: t.Context(), wantErrs: []error{ErrUnauthenticated, security.ErrIdentityMissing}},
+		{
+			name:     "insufficient permission",
+			ctx:      userContext(t, testUserID, users.PermissionViewRole, users.PermissionManageRole),
+			wantErrs: []error{users.ErrPermissionDenied},
+			skip:     []string{"update profile", "change password"},
+		},
+		{
+			name:     "managing users without viewing them",
+			ctx:      userContext(t, testUserID, users.PermissionManageUser),
+			wantErrs: []error{users.ErrPermissionDenied},
+			skip:     []string{"create", "find another user", "update", "delete", "update profile", "change password"},
+		},
+		{
+			name:     "system identity has no account",
+			ctx:      systemContext(t),
+			wantErrs: []error{ErrUnauthenticated},
+			skip:     []string{"create", "find another user", "list", "update", "delete"},
+		},
+	} {
+		for _, operation := range operations {
+			if slices.Contains(tt.skip, operation.name) {
+				continue
+			}
+
+			t.Run(tt.name+" "+operation.name, func(t *testing.T) {
+				calls := 0
+				repository := &mock.UserRepository{
+					FindByIDFunc: func(context.Context, users.UserID) (*users.User, error) {
+						calls++
+						return testUser(), nil
+					},
+				}
+
+				service, err := NewUserService(&appmock.Transactor{}, repository, &mock.PasswordHasher{})
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = operation.call(tt.ctx, service)
+
+				if calls != 0 {
+					t.Fatalf("%s repository calls = %d, want none", operation.name, calls)
+				}
+
+				assertErrors(t, err, tt.wantErrs)
+			})
+		}
+	}
+
+	for _, tt := range []struct {
+		name string
+		ctx  context.Context
+		id   users.UserID
+	}{
+		{"themselves without permissions", userContext(t, testUserID), testUserID},
+		{"another user with permission to manage users", userContext(t, testUserID, users.PermissionManageUser), testAdminID},
+	} {
+		t.Run("find "+tt.name, func(t *testing.T) {
+			repository := &mock.UserRepository{
+				FindByIDFunc: func(context.Context, users.UserID) (*users.User, error) { return testUser(), nil },
+			}
+
+			service, err := NewUserService(&appmock.Transactor{}, repository, &mock.PasswordHasher{})
+
+			if err != nil {
+				t.Fatal(err)
+			}
+
+			if _, err = service.FindByID(tt.ctx, tt.id); err != nil {
+				t.Fatalf("FindByID() = %v, want it allowed", err)
+			}
 		})
 	}
 }
@@ -746,7 +870,6 @@ func profileRepository(
 
 func TestUserServiceUpdateProfile(t *testing.T) {
 	names := input.UpdateProfileInput{
-		ID:        testUserID,
 		FirstName: "Anna",
 		LastName:  "Ozola",
 		Email:     "anna@example.com",
@@ -775,7 +898,7 @@ func TestUserServiceUpdateProfile(t *testing.T) {
 		{name: "email with a wrong password", request: emailWithWrongPassword, wantErrs: []error{input.ErrCurrentPasswordIncorrect}},
 		{
 			name:     "invalid fields",
-			request:  input.UpdateProfileInput{ID: testUserID, FirstName: " ", Email: "Anna <anna@example.com>"},
+			request:  input.UpdateProfileInput{FirstName: " ", Email: "Anna <anna@example.com>"},
 			wantErrs: []error{input.ErrUpdateProfileInputInvalid, users.ErrFirstNameEmpty, users.ErrLastNameEmpty, users.ErrEmailInvalid},
 		},
 		{name: "missing user", request: names, missing: true, wantErrs: []error{users.ErrUserNotFound}},
@@ -798,7 +921,7 @@ func TestUserServiceUpdateProfile(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			user, err := service.UpdateProfile(t.Context(), tt.request)
+			user, err := service.UpdateProfile(userContext(t, testUserID), tt.request)
 
 			if writes != tt.wantWrites || hashCalls != 0 {
 				t.Fatalf("calls = (write %d, hash %d), want (%d, 0)", writes, hashCalls, tt.wantWrites)
@@ -826,7 +949,7 @@ func TestUserServiceUpdateProfile(t *testing.T) {
 }
 
 func TestUserServiceChangePassword(t *testing.T) {
-	valid := input.ChangePasswordInput{ID: testUserID, CurrentPassword: "correct horse", NewPassword: "battery staple"}
+	valid := input.ChangePasswordInput{CurrentPassword: "correct horse", NewPassword: "battery staple"}
 	withoutCurrent := valid
 	withoutCurrent.CurrentPassword = ""
 	wrongCurrent := valid
@@ -862,7 +985,7 @@ func TestUserServiceChangePassword(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			user, err := service.ChangePassword(t.Context(), tt.request)
+			user, err := service.ChangePassword(userContext(t, testUserID), tt.request)
 
 			if hashCalls != tt.wantHashes || writes != tt.wantWrites {
 				t.Fatalf("calls = (hash %d, write %d), want (%d, %d)", hashCalls, writes, tt.wantHashes, tt.wantWrites)

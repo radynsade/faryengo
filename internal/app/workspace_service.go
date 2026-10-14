@@ -51,10 +51,16 @@ type WorkspaceMember struct {
 // transaction already carried by the caller's context. Users are read only to
 // find a new member by email and to list members.
 //
-// Methods that take an acting User serve the office: the actor's membership
-// Role must allow the operation, and a Workspace the actor does not belong to
-// is reported as ErrWorkspaceNotFound. The other methods serve the admin panel
-// and the CLI, which system permissions govern, and check no Workspace Role.
+// Every method acts for the caller in the context. Creating and listing
+// Workspaces needs the caller's security.Identity, which must have a User.
+// Every other method needs the caller's workspaces.Identity for the Workspace
+// it names, whose Role must allow the operation; ResolveIdentity provides it.
+// A caller without the identity is reported as ErrUnauthenticated, and a
+// Workspace the caller does not belong to as ErrWorkspaceNotFound.
+//
+// The identity's Role was read before the operation began. Every write locks
+// the Workspace and reads the caller's Role again under that lock, so a Role
+// change and a write that relies on it apply one after another.
 
 var ErrWorkspaceRepositoryNil = errors.New("workspace repository is nil")
 
@@ -87,7 +93,54 @@ func NewWorkspaceService(
 	return service, err
 }
 
-// Create
+// The caller's identity for one Workspace: their User and the Role their
+// membership gives them. A User who is not a member cannot tell the Workspace
+// from a missing one, so both are reported as ErrWorkspaceNotFound.
+
+func (s *WorkspaceService) ResolveIdentity(
+	ctx context.Context,
+	id workspaces.WorkspaceID,
+) (*workspaces.Identity, error) {
+	var (
+		identity   *workspaces.Identity
+		user       *users.User
+		membership workspaces.Membership
+		err        error
+	)
+
+	if err = s.check(); err == nil {
+		user, err = currentUser(ctx)
+
+		if err == nil {
+			err = id.Validate()
+		}
+
+		if err != nil {
+			err = fmt.Errorf("resolve a workspace identity: %w", err)
+		}
+	}
+
+	if err == nil {
+		membership, err = s.repository.FindMember(ctx, id, user.ID)
+
+		if errors.Is(err, workspaces.ErrMembershipNotFound) {
+			err = workspaces.ErrWorkspaceNotFound
+		}
+
+		if err == nil {
+			identity = workspaces.NewIdentity(id, user, membership.Role)
+		} else {
+			err = fmt.Errorf("resolve the identity of user %s in workspace %s: %w", uuid.UUID(user.ID), uuid.UUID(id), err)
+		}
+	}
+
+	return identity, err
+}
+
+// The caller becomes the Workspace's owner in the same transaction, so a
+// Workspace is never left behind without the User who created it. A creator
+// deleted in the meantime is reported by the repository as
+// users.ErrUserNotFound.
 
 func (s *WorkspaceService) Create(
 	ctx context.Context,
@@ -95,116 +148,61 @@ func (s *WorkspaceService) Create(
 ) (*workspaces.Workspace, error) {
 	var (
 		workspace *workspaces.Workspace
+		creator   *users.User
 		err       error
 	)
 
 	if err = s.check(); err == nil {
-		workspace, err = s.create(ctx, request, nil)
-	}
-
-	return workspace, err
-}
-
-// The creator becomes the Workspace's owner in the same transaction, so a
-// Workspace is never left behind without the User who created it. A missing
-// creator is reported by the repository as users.ErrUserNotFound.
-
-func (s *WorkspaceService) CreateAsUser(
-	ctx context.Context,
-	creatorID users.UserID,
-	request input.CreateWorkspaceInput,
-) (*workspaces.Workspace, error) {
-	var (
-		workspace *workspaces.Workspace
-		err       error
-	)
-
-	if err = s.check(); err == nil {
-		err = creatorID.Validate()
+		creator, err = currentUser(ctx)
 
 		if err != nil {
-			err = fmt.Errorf("create workspace as a user: %w", err)
-		} else {
-			workspace, err = s.create(ctx, request, &creatorID)
+			err = fmt.Errorf("create workspace: %w", err)
 		}
 	}
 
+	if err == nil {
+		workspace, err = s.create(ctx, request, creator.ID)
+	}
+
 	return workspace, err
 }
 
-// Find by an ID
+// The Workspace comes with the caller's Role in it, so the caller can offer
+// only what that Role allows.
 
-func (s *WorkspaceService) FindByID(
+func (s *WorkspaceService) FindForMember(
 	ctx context.Context,
 	id workspaces.WorkspaceID,
-) (*workspaces.Workspace, error) {
+) (MemberWorkspace, error) {
 	var (
-		workspace *workspaces.Workspace
-		err       error
+		found    MemberWorkspace
+		identity *workspaces.Identity
+		err      error
 	)
 
 	if err = s.check(); err == nil {
 		err = id.Validate()
 
-		if err != nil {
-			err = fmt.Errorf("find workspace: %w", err)
-		} else {
-			workspace, err = s.repository.FindByID(ctx, id)
-
-			if err != nil {
-				err = fmt.Errorf("find workspace %s: %w", uuid.UUID(id), err)
-				workspace = nil
-			}
+		if err == nil {
+			identity, err = authorizeMember(ctx, id, workspaces.ActionViewContent, workspaces.ErrWorkspaceNotFound)
 		}
-	}
-
-	return workspace, err
-}
-
-// The Workspace comes with the member's Role, so the caller can offer only
-// what that Role allows.
-
-func (s *WorkspaceService) FindForMember(
-	ctx context.Context,
-	id workspaces.WorkspaceID,
-	userID users.UserID,
-) (MemberWorkspace, error) {
-	var (
-		found      MemberWorkspace
-		membership workspaces.Membership
-		err        error
-	)
-
-	if err = s.check(); err == nil {
-		err = errors.Join(id.Validate(), userID.Validate())
-
-		if err != nil {
-			err = fmt.Errorf("find workspace of a member: %w", err)
-		}
-	}
-
-	if err == nil {
-		membership, err = s.authorize(ctx, id, userID, workspaces.ActionViewContent)
 
 		if err == nil {
 			found.Workspace, err = s.repository.FindByID(ctx, id)
-			found.Role = membership.Role
+			found.Role = identity.Role
 		}
 
 		if err != nil {
-			err = fmt.Errorf("find workspace %s of user %s: %w", uuid.UUID(id), uuid.UUID(userID), err)
+			err = fmt.Errorf("find workspace %s of a member: %w", uuid.UUID(id), err)
+			found = MemberWorkspace{}
 		}
-	}
-
-	if err != nil {
-		found = MemberWorkspace{}
 	}
 
 	return found, err
 }
 
-// List one page of the Workspaces matching a query, with the total number of
-// matching Workspaces
+// The member criterion of the query is replaced by the caller, so they list
+// only their own Workspaces.
 
 func (s *WorkspaceService) List(
 	ctx context.Context,
@@ -212,70 +210,51 @@ func (s *WorkspaceService) List(
 ) (WorkspaceList, error) {
 	var (
 		list WorkspaceList
+		user *users.User
 		err  error
 	)
 
 	if err = s.check(); err == nil {
-		list, err = s.list(ctx, query)
-
-		if err != nil {
-			err = fmt.Errorf("list workspaces: %w", err)
-		}
-	}
-
-	return list, err
-}
-
-// The member criterion of the query is replaced by the given User. A User
-// that does not exist belongs to no Workspace, so the list is empty.
-
-func (s *WorkspaceService) ListByMember(
-	ctx context.Context,
-	userID users.UserID,
-	query workspaces.WorkspaceQuery,
-) (WorkspaceList, error) {
-	var (
-		list WorkspaceList
-		err  error
-	)
-
-	if err = s.check(); err == nil {
-		err = userID.Validate()
+		user, err = currentUser(ctx)
 
 		if err == nil {
-			query.Filter.MemberID = &userID
-			list, err = s.list(ctx, query)
+			query.Filter.MemberID = &user.ID
+			err = query.Validate()
+		}
+
+		if err == nil {
+			list.Total, err = s.repository.Count(ctx, query.Filter)
+		}
+
+		if err == nil {
+			list.Workspaces, err = s.repository.Find(ctx, query)
 		}
 
 		if err != nil {
-			err = fmt.Errorf("list workspaces of user %s: %w", uuid.UUID(userID), err)
+			err = fmt.Errorf("list workspaces of a member: %w", err)
+			list = WorkspaceList{}
 		}
 	}
 
 	return list, err
 }
 
-// The Workspace is locked first, so concurrent renames apply one after
-// another and the actor's Role cannot change in between.
+// Rename
 
 func (s *WorkspaceService) Rename(
 	ctx context.Context,
-	actorID users.UserID,
 	request input.RenameWorkspaceInput,
 ) (*workspaces.Workspace, error) {
 	var (
 		workspace *workspaces.Workspace
+		identity  *workspaces.Identity
 		err       error
 	)
 
 	if err = s.check(); err == nil {
 		name, nameErr := workspaces.NewWorkspaceName(strings.TrimSpace(request.Name))
 
-		err = errors.Join(
-			request.ID.Validate(),
-			actorID.Validate(),
-			nameErr,
-		)
+		err = errors.Join(request.ID.Validate(), nameErr)
 
 		if err == nil {
 			workspace = workspaces.NewWorkspace(request.ID, name)
@@ -285,20 +264,24 @@ func (s *WorkspaceService) Rename(
 	}
 
 	if err == nil {
-		err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
-			_, err := s.authorizeForUpdate(ctx, workspace.ID, actorID, workspaces.ActionRename)
+		identity, err = authorizeMember(ctx, request.ID, workspaces.ActionRename, workspaces.ErrWorkspaceNotFound)
 
-			if err == nil {
-				if updateErr := s.repository.Update(ctx, workspace); updateErr != nil {
-					err = updateErr
+		if err == nil {
+			err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+				_, err := reauthorizeMember(ctx, s.repository, identity, workspaces.ActionRename, workspaces.ErrWorkspaceNotFound)
+
+				if err == nil {
+					if updateErr := s.repository.Update(ctx, workspace); updateErr != nil {
+						err = updateErr
+					}
 				}
-			}
 
-			return err
-		})
+				return err
+			})
+		}
 
 		if err != nil {
-			err = fmt.Errorf("rename workspace %s as user %s: %w", uuid.UUID(request.ID), uuid.UUID(actorID), err)
+			err = fmt.Errorf("rename workspace %s: %w", uuid.UUID(request.ID), err)
 		}
 	}
 
@@ -309,86 +292,11 @@ func (s *WorkspaceService) Rename(
 	return workspace, err
 }
 
-// Deleting a Workspace removes its memberships.
-
-func (s *WorkspaceService) Delete(ctx context.Context, id workspaces.WorkspaceID) error {
-	err := s.check()
-
-	if err == nil {
-		err = id.Validate()
-
-		if err != nil {
-			err = fmt.Errorf("delete workspace: %w", err)
-		}
-	}
-
-	if err == nil {
-		err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
-			var err error
-
-			if deleteErr := s.repository.Delete(ctx, id); deleteErr != nil {
-				err = deleteErr
-			}
-
-			return err
-		})
-
-		if err != nil {
-			err = fmt.Errorf("delete workspace %s: %w", uuid.UUID(id), err)
-		}
-	}
-
-	return err
-}
-
-// A missing Workspace or User is reported by the repository as
-// ErrWorkspaceNotFound or users.ErrUserNotFound, and an existing membership
-// as ErrMembershipAlreadyExists.
-
-func (s *WorkspaceService) AddMember(
-	ctx context.Context,
-	workspaceID workspaces.WorkspaceID,
-	userID users.UserID,
-	role workspaces.Role,
-) error {
-	var membership workspaces.Membership
-
-	err := s.check()
-
-	if err == nil {
-		membership = workspaces.NewMembership(workspaceID, userID, role)
-		err = membership.Validate()
-
-		if err != nil {
-			err = fmt.Errorf("add workspace member: %w", err)
-		}
-	}
-
-	if err == nil {
-		err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
-			var err error
-
-			if addErr := s.repository.AddMember(ctx, membership); addErr != nil {
-				err = addErr
-			}
-
-			return err
-		})
-
-		if err != nil {
-			err = fmt.Errorf("add user %s to workspace %s: %w", uuid.UUID(userID), uuid.UUID(workspaceID), err)
-		}
-	}
-
-	return err
-}
-
 // Members come back in name order. A membership whose User was deleted in
 // the meantime is left out, as the deletion removes it too.
 
 func (s *WorkspaceService) ListMembers(
 	ctx context.Context,
-	actorID users.UserID,
 	id workspaces.WorkspaceID,
 ) ([]WorkspaceMember, error) {
 	var (
@@ -399,7 +307,7 @@ func (s *WorkspaceService) ListMembers(
 	)
 
 	if err = s.check(); err == nil {
-		err = errors.Join(id.Validate(), actorID.Validate())
+		err = id.Validate()
 
 		if err != nil {
 			err = fmt.Errorf("list workspace members: %w", err)
@@ -407,7 +315,7 @@ func (s *WorkspaceService) ListMembers(
 	}
 
 	if err == nil {
-		_, err = s.authorize(ctx, id, actorID, workspaces.ActionViewContent)
+		_, err = authorizeMember(ctx, id, workspaces.ActionViewContent, workspaces.ErrWorkspaceNotFound)
 
 		if err == nil {
 			memberships, err = s.repository.FindMembers(ctx, id)
@@ -438,7 +346,7 @@ func (s *WorkspaceService) ListMembers(
 		}
 
 		if err != nil {
-			err = fmt.Errorf("list members of workspace %s as user %s: %w", uuid.UUID(id), uuid.UUID(actorID), err)
+			err = fmt.Errorf("list members of workspace %s: %w", uuid.UUID(id), err)
 			members = nil
 		}
 	}
@@ -453,14 +361,14 @@ func (s *WorkspaceService) ListMembers(
 
 func (s *WorkspaceService) AddMemberByEmail(
 	ctx context.Context,
-	actorID users.UserID,
 	request input.AddMemberByEmailInput,
 ) (*users.User, error) {
 	var (
-		user  *users.User
-		email users.Email
-		role  workspaces.Role
-		err   error
+		user     *users.User
+		identity *workspaces.Identity
+		email    users.Email
+		role     workspaces.Role
+		err      error
 	)
 
 	if err = s.check(); err == nil {
@@ -476,7 +384,6 @@ func (s *WorkspaceService) AddMemberByEmail(
 
 		err = errors.Join(
 			request.WorkspaceID.Validate(),
-			actorID.Validate(),
 			emailErr,
 			roleErr,
 		)
@@ -487,24 +394,28 @@ func (s *WorkspaceService) AddMemberByEmail(
 	}
 
 	if err == nil {
-		err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
-			_, err := s.authorizeForUpdate(ctx, request.WorkspaceID, actorID, workspaces.ActionManageMembers)
+		identity, err = authorizeMember(ctx, request.WorkspaceID, workspaces.ActionManageMembers, workspaces.ErrWorkspaceNotFound)
 
-			if err == nil {
-				user, err = s.users.FindByEmail(ctx, email)
-			}
+		if err == nil {
+			err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+				_, err := reauthorizeMember(ctx, s.repository, identity, workspaces.ActionManageMembers, workspaces.ErrWorkspaceNotFound)
 
-			if err == nil {
-				if addErr := s.repository.AddMember(ctx, workspaces.NewMembership(request.WorkspaceID, user.ID, role)); addErr != nil {
-					err = addErr
+				if err == nil {
+					user, err = s.users.FindByEmail(ctx, email)
 				}
-			}
 
-			return err
-		})
+				if err == nil {
+					if addErr := s.repository.AddMember(ctx, workspaces.NewMembership(request.WorkspaceID, user.ID, role)); addErr != nil {
+						err = addErr
+					}
+				}
+
+				return err
+			})
+		}
 
 		if err != nil {
-			err = fmt.Errorf("add a member by email to workspace %s as user %s: %w", uuid.UUID(request.WorkspaceID), uuid.UUID(actorID), err)
+			err = fmt.Errorf("add a member by email to workspace %s: %w", uuid.UUID(request.WorkspaceID), err)
 		}
 	}
 
@@ -515,15 +426,18 @@ func (s *WorkspaceService) AddMemberByEmail(
 	return user, err
 }
 
-// A User who is not a member is reported as ErrMembershipNotFound, and
-// demoting the Workspace's last owner as ErrMembershipLastOwner.
+// A User who is not a member is reported as ErrMembershipNotFound, a change
+// to the caller's own role as ErrMembershipOwnRole, and demoting the
+// Workspace's last owner as ErrMembershipLastOwner.
 
 func (s *WorkspaceService) ChangeMemberRole(
 	ctx context.Context,
-	actorID users.UserID,
 	request input.ChangeMemberRoleInput,
 ) error {
-	var membership workspaces.Membership
+	var (
+		membership workspaces.Membership
+		identity   *workspaces.Identity
+	)
 
 	err := s.check()
 
@@ -533,7 +447,6 @@ func (s *WorkspaceService) ChangeMemberRole(
 		err = errors.Join(
 			request.WorkspaceID.Validate(),
 			request.UserID.Validate(),
-			actorID.Validate(),
 			roleErr,
 		)
 
@@ -545,34 +458,41 @@ func (s *WorkspaceService) ChangeMemberRole(
 	}
 
 	if err == nil {
-		err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
-			var current workspaces.Membership
+		identity, err = authorizeMember(ctx, membership.WorkspaceID, workspaces.ActionManageMembers, workspaces.ErrWorkspaceNotFound)
 
-			_, err := s.authorizeForUpdate(ctx, membership.WorkspaceID, actorID, workspaces.ActionManageMembers)
+		if err == nil && membership.UserID == identity.User.ID {
+			err = workspaces.ErrMembershipOwnRole
+		}
 
-			if err == nil {
-				current, err = s.repository.FindMember(ctx, membership.WorkspaceID, membership.UserID)
-			}
+		if err == nil {
+			err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+				var current workspaces.Membership
 
-			if err == nil && membership.Role != workspaces.RoleOwner {
-				err = s.checkOwnerRemains(ctx, current)
-			}
+				_, err := reauthorizeMember(ctx, s.repository, identity, workspaces.ActionManageMembers, workspaces.ErrWorkspaceNotFound)
 
-			if err == nil {
-				if updateErr := s.repository.UpdateMember(ctx, membership); updateErr != nil {
-					err = updateErr
+				if err == nil {
+					current, err = s.repository.FindMember(ctx, membership.WorkspaceID, membership.UserID)
 				}
-			}
 
-			return err
-		})
+				if err == nil && membership.Role != workspaces.RoleOwner {
+					err = s.checkOwnerRemains(ctx, current)
+				}
+
+				if err == nil {
+					if updateErr := s.repository.UpdateMember(ctx, membership); updateErr != nil {
+						err = updateErr
+					}
+				}
+
+				return err
+			})
+		}
 
 		if err != nil {
 			err = fmt.Errorf(
-				"change role of user %s in workspace %s as user %s: %w",
+				"change role of user %s in workspace %s: %w",
 				uuid.UUID(request.UserID),
 				uuid.UUID(request.WorkspaceID),
-				uuid.UUID(actorID),
 				err,
 			)
 		}
@@ -586,14 +506,15 @@ func (s *WorkspaceService) ChangeMemberRole(
 
 func (s *WorkspaceService) RemoveMember(
 	ctx context.Context,
-	actorID users.UserID,
 	workspaceID workspaces.WorkspaceID,
 	userID users.UserID,
 ) error {
+	var identity *workspaces.Identity
+
 	err := s.check()
 
 	if err == nil {
-		err = errors.Join(workspaceID.Validate(), userID.Validate(), actorID.Validate())
+		err = errors.Join(workspaceID.Validate(), userID.Validate())
 
 		if err != nil {
 			err = fmt.Errorf("remove workspace member: %w", err)
@@ -601,36 +522,34 @@ func (s *WorkspaceService) RemoveMember(
 	}
 
 	if err == nil {
-		err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
-			var membership workspaces.Membership
+		identity, err = authorizeMember(ctx, workspaceID, workspaces.ActionManageMembers, workspaces.ErrWorkspaceNotFound)
 
-			_, err := s.authorizeForUpdate(ctx, workspaceID, actorID, workspaces.ActionManageMembers)
+		if err == nil {
+			err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+				var membership workspaces.Membership
 
-			if err == nil {
-				membership, err = s.repository.FindMember(ctx, workspaceID, userID)
-			}
+				_, err := reauthorizeMember(ctx, s.repository, identity, workspaces.ActionManageMembers, workspaces.ErrWorkspaceNotFound)
 
-			if err == nil {
-				err = s.checkOwnerRemains(ctx, membership)
-			}
-
-			if err == nil {
-				if removeErr := s.repository.RemoveMember(ctx, membership); removeErr != nil {
-					err = removeErr
+				if err == nil {
+					membership, err = s.repository.FindMember(ctx, workspaceID, userID)
 				}
-			}
 
-			return err
-		})
+				if err == nil {
+					err = s.checkOwnerRemains(ctx, membership)
+				}
+
+				if err == nil {
+					if removeErr := s.repository.RemoveMember(ctx, membership); removeErr != nil {
+						err = removeErr
+					}
+				}
+
+				return err
+			})
+		}
 
 		if err != nil {
-			err = fmt.Errorf(
-				"remove user %s from workspace %s as user %s: %w",
-				uuid.UUID(userID),
-				uuid.UUID(workspaceID),
-				uuid.UUID(actorID),
-				err,
-			)
+			err = fmt.Errorf("remove user %s from workspace %s: %w", uuid.UUID(userID), uuid.UUID(workspaceID), err)
 		}
 	}
 
@@ -655,52 +574,6 @@ func (s *WorkspaceService) check() error {
 	return err
 }
 
-// A User who is not a member cannot tell the Workspace from a missing one, so
-// both are reported as ErrWorkspaceNotFound. The caller adds the operation
-// context.
-
-func (s *WorkspaceService) authorize(
-	ctx context.Context,
-	id workspaces.WorkspaceID,
-	actorID users.UserID,
-	action workspaces.Action,
-) (workspaces.Membership, error) {
-	membership, err := s.repository.FindMember(ctx, id, actorID)
-
-	if errors.Is(err, workspaces.ErrMembershipNotFound) {
-		err = workspaces.ErrWorkspaceNotFound
-	} else if err == nil && !membership.Role.Allows(action) {
-		err = fmt.Errorf("%w: a workspace %s may not %s", workspaces.ErrRolePermissionDenied, membership.Role, action)
-	}
-
-	if err != nil {
-		membership = workspaces.Membership{}
-	}
-
-	return membership, err
-}
-
-// The Workspace is locked before the actor's Role is read, so writes to one
-// Workspace's memberships apply one after another. It must run in a
-// transaction.
-
-func (s *WorkspaceService) authorizeForUpdate(
-	ctx context.Context,
-	id workspaces.WorkspaceID,
-	actorID users.UserID,
-	action workspaces.Action,
-) (workspaces.Membership, error) {
-	var membership workspaces.Membership
-
-	_, err := s.repository.FindByIDForUpdate(ctx, id)
-
-	if err == nil {
-		membership, err = s.authorize(ctx, id, actorID, action)
-	}
-
-	return membership, err
-}
-
 // The caller holds the Workspace's lock, so no other owner can leave between
 // this check and the change it guards.
 
@@ -720,12 +593,10 @@ func (s *WorkspaceService) checkOwnerRemains(ctx context.Context, membership wor
 	return err
 }
 
-// Without a creator the Workspace starts with no members.
-
 func (s *WorkspaceService) create(
 	ctx context.Context,
 	request input.CreateWorkspaceInput,
-	creatorID *users.UserID,
+	creatorID users.UserID,
 ) (*workspaces.Workspace, error) {
 	var workspace *workspaces.Workspace
 
@@ -758,8 +629,8 @@ func (s *WorkspaceService) create(
 
 			if createErr := s.repository.Create(ctx, workspace); createErr != nil {
 				err = createErr
-			} else if creatorID != nil {
-				membership := workspaces.NewMembership(workspace.ID, *creatorID, workspaces.RoleOwner)
+			} else {
+				membership := workspaces.NewMembership(workspace.ID, creatorID, workspaces.RoleOwner)
 
 				if membershipErr := membership.Validate(); membershipErr != nil {
 					err = membershipErr
@@ -781,29 +652,4 @@ func (s *WorkspaceService) create(
 	}
 
 	return workspace, err
-}
-
-// The caller adds the operation context.
-
-func (s *WorkspaceService) list(
-	ctx context.Context,
-	query workspaces.WorkspaceQuery,
-) (WorkspaceList, error) {
-	var list WorkspaceList
-
-	err := query.Validate()
-
-	if err == nil {
-		list.Total, err = s.repository.Count(ctx, query.Filter)
-	}
-
-	if err == nil {
-		list.Workspaces, err = s.repository.Find(ctx, query)
-	}
-
-	if err != nil {
-		list = WorkspaceList{}
-	}
-
-	return list, err
 }

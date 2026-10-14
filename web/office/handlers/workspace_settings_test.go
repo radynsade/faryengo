@@ -621,8 +621,8 @@ func TestWorkspaceSettingsByRole(t *testing.T) {
 	}
 }
 
-// The only owner's role cannot be changed in place; beside another owner it
-// can.
+// The signed-in User's own role cannot be changed in place, even beside
+// another owner; another owner's can.
 
 func TestWorkspaceSettingsLastOwner(t *testing.T) {
 	f := newFixture(t)
@@ -642,8 +642,8 @@ func TestWorkspaceSettingsLastOwner(t *testing.T) {
 	f.setMemberRole(design, grace.ID, workspaces.RoleOwner)
 	body = f.do(request{path: designPath + "/settings", cookies: cookies}).Body.String()
 
-	if !strings.Contains(body, adaRole) || !strings.Contains(body, graceRole) {
-		t.Fatalf("settings do not let either owner's role change:\n%s", body)
+	if strings.Contains(body, adaRole) || !strings.Contains(body, graceRole) {
+		t.Fatalf("settings let Ada change her own role, or not Grace's:\n%s", body)
 	}
 }
 
@@ -752,19 +752,12 @@ func TestChangeWorkspaceMemberRole(t *testing.T) {
 		t.Fatalf("settings lack the confirmation:\n%s", body)
 	}
 
-	// Beside Grace, Ada is no longer the last owner and may step down; the
-	// settings then become read-only for her.
+	// Even beside Grace, Ada may not step down herself.
 	adaPath := designPath + "/settings/members/" + uuid.UUID(f.user.ID).String() + "/role"
 	response = f.do(request{method: http.MethodPost, path: adaPath, body: "role=editor", cookies: cookies})
 
-	if response.Code != http.StatusSeeOther || f.memberRole(design, f.user.ID) != workspaces.RoleEditor {
+	if response.Code != http.StatusSeeOther || f.memberRole(design, f.user.ID) != workspaces.RoleOwner {
 		t.Fatalf("step down = %d, role %q", response.Code, f.memberRole(design, f.user.ID))
-	}
-
-	body = f.do(request{path: designPath + "/settings", cookies: cookies}).Body.String()
-
-	if strings.Contains(body, `id="workspace-form"`) || !strings.Contains(body, `<p class="field__value">Design</p>`) {
-		t.Fatalf("settings after stepping down are not read-only:\n%s", body)
 	}
 }
 
@@ -778,13 +771,13 @@ func TestChangeWorkspaceMemberRoleRejected(t *testing.T) {
 		contains []string
 	}{
 		{
-			name: "last owner demoted",
+			name: "own role",
 			path: func(f *fixture) string {
 				return designPath + "/settings/members/" + uuid.UUID(f.user.ID).String() + "/role"
 			},
 			body:     "role=viewer",
-			status:   http.StatusConflict,
-			contains: []string{"The workspace must keep at least one owner."},
+			status:   http.StatusSeeOther,
+			location: designPath + "/settings",
 		},
 		{
 			name: "unknown role",

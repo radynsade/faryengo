@@ -18,6 +18,7 @@ import (
 	"github.com/radynsade/faryengo/internal/infra/pgxdb"
 	"github.com/radynsade/faryengo/internal/languages"
 	languagespgxgoqu "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
+	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/users/argon2id"
 	userspgxgoqu "github.com/radynsade/faryengo/internal/users/pgxgoqu"
@@ -136,6 +137,9 @@ func run(
 	return err
 }
 
+// The operator acts outside any account, so commands run with the system
+// identity.
+
 func runCommand(
 	ctx context.Context,
 	parsed command,
@@ -175,7 +179,7 @@ func runCommand(
 		wired, err = wireServices(pool)
 
 		if err == nil {
-			err = parsed.execute(ctx, wired, stdout)
+			err = parsed.execute(security.WithIdentity(ctx, security.NewSystemIdentity()), wired, stdout)
 		}
 	}
 

@@ -98,6 +98,10 @@ transports. Verify session validity, revocation, and current credential state
 before accepting authenticated access. Changes to credentials and authority
 must follow the lifecycle defined in [authentication](../authentication.md).
 
+- Application services authorize every use case themselves, from the
+  caller's identity carried in the operation's context; transports place it
+  there and may check permissions earlier only to choose a response. A use
+  case called without the identity it needs is refused as unauthenticated.
 - Deny authenticated access when required security storage or checks are
   unavailable.
 - Use HTTPS in production and follow the documented secure-cookie and

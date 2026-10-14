@@ -12,6 +12,7 @@ accounts, roles, and permissions that authorization evaluates.
 | Session | Entity and aggregate root | Represents one device's authenticated access; references one [User](users.md#user) and the [credentials version](users.md#account-and-authority-values) accepted at sign-in. |
 | Session identity | Value object | Identifies one Session independently of its other fields. |
 | Authenticated identity | Derived value | Derived from one valid Session; combines it with the referenced [User](users.md#user) and that User's current [Role](users.md#role). |
+| Operator identity | Derived value | Acts for an operator outside any account; has no Session or User and holds every permission. |
 
 ```mermaid
 flowchart LR
@@ -22,6 +23,7 @@ flowchart LR
     Identity[Authenticated identity] -.->|derived from one| Session
     Identity -.->|current account details| User
     Identity -.->|current authority| Role
+    Operator[Operator identity] -.->|holds| All[Every permission]
 ```
 
 ## Aggregates and entities
@@ -78,6 +80,25 @@ designation grants every defined permission, and an ordinary Role grants only
 its assigned permissions. Permissions are independent, so permission to manage
 something does not imply permission to view it.
 
+Every action is performed for one identity, which accompanies the action from
+the moment the identity is derived. An action that requires authority and is
+performed for no identity is not authenticated and is refused, whatever its
+other inputs.
+
+### Operator identity
+
+An operator who maintains the system directly, such as by creating the first
+Role and User, acts outside any account. The operator identity describes that
+authority: it has no Session and no User, and it holds every defined
+permission, including permissions defined later. Actions that only a User can
+perform on their own account, such as changing their own profile or password,
+are not available to it. It is never derived from a Session, so access through
+a Session never yields it.
+
+| Field | Domain value | Meaning and rules |
+| --- | --- | --- |
+| Authority | Every permission | Permits every action that a permission governs. |
+
 ## Invariants
 
 - A Session authenticates its User only while it is unexpired, has not been
@@ -96,3 +117,6 @@ something does not imply permission to view it.
   authority during existing Sessions without ending them.
 - An authenticated identity exists only for a Session that authenticates its
   User, and always carries that User's current Role.
+- An action that requires authority is refused when it is performed for no
+  identity.
+- The operator identity is never derived from a Session.

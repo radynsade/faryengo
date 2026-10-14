@@ -15,6 +15,7 @@ import (
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
 	"github.com/radynsade/faryengo/internal/languages"
 	languagesmock "github.com/radynsade/faryengo/internal/languages/mock"
+	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/users/mock"
 )
@@ -143,7 +144,7 @@ func TestExecuteRoleCommand(t *testing.T) {
 
 			var output strings.Builder
 
-			err = executeRoleCommand(t.Context(), command, service, &output)
+			err = executeRoleCommand(security.WithIdentity(t.Context(), security.NewSystemIdentity()), command, service, &output)
 
 			assertCommandResult(t, output.String(), err, tt.wantOutput, tt.wantErrs, tt.wantText)
 		})
@@ -175,7 +176,7 @@ func TestExecuteCreateRoleCommand(t *testing.T) {
 
 	var output strings.Builder
 
-	err = executeRoleCommand(t.Context(), command, service, &output)
+	err = executeRoleCommand(security.WithIdentity(t.Context(), security.NewSystemIdentity()), command, service, &output)
 
 	if err != nil || created == nil || !created.IsSuper ||
 		output.String() != "created role "+uuid.UUID(created.ID).String()+"\n" {

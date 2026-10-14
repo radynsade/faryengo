@@ -21,11 +21,15 @@ import (
 //
 
 // The Session's identity, with the User's current Role, is resolved on every
-// request. A missing, invalid, revoked, or expired Session, and a deleted
+// request, and the returned request carries it in its context for the
+// application services. A missing, invalid, revoked, or expired Session, and a deleted
 // User, are reported as utils.ErrUnauthenticated, and a rejected cookie is
 // cleared. Any other failure denies access without ending the Session.
 
-func (h *Handler) authenticate(writer http.ResponseWriter, request *http.Request) (*security.Identity, error) {
+func (h *Handler) authenticate(
+	writer http.ResponseWriter,
+	request *http.Request,
+) (*http.Request, *security.Identity, error) {
 	var (
 		current *security.Identity
 		session *security.Session
@@ -44,17 +48,19 @@ func (h *Handler) authenticate(writer http.ResponseWriter, request *http.Request
 		current, err = h.identities.Resolve(request.Context(), session)
 	}
 
-	if err != nil && utils.IsUnauthenticated(err) {
+	if err == nil {
+		request = request.WithContext(security.WithIdentity(request.Context(), current))
+	} else if utils.IsUnauthenticated(err) {
 		if cookie != "" {
 			h.cookies.Clear(writer, utils.SessionCookie)
 		}
 
 		err = fmt.Errorf("%w: %w", utils.ErrUnauthenticated, err)
-	} else if err != nil {
+	} else {
 		err = fmt.Errorf("authenticate an office request: %w", err)
 	}
 
-	return current, err
+	return request, current, err
 }
 
 //
@@ -64,7 +70,7 @@ func (h *Handler) authenticate(writer http.ResponseWriter, request *http.Request
 // A signed-in visitor goes on to choose a workspace.
 
 func (h *Handler) signInPage(writer http.ResponseWriter, request *http.Request) {
-	_, err := h.authenticate(writer, request)
+	_, _, err := h.authenticate(writer, request)
 
 	if err == nil {
 		http.Redirect(writer, request, utils.WorkspacesPath(request), http.StatusSeeOther)
@@ -130,7 +136,7 @@ func (h *Handler) signIn(writer http.ResponseWriter, request *http.Request) {
 // so the user can try again instead of leaving a Session that still works.
 
 func (h *Handler) signOut(writer http.ResponseWriter, request *http.Request) {
-	current, err := h.authenticate(writer, request)
+	request, current, err := h.authenticate(writer, request)
 
 	if err == nil {
 		err = h.sessions.SignOut(request.Context(), current.Session, false)

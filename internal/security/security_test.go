@@ -1,6 +1,7 @@
 package security
 
 import (
+	"context"
 	"errors"
 	"testing"
 	"time"
@@ -75,6 +76,45 @@ func TestIdentityCan(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			if got := test.identity.Can(users.PermissionViewRole); got != test.want {
 				t.Fatalf("got %t, want %t", got, test.want)
+			}
+		})
+	}
+}
+
+func TestNewSystemIdentity(t *testing.T) {
+	identity := NewSystemIdentity()
+
+	if identity.Session != nil || identity.User != nil {
+		t.Fatalf("NewSystemIdentity() = %+v, want no Session or User", identity)
+	}
+
+	for _, permission := range users.AllPermissions() {
+		if !identity.Can(permission) {
+			t.Fatalf("NewSystemIdentity().Can(%s) = false, want true", permission)
+		}
+	}
+}
+
+func TestIdentityFromContext(t *testing.T) {
+	identity := &Identity{Role: &users.Role{}}
+
+	tests := []struct {
+		name    string
+		ctx     context.Context
+		want    *Identity
+		wantErr error
+	}{
+		{"stored", WithIdentity(context.Background(), identity), identity, nil},
+		{"missing", context.Background(), nil, ErrIdentityMissing},
+		{"nil", WithIdentity(context.Background(), nil), nil, ErrIdentityMissing},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := IdentityFromContext(tt.ctx)
+
+			if got != tt.want || !errors.Is(err, tt.wantErr) || (err == nil) != (tt.wantErr == nil) {
+				t.Fatalf("IdentityFromContext() = (%v, %v), want (%v, %v)", got, err, tt.want, tt.wantErr)
 			}
 		})
 	}

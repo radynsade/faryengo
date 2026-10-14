@@ -59,6 +59,7 @@ var sections = []layouts.NavigationItem{
 	{Key: "transactions", Icon: "transactions", Href: "/transactions"},
 	{Key: "goals", Icon: "goals", Href: "/goals"},
 	{Key: "reports", Icon: "reports", Href: "/reports"},
+	{Key: CategoriesSection, Icon: "categories", Href: "/categories"},
 	{Key: WorkspaceSettingsSection, Icon: "workspace-settings", Href: "/settings"},
 }
 

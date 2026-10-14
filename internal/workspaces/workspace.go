@@ -200,7 +200,10 @@ func (m Membership) Validate() error {
 // Memberships
 //
 
-var ErrMembershipLastOwner = errors.New("user is the last owner of the workspace")
+var (
+	ErrMembershipLastOwner = errors.New("user is the last owner of the workspace")
+	ErrMembershipOwnRole   = errors.New("user may not change their own role in the workspace")
+)
 
 type Memberships []Membership
 

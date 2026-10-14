@@ -23,10 +23,11 @@ var (
 type Permission string
 
 const (
-	PermissionManageUser Permission = "manage_user"
-	PermissionViewUser   Permission = "view_user"
-	PermissionManageRole Permission = "manage_role"
-	PermissionViewRole   Permission = "view_role"
+	PermissionManageUser     Permission = "manage_user"
+	PermissionViewUser       Permission = "view_user"
+	PermissionManageRole     Permission = "manage_role"
+	PermissionViewRole       Permission = "view_role"
+	PermissionManageLanguage Permission = "manage_language"
 )
 
 func NewPermission(value string) (Permission, error) {
@@ -42,7 +43,7 @@ func NewPermission(value string) (Permission, error) {
 
 func (p Permission) Validate() error {
 	switch p {
-	case PermissionManageUser, PermissionViewUser, PermissionManageRole, PermissionViewRole:
+	case PermissionManageUser, PermissionViewUser, PermissionManageRole, PermissionViewRole, PermissionManageLanguage:
 		return nil
 	default:
 		return ErrPermissionInvalid
@@ -75,6 +76,7 @@ func AllPermissions() Permissions {
 		PermissionViewUser,
 		PermissionManageRole,
 		PermissionViewRole,
+		PermissionManageLanguage,
 	}
 }
 

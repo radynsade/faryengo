@@ -11,6 +11,7 @@ import (
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/app/input"
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
+	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/users/mock"
 )
@@ -166,7 +167,7 @@ func TestExecuteUserCommand(t *testing.T) {
 
 			var output strings.Builder
 
-			err = executeUserCommand(t.Context(), command, service, &output)
+			err = executeUserCommand(security.WithIdentity(t.Context(), security.NewSystemIdentity()), command, service, &output)
 
 			assertCommandResult(t, output.String(), err, tt.wantOutput, tt.wantErrs, tt.wantText)
 		})

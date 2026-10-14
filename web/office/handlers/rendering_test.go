@@ -19,6 +19,8 @@ var (
 		designPath + "/transactions",
 		designPath + "/goals",
 		designPath + "/reports",
+		designPath + "/categories",
+		designPath + "/categories/new",
 		designPath + "/settings",
 		designPath + "/profile-settings",
 	}

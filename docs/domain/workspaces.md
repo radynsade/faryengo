@@ -17,6 +17,7 @@ what a member does inside a Workspace.
 | Workspace role | Value object | Names what a member may do in the Workspace. |
 | Workspace identity | Value object | Identifies a Workspace independently of its name and members. |
 | Workspace name | Value object | Names a Workspace in plain, untranslated text. |
+| Member identity | Derived value | Derived from one Membership; describes who acts in one Workspace and with what Workspace role. |
 
 ```mermaid
 flowchart LR
@@ -26,6 +27,7 @@ flowchart LR
         Membership -->|has one| Role[Workspace role]
     end
     Membership -->|references one| User[User aggregate]
+    Identity[Member identity] -.->|derived from one| Membership
 ```
 
 ## Workspace aggregate
@@ -43,8 +45,8 @@ Users they reference have their own lifecycle and are outside the aggregate.
 Renaming a Workspace changes only its name. Adding or removing a member, or
 changing a member's role, changes only its memberships.
 
-A User who creates a Workspace becomes its owner. A Workspace created without
-a creator, such as from the admin panel, starts with no members.
+Every Workspace is created by a User, who becomes its owner in the same
+change.
 
 Deleting a Workspace removes all of its memberships; the Users who were its
 members remain.
@@ -81,8 +83,37 @@ Each role allows these actions:
 | Rename the workspace | no | no | yes |
 | Add, remove, or change the role of members | no | no | yes |
 
-An action a member's role does not allow is denied. A User who is not a
+An action a member's role does not allow is denied. An owner never changes
+their own role, even beside another owner; only another owner can change it. A User who is not a
 member cannot tell the Workspace from a missing one.
+
+## Derived values
+
+### Member identity
+
+A member identity describes who acts in one Workspace and with what authority
+there. It is derived from the acting User's
+[authenticated identity](security.md#authenticated-identity) and that User's
+Membership in the Workspace when the User enters the Workspace, and it
+accompanies every action they then perform there. It has no identity or
+lifecycle of its own.
+
+| Field | Domain value | Meaning and rules |
+| --- | --- | --- |
+| Workspace | Workspace identity | The only Workspace in which the identity permits anything. |
+| User | [User](users.md#user) | The member who acts. |
+| Role | Workspace role | The member's role at the moment of derivation. |
+
+A User who is not a member has no member identity for the Workspace, so they
+cannot tell it from a missing one. A member identity for one Workspace permits
+nothing in another, and such an action is treated as one by a User who is not
+a member. An action performed for no member identity is not authenticated.
+
+The role a member identity carries can become outdated while the member acts.
+A change to the Workspace or its content therefore checks the member's current
+role again at the moment it applies: a change that relies on a role and a
+change to that role apply one after the other, never interleaved, and a member
+who has left or whose role no longer allows the change is refused.
 
 ## Value objects
 
@@ -105,6 +136,7 @@ member cannot tell the Workspace from a missing one.
 
 - Every Membership references an existing User.
 - A User may be a member of any number of Workspaces, including none.
+- Deleting a Workspace deletes its [Categories](categories.md).
 - Deleting a User removes that User's Memberships from every Workspace and
   leaves the Workspaces, including any left with no members or with no
   owner.

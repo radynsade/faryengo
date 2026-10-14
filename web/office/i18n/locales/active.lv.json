@@ -355,5 +355,329 @@
   },
   "errors.home": {
     "other": "Uz sākumlapu"
+  },
+  "nav.categories": {
+    "other": "Kategorijas"
+  },
+  "categories.new": {
+    "other": "Jauna kategorija"
+  },
+  "categories.new_description": {
+    "other": "Piešķiriet tai nosaukumu, krāsu un ikonu, lai to būtu viegli pamanīt."
+  },
+  "categories.list": {
+    "other": "Šīs darba vietas kategorijas"
+  },
+  "categories.read_only": {
+    "other": "Kategorijas var mainīt tikai redaktori un īpašnieki."
+  },
+  "categories.empty": {
+    "other": "Kategoriju vēl nav."
+  },
+  "categories.details": {
+    "other": "Kategorija"
+  },
+  "categories.delete": {
+    "other": "Dzēst kategoriju"
+  },
+  "categories.delete_description": {
+    "other": "Kategorija tiek noņemta no darba vietas visiem dalībniekiem."
+  },
+  "categories.delete_submit": {
+    "other": "Dzēst"
+  },
+  "categories.delete_confirm_title": {
+    "other": "Dzēst šo kategoriju?"
+  },
+  "categories.delete_confirm": {
+    "other": "“{{.Name}}” tiks dzēsta. To nevar atsaukt."
+  },
+  "categories.no_icon": {
+    "other": "Bez ikonas"
+  },
+  "categories.create_submit": {
+    "other": "Pievienot kategoriju"
+  },
+  "categories.save_submit": {
+    "other": "Saglabāt kategoriju"
+  },
+  "categories.created": {
+    "other": "Kategorija “{{.Name}}” ir pievienota."
+  },
+  "categories.saved": {
+    "other": "Kategorija “{{.Name}}” ir saglabāta."
+  },
+  "categories.deleted": {
+    "other": "Kategorija “{{.Name}}” ir dzēsta."
+  },
+  "fields.category_name": {
+    "other": "Nosaukums"
+  },
+  "fields.category_name_placeholder": {
+    "other": "Pārtika"
+  },
+  "fields.category_color": {
+    "other": "Krāsa"
+  },
+  "fields.category_icon": {
+    "other": "Ikona"
+  },
+  "validation.choose_one": {
+    "other": "Izvēlieties vienu no iespējām."
+  },
+  "errors.categories_unavailable": {
+    "other": "Kategorijas pašlaik nav pieejamas. Lūdzu, mēģiniet vēlāk."
+  },
+  "pagination.label": {
+    "other": "Lapas"
+  },
+  "pagination.previous": {
+    "other": "Iepriekšējā"
+  },
+  "pagination.next": {
+    "other": "Nākamā"
+  },
+  "pagination.summary": {
+    "other": "{{.Page}}. lapa no {{.Pages}}"
+  },
+  "category_colors.green": {
+    "other": "Zaļa"
+  },
+  "category_colors.blue": {
+    "other": "Zila"
+  },
+  "category_colors.orange": {
+    "other": "Oranža"
+  },
+  "category_colors.red": {
+    "other": "Sarkana"
+  },
+  "category_colors.purple": {
+    "other": "Violeta"
+  },
+  "category_colors.brown": {
+    "other": "Brūna"
+  },
+  "category_colors.grey": {
+    "other": "Pelēka"
+  },
+  "category_colors.yellow": {
+    "other": "Dzeltena"
+  },
+  "category_icons.player-play": {
+    "other": "Atskaņot"
+  },
+  "category_icons.device-gamepad-2": {
+    "other": "Spēļu pults"
+  },
+  "category_icons.trash": {
+    "other": "Atkritumu tvertne"
+  },
+  "category_icons.shopping-cart": {
+    "other": "Iepirkumu ratiņi"
+  },
+  "category_icons.shopping-bag": {
+    "other": "Iepirkumu soma"
+  },
+  "category_icons.car": {
+    "other": "Automašīna"
+  },
+  "category_icons.bus": {
+    "other": "Autobuss"
+  },
+  "category_icons.moped": {
+    "other": "Mopēds"
+  },
+  "category_icons.motorbike": {
+    "other": "Motocikls"
+  },
+  "category_icons.ferry": {
+    "other": "Prāmis"
+  },
+  "category_icons.bike": {
+    "other": "Velosipēds"
+  },
+  "category_icons.scooter": {
+    "other": "Skrejritenis"
+  },
+  "category_icons.helicopter": {
+    "other": "Helikopters"
+  },
+  "category_icons.truck": {
+    "other": "Kravas automašīna"
+  },
+  "category_icons.camper": {
+    "other": "Kemperis"
+  },
+  "category_icons.file-invoice": {
+    "other": "Rēķina fails"
+  },
+  "category_icons.invoice": {
+    "other": "Rēķins"
+  },
+  "category_icons.cash-banknote": {
+    "other": "Banknote"
+  },
+  "category_icons.cash-coin": {
+    "other": "Nauda un monēta"
+  },
+  "category_icons.receipt": {
+    "other": "Čeks"
+  },
+  "category_icons.receipt-2": {
+    "other": "Čeks ar summu"
+  },
+  "category_icons.receipt-bitcoin": {
+    "other": "Bitkoina čeks"
+  },
+  "category_icons.receipt-dollar": {
+    "other": "Dolāra čeks"
+  },
+  "category_icons.receipt-euro": {
+    "other": "Eiro čeks"
+  },
+  "category_icons.receipt-pound": {
+    "other": "Mārciņas čeks"
+  },
+  "category_icons.receipt-rupee": {
+    "other": "Rūpijas čeks"
+  },
+  "category_icons.receipt-yen": {
+    "other": "Jenas čeks"
+  },
+  "category_icons.receipt-yuan": {
+    "other": "Juaņas čeks"
+  },
+  "category_icons.sport-billiard": {
+    "other": "Biljards"
+  },
+  "category_icons.exercise-ball": {
+    "other": "Vingrošanas bumba"
+  },
+  "category_icons.ball-baseball": {
+    "other": "Beisbols"
+  },
+  "category_icons.wallet": {
+    "other": "Maks"
+  },
+  "category_icons.credit-card": {
+    "other": "Kredītkarte"
+  },
+  "category_icons.ball-american-football": {
+    "other": "Amerikāņu futbols"
+  },
+  "category_icons.ball-volleyball": {
+    "other": "Volejbols"
+  },
+  "category_icons.pokeball": {
+    "other": "Pokebumba"
+  },
+  "category_icons.wrecking-ball": {
+    "other": "Graušanas bumba"
+  },
+  "category_icons.hammer-drill": {
+    "other": "Triecienurbis"
+  },
+  "category_icons.balloon": {
+    "other": "Balons"
+  },
+  "category_icons.ballpen": {
+    "other": "Lodīšu pildspalva"
+  },
+  "category_icons.ball-football": {
+    "other": "Futbols"
+  },
+  "category_icons.ball-basketball": {
+    "other": "Basketbols"
+  },
+  "category_icons.barbell": {
+    "other": "Svarstienis"
+  },
+  "category_icons.device-mobile": {
+    "other": "Mobilais tālrunis"
+  },
+  "category_icons.crystal-ball": {
+    "other": "Kristāla bumba"
+  },
+  "category_icons.bell": {
+    "other": "Zvans"
+  },
+  "category_icons.pill": {
+    "other": "Tablete"
+  },
+  "category_icons.grill": {
+    "other": "Grils"
+  },
+  "category_icons.directions": {
+    "other": "Norādes"
+  },
+  "category_icons.beach": {
+    "other": "Pludmale"
+  },
+  "category_icons.globe": {
+    "other": "Globuss"
+  },
+  "category_icons.compass": {
+    "other": "Kompass"
+  },
+  "category_icons.plane": {
+    "other": "Lidmašīna"
+  },
+  "category_icons.luggage": {
+    "other": "Bagāža"
+  },
+  "category_icons.world-map": {
+    "other": "Pasaules karte"
+  },
+  "category_icons.gavel": {
+    "other": "Tiesneša āmurs"
+  },
+  "category_icons.language-katakana": {
+    "other": "Katakana"
+  },
+  "category_icons.language-hiragana": {
+    "other": "Hiragana"
+  },
+  "category_icons.moneybag": {
+    "other": "Naudas maiss"
+  },
+  "category_icons.pig-money": {
+    "other": "Krājcūciņa"
+  },
+  "category_icons.coins": {
+    "other": "Monētas"
+  },
+  "category_icons.scale": {
+    "other": "Svari"
+  },
+  "category_icons.planet": {
+    "other": "Planēta"
+  },
+  "category_icons.eyeglass-2": {
+    "other": "Brilles"
+  },
+  "category_icons.flame": {
+    "other": "Liesma"
+  },
+  "category_icons.home-2": {
+    "other": "Māja"
+  },
+  "category_icons.home": {
+    "other": "Mājas"
+  },
+  "category_icons.horse": {
+    "other": "Zirgs"
+  },
+  "category_icons.plant": {
+    "other": "Augs"
+  },
+  "category_icons.ironing": {
+    "other": "Gludināšana"
+  },
+  "category_icons.cactus": {
+    "other": "Kaktuss"
+  },
+  "category_icons.shirt": {
+    "other": "Krekls"
   }
 }

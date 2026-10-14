@@ -29,7 +29,7 @@ const maxListedWorkspaces = 100
 // Select a workspace
 
 func (h *Handler) selectWorkspace(writer http.ResponseWriter, request *http.Request) {
-	current, err := h.authenticate(writer, request)
+	request, current, err := h.authenticate(writer, request)
 
 	if err == nil {
 		query := workspaces.WorkspaceQuery{
@@ -41,7 +41,7 @@ func (h *Handler) selectWorkspace(writer http.ResponseWriter, request *http.Requ
 
 		status := http.StatusOK
 		title := officei18n.T(request.Context(), "workspaces.select_title")
-		result, listErr := h.workspaces.ListByMember(request.Context(), current.User.ID, query)
+		result, listErr := h.workspaces.List(request.Context(), query)
 		props := utils.SelectWorkspaceProps(request, current, result.Workspaces)
 
 		if listErr != nil {
@@ -62,7 +62,7 @@ func (h *Handler) selectWorkspace(writer http.ResponseWriter, request *http.Requ
 // Creating a workspace page
 
 func (h *Handler) newWorkspacePage(writer http.ResponseWriter, request *http.Request) {
-	current, err := h.authenticate(writer, request)
+	request, current, err := h.authenticate(writer, request)
 
 	if err == nil {
 		h.renderCreateWorkspace(writer, request, http.StatusOK, utils.CreateWorkspaceProps(request, current, ""))
@@ -78,7 +78,7 @@ func (h *Handler) newWorkspacePage(writer http.ResponseWriter, request *http.Req
 // opens the new workspace's overview.
 
 func (h *Handler) createWorkspace(writer http.ResponseWriter, request *http.Request) {
-	current, err := h.authenticate(writer, request)
+	request, current, err := h.authenticate(writer, request)
 
 	if err == nil {
 		h.submitWorkspace(writer, request, current)
@@ -104,7 +104,7 @@ func (h *Handler) submitWorkspace(
 	form, err := utils.ParseWorkspaceForm(writer, request)
 
 	if err == nil {
-		workspace, err = h.workspaces.CreateAsUser(request.Context(), current.User.ID, input.CreateWorkspaceInput{Name: form.Name})
+		workspace, err = h.workspaces.Create(request.Context(), input.CreateWorkspaceInput{Name: form.Name})
 	}
 
 	props := utils.CreateWorkspaceProps(request, current, form.Name)

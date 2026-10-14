@@ -101,7 +101,7 @@ type NativeName string
 const MaxNativeNameLength = 100
 
 var (
-	ErrNativeNameInvalid      = errors.New("invalid English name")
+	ErrNativeNameInvalid      = errors.New("invalid native name")
 	ErrNativeNameInvalidChars = errors.New("invalid characters")
 	ErrNativeNameEmpty        = errors.New("is empty")
 	ErrNativeNameTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxNativeNameLength)

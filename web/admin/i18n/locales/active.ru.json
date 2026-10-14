@@ -275,6 +275,9 @@
   "permissions.view_role": {
     "other": "Просматривать роли"
   },
+  "permissions.manage_language": {
+    "other": "Управлять языками"
+  },
   "errors.credentials_form": {
     "other": "Введите корректный адрес электронной почты и пароль."
   },

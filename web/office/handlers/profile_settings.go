@@ -37,7 +37,7 @@ type profileSettingsScope struct {
 // Profile settings page
 
 func (h *Handler) profileSettings(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.profileSettingsScope(writer, request)
+	request, scope, ok := h.profileSettingsScope(writer, request)
 
 	if ok {
 		notices, err := h.settingsNotices(request, scope.current.Session)
@@ -58,7 +58,7 @@ func (h *Handler) profileSettings(writer http.ResponseWriter, request *http.Requ
 // out. A change of names alone keeps every Session.
 
 func (h *Handler) updateProfile(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.profileSettingsScope(writer, request)
+	request, scope, ok := h.profileSettingsScope(writer, request)
 
 	if ok {
 		var user *users.User
@@ -67,7 +67,6 @@ func (h *Handler) updateProfile(writer http.ResponseWriter, request *http.Reques
 
 		if err == nil {
 			user, err = h.users.UpdateProfile(request.Context(), input.UpdateProfileInput{
-				ID:              scope.current.User.ID,
 				FirstName:       form.FirstName,
 				LastName:        form.LastName,
 				Email:           form.Email,
@@ -113,7 +112,7 @@ func (h *Handler) updateProfile(writer http.ResponseWriter, request *http.Reques
 // it; every other device is signed out.
 
 func (h *Handler) changePassword(writer http.ResponseWriter, request *http.Request) {
-	scope, ok := h.profileSettingsScope(writer, request)
+	request, scope, ok := h.profileSettingsScope(writer, request)
 
 	if ok {
 		var user *users.User
@@ -122,7 +121,6 @@ func (h *Handler) changePassword(writer http.ResponseWriter, request *http.Reque
 
 		if err == nil {
 			user, err = h.users.ChangePassword(request.Context(), input.ChangePasswordInput{
-				ID:              scope.current.User.ID,
 				CurrentPassword: form.CurrentPassword,
 				NewPassword:     form.NewPassword,
 			})
@@ -155,15 +153,16 @@ func (h *Handler) changePassword(writer http.ResponseWriter, request *http.Reque
 //
 
 // The settings inside a workspace are shown only to its members. The response
-// is written when the scope cannot be resolved.
+// is written when the scope cannot be resolved; otherwise the scope comes with
+// the request whose context carries the User's identities.
 
 func (h *Handler) profileSettingsScope(
 	writer http.ResponseWriter,
 	request *http.Request,
-) (profileSettingsScope, bool) {
+) (*http.Request, profileSettingsScope, bool) {
 	var scope profileSettingsScope
 
-	current, err := h.authenticate(writer, request)
+	request, current, err := h.authenticate(writer, request)
 
 	if err == nil {
 		scope.current, scope.url = current, utils.ProfileSettingsPath(request)
@@ -171,7 +170,7 @@ func (h *Handler) profileSettingsScope(
 		if request.PathValue("workspace") != "" {
 			var found app.MemberWorkspace
 
-			found, err = h.findWorkspace(request, current)
+			request, found, err = h.enterWorkspace(request)
 			scope.workspace = found.Workspace
 		}
 	}
@@ -182,7 +181,7 @@ func (h *Handler) profileSettingsScope(
 		scope.url = utils.WorkspaceProfileSettingsPath(request, scope.workspace.ID)
 	}
 
-	return scope, err == nil
+	return request, scope, err == nil
 }
 
 // When a password is given, the change replaced the credentials and ended

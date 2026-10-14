@@ -63,7 +63,7 @@ func (h *Handler) roleEdit(writer http.ResponseWriter, request *http.Request) {
 // Role view
 
 func (h *Handler) roleView(writer http.ResponseWriter, request *http.Request) {
-	h.withPanel(writer, request, layouts.SectionRoles, users.PermissionViewRole, func(current *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionRoles, users.PermissionViewRole, func(request *http.Request, current *security.Identity, panel layouts.PanelProps) {
 		props, err := h.roleViewProps(request, current, panel)
 
 		if err != nil {
@@ -80,7 +80,7 @@ func (h *Handler) roleView(writer http.ResponseWriter, request *http.Request) {
 // the dialog is replaced.
 
 func (h *Handler) roleDelete(writer http.ResponseWriter, request *http.Request) {
-	h.withPanel(writer, request, layouts.SectionRoles, users.PermissionManageRole, func(current *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionRoles, users.PermissionManageRole, func(request *http.Request, current *security.Identity, panel layouts.PanelProps) {
 		var id users.RoleID
 
 		props, err := h.roleViewProps(request, current, panel)
@@ -119,7 +119,7 @@ func (h *Handler) roleDelete(writer http.ResponseWriter, request *http.Request) 
 //
 
 func (h *Handler) roleList(writer http.ResponseWriter, request *http.Request, load bool) {
-	h.withPanel(writer, request, layouts.SectionRoles, users.PermissionViewRole, func(current *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionRoles, users.PermissionViewRole, func(request *http.Request, current *security.Identity, panel layouts.PanelProps) {
 		query, err := utils.ParseRoleQuery(request)
 		status := http.StatusOK
 		props := pages.RoleListProps{
@@ -191,7 +191,7 @@ func (h *Handler) roleList(writer http.ResponseWriter, request *http.Request, lo
 }
 
 func (h *Handler) roleForm(writer http.ResponseWriter, request *http.Request, edit bool) {
-	h.withPanel(writer, request, layouts.SectionRoles, users.PermissionManageRole, func(current *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionRoles, users.PermissionManageRole, func(request *http.Request, current *security.Identity, panel layouts.PanelProps) {
 		var (
 			role *users.Role
 			id   users.RoleID

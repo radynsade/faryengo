@@ -6,8 +6,8 @@ independently of the software used to implement them.
 
 Use these conventions for domain guides in this directory. The
 [Users](users.md), [Security](security.md), [Languages](languages.md),
-[Workspaces](workspaces.md), and [Budget](budget.md) documents follow this
-structure.
+[Workspaces](workspaces.md), [Categories](categories.md), and
+[Budget](budget.md) documents follow this structure.
 
 ## Scope and language
 

@@ -49,3 +49,28 @@ err := s.transactor.InTransaction(ctx, func(ctx context.Context) error {
   own handle.
 - Do not start goroutines that use the transaction's context: a transaction
   runs on one connection and is not safe for concurrent use.
+
+## Identities
+
+Application services learn who calls them from the context, not from an actor
+parameter:
+
+| Identity | Stored with | Read with | Used for |
+| --- | --- | --- | --- |
+| `*security.Identity` | `security.WithIdentity` | `security.IdentityFromContext` | Operations on the whole system, checked with `Can(users.Permission)`. |
+| `*workspaces.Identity` | `workspaces.WithIdentity` | `workspaces.IdentityFromContext` | Operations inside one Workspace, checked with `Can(workspaces.Action)`. |
+
+- A read helper reports a missing or nil identity as `ErrIdentityMissing`; it
+  never panics. Services report it as `app.ErrUnauthenticated`.
+- Transports store the `security.Identity` they resolve with
+  `security.IdentityResolver`. A route scoped to a Workspace also stores the
+  `workspaces.Identity` from `WorkspaceService.ResolveIdentity`. Pass the
+  request carrying them, not the original one, to the services.
+- An operator entry point, such as the CLI, stores
+  `security.NewSystemIdentity()`. Transports that serve accounts never do.
+- Inside `internal/app`, use the helpers in `access.go`: `authorizeSystem`
+  for permissions, `currentUser` for a caller's own account, `authorizeMember`
+  for a Workspace action, and `reauthorizeMember` inside a write's transaction.
+  The Role in a `workspaces.Identity` was read before the transaction, so
+  every Workspace write locks the Workspace and reads the Role again with
+  `reauthorizeMember` before it writes.

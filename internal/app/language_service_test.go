@@ -12,6 +12,8 @@ import (
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
 	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/languages/mock"
+	"github.com/radynsade/faryengo/internal/security"
+	"github.com/radynsade/faryengo/internal/users"
 )
 
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
@@ -38,7 +40,7 @@ func TestNewLanguageService(t *testing.T) {
 }
 
 func TestLanguageServiceNilReceiver(t *testing.T) {
-	ctx := t.Context()
+	ctx := systemContext(t)
 
 	var service *LanguageService
 
@@ -158,7 +160,7 @@ func TestLanguageServiceCreate(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			language, err := service.Create(t.Context(), tt.request)
+			language, err := service.Create(userContext(t, testUserID, users.PermissionManageLanguage), tt.request)
 
 			if transactor.Calls != tt.wantTxCalls || writes != tt.wantWrites {
 				t.Fatalf("Create() calls = (transaction %d, write %d), want (%d, %d)", transactor.Calls, writes, tt.wantTxCalls, tt.wantWrites)
@@ -202,7 +204,7 @@ func TestLanguageServiceFindByCode(t *testing.T) {
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
+			ctx := userContext(t, testUserID)
 			calls := 0
 
 			repository := &mock.LanguageRepository{
@@ -265,7 +267,7 @@ func TestLanguageServiceList(t *testing.T) {
 		{name: "repository error", findErr: context.DeadlineExceeded, wantErrs: []error{context.DeadlineExceeded}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			ctx := t.Context()
+			ctx := userContext(t, testUserID)
 
 			repository := &mock.LanguageRepository{
 				FindAllFunc: func(callCtx context.Context) ([]*languages.Language, error) {
@@ -385,7 +387,7 @@ func TestLanguageServiceUpdate(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			language, err := service.Update(t.Context(), tt.request)
+			language, err := service.Update(userContext(t, testUserID, users.PermissionManageLanguage), tt.request)
 
 			if transactor.Calls != tt.wantTxCalls || locks != tt.wantLocks || writes != tt.wantWrites {
 				t.Fatalf(
@@ -463,7 +465,7 @@ func TestLanguageServiceDelete(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			err = service.Delete(t.Context(), tt.code)
+			err = service.Delete(userContext(t, testUserID, users.PermissionManageLanguage), tt.code)
 
 			if transactor.Calls != tt.wantTxCalls || writes != tt.wantWrites {
 				t.Fatalf("Delete() calls = (transaction %d, write %d), want (%d, %d)", transactor.Calls, writes, tt.wantTxCalls, tt.wantWrites)
@@ -471,6 +473,90 @@ func TestLanguageServiceDelete(t *testing.T) {
 
 			assertErrors(t, err, tt.wantErrs)
 		})
+	}
+}
+
+// Managing languages needs its own permission; any identity reads them. Every
+// refusal comes before any repository call.
+
+func TestLanguageServiceAccess(t *testing.T) {
+	operations := []struct {
+		name  string
+		write bool
+		call  func(ctx context.Context, service *LanguageService) error
+	}{
+		{"create", true, func(ctx context.Context, service *LanguageService) error {
+			_, err := service.Create(ctx, input.CreateLanguageInput{Code: "lv", EnglishName: "Latvian", NativeName: "Latviešu"})
+			return err
+		}},
+		{"find", false, func(ctx context.Context, service *LanguageService) error {
+			_, err := service.FindByCode(ctx, "lv")
+			return err
+		}},
+		{"list", false, func(ctx context.Context, service *LanguageService) error {
+			_, err := service.List(ctx)
+			return err
+		}},
+		{"update", true, func(ctx context.Context, service *LanguageService) error {
+			_, err := service.Update(ctx, input.UpdateLanguageInput{Code: "lv", EnglishName: "Latvian", NativeName: "Latviešu"})
+			return err
+		}},
+		{"delete", true, func(ctx context.Context, service *LanguageService) error {
+			return service.Delete(ctx, "lv")
+		}},
+	}
+
+	for _, tt := range []struct {
+		name     string
+		ctx      context.Context
+		wantErrs func(write bool) []error
+	}{
+		{"missing identity", t.Context(), func(bool) []error { return []error{ErrUnauthenticated, security.ErrIdentityMissing} }},
+		{"without the permission", userContext(t, testUserID, users.PermissionManageRole), func(write bool) []error {
+			var wantErrs []error
+
+			if write {
+				wantErrs = []error{users.ErrPermissionDenied}
+			}
+
+			return wantErrs
+		}},
+	} {
+		for _, operation := range operations {
+			t.Run(tt.name+" "+operation.name, func(t *testing.T) {
+				transactor := &appmock.Transactor{}
+				calls := 0
+				repository := &mock.LanguageRepository{
+					FindByCodeFunc: func(context.Context, languages.Code) (*languages.Language, error) {
+						calls++
+						return languages.NewLanguage("lv", "Latvian", "Latviešu", false), nil
+					},
+					FindAllFunc: func(context.Context) ([]*languages.Language, error) {
+						calls++
+						return nil, nil
+					},
+				}
+
+				service, err := NewLanguageService(transactor, repository)
+
+				if err != nil {
+					t.Fatal(err)
+				}
+
+				err = operation.call(tt.ctx, service)
+				wantErrs := tt.wantErrs(operation.write)
+
+				if len(wantErrs) == 0 {
+					if calls != 1 || err != nil {
+						t.Fatalf("%s = %v after %d repository calls, want it allowed", operation.name, err, calls)
+					}
+				} else if calls != 0 || transactor.Calls != 0 {
+					t.Fatalf("%s called the repository %d and the transactor %d times, want none", operation.name, calls, transactor.Calls)
+				}
+
+				assertErrors(t, err, wantErrs)
+			})
+		}
 	}
 }
 

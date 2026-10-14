@@ -125,7 +125,7 @@ func ParseSignInForm(writer http.ResponseWriter, request *http.Request) (SignInF
 
 type RoleForm struct {
 	Name        map[string]string `form:"name" validate:"dive,keys,len=2,ascii,lowercase,endkeys,notblank,utf8"`
-	Permissions []string          `form:"permissions" validate:"dive,oneof=manage_user view_user manage_role view_role"`
+	Permissions []string          `form:"permissions" validate:"dive,oneof=manage_user view_user manage_role view_role manage_language"`
 	IsSuper     string            `form:"is_super" validate:"omitempty,eq=1"`
 }
 

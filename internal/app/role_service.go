@@ -29,8 +29,22 @@ type RoleList struct {
 // transaction already carried by the caller's context. A Role name must
 // include the catalog's fallback language translation, so writes read the
 // fallback language before validating.
+//
+// Every method acts for the caller's security.Identity in the context.
+// Managing Roles needs PermissionManageRole. Reading them needs permission to
+// view or manage either Roles or Users, because Users are shown and edited
+// with their Roles. A caller without an identity is reported as
+// ErrUnauthenticated and one without the permission as
+// users.ErrPermissionDenied.
 
 var ErrRoleRepositoryNil = errors.New("role repository is nil")
+
+var roleReaders = []users.Permission{
+	users.PermissionViewRole,
+	users.PermissionManageRole,
+	users.PermissionViewUser,
+	users.PermissionManageUser,
+}
 
 type RoleService struct {
 	transactor Transactor
@@ -74,6 +88,14 @@ func (s *RoleService) Create(
 	)
 
 	if err = s.check(); err == nil {
+		_, err = authorizeSystem(ctx, users.PermissionManageRole)
+
+		if err != nil {
+			err = fmt.Errorf("create role: %w", err)
+		}
+	}
+
+	if err == nil {
 		var (
 			id       uuid.UUID
 			roleID   users.RoleID
@@ -136,7 +158,11 @@ func (s *RoleService) FindByID(ctx context.Context, id users.RoleID) (*users.Rol
 		if err != nil {
 			err = fmt.Errorf("find role: %w", err)
 		} else {
-			role, err = s.repository.FindByID(ctx, id)
+			_, err = authorizeSystem(ctx, roleReaders...)
+
+			if err == nil {
+				role, err = s.repository.FindByID(ctx, id)
+			}
 
 			if err != nil {
 				err = fmt.Errorf("find role %s: %w", uuid.UUID(id), err)
@@ -158,7 +184,11 @@ func (s *RoleService) List(ctx context.Context, query users.RoleQuery) (RoleList
 	)
 
 	if err = s.check(); err == nil {
-		err = query.Validate()
+		_, err = authorizeSystem(ctx, roleReaders...)
+
+		if err == nil {
+			err = query.Validate()
+		}
 
 		if err != nil {
 			err = fmt.Errorf("list roles: %w", err)
@@ -195,6 +225,14 @@ func (s *RoleService) Update(
 	)
 
 	if err = s.check(); err == nil {
+		_, err = authorizeSystem(ctx, users.PermissionManageRole)
+
+		if err != nil {
+			err = fmt.Errorf("update role %s: %w", uuid.UUID(request.ID), err)
+		}
+	}
+
+	if err == nil {
 		var fallback languages.Code
 
 		fallback, err = s.fallback(ctx)
@@ -250,15 +288,19 @@ func (s *RoleService) Delete(ctx context.Context, id users.RoleID) error {
 	}
 
 	if err == nil {
-		err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
-			var err error
+		_, err = authorizeSystem(ctx, users.PermissionManageRole)
 
-			if deleteErr := s.repository.Delete(ctx, id); deleteErr != nil {
-				err = deleteErr
-			}
+		if err == nil {
+			err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+				var err error
 
-			return err
-		})
+				if deleteErr := s.repository.Delete(ctx, id); deleteErr != nil {
+					err = deleteErr
+				}
+
+				return err
+			})
+		}
 
 		if err != nil {
 			err = fmt.Errorf("delete role %s: %w", uuid.UUID(id), err)

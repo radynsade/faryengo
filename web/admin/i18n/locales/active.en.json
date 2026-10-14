@@ -273,6 +273,9 @@
   "permissions.view_role": {
     "other": "View roles"
   },
+  "permissions.manage_language": {
+    "other": "Manage languages"
+  },
   "errors.credentials_form": {
     "other": "Enter a valid email address and password."
   },

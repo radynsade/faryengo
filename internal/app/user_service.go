@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/radynsade/faryengo/internal/app/input"
+	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
 )
 
@@ -28,6 +29,12 @@ type UserList struct {
 // Every write runs in a transaction, together with the reload that returns
 // the database-owned timestamps, so a failed reload undoes the write. A
 // password is hashed before the transaction begins, to keep it short.
+//
+// Every method acts for the caller's security.Identity in the context. Managing
+// Users needs PermissionManageUser and listing them PermissionViewUser. A User
+// may always read and change their own profile and password. A caller without
+// an identity is reported as ErrUnauthenticated and one without the permission
+// as users.ErrPermissionDenied.
 
 var (
 	ErrUserRepositoryNil = errors.New("user repository is nil")
@@ -81,6 +88,14 @@ func (s *UserService) Create(
 	)
 
 	if err = s.check(); err == nil {
+		_, err = authorizeSystem(ctx, users.PermissionManageUser)
+
+		if err != nil {
+			err = fmt.Errorf("create user: %w", err)
+		}
+	}
+
+	if err == nil {
 		var emailErr, phoneErr, passwordErr, firstNameErr, lastNameErr error
 
 		email, emailErr = users.NewEmail(request.Email)
@@ -166,12 +181,14 @@ func (s *UserService) Create(
 	return user, err
 }
 
-// Find by an ID
+// A User may find themselves; finding another User needs permission to view
+// or to manage Users.
 
 func (s *UserService) FindByID(ctx context.Context, id users.UserID) (*users.User, error) {
 	var (
-		user *users.User
-		err  error
+		user     *users.User
+		identity *security.Identity
+		err      error
 	)
 
 	if s == nil || s.repository == nil {
@@ -179,7 +196,15 @@ func (s *UserService) FindByID(ctx context.Context, id users.UserID) (*users.Use
 	} else if validationErr := id.Validate(); validationErr != nil {
 		err = fmt.Errorf("find user: %w", validationErr)
 	} else {
-		user, err = s.repository.FindByID(ctx, id)
+		identity, err = currentIdentity(ctx)
+
+		if err == nil && (identity.User == nil || identity.User.ID != id) {
+			_, err = authorizeSystem(ctx, users.PermissionViewUser, users.PermissionManageUser)
+		}
+
+		if err == nil {
+			user, err = s.repository.FindByID(ctx, id)
+		}
 
 		if err != nil {
 			err = fmt.Errorf("find user %s: %w", uuid.UUID(id), err)
@@ -200,7 +225,11 @@ func (s *UserService) List(ctx context.Context, query users.UserQuery) (UserList
 	)
 
 	if err = s.check(); err == nil {
-		err = query.Validate()
+		_, err = authorizeSystem(ctx, users.PermissionViewUser)
+
+		if err == nil {
+			err = query.Validate()
+		}
 
 		if err != nil {
 			err = fmt.Errorf("list users: %w", err)
@@ -244,6 +273,14 @@ func (s *UserService) Update(
 	)
 
 	if err = s.check(); err == nil {
+		_, err = authorizeSystem(ctx, users.PermissionManageUser)
+
+		if err != nil {
+			err = fmt.Errorf("update user %s: %w", uuid.UUID(request.ID), err)
+		}
+	}
+
+	if err == nil {
 		var emailErr, phoneErr, passwordErr, firstNameErr, lastNameErr error
 
 		email, emailErr = users.NewEmail(request.Email)
@@ -325,9 +362,12 @@ func (s *UserService) Update(
 	return user, err
 }
 
-// Delete
+// A User cannot delete their own account. The system identity acts for no
+// account, so it may delete any User.
 
 func (s *UserService) Delete(ctx context.Context, id users.UserID) error {
+	var identity *security.Identity
+
 	err := s.check()
 
 	if err == nil {
@@ -339,15 +379,23 @@ func (s *UserService) Delete(ctx context.Context, id users.UserID) error {
 	}
 
 	if err == nil {
-		err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
-			var err error
+		identity, err = authorizeSystem(ctx, users.PermissionManageUser)
 
-			if deleteErr := s.repository.Delete(ctx, id); deleteErr != nil {
-				err = deleteErr
-			}
+		if err == nil && identity.User != nil && identity.User.ID == id {
+			err = input.ErrDeleteOwnUser
+		}
 
-			return err
-		})
+		if err == nil {
+			err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+				var err error
+
+				if deleteErr := s.repository.Delete(ctx, id); deleteErr != nil {
+					err = deleteErr
+				}
+
+				return err
+			})
+		}
 
 		if err != nil {
 			err = fmt.Errorf("delete user %s: %w", uuid.UUID(id), err)
@@ -357,36 +405,8 @@ func (s *UserService) Delete(ctx context.Context, id users.UserID) error {
 	return err
 }
 
-// A User acting through the application cannot delete their own account.
-// An operator acting outside any account, such as through the CLI, uses
-// Delete.
-
-func (s *UserService) DeleteAsUser(
-	ctx context.Context,
-	actorID users.UserID,
-	id users.UserID,
-) error {
-	err := s.check()
-
-	if err == nil {
-		err = actorID.Validate()
-
-		if err != nil {
-			err = fmt.Errorf("delete user as a user: %w", err)
-		} else if actorID == id {
-			err = fmt.Errorf("delete user %s: %w", uuid.UUID(id), input.ErrDeleteOwnUser)
-		}
-	}
-
-	if err == nil {
-		err = s.Delete(ctx, id)
-	}
-
-	return err
-}
-
-// A User changes their own names and email; the Role, phone, and password
-// stay. A changed email replaces the credentials version, which ends every
+// The caller changes their own names and email; the Role, phone, and
+// password stay. A changed email replaces the credentials version, which ends every
 // Session of the User, so it requires the current password. The password is
 // verified before the transaction begins, to keep it short, and the request's
 // UpdatedAt rejects a change made in between as ErrUserConflict.
@@ -397,6 +417,7 @@ func (s *UserService) UpdateProfile(
 ) (*users.User, error) {
 	var (
 		user      *users.User
+		caller    *users.User
 		existing  *users.User
 		firstName users.FirstName
 		lastName  users.LastName
@@ -405,18 +426,21 @@ func (s *UserService) UpdateProfile(
 	)
 
 	if err = s.check(); err == nil {
+		caller, err = currentUser(ctx)
+
+		if err != nil {
+			err = fmt.Errorf("update profile: %w", err)
+		}
+	}
+
+	if err == nil {
 		var firstNameErr, lastNameErr, emailErr error
 
 		firstName, firstNameErr = users.NewFirstName(request.FirstName)
 		lastName, lastNameErr = users.NewLastName(request.LastName)
 		email, emailErr = users.NewEmail(request.Email)
 
-		err = errors.Join(
-			request.ID.Validate(),
-			firstNameErr,
-			lastNameErr,
-			emailErr,
-		)
+		err = errors.Join(firstNameErr, lastNameErr, emailErr)
 
 		if err != nil {
 			err = fmt.Errorf("update profile: %w: %w", input.ErrUpdateProfileInputInvalid, err)
@@ -424,7 +448,7 @@ func (s *UserService) UpdateProfile(
 	}
 
 	if err == nil {
-		existing, err = s.repository.FindByID(ctx, request.ID)
+		existing, err = s.repository.FindByID(ctx, caller.ID)
 
 		if err == nil && existing.Email != email {
 			err = s.verifyCurrentPassword(ctx, existing, request.CurrentPassword)
@@ -450,15 +474,18 @@ func (s *UserService) UpdateProfile(
 		user, err = s.save(ctx, user)
 	}
 
+	if err != nil && caller != nil {
+		err = fmt.Errorf("update profile of user %s: %w", uuid.UUID(caller.ID), err)
+	}
+
 	if err != nil {
-		err = fmt.Errorf("update profile of user %s: %w", uuid.UUID(request.ID), err)
 		user = nil
 	}
 
 	return user, err
 }
 
-// A User changes their own password after proving the current one. The new
+// The caller changes their own password after proving the current one. The new
 // password replaces the credentials version, which ends every Session of the
 // User. The User's latest change at the moment of the check guards against
 // overwriting a change made while the new password was hashed.
@@ -469,6 +496,7 @@ func (s *UserService) ChangePassword(
 ) (*users.User, error) {
 	var (
 		user     *users.User
+		caller   *users.User
 		existing *users.User
 		password users.Password
 		hash     users.PasswordHash
@@ -476,22 +504,25 @@ func (s *UserService) ChangePassword(
 	)
 
 	if err = s.check(); err == nil {
-		var passwordErr error
-
-		password, passwordErr = users.NewPassword(request.NewPassword)
-
-		err = errors.Join(
-			request.ID.Validate(),
-			passwordErr,
-		)
+		caller, err = currentUser(ctx)
 
 		if err != nil {
-			err = fmt.Errorf("change password: %w: %w", input.ErrChangePasswordInputInvalid, err)
+			err = fmt.Errorf("change password: %w", err)
 		}
 	}
 
 	if err == nil {
-		existing, err = s.repository.FindByID(ctx, request.ID)
+		var passwordErr error
+
+		password, passwordErr = users.NewPassword(request.NewPassword)
+
+		if passwordErr != nil {
+			err = fmt.Errorf("change password: %w: %w", input.ErrChangePasswordInputInvalid, passwordErr)
+		}
+	}
+
+	if err == nil {
+		existing, err = s.repository.FindByID(ctx, caller.ID)
 
 		if err == nil {
 			err = s.verifyCurrentPassword(ctx, existing, request.CurrentPassword)
@@ -521,8 +552,11 @@ func (s *UserService) ChangePassword(
 		user, err = s.save(ctx, user)
 	}
 
+	if err != nil && caller != nil {
+		err = fmt.Errorf("change password of user %s: %w", uuid.UUID(caller.ID), err)
+	}
+
 	if err != nil {
-		err = fmt.Errorf("change password of user %s: %w", uuid.UUID(request.ID), err)
 		user = nil
 	}
 

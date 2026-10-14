@@ -274,6 +274,9 @@
   "permissions.view_role": {
     "other": "Skatīt lomas"
   },
+  "permissions.manage_language": {
+    "other": "Pārvaldīt valodas"
+  },
   "errors.credentials_form": {
     "other": "Ievadiet derīgu e-pasta adresi un paroli."
   },

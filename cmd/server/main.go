@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/radynsade/faryengo/internal/app"
+	categoriespgxgoqu "github.com/radynsade/faryengo/internal/categories/pgxgoqu"
 	"github.com/radynsade/faryengo/internal/config"
 	"github.com/radynsade/faryengo/internal/infra/pgxdb"
 	languagespgxgoqu "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
@@ -234,6 +235,8 @@ func wireHandlers(
 		roles               *app.RoleService
 		workspaceService    *app.WorkspaceService
 		workspaceRepository *workspacespgxgoqu.WorkspaceRepository
+		categoryRepository  *categoriespgxgoqu.CategoryRepository
+		categoryService     *app.CategoryService
 		flashes             *flashredis.Store
 		officeFlashes       *flashredis.Store
 		err                 error
@@ -295,6 +298,14 @@ func wireHandlers(
 	}
 
 	if err == nil {
+		categoryRepository, err = categoriespgxgoqu.NewCategoryRepository(pool)
+	}
+
+	if err == nil {
+		categoryService, err = app.NewCategoryService(transactor, categoryRepository, workspaceRepository)
+	}
+
+	if err == nil {
 		flashes, err = flashredis.NewStore(client, "admin", flashTTL)
 	}
 
@@ -307,7 +318,7 @@ func wireHandlers(
 	}
 
 	if err == nil {
-		office, err = officehandlers.NewHandler(passwords, sessions, identities, workspaceService, userService, officeFlashes, settings.AuthCookieSecure)
+		office, err = officehandlers.NewHandler(passwords, sessions, identities, workspaceService, categoryService, userService, officeFlashes, settings.AuthCookieSecure)
 	}
 
 	if err != nil {

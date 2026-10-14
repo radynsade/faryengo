@@ -28,7 +28,7 @@ import (
 // Settings page
 
 func (h *Handler) settings(writer http.ResponseWriter, request *http.Request) {
-	h.withPanel(writer, request, layouts.SectionSettings, "", func(current *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionSettings, "", func(request *http.Request, current *security.Identity, panel layouts.PanelProps) {
 		profile, password := utils.SettingsProps(current, settingsURL(panel))
 
 		// A saved profile redirects here, so the sidebar shows the new name.
@@ -43,14 +43,13 @@ func (h *Handler) settings(writer http.ResponseWriter, request *http.Request) {
 // out. A change of names alone keeps every Session.
 
 func (h *Handler) updateProfile(writer http.ResponseWriter, request *http.Request) {
-	h.withPanel(writer, request, layouts.SectionSettings, "", func(current *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionSettings, "", func(request *http.Request, current *security.Identity, panel layouts.PanelProps) {
 		var user *users.User
 
 		form, err := utils.ParseProfileForm(writer, request)
 
 		if err == nil {
 			user, err = h.users.UpdateProfile(request.Context(), input.UpdateProfileInput{
-				ID:              current.User.ID,
 				FirstName:       form.FirstName,
 				LastName:        form.LastName,
 				Email:           form.Email,
@@ -97,14 +96,13 @@ func (h *Handler) updateProfile(writer http.ResponseWriter, request *http.Reques
 // it; every other device is signed out.
 
 func (h *Handler) changePassword(writer http.ResponseWriter, request *http.Request) {
-	h.withPanel(writer, request, layouts.SectionSettings, "", func(current *security.Identity, panel layouts.PanelProps) {
+	h.withPanel(writer, request, layouts.SectionSettings, "", func(request *http.Request, current *security.Identity, panel layouts.PanelProps) {
 		var user *users.User
 
 		form, err := utils.ParsePasswordForm(writer, request)
 
 		if err == nil {
 			user, err = h.users.ChangePassword(request.Context(), input.ChangePasswordInput{
-				ID:              current.User.ID,
 				CurrentPassword: form.CurrentPassword,
 				NewPassword:     form.NewPassword,
 			})

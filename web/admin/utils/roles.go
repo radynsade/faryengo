@@ -37,7 +37,7 @@ const DefaultRolePageSize = 20
 type roleQueryParameters struct {
 	IDLike      string   `form:"uuid" validate:"utf8,maxbytes=36,excludesall=0x00"`
 	NameLike    string   `form:"name" validate:"utf8,maxbytes=100,excludesall=0x00"`
-	Permissions []string `form:"permissions" validate:"dive,oneof=manage_user view_user manage_role view_role"`
+	Permissions []string `form:"permissions" validate:"dive,oneof=manage_user view_user manage_role view_role manage_language"`
 	Super       string   `form:"super" validate:"omitempty,oneof=true false"`
 	Sort        string   `form:"sort" validate:"oneof=id name is_super"`
 	Order       string   `form:"order" validate:"oneof=asc desc"`

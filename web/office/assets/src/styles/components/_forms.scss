@@ -15,7 +15,9 @@
 	// A submit button that fits its label, at the form's end.
 	&__submit {
 		display: flex;
+		align-items: center;
 		justify-content: flex-end;
+		gap: 1.25rem;
 
 		.button {
 			width: auto;

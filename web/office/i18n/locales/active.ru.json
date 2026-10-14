@@ -358,5 +358,329 @@
   },
   "errors.home": {
     "other": "На главную"
+  },
+  "nav.categories": {
+    "other": "Категории"
+  },
+  "categories.new": {
+    "other": "Новая категория"
+  },
+  "categories.new_description": {
+    "other": "Дайте ей название, цвет и значок, чтобы её было легко заметить."
+  },
+  "categories.list": {
+    "other": "Категории этого рабочего пространства"
+  },
+  "categories.read_only": {
+    "other": "Изменять категории могут только редакторы и владельцы."
+  },
+  "categories.empty": {
+    "other": "Категорий пока нет."
+  },
+  "categories.details": {
+    "other": "Категория"
+  },
+  "categories.delete": {
+    "other": "Удалить категорию"
+  },
+  "categories.delete_description": {
+    "other": "Категория удаляется из рабочего пространства для всех участников."
+  },
+  "categories.delete_submit": {
+    "other": "Удалить"
+  },
+  "categories.delete_confirm_title": {
+    "other": "Удалить эту категорию?"
+  },
+  "categories.delete_confirm": {
+    "other": "Категория «{{.Name}}» будет удалена. Это нельзя отменить."
+  },
+  "categories.no_icon": {
+    "other": "Без значка"
+  },
+  "categories.create_submit": {
+    "other": "Добавить категорию"
+  },
+  "categories.save_submit": {
+    "other": "Сохранить категорию"
+  },
+  "categories.created": {
+    "other": "Категория «{{.Name}}» добавлена."
+  },
+  "categories.saved": {
+    "other": "Категория «{{.Name}}» сохранена."
+  },
+  "categories.deleted": {
+    "other": "Категория «{{.Name}}» удалена."
+  },
+  "fields.category_name": {
+    "other": "Название"
+  },
+  "fields.category_name_placeholder": {
+    "other": "Продукты"
+  },
+  "fields.category_color": {
+    "other": "Цвет"
+  },
+  "fields.category_icon": {
+    "other": "Значок"
+  },
+  "validation.choose_one": {
+    "other": "Выберите один из вариантов."
+  },
+  "errors.categories_unavailable": {
+    "other": "Категории сейчас недоступны. Попробуйте позже."
+  },
+  "pagination.label": {
+    "other": "Страницы"
+  },
+  "pagination.previous": {
+    "other": "Назад"
+  },
+  "pagination.next": {
+    "other": "Вперёд"
+  },
+  "pagination.summary": {
+    "other": "Страница {{.Page}} из {{.Pages}}"
+  },
+  "category_colors.green": {
+    "other": "Зелёный"
+  },
+  "category_colors.blue": {
+    "other": "Синий"
+  },
+  "category_colors.orange": {
+    "other": "Оранжевый"
+  },
+  "category_colors.red": {
+    "other": "Красный"
+  },
+  "category_colors.purple": {
+    "other": "Фиолетовый"
+  },
+  "category_colors.brown": {
+    "other": "Коричневый"
+  },
+  "category_colors.grey": {
+    "other": "Серый"
+  },
+  "category_colors.yellow": {
+    "other": "Жёлтый"
+  },
+  "category_icons.player-play": {
+    "other": "Воспроизведение"
+  },
+  "category_icons.device-gamepad-2": {
+    "other": "Геймпад"
+  },
+  "category_icons.trash": {
+    "other": "Мусорная корзина"
+  },
+  "category_icons.shopping-cart": {
+    "other": "Тележка для покупок"
+  },
+  "category_icons.shopping-bag": {
+    "other": "Сумка для покупок"
+  },
+  "category_icons.car": {
+    "other": "Автомобиль"
+  },
+  "category_icons.bus": {
+    "other": "Автобус"
+  },
+  "category_icons.moped": {
+    "other": "Мопед"
+  },
+  "category_icons.motorbike": {
+    "other": "Мотоцикл"
+  },
+  "category_icons.ferry": {
+    "other": "Паром"
+  },
+  "category_icons.bike": {
+    "other": "Велосипед"
+  },
+  "category_icons.scooter": {
+    "other": "Самокат"
+  },
+  "category_icons.helicopter": {
+    "other": "Вертолёт"
+  },
+  "category_icons.truck": {
+    "other": "Грузовик"
+  },
+  "category_icons.camper": {
+    "other": "Автодом"
+  },
+  "category_icons.file-invoice": {
+    "other": "Файл счёта"
+  },
+  "category_icons.invoice": {
+    "other": "Счёт"
+  },
+  "category_icons.cash-banknote": {
+    "other": "Банкнота"
+  },
+  "category_icons.cash-coin": {
+    "other": "Деньги и монета"
+  },
+  "category_icons.receipt": {
+    "other": "Чек"
+  },
+  "category_icons.receipt-2": {
+    "other": "Чек с суммой"
+  },
+  "category_icons.receipt-bitcoin": {
+    "other": "Чек в биткоинах"
+  },
+  "category_icons.receipt-dollar": {
+    "other": "Чек в долларах"
+  },
+  "category_icons.receipt-euro": {
+    "other": "Чек в евро"
+  },
+  "category_icons.receipt-pound": {
+    "other": "Чек в фунтах"
+  },
+  "category_icons.receipt-rupee": {
+    "other": "Чек в рупиях"
+  },
+  "category_icons.receipt-yen": {
+    "other": "Чек в иенах"
+  },
+  "category_icons.receipt-yuan": {
+    "other": "Чек в юанях"
+  },
+  "category_icons.sport-billiard": {
+    "other": "Бильярд"
+  },
+  "category_icons.exercise-ball": {
+    "other": "Фитбол"
+  },
+  "category_icons.ball-baseball": {
+    "other": "Бейсбол"
+  },
+  "category_icons.wallet": {
+    "other": "Кошелёк"
+  },
+  "category_icons.credit-card": {
+    "other": "Кредитная карта"
+  },
+  "category_icons.ball-american-football": {
+    "other": "Американский футбол"
+  },
+  "category_icons.ball-volleyball": {
+    "other": "Волейбол"
+  },
+  "category_icons.pokeball": {
+    "other": "Покебол"
+  },
+  "category_icons.wrecking-ball": {
+    "other": "Шар для сноса"
+  },
+  "category_icons.hammer-drill": {
+    "other": "Перфоратор"
+  },
+  "category_icons.balloon": {
+    "other": "Воздушный шар"
+  },
+  "category_icons.ballpen": {
+    "other": "Шариковая ручка"
+  },
+  "category_icons.ball-football": {
+    "other": "Футбол"
+  },
+  "category_icons.ball-basketball": {
+    "other": "Баскетбол"
+  },
+  "category_icons.barbell": {
+    "other": "Штанга"
+  },
+  "category_icons.device-mobile": {
+    "other": "Мобильный телефон"
+  },
+  "category_icons.crystal-ball": {
+    "other": "Хрустальный шар"
+  },
+  "category_icons.bell": {
+    "other": "Колокольчик"
+  },
+  "category_icons.pill": {
+    "other": "Таблетка"
+  },
+  "category_icons.grill": {
+    "other": "Гриль"
+  },
+  "category_icons.directions": {
+    "other": "Указатели"
+  },
+  "category_icons.beach": {
+    "other": "Пляж"
+  },
+  "category_icons.globe": {
+    "other": "Глобус"
+  },
+  "category_icons.compass": {
+    "other": "Компас"
+  },
+  "category_icons.plane": {
+    "other": "Самолёт"
+  },
+  "category_icons.luggage": {
+    "other": "Багаж"
+  },
+  "category_icons.world-map": {
+    "other": "Карта мира"
+  },
+  "category_icons.gavel": {
+    "other": "Судейский молоток"
+  },
+  "category_icons.language-katakana": {
+    "other": "Катакана"
+  },
+  "category_icons.language-hiragana": {
+    "other": "Хирагана"
+  },
+  "category_icons.moneybag": {
+    "other": "Мешок с деньгами"
+  },
+  "category_icons.pig-money": {
+    "other": "Копилка"
+  },
+  "category_icons.coins": {
+    "other": "Монеты"
+  },
+  "category_icons.scale": {
+    "other": "Весы"
+  },
+  "category_icons.planet": {
+    "other": "Планета"
+  },
+  "category_icons.eyeglass-2": {
+    "other": "Очки"
+  },
+  "category_icons.flame": {
+    "other": "Пламя"
+  },
+  "category_icons.home-2": {
+    "other": "Дом"
+  },
+  "category_icons.home": {
+    "other": "Жильё"
+  },
+  "category_icons.horse": {
+    "other": "Лошадь"
+  },
+  "category_icons.plant": {
+    "other": "Растение"
+  },
+  "category_icons.ironing": {
+    "other": "Глажка"
+  },
+  "category_icons.cactus": {
+    "other": "Кактус"
+  },
+  "category_icons.shirt": {
+    "other": "Рубашка"
   }
 }

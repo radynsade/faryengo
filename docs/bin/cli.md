@@ -4,6 +4,11 @@ Use `bin/cli` to manage languages, roles, and users. Set `DATABASE_URL` in the
 environment or an optional `.env` file in the working directory. The database
 must be prepared by an operator before running management commands.
 
+Commands act with the [operator identity](../domain/security.md#operator-identity),
+outside any account, so they need no sign-in and hold every permission. Anyone
+who can run the CLI against the database therefore has full authority over
+languages, roles, and users.
+
 Replace arguments in angle brackets with your values; arguments in square
 brackets are optional. Quote arguments containing spaces or shell separators.
 
@@ -39,7 +44,7 @@ are optional.
 - `--super` or `-s` grants all permissions, including those added later.
 - `--permission <permission>` or `-p <permission>` grants one permission.
   Repeat the option to grant several. Available permissions are `manage_user`,
-  `view_user`, `manage_role`, and `view_role`.
+  `view_user`, `manage_role`, `view_role`, and `manage_language`.
 - Without either option, the role has no permissions.
 
 Options may appear before or after the name. Use `--` to end option parsing.

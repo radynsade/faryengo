@@ -29,6 +29,7 @@ type Handler struct {
 	sessions   *sessionid.Authenticator
 	identities *security.IdentityResolver
 	workspaces *app.WorkspaceService
+	categories *app.CategoryService
 	users      *app.UserService
 	flashes    *utils.Flashes
 	cookies    utils.Cookies
@@ -39,6 +40,7 @@ func NewHandler(
 	sessions *sessionid.Authenticator,
 	identities *security.IdentityResolver,
 	workspaces *app.WorkspaceService,
+	categoryService *app.CategoryService,
 	userService *app.UserService,
 	flashStorage flashmsg.FlashSessionStorage,
 	secureCookies bool,
@@ -49,7 +51,7 @@ func NewHandler(
 		err     error
 	)
 
-	if passwords == nil || sessions == nil || identities == nil || workspaces == nil || userService == nil {
+	if passwords == nil || sessions == nil || identities == nil || workspaces == nil || categoryService == nil || userService == nil {
 		err = ErrHandlerConfigInvalid
 	} else if flashes, err = utils.NewFlashes(flashStorage); err != nil {
 		err = fmt.Errorf("%w: %w", ErrHandlerConfigInvalid, err)
@@ -59,6 +61,7 @@ func NewHandler(
 			sessions:   sessions,
 			identities: identities,
 			workspaces: workspaces,
+			categories: categoryService,
 			users:      userService,
 			flashes:    flashes,
 			cookies:    utils.Cookies{Secure: secureCookies},
@@ -101,6 +104,12 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"GET /office/{language}/workspaces/{workspace}/transactions", h.section("transactions")},
 			{"GET /office/{language}/workspaces/{workspace}/goals", h.section("goals")},
 			{"GET /office/{language}/workspaces/{workspace}/reports", h.section("reports")},
+			{"GET /office/{language}/workspaces/{workspace}/categories", h.listCategories},
+			{"POST /office/{language}/workspaces/{workspace}/categories", h.createCategory},
+			{"GET /office/{language}/workspaces/{workspace}/categories/new", h.newCategory},
+			{"GET /office/{language}/workspaces/{workspace}/categories/{category}", h.editCategory},
+			{"POST /office/{language}/workspaces/{workspace}/categories/{category}", h.updateCategory},
+			{"POST /office/{language}/workspaces/{workspace}/categories/{category}/delete", h.deleteCategory},
 			{"GET /office/{language}/workspaces/{workspace}/profile-settings", h.profileSettings},
 			{"POST /office/{language}/workspaces/{workspace}/profile-settings/profile", h.updateProfile},
 			{"POST /office/{language}/workspaces/{workspace}/profile-settings/password", h.changePassword},

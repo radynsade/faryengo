@@ -7,6 +7,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/languages"
+	"github.com/radynsade/faryengo/internal/users"
 )
 
 //
@@ -15,6 +16,12 @@ import (
 
 // Every write runs in a transaction, so it is atomic on its own and joins a
 // transaction already carried by the caller's context.
+//
+// Every method acts for the caller's security.Identity in the context.
+// Managing Languages needs PermissionManageLanguage. Any identity may read
+// them, because translated names are shown throughout the application. A
+// caller without an identity is reported as ErrUnauthenticated and one without
+// the permission as users.ErrPermissionDenied.
 
 var (
 	ErrTransactorNil         = errors.New("transactor is nil")
@@ -58,6 +65,14 @@ func (s *LanguageService) Create(
 	)
 
 	if err = s.check(); err == nil {
+		_, err = authorizeSystem(ctx, users.PermissionManageLanguage)
+
+		if err != nil {
+			err = fmt.Errorf("create language: %w", err)
+		}
+	}
+
+	if err == nil {
 		language, err = newLanguage(request.Code, request.EnglishName, request.NativeName, request.IsFallback)
 
 		if err != nil {
@@ -100,7 +115,11 @@ func (s *LanguageService) FindByCode(ctx context.Context, code string) (*languag
 	} else if languageCode, err = languages.NewCode(code); err != nil {
 		err = fmt.Errorf("find language: %w", err)
 	} else {
-		language, err = s.repository.FindByCode(ctx, languageCode)
+		_, err = currentIdentity(ctx)
+
+		if err == nil {
+			language, err = s.repository.FindByCode(ctx, languageCode)
+		}
 
 		if err != nil {
 			err = fmt.Errorf("find language %s: %w", code, err)
@@ -125,7 +144,11 @@ func (s *LanguageService) List(ctx context.Context) ([]*languages.Language, erro
 	if s == nil || s.repository == nil {
 		err = ErrLanguageRepositoryNil
 	} else {
-		result, err = s.repository.FindAll(ctx)
+		_, err = currentIdentity(ctx)
+
+		if err == nil {
+			result, err = s.repository.FindAll(ctx)
+		}
 
 		if err != nil {
 			err = fmt.Errorf("list languages: %w", err)
@@ -150,6 +173,14 @@ func (s *LanguageService) Update(
 	)
 
 	if err = s.check(); err == nil {
+		_, err = authorizeSystem(ctx, users.PermissionManageLanguage)
+
+		if err != nil {
+			err = fmt.Errorf("update language %s: %w", request.Code, err)
+		}
+	}
+
+	if err == nil {
 		language, err = newLanguage(request.Code, request.EnglishName, request.NativeName, request.IsFallback)
 
 		if err != nil {
@@ -196,15 +227,19 @@ func (s *LanguageService) Delete(ctx context.Context, code string) error {
 	}
 
 	if err == nil {
-		err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
-			var err error
+		_, err = authorizeSystem(ctx, users.PermissionManageLanguage)
 
-			if deleteErr := s.repository.Delete(ctx, languageCode); deleteErr != nil {
-				err = deleteErr
-			}
+		if err == nil {
+			err = s.transactor.InTransaction(ctx, func(ctx context.Context) error {
+				var err error
 
-			return err
-		})
+				if deleteErr := s.repository.Delete(ctx, languageCode); deleteErr != nil {
+					err = deleteErr
+				}
+
+				return err
+			})
+		}
 
 		if err != nil {
 			err = fmt.Errorf("delete language %s: %w", code, err)

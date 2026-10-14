@@ -1,9 +1,10 @@
-// Asks for the current password in a modal before a form submits a change
-// that needs it, and turns a confirmation the server opened into a modal.
-// Delegated, so it keeps working when the forms are morphed.
+// Asks for confirmation in a modal before a form submits a change that needs
+// it, such as one that needs the current password or a deletion, and turns a
+// confirmation the server opened into a modal. Delegated, so it keeps working
+// when the forms are morphed.
 
-// A form needs confirmation always, or when the named field differs from the
-// value it was rendered with. A repeated field that does not match yet, such as
+// A form needs confirmation always, when it is marked to always confirm, or
+// when the named field differs from the value it was rendered with. A repeated field that does not match yet, such as
 // a new password, sends the form without it, so the server reports the
 // mismatch before asking for the current password.
 function repeatsMatch(form: HTMLFormElement) {
@@ -25,6 +26,7 @@ function needsConfirmation(form: HTMLFormElement) {
 	return (
 		repeatsMatch(form)
 		&& (rule === 'always'
+			|| form.hasAttribute('data-confirm-always')
 			|| (field instanceof HTMLInputElement
 				&& field.value !== field.defaultValue))
 	);
