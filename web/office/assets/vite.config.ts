@@ -1,10 +1,10 @@
 import { defineConfig } from 'vite';
-import { leatherTexture } from './plugins/leather-texture.mjs';
+import { textures } from './plugins/textures.mjs';
 
 export default defineConfig({
 	base: './',
 	input: ['src/main.ts', 'src/style.scss'],
-	plugins: [leatherTexture()],
+	plugins: [textures()],
 	build: {
 		assetsDir: '',
 		emptyOutDir: true,

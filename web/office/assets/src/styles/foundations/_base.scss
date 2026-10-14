@@ -15,7 +15,11 @@ body {
 	font-size: 0.875rem;
 	line-height: 1.5;
 	color: var(--color-ink);
-	background: var(--color-canvas);
+	// A transparent paper grain over the canvas; plugins/textures.mjs renders
+	// the tile at build time, at twice its displayed size.
+	background:
+		url('@generated/paper.png') 0 0 / 256px 256px,
+		var(--color-canvas);
 	-webkit-font-smoothing: antialiased;
 }
 
