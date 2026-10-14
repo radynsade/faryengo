@@ -5,9 +5,9 @@
 @use 'sass:list';
 @use 'sass:math';
 
-// Base colors: ballpoint ink, highlighter marker, then states and neutrals.
-$primary: #1f6feb !default;
-$secondary: #ffe36e !default;
+// Base colors: teal ink, tangerine highlighter, then states and neutrals.
+$primary: #0b7a6e !default;
+$secondary: #ffb347 !default;
 // Highlights: avatar rings, check marks, stitching.
 $accent: $secondary !default;
 $danger: #b3173c !default;
@@ -19,8 +19,9 @@ $light: #ffffff !default;
 $ink: color.change($primary, $saturation: 25%, $lightness: 12%) !default;
 // The page background: bright notebook paper.
 $canvas: #fbfaf6 !default;
-// Soft highlights behind current and selected items, and focus halos.
-$primary-soft: color.change($secondary, $alpha: 0.55) !default;
+// Soft highlights behind current and selected items, and focus halos: a light
+// tint of the primary, so the contrasting secondary stays a rare accent.
+$primary-soft: color.change($primary, $alpha: 0.14) !default;
 
 // Preferred text on filled primary controls and on the showcase gradient. Each
 // is lightened or darkened as needed to stay legible on its background.
@@ -39,7 +40,7 @@ $primary-fill-max-saturation: 50% !default;
 
 // Lightness of the showcase gradient's stops, in the primary's hue. Text sits
 // on the gradient, so every stop stays dark.
-$showcase-lightness: (16%, 30%, 44%) !default;
+$showcase-lightness: (12%, 21%, 34%) !default;
 
 // Opacity of the stitching on the showcase; lower sinks it into the leather.
 $showcase-thread-opacity: 0.75 !default;
@@ -93,7 +94,15 @@ $showcase-thread-opacity: 0.75 !default;
 	}
 
 	@while contrast($background, $text) < $minimum {
-		$background: color.scale($background, $lightness: $step);
+		$next: color.scale($background, $lightness: $step);
+
+		// Pure white or black: no shade in this direction is readable.
+		@if $next == $background {
+			@warn 'No shade of #{$background} reaches #{$minimum}:1 with #{$text}.';
+			@return $background;
+		}
+
+		$background: $next;
 	}
 
 	@return $background;
@@ -165,13 +174,14 @@ $showcase-start: color.change(
 	$primary-shade,
 	$lightness: list.nth($showcase-lightness, 1)
 );
-$showcase-middle: color.change(
-	$primary-shade,
-	$lightness: list.nth($showcase-lightness, 2)
+// The lighter stops darken when needed, so the text keeps its own color.
+$showcase-middle: readable(
+	color.change($primary-shade, $lightness: list.nth($showcase-lightness, 2)),
+	$on-showcase
 );
-$showcase-end: color.change(
-	$primary-shade,
-	$lightness: list.nth($showcase-lightness, 3)
+$showcase-end: readable(
+	color.change($primary-shade, $lightness: list.nth($showcase-lightness, 3)),
+	$on-showcase
 );
 $showcase-text: readable($on-showcase, $showcase-end);
 // Stitching on the showcase: the accent, lightened until it stands out from
