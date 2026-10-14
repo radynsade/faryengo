@@ -2,24 +2,47 @@
 // colors below, so a rebrand changes only this block. The module emits no CSS;
 // foundations/tokens publishes the results as custom properties.
 @use 'sass:color';
+@use 'sass:list';
 @use 'sass:math';
 
-// Base colors.
-$primary: #f1563b !default;
+// Base colors: ballpoint ink, highlighter marker, then states and neutrals.
+$primary: #1f6feb !default;
+$secondary: #ffe36e !default;
+// Highlights: avatar rings, check marks, stitching.
+$accent: $secondary !default;
 $danger: #b3173c !default;
 $success: #2e7d32 !default;
-$accent: #ffcf6e !default;
-$ink: #231a19 !default;
-$canvas: #f8f6f2 !default;
 $surface: #ffffff !default;
 $light: #ffffff !default;
 
-// Text on filled primary controls. The fill darkens as needed to keep it legible.
-$on-primary: $light !default;
+// Body text: a near-black shade of the primary.
+$ink: color.change($primary, $saturation: 25%, $lightness: 12%) !default;
+// The page background: bright notebook paper.
+$canvas: #fbfaf6 !default;
+// Soft highlights behind current and selected items, and focus halos.
+$primary-soft: color.change($secondary, $alpha: 0.55) !default;
 
-// How much the darker primary shades (fills, hovers, text) lose saturation.
-// Higher values turn them from a bright red toward brown.
-$primary-shade-desaturation: 35% !default;
+// Preferred text on filled primary controls and on the showcase gradient. Each
+// is lightened or darkened as needed to stay legible on its background.
+$on-primary: $light !default;
+$on-showcase: $light !default;
+
+// How much the primary shades (fills, hovers, text) lose saturation. Higher
+// values mute a bright primary toward brown.
+$primary-shade-desaturation: 0% !default;
+
+// A primary darker than this lightness fills controls at this lightness and at
+// most this saturation, so a near-black brand still gives soft buttons.
+// Lighter primaries fill controls with their own tone.
+$primary-fill-min-lightness: 24% !default;
+$primary-fill-max-saturation: 50% !default;
+
+// Lightness of the showcase gradient's stops, in the primary's hue. Text sits
+// on the gradient, so every stop stays dark.
+$showcase-lightness: (16%, 30%, 44%) !default;
+
+// Opacity of the stitching on the showcase; lower sinks it into the leather.
+$showcase-thread-opacity: 0.75 !default;
 
 // WCAG relative luminance of a color.
 @function luminance($color) {
@@ -76,10 +99,17 @@ $primary-shade-desaturation: 35% !default;
 	@return $background;
 }
 
-// A hover shade that moves away from the text color, so hovering never lowers
-// the contrast of a filled control.
+// A hover shade for a filled control. It moves away from the text color, so
+// hovering never lowers contrast, unless the contrast is high enough to spare:
+// then it moves toward the text, since a near-black fill cannot get darker.
 @function hover($background, $text: on($background)) {
-	@if $text == $ink {
+	$lighten: luminance($text) > luminance($background);
+
+	@if contrast($background, $text) < 7 {
+		$lighten: not $lighten;
+	}
+
+	@if $lighten {
 		@return color.scale($background, $lightness: 14%);
 	}
 
@@ -98,22 +128,58 @@ $primary-shade: color.scale(
 	$primary,
 	$saturation: -$primary-shade-desaturation
 );
-$primary-fill: readable($primary-shade, $on-primary);
-$primary-strong: color.scale($primary-shade, $lightness: -25%);
-$primary-deep: color.scale($primary-shade, $lightness: -66%);
+$primary-tone: $primary-shade;
+
+@if color.channel($primary-shade, 'lightness', $space: hsl) <
+	$primary-fill-min-lightness
+{
+	$primary-tone: color.change(
+		$primary-shade,
+		$lightness: $primary-fill-min-lightness,
+		$saturation: math.min(
+				color.channel($primary-shade, 'saturation', $space: hsl),
+				$primary-fill-max-saturation
+			)
+	);
+}
+
+$primary-text: readable($on-primary, $primary-tone);
+$primary-fill: readable($primary-tone, $primary-text);
+// The primary as text: the nearest shade readable on surfaces and on the soft
+// highlight laid over them.
+$primary-strong: readable(
+	readable($primary-shade, $surface),
+	color.mix(
+		color.change($primary-soft, $alpha: 1),
+		$surface,
+		color.alpha($primary-soft) * 100%
+	)
+);
 $danger-strong: color.scale($danger, $lightness: -18%);
 $muted: color.mix($ink, $surface, 66%);
 $border: color.mix($ink, $surface, 12%);
 $border-strong: color.mix($ink, $surface, 24%);
 
-// The showcase gradient fills brand panels; light text sits on it.
-$showcase-start: $primary-deep;
-$showcase-middle: $primary-strong;
-$showcase-end: $primary;
-
-@if contrast($primary-strong, $surface) < 4.5 {
-	@warn 'The strong primary shade is too light for text on surfaces.';
-}
+// The showcase gradient fills brand panels.
+$showcase-start: color.change(
+	$primary-shade,
+	$lightness: list.nth($showcase-lightness, 1)
+);
+$showcase-middle: color.change(
+	$primary-shade,
+	$lightness: list.nth($showcase-lightness, 2)
+);
+$showcase-end: color.change(
+	$primary-shade,
+	$lightness: list.nth($showcase-lightness, 3)
+);
+$showcase-text: readable($on-showcase, $showcase-end);
+// Stitching on the showcase: the accent, lightened until it stands out from
+// the gradient's middle as a graphic, then sunk into the leather.
+$showcase-thread: color.change(
+	readable($accent, $showcase-middle, 3),
+	$alpha: $showcase-thread-opacity
+);
 
 @if contrast($danger, $surface) < 4.5 {
 	@warn 'The danger color is too light for text on surfaces.';

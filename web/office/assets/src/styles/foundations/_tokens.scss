@@ -17,11 +17,12 @@
 	// Brand and ordinary actions.
 	--color-primary: #{p.$primary};
 	--color-primary-fill: #{p.$primary-fill};
-	--color-primary-hover: #{p.hover(p.$primary-fill, p.$on-primary)};
+	--color-primary-hover: #{p.hover(p.$primary-fill, p.$primary-text)};
 	--color-primary-strong: #{p.$primary-strong};
-	--color-primary-soft: rgb(#{p.channels(p.$primary)} / 0.16);
-	--color-on-primary: #{p.$on-primary};
+	--color-primary-soft: #{p.$primary-soft};
+	--color-on-primary: #{p.$primary-text};
 	--color-accent: #{p.$accent};
+	--color-on-accent: #{p.on(p.$accent)};
 	--color-success: #{p.$success};
 
 	// Destructive actions and errors. Never reuse the primary colors here.
@@ -33,8 +34,8 @@
 	--color-on-danger: #{p.on(p.$danger)};
 
 	// Brand panels: avatars, workspace marks, and the auth showcase.
-	--color-showcase-deep: #{p.$showcase-start};
-	--color-on-showcase: #{p.$light};
+	--color-on-showcase: #{p.$showcase-text};
+	--color-showcase-thread: #{p.$showcase-thread};
 	--gradient-showcase: linear-gradient(
 		155deg,
 		#{p.$showcase-start} 0%,

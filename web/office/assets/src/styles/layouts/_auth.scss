@@ -59,7 +59,7 @@ $stitch-inset: 0.625rem;
 			content: '';
 			position: absolute;
 			inset: $stitch-inset;
-			border: 2px dashed rgb(var(--rgb-accent) / 0.5);
+			border: 2px dashed var(--color-showcase-thread);
 			border-radius: calc(var(--radius-lg) - #{$stitch-inset});
 			filter: drop-shadow(0 1px 0 rgb(var(--rgb-ink) / 0.5));
 			pointer-events: none;
@@ -111,7 +111,7 @@ $stitch-inset: 0.625rem;
 		height: 1.5rem;
 		border-radius: 50%;
 		background: var(--color-accent);
-		color: var(--color-showcase-deep);
+		color: var(--color-on-accent);
 
 		.icon {
 			width: 0.875rem;
