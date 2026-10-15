@@ -16,6 +16,7 @@ import (
 	redislib "github.com/redis/go-redis/v9"
 	"golang.org/x/sync/errgroup"
 
+	accountspgxgoqu "github.com/radynsade/faryengo/internal/accounts/pgxgoqu"
 	"github.com/radynsade/faryengo/internal/app"
 	categoriespgxgoqu "github.com/radynsade/faryengo/internal/categories/pgxgoqu"
 	"github.com/radynsade/faryengo/internal/config"
@@ -237,6 +238,8 @@ func wireHandlers(
 		workspaceRepository *workspacespgxgoqu.WorkspaceRepository
 		categoryRepository  *categoriespgxgoqu.CategoryRepository
 		categoryService     *app.CategoryService
+		accountRepository   *accountspgxgoqu.AccountRepository
+		accountService      *app.AccountService
 		flashes             *flashredis.Store
 		officeFlashes       *flashredis.Store
 		err                 error
@@ -306,6 +309,14 @@ func wireHandlers(
 	}
 
 	if err == nil {
+		accountRepository, err = accountspgxgoqu.NewAccountRepository(pool)
+	}
+
+	if err == nil {
+		accountService, err = app.NewAccountService(transactor, accountRepository, workspaceRepository)
+	}
+
+	if err == nil {
 		flashes, err = flashredis.NewStore(client, "admin", flashTTL)
 	}
 
@@ -318,7 +329,7 @@ func wireHandlers(
 	}
 
 	if err == nil {
-		office, err = officehandlers.NewHandler(passwords, sessions, identities, workspaceService, categoryService, userService, officeFlashes, settings.AuthCookieSecure)
+		office, err = officehandlers.NewHandler(passwords, sessions, identities, workspaceService, categoryService, accountService, userService, officeFlashes, settings.AuthCookieSecure)
 	}
 
 	if err != nil {

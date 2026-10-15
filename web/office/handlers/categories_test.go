@@ -70,6 +70,7 @@ func TestNewCategoryPage(t *testing.T) {
 
 	for _, want := range []string{
 		"<title>New category · Faryen</title>",
+		`<div id="messages" class="messages"></div>`,
 		`<h1 id="page-title">New category</h1>`,
 		`href="` + categoriesPath + `" aria-current="page"`,
 		`<form id="category-form" class="form" method="post" action="` + categoriesPath + `" novalidate`,
@@ -296,6 +297,7 @@ func TestEditCategory(t *testing.T) {
 
 	for _, want := range []string{
 		"<title>Groceries · Faryen</title>",
+		`<div id="messages" class="messages"></div>`,
 		`href="` + categoriesPath + `" aria-current="page"`,
 		`<form id="category-form" class="form" method="post" action="` + path + `" novalidate`,
 		`value="Groceries"`,

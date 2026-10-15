@@ -170,10 +170,12 @@ templ CategoryIcon(icon string, color string, label string) {
 }
 
 // NewCategory is the page that adds a category, inside the workspace's
-// dashboard.
+// dashboard. Its messages region starts empty; a rejected submission clears
+// it out of band, like on every page with a form.
 templ NewCategory(dashboard layouts.DashboardProps, form CategoryFormProps) {
 	@layouts.Dashboard(dashboard) {
 		<div class="settings">
+			@components.Messages(nil, false)
 			<section class="settings__section" aria-labelledby="category-new-title">
 				<header class="settings__heading">
 					<h2 id="category-new-title">{ officei18n.T(ctx, "categories.details") }</h2>
@@ -186,9 +188,11 @@ templ NewCategory(dashboard layouts.DashboardProps, form CategoryFormProps) {
 }
 
 // EditCategory is the page of one category, inside the workspace's dashboard.
+// Its messages region starts empty, like the new category's page.
 templ EditCategory(dashboard layouts.DashboardProps, content EditCategoryContentProps) {
 	@layouts.Dashboard(dashboard) {
 		<div class="settings">
+			@components.Messages(nil, false)
 			<section class="settings__section" aria-labelledby="category-edit-title">
 				<header class="settings__heading">
 					<h2 id="category-edit-title">{ officei18n.T(ctx, "categories.details") }</h2>

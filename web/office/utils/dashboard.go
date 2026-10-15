@@ -55,10 +55,7 @@ const (
 
 var sections = []layouts.NavigationItem{
 	{Key: "overview", Icon: "overview"},
-	{Key: "budgets", Icon: "budgets", Href: "/budgets"},
-	{Key: "transactions", Icon: "transactions", Href: "/transactions"},
-	{Key: "goals", Icon: "goals", Href: "/goals"},
-	{Key: "reports", Icon: "reports", Href: "/reports"},
+	{Key: AccountsSection, Icon: "accounts", Href: "/accounts"},
 	{Key: CategoriesSection, Icon: "categories", Href: "/categories"},
 	{Key: WorkspaceSettingsSection, Icon: "workspace-settings", Href: "/settings"},
 }

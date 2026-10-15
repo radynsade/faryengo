@@ -62,18 +62,6 @@
   "nav.overview": {
     "other": "Overview"
   },
-  "nav.budgets": {
-    "other": "Budgets"
-  },
-  "nav.transactions": {
-    "other": "Transactions"
-  },
-  "nav.goals": {
-    "other": "Goals"
-  },
-  "nav.reports": {
-    "other": "Reports"
-  },
   "nav.settings": {
     "other": "Settings"
   },
@@ -353,6 +341,9 @@
   "errors.home": {
     "other": "Go to the home page"
   },
+  "nav.accounts": {
+    "other": "Accounts"
+  },
   "nav.categories": {
     "other": "Categories"
   },
@@ -424,6 +415,72 @@
   },
   "errors.categories_unavailable": {
     "other": "Categories are unavailable right now. Please try again later."
+  },
+  "accounts.new": {
+    "other": "New account"
+  },
+  "accounts.new_description": {
+    "other": "Name the account and choose the member it belongs to, if any."
+  },
+  "accounts.list": {
+    "other": "Accounts of this workspace"
+  },
+  "accounts.read_only": {
+    "other": "Only editors and owners can change accounts."
+  },
+  "accounts.empty": {
+    "other": "There are no accounts yet."
+  },
+  "accounts.details": {
+    "other": "Account"
+  },
+  "accounts.delete": {
+    "other": "Delete account"
+  },
+  "accounts.delete_description": {
+    "other": "The account is removed from the workspace for every member."
+  },
+  "accounts.delete_submit": {
+    "other": "Delete"
+  },
+  "accounts.delete_confirm_title": {
+    "other": "Delete this account?"
+  },
+  "accounts.delete_confirm": {
+    "other": "“{{.Name}}” will be deleted. This cannot be undone."
+  },
+  "accounts.no_member": {
+    "other": "No member"
+  },
+  "accounts.former_member": {
+    "other": "Former member"
+  },
+  "accounts.create_submit": {
+    "other": "Add account"
+  },
+  "accounts.save_submit": {
+    "other": "Save account"
+  },
+  "accounts.created": {
+    "other": "Account “{{.Name}}” was added."
+  },
+  "accounts.saved": {
+    "other": "Account “{{.Name}}” was saved."
+  },
+  "accounts.deleted": {
+    "other": "Account “{{.Name}}” was deleted."
+  },
+  "fields.account_name": {
+    "other": "Name"
+  },
+  "fields.account_name_placeholder": {
+    "other": "Cash"
+  },
+  "fields.account_member": {
+    "other": "Member"
+  },
+  "errors.accounts_unavailable": {
+    "other": "Accounts are unavailable right now. Please try again later."
   },
   "pagination.label": {
     "other": "Pages"

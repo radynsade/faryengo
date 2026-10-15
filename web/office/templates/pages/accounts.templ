@@ -1,0 +1,246 @@
+package pages
+
+import (
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
+	"github.com/radynsade/faryengo/web/office/templates/layouts"
+)
+
+// The form names the region a failed in-page submission replaces.
+const AccountFormID = "account-form"
+
+// Member names the account's member, or says it has none or that its member
+// has left. Href is empty when the viewer may not change the account.
+
+type AccountItem struct {
+	ID     string
+	Name   string
+	Member string
+	Href   string
+}
+
+// The form starts from the account's current values, or no member for a new
+// one; a failed submission shows the submitted values. User is the selected
+// member's ID, empty for none.
+
+type AccountFormProps struct {
+	Action      string
+	Name        string
+	User        string
+	Users       []components.SelectOption
+	Submit      string
+	CancelURL   string
+	Error       string
+	FieldErrors map[string]string
+}
+
+// ListError replaces the list when it could not be loaded. NewURL is empty for
+// members who may not edit the workspace's content; they see the accounts
+// without ways to add or change them.
+
+type AccountsContentProps struct {
+	Notices    []string
+	NewURL     string
+	Items      []AccountItem
+	ListError  string
+	Pagination PaginationProps
+}
+
+type EditAccountContentProps struct {
+	Form      AccountFormProps
+	DeleteURL string
+	Name      string
+}
+
+// Accounts is a section of the workspace, inside its dashboard.
+templ Accounts(dashboard layouts.DashboardProps, content AccountsContentProps) {
+	@layouts.Dashboard(dashboard) {
+		<div class="settings">
+			@AccountsContent(content)
+		</div>
+	}
+}
+
+// AccountsContent shows the confirmations of a saved change as messages,
+// which come from the flash messages the redirect left for this page.
+templ AccountsContent(props AccountsContentProps) {
+	@components.Messages(props.Notices, false)
+	<section class="settings__section" aria-labelledby="account-list-title">
+		<div class="accounts-header">
+			<header class="settings__heading">
+				<h2 id="account-list-title">{ officei18n.T(ctx, "accounts.list") }</h2>
+				if props.NewURL == "" {
+					<p>{ officei18n.T(ctx, "accounts.read_only") }</p>
+				}
+			</header>
+			if props.NewURL != "" {
+				<a class="button" href={ templ.URL(props.NewURL) } { components.NavigationAttributes()... }>
+					@components.Icon("plus")
+					{ officei18n.T(ctx, "accounts.create_submit") }
+				</a>
+			}
+		</div>
+		@accountList(props.Items, props.ListError)
+		if props.Pagination.PreviousURL != "" || props.Pagination.NextURL != "" {
+			@pagination(props.Pagination)
+		}
+	</section>
+}
+
+// Each row carries its account's ID, so morphing matches rows between
+// renders. A row leads to the account's own page when the viewer may change
+// it.
+templ accountList(items []AccountItem, loadError string) {
+	if loadError != "" {
+		@components.FormAlert(loadError)
+	} else if len(items) == 0 {
+		<p class="account-list__empty">{ officei18n.T(ctx, "accounts.empty") }</p>
+	} else {
+		<ul class="account-list" aria-labelledby="account-list-title">
+			for _, item := range items {
+				<li id={ "account-" + item.ID } class="account-list__item">
+					if item.Href != "" {
+						<a class="account-list__link" href={ templ.URL(item.Href) } { components.NavigationAttributes()... }>
+							@accountRow(item)
+							@components.Icon("arrow-right")
+						</a>
+					} else {
+						<div class="account-list__link">
+							@accountRow(item)
+						</div>
+					}
+				</li>
+			}
+		</ul>
+	}
+}
+
+templ accountRow(item AccountItem) {
+	<span class="account-list__text">
+		<span class="account-list__name">{ item.Name }</span>
+		<span class="account-list__member">{ item.Member }</span>
+	</span>
+}
+
+// NewAccount is the page that adds an account, inside the workspace's
+// dashboard. Its messages region starts empty; a rejected submission clears
+// it out of band, like on every page with a form.
+templ NewAccount(dashboard layouts.DashboardProps, form AccountFormProps) {
+	@layouts.Dashboard(dashboard) {
+		<div class="settings">
+			@components.Messages(nil, false)
+			<section class="settings__section" aria-labelledby="account-new-title">
+				<header class="settings__heading">
+					<h2 id="account-new-title">{ officei18n.T(ctx, "accounts.details") }</h2>
+					<p>{ officei18n.T(ctx, "accounts.new_description") }</p>
+				</header>
+				@AccountForm(form)
+			</section>
+		</div>
+	}
+}
+
+// EditAccount is the page of one account, inside the workspace's dashboard.
+// Its messages region starts empty, like the new account's page.
+templ EditAccount(dashboard layouts.DashboardProps, content EditAccountContentProps) {
+	@layouts.Dashboard(dashboard) {
+		<div class="settings">
+			@components.Messages(nil, false)
+			<section class="settings__section" aria-labelledby="account-edit-title">
+				<header class="settings__heading">
+					<h2 id="account-edit-title">{ officei18n.T(ctx, "accounts.details") }</h2>
+				</header>
+				@AccountForm(content.Form)
+			</section>
+			<section class="settings__section" aria-labelledby="account-delete-title">
+				<header class="settings__heading">
+					<h2 id="account-delete-title">{ officei18n.T(ctx, "accounts.delete") }</h2>
+				</header>
+				@accountDelete(content.DeleteURL, content.Name)
+			</section>
+		</div>
+	}
+}
+
+// AccountForm creates an account or changes one.
+templ AccountForm(props AccountFormProps) {
+	<form
+		id={ AccountFormID }
+		class="form"
+		method="post"
+		action={ templ.URL(props.Action) }
+		novalidate
+		{ components.FormAttributes()... }
+	>
+		@components.FormAlert(props.Error)
+		@components.TextInput(components.TextInputProps{
+			ID:           "account-name",
+			Name:         "name",
+			Type:         "text",
+			Label:        officei18n.T(ctx, "fields.account_name"),
+			Placeholder:  officei18n.T(ctx, "fields.account_name_placeholder"),
+			Autocomplete: "off",
+			Value:        props.Name,
+			Required:     true,
+			Error:        props.FieldErrors["name"],
+		})
+		@components.Select(components.SelectProps{
+			ID:      "account-user",
+			Name:    "user",
+			Label:   officei18n.T(ctx, "fields.account_member"),
+			Value:   props.User,
+			Options: props.Users,
+			Error:   props.FieldErrors["user"],
+		})
+		<div class="form__submit">
+			<a class="form__cancel" href={ templ.URL(props.CancelURL) } { components.NavigationAttributes()... }>
+				{ officei18n.T(ctx, "common.cancel") }
+			</a>
+			<button class="button" type="submit">{ props.Submit }</button>
+		</div>
+	</form>
+}
+
+// The deletion asks for confirmation in a dialog before it is sent. Its
+// confirm button names the confirmation, so the server deletes only a
+// confirmed request.
+templ accountDelete(action string, name string) {
+	<form
+		id="account-delete-form"
+		class="danger-zone"
+		method="post"
+		action={ templ.URL(action) }
+		data-confirm-always
+		{ components.FormAttributes()... }
+	>
+		<p>{ officei18n.T(ctx, "accounts.delete_description") }</p>
+		<button class="button button--danger" type="submit">
+			@components.Icon("trash")
+			{ officei18n.T(ctx, "accounts.delete_submit") }
+		</button>
+		<dialog
+			id="account-delete-confirm"
+			class="confirm-dialog"
+			aria-labelledby="account-delete-confirm-title"
+			aria-describedby="account-delete-confirm-description"
+			data-confirm-dialog
+		>
+			<div class="confirm-dialog__body">
+				<header class="confirm-dialog__heading">
+					<h2 id="account-delete-confirm-title">{ officei18n.T(ctx, "accounts.delete_confirm_title") }</h2>
+					<p id="account-delete-confirm-description">
+						{ officei18n.T(ctx, "accounts.delete_confirm", map[string]any{"Name": name}) }
+					</p>
+				</header>
+				<div class="confirm-dialog__actions">
+					<button class="confirm-dialog__cancel" type="button" data-dialog-close>
+						{ officei18n.T(ctx, "common.cancel") }
+					</button>
+					<button class="button button--danger" type="submit" name="confirm" value="1" data-confirm-submit>
+						{ officei18n.T(ctx, "accounts.delete_submit") }
+					</button>
+				</div>
+			</div>
+		</dialog>
+	</form>
+}

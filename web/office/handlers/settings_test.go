@@ -57,7 +57,7 @@ func TestSettingsNavigation(t *testing.T) {
 			item := menu[strings.Index(menu, sidebarLink):]
 
 			// The settings close the menu, with their own icon and label.
-			if strings.Count(menu, `class="sidebar__link"`) != 7 || strings.Count(item, "</li>") != 1 ||
+			if strings.Count(menu, `class="sidebar__link"`) != 4 || strings.Count(item, "</li>") != 1 ||
 				!strings.Contains(item, `#workspace-settings"></use></svg><span>Settings</span>`) {
 				t.Fatalf("GET %s menu does not end with the workspace settings:\n%s", path, menu)
 			}

@@ -62,18 +62,6 @@
   "nav.overview": {
     "other": "Pārskats"
   },
-  "nav.budgets": {
-    "other": "Budžeti"
-  },
-  "nav.transactions": {
-    "other": "Darījumi"
-  },
-  "nav.goals": {
-    "other": "Mērķi"
-  },
-  "nav.reports": {
-    "other": "Atskaites"
-  },
   "nav.settings": {
     "other": "Iestatījumi"
   },
@@ -356,6 +344,9 @@
   "errors.home": {
     "other": "Uz sākumlapu"
   },
+  "nav.accounts": {
+    "other": "Konti"
+  },
   "nav.categories": {
     "other": "Kategorijas"
   },
@@ -427,6 +418,72 @@
   },
   "errors.categories_unavailable": {
     "other": "Kategorijas pašlaik nav pieejamas. Lūdzu, mēģiniet vēlāk."
+  },
+  "accounts.new": {
+    "other": "Jauns konts"
+  },
+  "accounts.new_description": {
+    "other": "Piešķiriet kontam nosaukumu un, ja vajag, izvēlieties dalībnieku, kuram tas pieder."
+  },
+  "accounts.list": {
+    "other": "Šīs darbvietas konti"
+  },
+  "accounts.read_only": {
+    "other": "Kontus var mainīt tikai redaktori un īpašnieki."
+  },
+  "accounts.empty": {
+    "other": "Kontu vēl nav."
+  },
+  "accounts.details": {
+    "other": "Konts"
+  },
+  "accounts.delete": {
+    "other": "Dzēst kontu"
+  },
+  "accounts.delete_description": {
+    "other": "Konts tiks noņemts no darbvietas visiem dalībniekiem."
+  },
+  "accounts.delete_submit": {
+    "other": "Dzēst"
+  },
+  "accounts.delete_confirm_title": {
+    "other": "Dzēst šo kontu?"
+  },
+  "accounts.delete_confirm": {
+    "other": "“{{.Name}}” tiks dzēsts. To nevar atsaukt."
+  },
+  "accounts.no_member": {
+    "other": "Bez dalībnieka"
+  },
+  "accounts.former_member": {
+    "other": "Bijušais dalībnieks"
+  },
+  "accounts.create_submit": {
+    "other": "Pievienot kontu"
+  },
+  "accounts.save_submit": {
+    "other": "Saglabāt kontu"
+  },
+  "accounts.created": {
+    "other": "Konts “{{.Name}}” tika pievienots."
+  },
+  "accounts.saved": {
+    "other": "Konts “{{.Name}}” tika saglabāts."
+  },
+  "accounts.deleted": {
+    "other": "Konts “{{.Name}}” tika dzēsts."
+  },
+  "fields.account_name": {
+    "other": "Nosaukums"
+  },
+  "fields.account_name_placeholder": {
+    "other": "Skaidra nauda"
+  },
+  "fields.account_member": {
+    "other": "Dalībnieks"
+  },
+  "errors.accounts_unavailable": {
+    "other": "Konti pašlaik nav pieejami. Lūdzu, mēģiniet vēlreiz vēlāk."
   },
   "pagination.label": {
     "other": "Lapas"

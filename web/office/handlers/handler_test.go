@@ -7,7 +7,7 @@ import (
 )
 
 func TestHandlerConfiguration(t *testing.T) {
-	if _, err := NewHandler(nil, nil, nil, nil, nil, nil, nil, false); err != ErrHandlerConfigInvalid {
+	if _, err := NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, false); err != ErrHandlerConfigInvalid {
 		t.Fatalf("NewHandler(nil...) = %v, want %v", err, ErrHandlerConfigInvalid)
 	}
 
@@ -44,7 +44,7 @@ func TestPages(t *testing.T) {
 		},
 		{
 			name:     "sends visitors to the sign-in page",
-			path:     designPath + "/budgets",
+			path:     designPath + "/accounts",
 			status:   http.StatusSeeOther,
 			location: "/office/en/sign-in",
 		},
@@ -98,7 +98,7 @@ func TestPages(t *testing.T) {
 			contains: []string{
 				"<title>Overview · Faryen</title>",
 				`<a class="sidebar__link" href="` + designPath + `" aria-current="page"`,
-				`href="` + designPath + `/budgets"`,
+				`href="` + designPath + `/accounts"`,
 				`<span class="topbar__workspace-name">Design</span>`,
 				`<main id="dashboard-main" class="dashboard__main" tabindex="-1"`,
 				`href="/office/en/workspaces"`,
@@ -145,7 +145,7 @@ func TestPages(t *testing.T) {
 		},
 		{
 			name:     "sends a user back to choosing from a workspace they do not belong to",
-			path:     "/office/en/workspaces/" + otherID + "/goals",
+			path:     "/office/en/workspaces/" + otherID,
 			cookies:  signedIn,
 			status:   http.StatusSeeOther,
 			location: "/office/en/workspaces",
@@ -159,7 +159,7 @@ func TestPages(t *testing.T) {
 		},
 		{
 			name:     "sends a user back to choosing from a malformed workspace ID",
-			path:     "/office/en/workspaces/not-an-id/budgets",
+			path:     "/office/en/workspaces/not-an-id",
 			cookies:  signedIn,
 			status:   http.StatusSeeOther,
 			location: "/office/en/workspaces",
@@ -199,5 +199,23 @@ func TestPages(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// Sections without content yet are neither in the menu nor served.
+
+func TestUnimplementedSectionsAbsent(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+	menu := f.do(request{path: designPath, cookies: cookies}).Body.String()
+
+	for _, section := range []string{"budgets", "transactions", "goals", "reports"} {
+		if strings.Contains(menu, `href="`+designPath+"/"+section+`"`) {
+			t.Fatalf("menu leads to %s:\n%s", section, menu)
+		}
+
+		if response := f.do(request{path: designPath + "/" + section, cookies: cookies}); response.Code != http.StatusNotFound {
+			t.Fatalf("GET %s = %d, want %d", section, response.Code, http.StatusNotFound)
+		}
 	}
 }

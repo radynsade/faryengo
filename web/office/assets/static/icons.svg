@@ -9,20 +9,8 @@
 		<rect x="14" y="12" width="6" height="8" rx="1.5"/>
 		<rect x="4" y="15" width="6" height="5" rx="1.5"/>
 	</symbol>
-	<symbol id="budgets" viewBox="0 0 24 24">
-		<path d="M17 8V5a1 1 0 0 0-1-1H6a2 2 0 0 0 0 4h12a1 1 0 0 1 1 1v3m0 4v3a1 1 0 0 1-1 1H6a2 2 0 0 1-2-2V6"/>
-		<path d="M20 12v4h-4a2 2 0 0 1 0-4h4"/>
-	</symbol>
-	<symbol id="transactions" viewBox="0 0 24 24">
-		<path d="M7 10h14l-4-4M17 14H3l4 4"/>
-	</symbol>
-	<symbol id="goals" viewBox="0 0 24 24">
-		<circle cx="12" cy="12" r="8"/>
-		<circle cx="12" cy="12" r="4"/>
-		<circle cx="12" cy="12" r="0.5" fill="currentColor"/>
-	</symbol>
-	<symbol id="reports" viewBox="0 0 24 24">
-		<path d="M4 20h16M7 16v-4M12 16V8M17 16v-7"/>
+	<symbol id="accounts" viewBox="0 0 24 24">
+		<path d="M3 21h18M3 10h18M5 6l7-3 7 3M4 10v11M20 10v11M8 14v3M12 14v3M16 14v3"/>
 	</symbol>
 	<symbol id="categories" viewBox="0 0 24 24">
 		<path d="M3 6v5.172a2 2 0 0 0 .586 1.414l7.71 7.71a2.41 2.41 0 0 0 3.408 0l5.592-5.592a2.41 2.41 0 0 0 0-3.408l-7.71-7.71A2 2 0 0 0 11.172 3H6a3 3 0 0 0-3 3"/>

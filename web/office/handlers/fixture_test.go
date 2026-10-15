@@ -15,6 +15,8 @@ import (
 	redislib "github.com/redis/go-redis/v9"
 	"go.uber.org/goleak"
 
+	"github.com/radynsade/faryengo/internal/accounts"
+	accountsmock "github.com/radynsade/faryengo/internal/accounts/mock"
 	"github.com/radynsade/faryengo/internal/app"
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
 	"github.com/radynsade/faryengo/internal/categories"
@@ -62,6 +64,8 @@ type fixture struct {
 	others      []*users.User
 	categories  []*categories.Category
 	categoryErr error
+	accounts    []*accounts.Account
+	accountErr  error
 }
 
 // The fixture has one signed-in User with an ordinary Role, who owns two of
@@ -152,10 +156,13 @@ func newFixture(t *testing.T) *fixture {
 	categoryService, err := app.NewCategoryService(&appmock.Transactor{}, f.categoryRepository(), f.workspaceRepository())
 	must(t, err)
 
+	accountService, err := app.NewAccountService(&appmock.Transactor{}, f.accountRepository(), f.workspaceRepository())
+	must(t, err)
+
 	flashes, err := flashredis.NewStore(client, "office", time.Minute)
 	must(t, err)
 
-	handler, err := NewHandler(passwords, sessions, identities, workspaceService, categoryService, userService, flashes, false)
+	handler, err := NewHandler(passwords, sessions, identities, workspaceService, categoryService, accountService, userService, flashes, false)
 	must(t, err)
 
 	f.mux = http.NewServeMux()
@@ -657,4 +664,111 @@ func (f *fixture) addCategory(workspaceID string, name string, icon string, colo
 	f.categories = append(f.categories, category)
 
 	return category
+}
+
+// The accounts are kept in memory in name order. Find honors the query's
+// workspace and page, like the PostgreSQL repository; accountErr fails every
+// read and write.
+
+func (f *fixture) accountRepository() *accountsmock.AccountRepository {
+	matching := func(filter accounts.AccountFilter) []*accounts.Account {
+		result := make([]*accounts.Account, 0, len(f.accounts))
+
+		for _, account := range f.accounts {
+			if filter.WorkspaceID == nil || account.WorkspaceID == *filter.WorkspaceID {
+				result = append(result, account)
+			}
+		}
+
+		slices.SortFunc(result, func(a, b *accounts.Account) int {
+			return strings.Compare(strings.ToLower(string(a.Name)), strings.ToLower(string(b.Name)))
+		})
+
+		return result
+	}
+
+	index := func(id accounts.ID) int {
+		return slices.IndexFunc(f.accounts, func(account *accounts.Account) bool { return account.ID == id })
+	}
+
+	return &accountsmock.AccountRepository{
+		CreateFunc: func(_ context.Context, account *accounts.Account) accounts.ErrAccountCreateFailed {
+			var err accounts.ErrAccountCreateFailed
+
+			if f.accountErr != nil {
+				err = accountsmock.NewErrAccountCreateFailed(account, f.accountErr)
+			} else {
+				f.accounts = append(f.accounts, account)
+			}
+
+			return err
+		},
+		UpdateFunc: func(_ context.Context, account *accounts.Account) accounts.ErrAccountUpdateFailed {
+			var err accounts.ErrAccountUpdateFailed
+
+			if f.accountErr != nil {
+				err = accountsmock.NewErrAccountUpdateFailed(account, f.accountErr)
+			} else if found := index(account.ID); found < 0 {
+				err = accountsmock.NewErrAccountUpdateFailed(account, accounts.ErrAccountNotFound)
+			} else {
+				f.accounts[found] = account
+			}
+
+			return err
+		},
+		DeleteFunc: func(_ context.Context, id accounts.ID) accounts.ErrAccountDeleteFailed {
+			var err accounts.ErrAccountDeleteFailed
+
+			if f.accountErr != nil {
+				err = accountsmock.NewErrAccountDeleteFailed(id, f.accountErr)
+			} else if found := index(id); found < 0 {
+				err = accountsmock.NewErrAccountDeleteFailed(id, accounts.ErrAccountNotFound)
+			} else {
+				f.accounts = slices.Delete(f.accounts, found, found+1)
+			}
+
+			return err
+		},
+		FindByIDFunc: func(_ context.Context, id accounts.ID) (*accounts.Account, error) {
+			var (
+				account *accounts.Account
+				err     = accounts.ErrAccountNotFound
+			)
+
+			if f.accountErr != nil {
+				err = f.accountErr
+			} else if found := index(id); found >= 0 {
+				copied := *f.accounts[found]
+				account, err = &copied, nil
+			}
+
+			return account, err
+		},
+		FindFunc: func(_ context.Context, query accounts.AccountQuery) ([]*accounts.Account, error) {
+			var result []*accounts.Account
+
+			if f.accountErr == nil {
+				all := matching(query.Filter)
+				start := min(int((query.Page-1)*query.Limit), len(all))
+				result = all[start:min(start+int(query.Limit), len(all))]
+			}
+
+			return result, f.accountErr
+		},
+		CountFunc: func(_ context.Context, filter accounts.AccountFilter) (int, error) {
+			return len(matching(filter)), f.accountErr
+		},
+	}
+}
+
+func (f *fixture) addAccount(workspaceID string, name string, userID *users.UserID) *accounts.Account {
+	account := accounts.NewAccount(
+		accounts.ID(uuid.Must(uuid.NewV7())),
+		workspaces.ID(uuid.MustParse(workspaceID)),
+		userID,
+		accounts.Name(name),
+	)
+	f.accounts = append(f.accounts, account)
+
+	return account
 }

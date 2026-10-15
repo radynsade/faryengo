@@ -62,18 +62,6 @@
   "nav.overview": {
     "other": "Обзор"
   },
-  "nav.budgets": {
-    "other": "Бюджеты"
-  },
-  "nav.transactions": {
-    "other": "Операции"
-  },
-  "nav.goals": {
-    "other": "Цели"
-  },
-  "nav.reports": {
-    "other": "Отчёты"
-  },
   "nav.settings": {
     "other": "Настройки"
   },
@@ -359,6 +347,9 @@
   "errors.home": {
     "other": "На главную"
   },
+  "nav.accounts": {
+    "other": "Счета"
+  },
   "nav.categories": {
     "other": "Категории"
   },
@@ -430,6 +421,72 @@
   },
   "errors.categories_unavailable": {
     "other": "Категории сейчас недоступны. Попробуйте позже."
+  },
+  "accounts.new": {
+    "other": "Новый счёт"
+  },
+  "accounts.new_description": {
+    "other": "Дайте счёту название и при необходимости выберите участника, которому он принадлежит."
+  },
+  "accounts.list": {
+    "other": "Счета этого рабочего пространства"
+  },
+  "accounts.read_only": {
+    "other": "Изменять счета могут только редакторы и владельцы."
+  },
+  "accounts.empty": {
+    "other": "Счетов пока нет."
+  },
+  "accounts.details": {
+    "other": "Счёт"
+  },
+  "accounts.delete": {
+    "other": "Удалить счёт"
+  },
+  "accounts.delete_description": {
+    "other": "Счёт будет удалён из рабочего пространства для всех участников."
+  },
+  "accounts.delete_submit": {
+    "other": "Удалить"
+  },
+  "accounts.delete_confirm_title": {
+    "other": "Удалить этот счёт?"
+  },
+  "accounts.delete_confirm": {
+    "other": "Счёт «{{.Name}}» будет удалён. Это нельзя отменить."
+  },
+  "accounts.no_member": {
+    "other": "Без участника"
+  },
+  "accounts.former_member": {
+    "other": "Бывший участник"
+  },
+  "accounts.create_submit": {
+    "other": "Добавить счёт"
+  },
+  "accounts.save_submit": {
+    "other": "Сохранить счёт"
+  },
+  "accounts.created": {
+    "other": "Счёт «{{.Name}}» добавлен."
+  },
+  "accounts.saved": {
+    "other": "Счёт «{{.Name}}» сохранён."
+  },
+  "accounts.deleted": {
+    "other": "Счёт «{{.Name}}» удалён."
+  },
+  "fields.account_name": {
+    "other": "Название"
+  },
+  "fields.account_name_placeholder": {
+    "other": "Наличные"
+  },
+  "fields.account_member": {
+    "other": "Участник"
+  },
+  "errors.accounts_unavailable": {
+    "other": "Счета сейчас недоступны. Попробуйте позже."
   },
   "pagination.label": {
     "other": "Страницы"

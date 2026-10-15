@@ -15,10 +15,8 @@ import (
 var (
 	dashboardPages = []string{
 		designPath,
-		designPath + "/budgets",
-		designPath + "/transactions",
-		designPath + "/goals",
-		designPath + "/reports",
+		designPath + "/accounts",
+		designPath + "/accounts/new",
 		designPath + "/categories",
 		designPath + "/categories/new",
 		designPath + "/settings",
@@ -281,19 +279,19 @@ func TestDashboardNavigationReturnsOnlyContent(t *testing.T) {
 	f := newFixture(t)
 	cookies := f.signIn(t)
 
-	response := f.do(request{path: designPath + "/goals", cookies: cookies, headers: toContent})
+	response := f.do(request{path: designPath + "/categories", cookies: cookies, headers: toContent})
 	body := response.Body.String()
 
 	for _, want := range []string{
 		`<head hx-head="merge">`,
-		`<title>Goals · Faryen</title>`,
+		`<title>Categories · Faryen</title>`,
 		`<main id="dashboard-main"`,
-		`<h1 id="page-title">Goals</h1>`,
+		`<h1 id="page-title">Categories</h1>`,
 		`<nav id="dashboard-menu" class="sidebar__nav" aria-label="Main menu" hx-swap-oob="morph">`,
 		`<div id="topbar-actions" class="topbar__actions" hx-swap-oob="morph">`,
 		`<a id="topbar-workspace" class="topbar__workspace" href="/office/en/workspaces" hx-swap-oob="morph"`,
-		`href="` + designPath + `/goals" aria-current="page"`,
-		`href="/office/lv/workspaces/` + designID + `/goals"`,
+		`href="` + designPath + `/categories" aria-current="page"`,
+		`href="/office/lv/workspaces/` + designID + `/categories"`,
 	} {
 		if !strings.Contains(body, want) {
 			t.Fatalf("partial lacks %s:\n%s", want, body)
@@ -345,7 +343,7 @@ func TestResponsesAreMinimized(t *testing.T) {
 		headers map[string]string
 	}{
 		{path: designPath, cookies: cookies},
-		{path: designPath + "/budgets", cookies: cookies, headers: toContent},
+		{path: designPath + "/accounts", cookies: cookies, headers: toContent},
 		{path: "/office/en/workspaces", cookies: cookies},
 		{path: "/office/en/profile-settings", cookies: cookies},
 		{path: "/office/en/sign-in"},
