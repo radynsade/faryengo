@@ -13,6 +13,7 @@ import (
 	accountsmock "github.com/radynsade/faryengo/internal/accounts/mock"
 	"github.com/radynsade/faryengo/internal/app/input"
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
+	"github.com/radynsade/faryengo/internal/currencies"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	workspacesmock "github.com/radynsade/faryengo/internal/workspaces/mock"
@@ -191,13 +192,13 @@ func TestAccountServiceCreate(t *testing.T) {
 	}{
 		{
 			name:        "created with a user",
-			request:     input.CreateAccountInput{WorkspaceID: testWorkspaceID, UserID: new(testViewerID), Name: " Cash "},
+			request:     input.CreateAccountInput{WorkspaceID: testWorkspaceID, UserID: new(testViewerID), CurrencyCode: "EUR", Name: " Cash "},
 			wantTxCalls: 1,
 			wantWrites:  1,
 		},
 		{
 			name:        "created without a user",
-			request:     input.CreateAccountInput{WorkspaceID: testWorkspaceID, Name: "Cash"},
+			request:     input.CreateAccountInput{WorkspaceID: testWorkspaceID, CurrencyCode: "EUR", Name: "Cash"},
 			wantTxCalls: 1,
 			wantWrites:  1,
 		},
@@ -208,30 +209,44 @@ func TestAccountServiceCreate(t *testing.T) {
 				input.ErrCreateAccountInputInvalid,
 				workspaces.ErrIDInvalid,
 				users.ErrUserIDInvalid,
+				currencies.ErrCodeInvalid,
 				accounts.ErrNameEmpty,
 			},
 		},
 		{
+			name:     "invalid currency",
+			request:  input.CreateAccountInput{WorkspaceID: testWorkspaceID, CurrencyCode: "eur", Name: "Cash"},
+			wantErrs: []error{input.ErrCreateAccountInputInvalid, currencies.ErrCodeInvalid},
+		},
+		{
+			name:        "missing currency",
+			request:     validCreateAccountInput(),
+			writeErr:    currencies.ErrCurrencyNotFound,
+			wantErrs:    []error{currencies.ErrCurrencyNotFound},
+			wantTxCalls: 1,
+			wantWrites:  1,
+		},
+		{
 			name:     "long name",
-			request:  input.CreateAccountInput{WorkspaceID: testWorkspaceID, Name: strings.Repeat("a", accounts.MaxNameLength+1)},
+			request:  input.CreateAccountInput{WorkspaceID: testWorkspaceID, CurrencyCode: "EUR", Name: strings.Repeat("a", accounts.MaxNameLength+1)},
 			wantErrs: []error{input.ErrCreateAccountInputInvalid, accounts.ErrNameTooLong},
 		},
 		{
 			name:        "user is not a member",
-			request:     input.CreateAccountInput{WorkspaceID: testWorkspaceID, UserID: new(testNewcomerID), Name: "Cash"},
+			request:     input.CreateAccountInput{WorkspaceID: testWorkspaceID, UserID: new(testNewcomerID), CurrencyCode: "EUR", Name: "Cash"},
 			wantErrs:    []error{users.ErrUserNotFound},
 			wantTxCalls: 1,
 		},
 		{
 			name:        "membership read failure",
-			request:     input.CreateAccountInput{WorkspaceID: testWorkspaceID, UserID: new(testViewerID), Name: "Cash"},
+			request:     input.CreateAccountInput{WorkspaceID: testWorkspaceID, UserID: new(testViewerID), CurrencyCode: "EUR", Name: "Cash"},
 			readErr:     context.DeadlineExceeded,
 			wantErrs:    []error{context.DeadlineExceeded},
 			wantTxCalls: 1,
 		},
 		{
 			name:        "missing workspace",
-			request:     input.CreateAccountInput{WorkspaceID: workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")), Name: "Cash"},
+			request:     input.CreateAccountInput{WorkspaceID: workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")), CurrencyCode: "EUR", Name: "Cash"},
 			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
 			wantTxCalls: 1,
 		},
@@ -300,7 +315,7 @@ func TestAccountServiceCreate(t *testing.T) {
 				stored := store.accounts[account.ID]
 
 				if stored != account || account.WorkspaceID != testWorkspaceID || account.Name != "Cash" ||
-					!sameUserID(account.UserID, tt.request.UserID) {
+					account.CurrencyCode != "EUR" || !sameUserID(account.UserID, tt.request.UserID) {
 					t.Fatalf("Create() = %+v, stored %+v", account, stored)
 				}
 
@@ -532,8 +547,13 @@ func TestAccountServiceUpdate(t *testing.T) {
 
 			stored := store.accounts[testAccountID]
 
-			if stored.Name != tt.wantName || stored.WorkspaceID != testWorkspaceID || !sameUserID(stored.UserID, tt.wantUser) {
-				t.Fatalf("stored account = %+v, want name %q and user %v in workspace %v", stored, tt.wantName, tt.wantUser, testWorkspaceID)
+			// The account keeps the currency it was created with.
+			if stored.Name != tt.wantName || stored.CurrencyCode != "EUR" || stored.WorkspaceID != testWorkspaceID ||
+				!sameUserID(stored.UserID, tt.wantUser) {
+				t.Fatalf(
+					"stored account = %+v, want name %q, currency EUR, and user %v in workspace %v",
+					stored, tt.wantName, tt.wantUser, testWorkspaceID,
+				)
 			}
 
 			if len(tt.wantErrs) > 0 && account != nil {
@@ -599,7 +619,7 @@ func TestAccountServiceDelete(t *testing.T) {
 //
 
 func validCreateAccountInput() input.CreateAccountInput {
-	return input.CreateAccountInput{WorkspaceID: testWorkspaceID, UserID: new(testEditorID), Name: "Cash"}
+	return input.CreateAccountInput{WorkspaceID: testWorkspaceID, UserID: new(testEditorID), CurrencyCode: "EUR", Name: "Cash"}
 }
 
 func validUpdateAccountInput() input.UpdateAccountInput {
@@ -665,7 +685,7 @@ func newAccountStore(t *testing.T, workspace *workspaceStore) *accountStore {
 		t:         t,
 		workspace: workspace,
 		accounts: map[accounts.ID]*accounts.Account{
-			testAccountID: accounts.NewAccount(testAccountID, testWorkspaceID, new(testEditorID), "Cash"),
+			testAccountID: accounts.NewAccount(testAccountID, testWorkspaceID, new(testEditorID), "EUR", "Cash"),
 		},
 	}
 }

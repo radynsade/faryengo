@@ -88,6 +88,9 @@ func TestNewAccountPage(t *testing.T) {
 		`<form id="account-form" class="form" method="post" action="` + accountsPath + `" novalidate`,
 		`name="user"`,
 		`<option value selected>No member</option>`,
+		`<option value selected>Choose a currency</option>`,
+		`<option value="EUR">EUR (€)</option>`,
+		`<option value="USD">USD ($)</option>`,
 		`<option value="` + uuid.UUID(f.user.ID).String() + `">Ada Lovelace</option>`,
 		`<a class="form__cancel" href="` + accountsPath + `"`,
 		">Add account</button>",
@@ -99,6 +102,21 @@ func TestNewAccountPage(t *testing.T) {
 
 	if strings.Contains(body, "Grace Hopper") || strings.Contains(body, "account-list") {
 		t.Fatalf("new account page offers a non-member or shows the list:\n%s", body)
+	}
+}
+
+// Without the currencies the form cannot be offered, so its page reports the
+// accounts as unavailable.
+
+func TestNewAccountWithoutCurrencies(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+	f.currencyErr = errors.New("storage unavailable")
+
+	response := f.do(request{path: accountsPath + "/new", cookies: cookies})
+
+	if response.Code != http.StatusServiceUnavailable || strings.Contains(response.Body.String(), `id="account-form"`) {
+		t.Fatalf("new account without currencies = %d:\n%s", response.Code, response.Body.String())
 	}
 }
 
@@ -150,7 +168,7 @@ func TestAccountsAsViewer(t *testing.T) {
 	for _, r := range []request{
 		{path: accountPath},
 		{path: accountsPath + "/new"},
-		{method: http.MethodPost, path: accountsPath, body: "name=Card&user="},
+		{method: http.MethodPost, path: accountsPath, body: "name=Card&currency=EUR&user="},
 		{method: http.MethodPost, path: accountPath, body: "name=Card&user="},
 		{method: http.MethodPost, path: accountPath + "/delete", body: "confirm=1"},
 	} {
@@ -193,7 +211,7 @@ func TestAccountsNotFound(t *testing.T) {
 	response := f.do(request{
 		method:  http.MethodPost,
 		path:    accountsPath + "/" + uuid.UUID(family.ID).String(),
-		body:    "name=Mine&user=",
+		body:    "name=Mine&currency=EUR&user=",
 		cookies: cookies,
 	})
 
@@ -213,7 +231,7 @@ func TestCreateAccount(t *testing.T) {
 	response := f.do(request{
 		method:  http.MethodPost,
 		path:    accountsPath,
-		body:    "name=" + url.QueryEscape("  Cash ") + "&user=" + uuid.UUID(f.user.ID).String(),
+		body:    "name=" + url.QueryEscape("  Cash ") + "&currency=EUR&user=" + uuid.UUID(f.user.ID).String(),
 		cookies: cookies,
 	})
 
@@ -227,13 +245,15 @@ func TestCreateAccount(t *testing.T) {
 
 	created := f.accounts[0]
 
-	if created.Name != "Cash" || created.UserID == nil || *created.UserID != f.user.ID || created.WorkspaceID != workspaces.ID(uuid.MustParse(designID)) {
+	if created.Name != "Cash" || created.CurrencyCode != "EUR" || created.UserID == nil || *created.UserID != f.user.ID ||
+		created.WorkspaceID != workspaces.ID(uuid.MustParse(designID)) {
 		t.Fatalf("created = %+v", created)
 	}
 
 	body := f.do(request{path: accountsPath, cookies: cookies}).Body.String()
 
-	if !strings.Contains(body, "<p>Account “Cash” was added.</p>") || !strings.Contains(body, ">Ada Lovelace<") {
+	if !strings.Contains(body, "<p>Account “Cash” was added.</p>") || !strings.Contains(body, ">Ada Lovelace<") ||
+		!strings.Contains(body, `<span class="account-list__currency">EUR</span>`) {
 		t.Fatalf("list does not confirm the new account:\n%s", body)
 	}
 }
@@ -249,31 +269,45 @@ func TestCreateAccountRejected(t *testing.T) {
 	}{
 		{
 			name:   "blank name",
-			body:   func(*fixture) string { return "name=++&user=" },
+			body:   func(*fixture) string { return "name=++&currency=EUR&user=" },
 			status: http.StatusUnprocessableEntity,
 			wants:  []string{`<p class="field__error" id="account-name-error">Please fill in this field.</p>`},
 		},
 		{
-			name:   "long name",
-			body:   func(*fixture) string { return "name=" + strings.Repeat("a", accounts.MaxNameLength+1) + "&user=" },
+			name: "long name",
+			body: func(*fixture) string {
+				return "name=" + strings.Repeat("a", accounts.MaxNameLength+1) + "&currency=EUR&user="
+			},
 			status: http.StatusUnprocessableEntity,
 			wants:  []string{fmt.Sprintf("Use at most %d characters.", accounts.MaxNameLength)},
 		},
 		{
 			name:   "malformed member",
-			body:   func(*fixture) string { return "name=Cash&user=nobody" },
+			body:   func(*fixture) string { return "name=Cash&currency=EUR&user=nobody" },
 			status: http.StatusUnprocessableEntity,
 			wants:  []string{`<p class="field__error" id="account-user-error">Choose one of the options.</p>`, `value="Cash"`},
 		},
 		{
 			name:   "not a member",
-			body:   func(f *fixture) string { return "name=Cash&user=" + uuid.UUID(f.others[0].ID).String() },
+			body:   func(f *fixture) string { return "name=Cash&currency=EUR&user=" + uuid.UUID(f.others[0].ID).String() },
 			status: http.StatusUnprocessableEntity,
 			wants:  []string{`<p class="field__error" id="account-user-error">Choose one of the options.</p>`},
 		},
 		{
+			name:   "no currency",
+			body:   func(*fixture) string { return "name=Cash&currency=&user=" },
+			status: http.StatusUnprocessableEntity,
+			wants:  []string{`<p class="field__error" id="account-currency-error">Choose one of the options.</p>`, `value="Cash"`},
+		},
+		{
+			name:   "unknown currency",
+			body:   func(*fixture) string { return "name=Cash&currency=GBP&user=" },
+			status: http.StatusUnprocessableEntity,
+			wants:  []string{`<p class="field__error" id="account-currency-error">Choose one of the options.</p>`},
+		},
+		{
 			name:   "unknown field",
-			body:   func(*fixture) string { return "name=Cash&user=&budget=1" },
+			body:   func(*fixture) string { return "name=Cash&currency=EUR&user=&budget=1" },
 			status: http.StatusBadRequest,
 			wants:  []string{`<div class="form-alert" role="alert">`},
 		},
@@ -317,6 +351,8 @@ func TestEditAccount(t *testing.T) {
 		`<form id="account-form" class="form" method="post" action="` + path + `" novalidate`,
 		`value="Cash"`,
 		`<option value="` + userID + `" selected>Ada Lovelace</option>`,
+		`<span class="field__label">Currency</span><p class="field__value">EUR</p>`,
+		"The currency is chosen when the account is created and cannot be changed.",
 		`<form id="account-delete-form" class="danger-zone" method="post" action="` + path + `/delete" data-confirm-always`,
 		"“Cash” will be deleted. This cannot be undone.",
 	} {
@@ -331,7 +367,7 @@ func TestEditAccount(t *testing.T) {
 		t.Fatalf("update = %d %q: %s", response.Code, response.Header().Get("Location"), response.Body.String())
 	}
 
-	if updated := f.accounts[0]; updated.Name != "Wallet" || updated.UserID != nil || updated.ID != account.ID {
+	if updated := f.accounts[0]; updated.Name != "Wallet" || updated.CurrencyCode != "EUR" || updated.UserID != nil || updated.ID != account.ID {
 		t.Fatalf("updated = %+v", updated)
 	}
 
@@ -341,8 +377,25 @@ func TestEditAccount(t *testing.T) {
 
 	response = f.do(request{method: http.MethodPost, path: path, body: "name=&user=", cookies: cookies, headers: toContent})
 
-	if response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), "Please fill in this field.") || f.accounts[0].Name != "Wallet" {
+	if response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), "Please fill in this field.") ||
+		!strings.Contains(response.Body.String(), `<p class="field__value">EUR</p>`) || f.accounts[0].Name != "Wallet" {
 		t.Fatalf("rejected update = %d:\n%s", response.Code, response.Body.String())
+	}
+}
+
+// An account keeps the currency it was created with, so an edit that submits
+// one is refused and changes nothing.
+
+func TestEditAccountKeepsItsCurrency(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+	account := f.addAccount(designID, "Cash", nil)
+	path := accountsPath + "/" + uuid.UUID(account.ID).String()
+
+	response := f.do(request{method: http.MethodPost, path: path, body: "name=Wallet&currency=USD&user=", cookies: cookies, headers: toContent})
+
+	if response.Code != http.StatusBadRequest || f.accounts[0].Name != "Cash" || f.accounts[0].CurrencyCode != "EUR" {
+		t.Fatalf("edit with a currency = %d, account %+v:\n%s", response.Code, f.accounts[0], response.Body.String())
 	}
 }
 

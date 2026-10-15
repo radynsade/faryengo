@@ -209,7 +209,7 @@
     "other": "Laipni lūdzam, {{.Name}}!"
   },
   "home.description": {
-    "other": "Jūs esat pieslēdzies. Izmantojiet navigācijas izvēlni, lai piekļūtu lietotājiem un lomām."
+    "other": "Jūs esat pieslēdzies. Izmantojiet navigācijas izvēlni, lai piekļūtu lietotājiem, lomām un valūtām."
   },
   "roles.create": {
     "other": "Izveidot lomu"
@@ -276,6 +276,9 @@
   },
   "permissions.manage_language": {
     "other": "Pārvaldīt valodas"
+  },
+  "permissions.manage_currency": {
+    "other": "Pārvaldīt valūtas"
   },
   "errors.credentials_form": {
     "other": "Ievadiet derīgu e-pasta adresi un paroli."
@@ -576,5 +579,94 @@
   },
   "errors.profile_conflict": {
     "other": "Jūsu profils pa to laiku ir mainījies. Pārlādējiet lapu un mēģiniet vēlreiz."
+  },
+  "navigation.currencies": {
+    "other": "Valūtas"
+  },
+  "currencies.create": {
+    "other": "Izveidot valūtu"
+  },
+  "currencies.edit": {
+    "other": "Rediģēt valūtu"
+  },
+  "currencies.edit_title": {
+    "other": "Rediģēt valūtu «{{.Code}}»"
+  },
+  "currencies.delete": {
+    "other": "Dzēst valūtu"
+  },
+  "currencies.delete_title": {
+    "other": "Dzēst valūtu «{{.Code}}»"
+  },
+  "currencies.delete_message": {
+    "other": "Vai tiešām vēlaties dzēst valūtu? To nebūs iespējams atjaunot."
+  },
+  "currencies.table": {
+    "other": "Valūtu tabula"
+  },
+  "currencies.caption": {
+    "other": "Valūtas un to simboli"
+  },
+  "currencies.empty": {
+    "other": "Valūtas nav atrastas."
+  },
+  "currencies.created": {
+    "other": "Valūta «{{.Code}}» veiksmīgi izveidota."
+  },
+  "currencies.updated": {
+    "other": "Valūta «{{.Code}}» veiksmīgi atjaunota."
+  },
+  "currencies.deleted": {
+    "other": "Valūta «{{.Code}}» veiksmīgi dzēsta."
+  },
+  "currencies.code_help": {
+    "other": "Trīs burtu ISO 4217 kods. To vēlāk nevarēs mainīt."
+  },
+  "currencies.code_fixed_help": {
+    "other": "Kods identificē valūtu, un to nevar mainīt."
+  },
+  "currencies.symbol_help": {
+    "zero": "Līdz {{.Count}} rakstzīmēm: burti, valūtas zīmes un pieturzīmes bez atstarpēm.",
+    "one": "Līdz {{.Count}} rakstzīmei: burti, valūtas zīmes un pieturzīmes bez atstarpēm.",
+    "other": "Līdz {{.Count}} rakstzīmēm: burti, valūtas zīmes un pieturzīmes bez atstarpēm."
+  },
+  "fields.code": {
+    "other": "Kods"
+  },
+  "fields.symbol": {
+    "other": "Simbols"
+  },
+  "fields.code_placeholder": {
+    "other": "EUR"
+  },
+  "fields.symbol_placeholder": {
+    "other": "€"
+  },
+  "errors.currencies": {
+    "other": "Valūtas īslaicīgi nav pieejamas. Lūdzu, mēģiniet vēlreiz."
+  },
+  "errors.currency_not_found": {
+    "other": "Valūta nav atrasta."
+  },
+  "errors.currency_exists": {
+    "other": "Šī valūta jau pastāv."
+  },
+  "errors.currency_form": {
+    "other": "Iesniedziet derīgu valūtas veidlapu."
+  },
+  "errors.currency_values": {
+    "other": "Pārbaudiet valūtas kodu un simbolu un mēģiniet vēlreiz."
+  },
+  "validation.currency_code": {
+    "other": "Ievadiet trīs latīņu lielos burtus, piemēram, EUR."
+  },
+  "validation.currency_symbol": {
+    "other": "Izmantojiet burtus, valūtas zīmes un pieturzīmes, ar vismaz vienu burtu vai valūtas zīmi."
+  },
+  "validation.currency_taken": {
+    "other": "Valūta ar šo kodu jau pastāv."
+  },
+  "errors.currency_used": {
+    "other": "Šo valūtu izmanto konti. Vispirms dzēsiet šos kontus vai mainiet to valūtu."
   }
 }

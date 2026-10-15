@@ -56,6 +56,7 @@ styles/
   pages/
     _roles.scss             Role-page composition and UUID column width
     _users.scss             User-page composition and column widths
+    _currencies.scss        Currency-page composition and column widths
     _settings.scss          Settings-page cards and form rows
   utilities/
     _accessibility.scss     Visually hidden accessible text
@@ -333,6 +334,25 @@ to the role view only for users with the view-roles permission. Viewing needs
 the view-users permission; Create, Edit, Delete, and the confirmation dialog
 appear only with the manage-users permission. No page offers deleting the
 signed-in user's own account, and the server refuses such a request.
+
+`pages/_currencies.scss` mirrors the user pages for Currencies without
+importing their styles. Currencies have no separate view permission, so the
+sidebar link, the home link, and every page of the section, list included,
+need the manage-currencies permission. The catalog is small and unpaged, so the
+list renders its rows with the page instead of loading `/table` afterwards, and
+has no filters or pagination. Its table declares Code, Symbol, and actions
+columns; rows are ordered by code and carry `currency-<code>` IDs. A loading
+failure shows the error and a Retry link inside the table. View, create, and
+edit pages use Admin → Currencies → current-page breadcrumbs. `.currency-form`
+pairs the code and the symbol in one two-column row that collapses to one
+column at the panel breakpoint. The code identifies a currency, so only
+creation has a code input; it accepts lower case and surrounding spaces and
+submits the code upper-cased. Editing shows the code as fixed text and
+submits only the symbol. A taken code is a field error beside the code. Saving
+redirects to the currency's view page; deleting uses the shared confirmation
+dialog and returns to the list. Accounts hold money in a currency, so a
+currency that any account holds cannot be deleted; the dialog stays open and
+explains why.
 
 `pages/_settings.scss` owns the settings page, which every signed-in user may
 open from the account row, whatever their Role grants. It uses the centered

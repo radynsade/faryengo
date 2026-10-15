@@ -44,7 +44,8 @@ are optional.
 - `--super` or `-s` grants all permissions, including those added later.
 - `--permission <permission>` or `-p <permission>` grants one permission.
   Repeat the option to grant several. Available permissions are `manage_user`,
-  `view_user`, `manage_role`, `view_role`, and `manage_language`.
+  `view_user`, `manage_role`, `view_role`, `manage_language`, and
+  `manage_currency`.
 - Without either option, the role has no permissions.
 
 Options may appear before or after the name. Use `--` to end option parsing.

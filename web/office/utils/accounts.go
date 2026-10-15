@@ -10,6 +10,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/accounts"
 	"github.com/radynsade/faryengo/internal/app"
+	"github.com/radynsade/faryengo/internal/currencies"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
@@ -39,26 +40,36 @@ func AccountPath(request *http.Request, workspaceID workspaces.ID, id accounts.I
 // Account form
 //
 
-// The name's limits and which members may hold an account belong to the
-// domain; the transport bounds only the size of each field and of the whole
-// form. An empty user means the account belongs to no member.
+// The name's limits, which members may hold an account, and which currencies
+// exist belong to the domain; the transport bounds only the size of each field
+// and of the whole form. An empty user means the account belongs to no
+// member. A currency is required when the account is created and never
+// changes, so editing does not submit one.
 
 const maxAccountFormBytes = 8 << 10
 
 type AccountForm struct {
-	Name string `form:"name" validate:"maxbytes=400"`
-	User string `form:"user" validate:"maxbytes=36"`
+	Name     string `form:"name" validate:"maxbytes=400"`
+	User     string `form:"user" validate:"maxbytes=36"`
+	Currency string `form:"currency" validate:"maxbytes=12"`
 }
 
-func ParseAccountForm(writer http.ResponseWriter, request *http.Request) (AccountForm, error) {
+func ParseAccountForm(writer http.ResponseWriter, request *http.Request, edit bool) (AccountForm, error) {
 	var form AccountForm
 
-	err := parseForm(writer, request, maxAccountFormBytes, "name", "user")
+	fields := []string{"name", "user", "currency"}
+
+	if edit {
+		fields = []string{"name", "user"}
+	}
+
+	err := parseForm(writer, request, maxAccountFormBytes, fields...)
 
 	if err == nil {
 		form = AccountForm{
-			Name: request.PostForm.Get("name"),
-			User: request.PostForm.Get("user"),
+			Name:     request.PostForm.Get("name"),
+			User:     request.PostForm.Get("user"),
+			Currency: request.PostForm.Get("currency"),
 		}
 
 		err = requestvalidation.Validate(request.Context(), form)
@@ -99,7 +110,9 @@ func AccountUserID(form AccountForm) (*users.UserID, error) {
 // AccountFieldErrors maps a rejected account to translated messages keyed by
 // form field name; a failure that belongs to no field yields none. A member
 // who is unknown or has left the workspace is a problem with the member
-// field, because the form offers only current members.
+// field, because the form offers only current members. A currency that is
+// missing, malformed, or no longer exists is a problem with the currency
+// field, because the form offers only existing currencies.
 
 func AccountFieldErrors(ctx context.Context, err error) map[string]string {
 	fields := make(map[string]string)
@@ -119,6 +132,11 @@ func AccountFieldErrors(ctx context.Context, err error) map[string]string {
 
 	if _, found := fields["user"]; !found && (errors.Is(err, users.ErrUserIDInvalid) || errors.Is(err, users.ErrUserNotFound)) {
 		fields["user"] = officei18n.T(ctx, "validation.choose_one")
+	}
+
+	if _, found := fields["currency"]; !found &&
+		(errors.Is(err, currencies.ErrCodeInvalid) || errors.Is(err, currencies.ErrCurrencyNotFound)) {
+		fields["currency"] = officei18n.T(ctx, "validation.choose_one")
 	}
 
 	return nilIfEmpty(fields)
@@ -192,6 +210,30 @@ func AccountUserOptions(
 	return options
 }
 
+//
+// Currencies
+//
+
+// AccountCurrencyOptions asks for a currency first, so a new account never
+// takes one by chance, then offers every currency by code with its symbol.
+
+func AccountCurrencyOptions(ctx context.Context, list []*currencies.Currency) []components.SelectOption {
+	options := make([]components.SelectOption, 0, len(list)+1)
+	options = append(options, components.SelectOption{Value: "", Label: officei18n.T(ctx, "accounts.choose_currency")})
+
+	for _, currency := range list {
+		options = append(options, components.SelectOption{
+			Value: string(currency.Code),
+			Label: officei18n.T(ctx, "accounts.currency_option", map[string]any{
+				"Code":   string(currency.Code),
+				"Symbol": string(currency.Symbol),
+			}),
+		})
+	}
+
+	return options
+}
+
 // The name of the member among members, or empty for a User who is not one.
 
 func memberName(members []app.WorkspaceMember, userID users.UserID) string {
@@ -249,23 +291,28 @@ func AccountsContentProps(
 	return props
 }
 
-// A new account's form starts with no member, and posts to the list, which it
-// leads back to.
+// A new account's form starts with no member and no currency, and posts to the
+// list, which it leads back to.
 
 func NewAccountFormProps(
 	request *http.Request,
 	workspaceID workspaces.ID,
 	members []app.WorkspaceMember,
+	currencyList []*currencies.Currency,
 ) pages.AccountFormProps {
 	ctx := request.Context()
 
 	return pages.AccountFormProps{
-		Action:    AccountsPath(request, workspaceID),
-		Users:     AccountUserOptions(ctx, members, nil),
-		Submit:    officei18n.T(ctx, "accounts.create_submit"),
-		CancelURL: AccountsPath(request, workspaceID),
+		Action:     AccountsPath(request, workspaceID),
+		Users:      AccountUserOptions(ctx, members, nil),
+		Currencies: AccountCurrencyOptions(ctx, currencyList),
+		Submit:     officei18n.T(ctx, "accounts.create_submit"),
+		CancelURL:  AccountsPath(request, workspaceID),
 	}
 }
+
+// The account keeps its currency, so its form shows the currency instead of
+// offering one.
 
 func EditAccountContentProps(
 	request *http.Request,
@@ -282,20 +329,22 @@ func EditAccountContentProps(
 
 	return pages.EditAccountContentProps{
 		Form: pages.AccountFormProps{
-			Action:    url,
-			Name:      string(account.Name),
-			User:      user,
-			Users:     AccountUserOptions(ctx, members, account.UserID),
-			Submit:    officei18n.T(ctx, "accounts.save_submit"),
-			CancelURL: AccountsPath(request, account.WorkspaceID),
+			Action:        url,
+			Name:          string(account.Name),
+			User:          user,
+			Users:         AccountUserOptions(ctx, members, account.UserID),
+			Currency:      string(account.CurrencyCode),
+			CurrencyFixed: true,
+			Submit:        officei18n.T(ctx, "accounts.save_submit"),
+			CancelURL:     AccountsPath(request, account.WorkspaceID),
 		},
 		DeleteURL: url + "/delete",
 		Name:      string(account.Name),
 	}
 }
 
-// Each account names its member; one whose User has left the workspace names
-// a former member, and one without a User says so.
+// Each account names its member and its currency's code; one whose User has
+// left the workspace names a former member, and one without a User says so.
 
 func AccountItems(
 	request *http.Request,
@@ -308,8 +357,9 @@ func AccountItems(
 
 	for _, account := range found {
 		item := pages.AccountItem{
-			ID:   uuid.UUID(account.ID).String(),
-			Name: string(account.Name),
+			ID:       uuid.UUID(account.ID).String(),
+			Name:     string(account.Name),
+			Currency: string(account.CurrencyCode),
 		}
 
 		if account.UserID == nil {

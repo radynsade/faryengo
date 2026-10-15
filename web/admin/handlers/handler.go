@@ -35,6 +35,7 @@ type Handler struct {
 	users      *app.UserService
 	roles      *app.RoleService
 	languages  *app.LanguageService
+	currencies *app.CurrencyService
 	flashes    *utils.Flashes
 	cookies    cookie.Jar
 }
@@ -46,6 +47,7 @@ func NewHandler(
 	userService *app.UserService,
 	roles *app.RoleService,
 	languages *app.LanguageService,
+	currencies *app.CurrencyService,
 	flashStorage flashmsg.FlashSessionStorage,
 	secureCookies bool,
 ) (*Handler, error) {
@@ -57,7 +59,8 @@ func NewHandler(
 
 	cookies := cookie.Jar{Secure: secureCookies}
 
-	if passwords == nil || sessions == nil || identities == nil || userService == nil || roles == nil || languages == nil {
+	if passwords == nil || sessions == nil || identities == nil || userService == nil || roles == nil || languages == nil ||
+		currencies == nil {
 		err = ErrHandlerConfigInvalid
 	} else if flashes, err = utils.NewFlashes(flashStorage, cookies); err != nil {
 		err = fmt.Errorf("%w: %w", ErrHandlerConfigInvalid, err)
@@ -69,6 +72,7 @@ func NewHandler(
 			users:      userService,
 			roles:      roles,
 			languages:  languages,
+			currencies: currencies,
 			flashes:    flashes,
 			cookies:    cookies,
 		}
@@ -119,6 +123,13 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"GET /admin/{language}/roles/{role}/edit", h.roleEdit},
 			{"POST /admin/{language}/roles/{role}/edit", h.roleEdit},
 			{"POST /admin/{language}/roles/{role}/delete", h.roleDelete},
+			{"GET /admin/{language}/currencies", h.currenciesPage},
+			{"GET /admin/{language}/currencies/create", h.currencyCreate},
+			{"POST /admin/{language}/currencies/create", h.currencyCreate},
+			{"GET /admin/{language}/currencies/{currency}/view", h.currencyView},
+			{"GET /admin/{language}/currencies/{currency}/edit", h.currencyEdit},
+			{"POST /admin/{language}/currencies/{currency}/edit", h.currencyEdit},
+			{"POST /admin/{language}/currencies/{currency}/delete", h.currencyDelete},
 		} {
 			mux.Handle(route.pattern, wrapRoute(protection, route.handler))
 		}

@@ -210,7 +210,7 @@
     "other": "Добро пожаловать, {{.Name}}!"
   },
   "home.description": {
-    "other": "Вы вошли в систему. Используйте меню навигации для доступа к пользователям и ролям."
+    "other": "Вы вошли в систему. Используйте меню навигации для доступа к пользователям, ролям и валютам."
   },
   "roles.create": {
     "other": "Создать роль"
@@ -277,6 +277,9 @@
   },
   "permissions.manage_language": {
     "other": "Управлять языками"
+  },
+  "permissions.manage_currency": {
+    "other": "Управлять валютами"
   },
   "errors.credentials_form": {
     "other": "Введите корректный адрес электронной почты и пароль."
@@ -580,5 +583,95 @@
   },
   "errors.profile_conflict": {
     "other": "Ваш профиль за это время изменился. Обновите страницу и попробуйте снова."
+  },
+  "navigation.currencies": {
+    "other": "Валюты"
+  },
+  "currencies.create": {
+    "other": "Создать валюту"
+  },
+  "currencies.edit": {
+    "other": "Редактировать валюту"
+  },
+  "currencies.edit_title": {
+    "other": "Редактировать валюту «{{.Code}}»"
+  },
+  "currencies.delete": {
+    "other": "Удалить валюту"
+  },
+  "currencies.delete_title": {
+    "other": "Удалить валюту «{{.Code}}»"
+  },
+  "currencies.delete_message": {
+    "other": "Вы уверены, что хотите удалить валюту? Восстановить её будет невозможно."
+  },
+  "currencies.table": {
+    "other": "Таблица валют"
+  },
+  "currencies.caption": {
+    "other": "Валюты и их символы"
+  },
+  "currencies.empty": {
+    "other": "Валюты не найдены."
+  },
+  "currencies.created": {
+    "other": "Валюта «{{.Code}}» успешно создана."
+  },
+  "currencies.updated": {
+    "other": "Валюта «{{.Code}}» успешно обновлена."
+  },
+  "currencies.deleted": {
+    "other": "Валюта «{{.Code}}» успешно удалена."
+  },
+  "currencies.code_help": {
+    "other": "Трёхбуквенный код ISO 4217. Изменить его позже будет невозможно."
+  },
+  "currencies.code_fixed_help": {
+    "other": "Код определяет валюту и не может быть изменён."
+  },
+  "currencies.symbol_help": {
+    "one": "Не более {{.Count}} символа: буквы, знаки валют и знаки препинания без пробелов.",
+    "few": "Не более {{.Count}} символов: буквы, знаки валют и знаки препинания без пробелов.",
+    "many": "Не более {{.Count}} символов: буквы, знаки валют и знаки препинания без пробелов.",
+    "other": "Не более {{.Count}} символа: буквы, знаки валют и знаки препинания без пробелов."
+  },
+  "fields.code": {
+    "other": "Код"
+  },
+  "fields.symbol": {
+    "other": "Символ"
+  },
+  "fields.code_placeholder": {
+    "other": "EUR"
+  },
+  "fields.symbol_placeholder": {
+    "other": "€"
+  },
+  "errors.currencies": {
+    "other": "Валюты временно недоступны. Попробуйте ещё раз."
+  },
+  "errors.currency_not_found": {
+    "other": "Валюта не найдена."
+  },
+  "errors.currency_exists": {
+    "other": "Эта валюта уже существует."
+  },
+  "errors.currency_form": {
+    "other": "Отправьте корректную форму валюты."
+  },
+  "errors.currency_values": {
+    "other": "Проверьте код и символ валюты и попробуйте ещё раз."
+  },
+  "validation.currency_code": {
+    "other": "Введите три заглавные латинские буквы, например EUR."
+  },
+  "validation.currency_symbol": {
+    "other": "Используйте буквы, знаки валют и знаки препинания, включая хотя бы одну букву или знак валюты."
+  },
+  "validation.currency_taken": {
+    "other": "Валюта с этим кодом уже существует."
+  },
+  "errors.currency_used": {
+    "other": "Эта валюта используется счетами. Сначала удалите эти счета или измените их валюту."
   }
 }

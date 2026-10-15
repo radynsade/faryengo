@@ -20,6 +20,7 @@ import (
 	"github.com/radynsade/faryengo/internal/app"
 	categoriespgxgoqu "github.com/radynsade/faryengo/internal/categories/pgxgoqu"
 	"github.com/radynsade/faryengo/internal/config"
+	currenciespgxgoqu "github.com/radynsade/faryengo/internal/currencies/pgxgoqu"
 	"github.com/radynsade/faryengo/internal/infra/pgxdb"
 	languagespgxgoqu "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
 	"github.com/radynsade/faryengo/internal/security"
@@ -251,6 +252,8 @@ func wireHandlers(
 		sessions            *sessionid.Authenticator
 		identities          *security.IdentityResolver
 		languages           *app.LanguageService
+		currencyRepository  *currenciespgxgoqu.CurrencyRepository
+		currencyService     *app.CurrencyService
 		userService         *app.UserService
 		roles               *app.RoleService
 		workspaceService    *app.WorkspaceService
@@ -308,6 +311,14 @@ func wireHandlers(
 	}
 
 	if err == nil {
+		currencyRepository, err = currenciespgxgoqu.NewCurrencyRepository(pool)
+	}
+
+	if err == nil {
+		currencyService, err = app.NewCurrencyService(transactor, currencyRepository)
+	}
+
+	if err == nil {
 		userService, err = app.NewUserService(transactor, userRepository, hasher)
 	}
 
@@ -348,11 +359,14 @@ func wireHandlers(
 	}
 
 	if err == nil {
-		handler, err = adminhandlers.NewHandler(passwords, sessions, identities, userService, roles, languages, flashes, settings.AuthCookieSecure)
+		handler, err = adminhandlers.NewHandler(passwords, sessions, identities, userService, roles, languages, currencyService, flashes, settings.AuthCookieSecure)
 	}
 
 	if err == nil {
-		office, err = officehandlers.NewHandler(passwords, sessions, identities, workspaceService, categoryService, accountService, userService, officeFlashes, settings.AuthCookieSecure)
+		office, err = officehandlers.NewHandler(
+			passwords, sessions, identities, workspaceService, categoryService, accountService, currencyService, userService,
+			officeFlashes, settings.AuthCookieSecure,
+		)
 	}
 
 	if err != nil {

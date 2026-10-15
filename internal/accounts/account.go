@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/radynsade/faryengo/internal/currencies"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 )
@@ -94,24 +95,29 @@ var (
 	ErrAccountNil     = errors.New("is nil")
 )
 
+// Every Account holds money in one Currency, referenced by its code.
+
 type Account struct {
-	ID          ID
-	WorkspaceID workspaces.ID
-	UserID      *users.UserID
-	Name        Name
+	ID           ID
+	WorkspaceID  workspaces.ID
+	UserID       *users.UserID
+	CurrencyCode currencies.Code
+	Name         Name
 }
 
 func NewAccount(
 	id ID,
 	workspaceID workspaces.ID,
 	userID *users.UserID,
+	currencyCode currencies.Code,
 	name Name,
 ) *Account {
 	return &Account{
-		ID:          id,
-		WorkspaceID: workspaceID,
-		UserID:      userID,
-		Name:        name,
+		ID:           id,
+		WorkspaceID:  workspaceID,
+		UserID:       userID,
+		CurrencyCode: currencyCode,
+		Name:         name,
 	}
 }
 
@@ -132,6 +138,7 @@ func (a *Account) Validate() error {
 			a.ID.Validate(),
 			a.WorkspaceID.Validate(),
 			userIDErr,
+			a.CurrencyCode.Validate(),
 			a.Name.Validate(),
 		)
 	}

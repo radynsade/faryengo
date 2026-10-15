@@ -12,8 +12,8 @@
 	}
 }
 
-// The workspace's accounts, one row each with the member it belongs to, each
-// leading to its own page.
+// The workspace's accounts, one row each with the member it belongs to and the
+// code of its currency, each leading to its own page.
 .account-list {
 	display: grid;
 	margin: 0;
@@ -59,6 +59,14 @@
 
 	&__name {
 		font-weight: 700;
+	}
+
+	&__currency {
+		flex: none;
+		color: var(--color-muted);
+		font-size: 0.8125rem;
+		font-weight: 700;
+		font-variant-numeric: tabular-nums;
 	}
 
 	&__member {

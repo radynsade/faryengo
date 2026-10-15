@@ -426,7 +426,7 @@
     "other": "Jauns konts"
   },
   "accounts.new_description": {
-    "other": "Piešķiriet kontam nosaukumu un, ja vajag, izvēlieties dalībnieku, kuram tas pieder."
+    "other": "Piešķiriet kontam nosaukumu, izvēlieties tā valūtu un, ja vajag, dalībnieku, kuram tas pieder."
   },
   "accounts.list": {
     "other": "Šīs darbvietas konti"
@@ -739,5 +739,17 @@
   },
   "category_icons.shirt": {
     "other": "Krekls"
+  },
+  "fields.account_currency": {
+    "other": "Valūta"
+  },
+  "accounts.choose_currency": {
+    "other": "Izvēlieties valūtu"
+  },
+  "accounts.currency_option": {
+    "other": "{{.Code}} ({{.Symbol}})"
+  },
+  "accounts.currency_fixed": {
+    "other": "Valūta tiek izvēlēta, veidojot kontu, un to nevar mainīt."
   }
 }

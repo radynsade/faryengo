@@ -21,6 +21,8 @@ import (
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
 	"github.com/radynsade/faryengo/internal/categories"
 	categoriesmock "github.com/radynsade/faryengo/internal/categories/mock"
+	"github.com/radynsade/faryengo/internal/currencies"
+	currenciesmock "github.com/radynsade/faryengo/internal/currencies/mock"
 	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
@@ -67,6 +69,8 @@ type fixture struct {
 	categoryErr error
 	accounts    []*accounts.Account
 	accountErr  error
+	currencies  []*currencies.Currency
+	currencyErr error
 }
 
 // The fixture has one signed-in User with an ordinary Role, who owns two of
@@ -126,6 +130,10 @@ func newFixture(t *testing.T) *fixture {
 		design.ID: {workspaces.NewMembership(design.ID, f.user.ID, workspaces.RoleOwner)},
 		family.ID: {workspaces.NewMembership(family.ID, f.user.ID, workspaces.RoleOwner)},
 	}
+	f.currencies = []*currencies.Currency{
+		currencies.NewCurrency("EUR", "€"),
+		currencies.NewCurrency("USD", "$"),
+	}
 
 	hasher := &usersmock.PasswordHasher{
 		HashFunc: func(_ context.Context, password string) (users.PasswordHash, error) {
@@ -163,10 +171,13 @@ func newFixture(t *testing.T) *fixture {
 	accountService, err := app.NewAccountService(&appmock.Transactor{}, f.accountRepository(), f.workspaceRepository())
 	must(t, err)
 
+	currencyService, err := app.NewCurrencyService(&appmock.Transactor{}, f.currencyRepository())
+	must(t, err)
+
 	flashes, err := flashredis.NewStore(client, "office", time.Minute)
 	must(t, err)
 
-	handler, err := NewHandler(passwords, sessions, identities, workspaceService, categoryService, accountService, userService, flashes, false)
+	handler, err := NewHandler(passwords, sessions, identities, workspaceService, categoryService, accountService, currencyService, userService, flashes, false)
 	must(t, err)
 
 	f.mux = http.NewServeMux()
@@ -701,6 +712,8 @@ func (f *fixture) accountRepository() *accountsmock.AccountRepository {
 
 			if f.accountErr != nil {
 				err = accountsmock.NewErrAccountCreateFailed(account, f.accountErr)
+			} else if !f.hasCurrency(account.CurrencyCode) {
+				err = accountsmock.NewErrAccountCreateFailed(account, currencies.ErrCurrencyNotFound)
 			} else {
 				f.accounts = append(f.accounts, account)
 			}
@@ -714,6 +727,8 @@ func (f *fixture) accountRepository() *accountsmock.AccountRepository {
 				err = accountsmock.NewErrAccountUpdateFailed(account, f.accountErr)
 			} else if found := index(account.ID); found < 0 {
 				err = accountsmock.NewErrAccountUpdateFailed(account, accounts.ErrAccountNotFound)
+			} else if !f.hasCurrency(account.CurrencyCode) {
+				err = accountsmock.NewErrAccountUpdateFailed(account, currencies.ErrCurrencyNotFound)
 			} else {
 				f.accounts[found] = account
 			}
@@ -765,14 +780,41 @@ func (f *fixture) accountRepository() *accountsmock.AccountRepository {
 	}
 }
 
+// Accounts added directly hold euros.
+
 func (f *fixture) addAccount(workspaceID string, name string, userID *users.UserID) *accounts.Account {
 	account := accounts.NewAccount(
 		accounts.ID(uuid.Must(uuid.NewV7())),
 		workspaces.ID(uuid.MustParse(workspaceID)),
 		userID,
+		"EUR",
 		accounts.Name(name),
 	)
 	f.accounts = append(f.accounts, account)
 
 	return account
+}
+
+// The currencies are kept in memory in code order; currencyErr fails listing
+// them.
+
+func (f *fixture) currencyRepository() *currenciesmock.CurrencyRepository {
+	return &currenciesmock.CurrencyRepository{
+		FindAllFunc: func(context.Context) ([]*currencies.Currency, error) {
+			var result []*currencies.Currency
+
+			if f.currencyErr == nil {
+				result = f.currencies
+			}
+
+			return result, f.currencyErr
+		},
+	}
+}
+
+// An account may hold only a currency that exists, as the database's foreign
+// key keeps it.
+
+func (f *fixture) hasCurrency(code currencies.Code) bool {
+	return slices.ContainsFunc(f.currencies, func(currency *currencies.Currency) bool { return currency.Code == code })
 }

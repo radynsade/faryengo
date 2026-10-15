@@ -9,10 +9,11 @@ import (
 )
 
 const (
-	SectionHome     = ""
-	SectionUsers    = "users"
-	SectionRoles    = "roles"
-	SectionSettings = "settings"
+	SectionHome       = ""
+	SectionUsers      = "users"
+	SectionRoles      = "roles"
+	SectionCurrencies = "currencies"
+	SectionSettings   = "settings"
 )
 
 type PanelProps struct {
@@ -24,6 +25,9 @@ type PanelProps struct {
 	Email         string
 	CanViewUsers  bool
 	CanViewRoles  bool
+	// Currencies have no separate view permission; the section is shown to
+	// those who may manage them.
+	CanManageCurrencies bool
 	// RefreshAccount sends the account row out of band, for a page that
 	// follows a change of the user's own details.
 	RefreshAccount bool
@@ -104,6 +108,12 @@ templ panelMenu(props PanelProps, outOfBand bool) {
 			@components.PanelLink(props.BasePath+"/roles", props.ActiveSection == SectionRoles) {
 				<i class="ti ti-shield-check" aria-hidden="true"></i>
 				{ admini18n.T(ctx, "navigation.roles") }
+			}
+		}
+		if props.CanManageCurrencies {
+			@components.PanelLink(props.BasePath+"/currencies", props.ActiveSection == SectionCurrencies) {
+				<i class="ti ti-coins" aria-hidden="true"></i>
+				{ admini18n.T(ctx, "navigation.currencies") }
 			}
 		}
 	</nav>

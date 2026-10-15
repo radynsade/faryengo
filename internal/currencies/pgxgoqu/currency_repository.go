@@ -188,7 +188,7 @@ func (r *CurrencyRepository) Update(
 	return err
 }
 
-// Delete
+// An account that holds money in the currency reports it as in use.
 
 func (r *CurrencyRepository) Delete(
 	ctx context.Context,
@@ -416,8 +416,11 @@ func mapCurrencyError(err error) error {
 	result := err
 
 	if postgresErr, ok := errors.AsType[*pgconn.PgError](err); ok {
-		if postgresErr.Code == "23505" && postgresErr.ConstraintName == "currency_pkey" {
+		switch {
+		case postgresErr.Code == "23505" && postgresErr.ConstraintName == "currency_pkey":
 			result = errors.Join(currencies.ErrCurrencyAlreadyExists, err)
+		case postgresErr.Code == "23503" && postgresErr.ConstraintName == "account_currency_code_fkey":
+			result = errors.Join(currencies.ErrCurrencyInUse, err)
 		}
 	}
 

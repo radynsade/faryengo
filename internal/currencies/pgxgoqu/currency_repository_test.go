@@ -148,6 +148,7 @@ func TestMapCurrencyErrors(t *testing.T) {
 		wantRaw bool
 	}{
 		{"currency code taken", &pgconn.PgError{Code: "23505", ConstraintName: "currency_pkey"}, currencies.ErrCurrencyAlreadyExists, true},
+		{"currency used by an account", &pgconn.PgError{Code: "23503", ConstraintName: "account_currency_code_fkey"}, currencies.ErrCurrencyInUse, true},
 		{"unrelated", cause, cause, false},
 	}
 

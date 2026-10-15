@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/radynsade/faryengo/internal/accounts"
+	"github.com/radynsade/faryengo/internal/currencies"
 	"github.com/radynsade/faryengo/internal/infra/pgxdb"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
@@ -116,8 +117,8 @@ func NewAccountRepository(pool pgxdb.DB) (*AccountRepository, error) {
 	return repository, err
 }
 
-// The workspace and user foreign keys report a missing workspace or user, and
-// the primary key reports an existing account.
+// The workspace, user, and currency foreign keys report a missing workspace,
+// user, or currency, and the primary key reports an existing account.
 
 func (r *AccountRepository) Create(
 	ctx context.Context,
@@ -135,10 +136,11 @@ func (r *AccountRepository) Create(
 		query, args, buildErr := goqu.Dialect("postgres").
 			Insert("account").
 			Rows(goqu.Record{
-				"id":           uuid.UUID(account.ID).String(),
-				"workspace_id": uuid.UUID(account.WorkspaceID).String(),
-				"user_id":      storedUserID(account.UserID),
-				"name":         string(account.Name),
+				"id":            uuid.UUID(account.ID).String(),
+				"workspace_id":  uuid.UUID(account.WorkspaceID).String(),
+				"user_id":       storedUserID(account.UserID),
+				"currency_code": string(account.CurrencyCode),
+				"name":          string(account.Name),
 			}).
 			Prepared(true).
 			ToSQL()
@@ -158,7 +160,8 @@ func (r *AccountRepository) Create(
 }
 
 // The workspace is part of the match rather than the update, so an account is
-// never moved to another workspace.
+// never moved to another workspace, and the currency is left out of the
+// update, so an account keeps the currency it was created with.
 
 func (r *AccountRepository) Update(
 	ctx context.Context,
@@ -439,6 +442,7 @@ func accountColumns() []any {
 		"id",
 		"workspace_id",
 		"user_id",
+		"currency_code",
 		"name",
 	}
 }
@@ -494,10 +498,11 @@ func scanAccount(row pgx.Row) (*accounts.Account, error) {
 		id          pgtype.UUID
 		workspaceID pgtype.UUID
 		userID      pgtype.UUID
+		code        string
 		name        string
 	)
 
-	scanErr := row.Scan(&id, &workspaceID, &userID, &name)
+	scanErr := row.Scan(&id, &workspaceID, &userID, &code, &name)
 
 	if errors.Is(scanErr, pgx.ErrNoRows) {
 		err = accounts.ErrAccountNotFound
@@ -508,6 +513,7 @@ func scanAccount(row pgx.Row) (*accounts.Account, error) {
 			accountID          accounts.ID
 			accountWorkspaceID workspaces.ID
 			accountUserID      *users.UserID
+			accountCurrency    currencies.Code
 			accountName        accounts.Name
 		)
 
@@ -525,6 +531,10 @@ func scanAccount(row pgx.Row) (*accounts.Account, error) {
 		}
 
 		if err == nil {
+			accountCurrency, err = currencies.NewCode(code)
+		}
+
+		if err == nil {
 			accountName, err = accounts.NewName(name)
 		}
 
@@ -533,6 +543,7 @@ func scanAccount(row pgx.Row) (*accounts.Account, error) {
 				accountID,
 				accountWorkspaceID,
 				accountUserID,
+				accountCurrency,
 				accountName,
 			)
 		} else {
@@ -554,6 +565,8 @@ func mapAccountError(err error) error {
 			result = errors.Join(workspaces.ErrWorkspaceNotFound, err)
 		case postgresErr.Code == "23503" && postgresErr.ConstraintName == "account_user_id_fkey":
 			result = errors.Join(users.ErrUserNotFound, err)
+		case postgresErr.Code == "23503" && postgresErr.ConstraintName == "account_currency_code_fkey":
+			result = errors.Join(currencies.ErrCurrencyNotFound, err)
 		}
 	}
 

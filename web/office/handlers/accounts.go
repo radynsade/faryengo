@@ -9,6 +9,7 @@ import (
 	"github.com/radynsade/faryengo/internal/accounts"
 	"github.com/radynsade/faryengo/internal/app"
 	"github.com/radynsade/faryengo/internal/app/input"
+	"github.com/radynsade/faryengo/internal/currencies"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
@@ -25,7 +26,8 @@ import (
 // A workspace's accounts belong to the workspace in the address, and only its
 // members reach them. Every member sees them; only those whose role allows
 // editing the workspace's content create, change, or delete them. An account
-// may belong to one of the workspace's members, who are offered by name.
+// may belong to one of the workspace's members, who are offered by name, and
+// holds money in one of the currencies, which are offered by code.
 
 type accountsScope struct {
 	current *security.Identity
@@ -56,10 +58,12 @@ func (h *Handler) newAccount(writer http.ResponseWriter, request *http.Request) 
 	request, scope, ok := h.accountsScope(writer, request, workspaces.ActionEditContent)
 
 	if ok {
-		members, err := h.workspaces.ListMembers(request.Context(), scope.found.Workspace.ID)
+		members, currencyList, err := h.accountChoices(request, scope.found.Workspace.ID)
 
 		if err == nil {
-			h.renderNewAccount(writer, request, http.StatusOK, scope, utils.NewAccountFormProps(request, scope.found.Workspace.ID, members), false)
+			form := utils.NewAccountFormProps(request, scope.found.Workspace.ID, members, currencyList)
+
+			h.renderNewAccount(writer, request, http.StatusOK, scope, form, false)
 		} else {
 			h.accountUnavailable(writer, request, scope, err)
 		}
@@ -78,7 +82,7 @@ func (h *Handler) createAccount(writer http.ResponseWriter, request *http.Reques
 			userID  *users.UserID
 		)
 
-		form, err := utils.ParseAccountForm(writer, request)
+		form, err := utils.ParseAccountForm(writer, request, false)
 
 		if err == nil {
 			userID, err = utils.AccountUserID(form)
@@ -86,9 +90,10 @@ func (h *Handler) createAccount(writer http.ResponseWriter, request *http.Reques
 
 		if err == nil {
 			account, err = h.accounts.Create(request.Context(), input.CreateAccountInput{
-				WorkspaceID: scope.found.Workspace.ID,
-				UserID:      userID,
-				Name:        form.Name,
+				WorkspaceID:  scope.found.Workspace.ID,
+				UserID:       userID,
+				CurrencyCode: form.Currency,
+				Name:         form.Name,
 			})
 		}
 
@@ -99,14 +104,15 @@ func (h *Handler) createAccount(writer http.ResponseWriter, request *http.Reques
 		} else if isWorkspaceAccessError(err) {
 			h.settingsUnavailable(writer, request, err)
 		} else {
-			members, membersErr := h.workspaces.ListMembers(request.Context(), scope.found.Workspace.ID)
+			members, currencyList, choicesErr := h.accountChoices(request, scope.found.Workspace.ID)
 
-			if membersErr == nil {
-				status, props := accountFormFailure(request, utils.NewAccountFormProps(request, scope.found.Workspace.ID, members), form, err)
+			if choicesErr == nil {
+				props := utils.NewAccountFormProps(request, scope.found.Workspace.ID, members, currencyList)
+				status, props := accountFormFailure(request, props, form, err)
 
 				h.renderNewAccount(writer, request, status, scope, props, true)
 			} else {
-				h.accountUnavailable(writer, request, scope, membersErr)
+				h.accountUnavailable(writer, request, scope, choicesErr)
 			}
 		}
 	}
@@ -127,14 +133,17 @@ func (h *Handler) editAccount(writer http.ResponseWriter, request *http.Request)
 		}
 
 		if err == nil {
-			h.renderEditAccount(writer, request, http.StatusOK, scope, account, utils.EditAccountContentProps(request, account, members), false)
+			content := utils.EditAccountContentProps(request, account, members)
+
+			h.renderEditAccount(writer, request, http.StatusOK, scope, account, content, false)
 		} else {
 			h.accountUnavailable(writer, request, scope, err)
 		}
 	}
 }
 
-// The account keeps its workspace; only its name and member change.
+// The account keeps its workspace and its currency; only its name and member
+// change.
 
 func (h *Handler) updateAccount(writer http.ResponseWriter, request *http.Request) {
 	request, scope, ok := h.accountsScope(writer, request, workspaces.ActionEditContent)
@@ -149,7 +158,7 @@ func (h *Handler) updateAccount(writer http.ResponseWriter, request *http.Reques
 		account, err := h.findAccount(request)
 
 		if err == nil {
-			form, err = utils.ParseAccountForm(writer, request)
+			form, err = utils.ParseAccountForm(writer, request, true)
 		}
 
 		if err == nil {
@@ -270,6 +279,27 @@ func (h *Handler) findAccount(request *http.Request) (*accounts.Account, error) 
 	return account, err
 }
 
+// A new account's form offers the workspace's members and every currency.
+
+func (h *Handler) accountChoices(
+	request *http.Request,
+	workspaceID workspaces.ID,
+) ([]app.WorkspaceMember, []*currencies.Currency, error) {
+	var currencyList []*currencies.Currency
+
+	members, err := h.workspaces.ListMembers(request.Context(), workspaceID)
+
+	if err == nil {
+		currencyList, err = h.currencies.List(request.Context())
+	}
+
+	if err != nil {
+		members, currencyList = nil, nil
+	}
+
+	return members, currencyList, err
+}
+
 // An account that is missing, or that belongs to another workspace, is not
 // found; a form posted to it, such as from a page left open after another
 // member deleted it, leads back to the list.
@@ -292,9 +322,10 @@ func (h *Handler) accountUnavailable(
 	}
 }
 
-// The form keeps what was submitted and explains what was rejected; a failure
-// that belongs to no field is shown at the top of the form, with the status
-// it calls for.
+// The form keeps what was submitted and explains what was rejected; an
+// existing account's form keeps showing the account's currency. A failure that
+// belongs to no field is shown at the top of the form, with the status it
+// calls for.
 
 func accountFormFailure(
 	request *http.Request,
@@ -305,6 +336,11 @@ func accountFormFailure(
 	status := http.StatusUnprocessableEntity
 
 	props.Name, props.User = form.Name, form.User
+
+	if !props.CurrencyFixed {
+		props.Currency = form.Currency
+	}
+
 	props.FieldErrors = utils.AccountFieldErrors(request.Context(), err)
 
 	if props.FieldErrors == nil {

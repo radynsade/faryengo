@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"go.uber.org/goleak"
 
+	"github.com/radynsade/faryengo/internal/currencies"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 )
@@ -102,31 +103,35 @@ func TestNameValidate(t *testing.T) {
 
 func TestAccountValidate(t *testing.T) {
 	tests := []struct {
-		name        string
-		id          ID
-		workspaceID workspaces.ID
-		userID      *users.UserID
-		accountName Name
-		want        []error
+		name         string
+		id           ID
+		workspaceID  workspaces.ID
+		userID       *users.UserID
+		currencyCode currencies.Code
+		accountName  Name
+		want         []error
 	}{
-		{"valid with a user", testAccountID, testWorkspaceID, userIDPointer(testUserID), "Cash", nil},
-		{"valid without a user", testAccountID, testWorkspaceID, nil, "Cash", nil},
-		{"invalid ID", ID{}, testWorkspaceID, nil, "Cash", []error{ErrIDInvalid}},
-		{"invalid workspace ID", testAccountID, workspaces.ID{}, nil, "Cash", []error{workspaces.ErrIDInvalid}},
-		{"invalid user ID", testAccountID, testWorkspaceID, userIDPointer(users.UserID{}), "Cash", []error{users.ErrUserIDInvalid}},
-		{"invalid name", testAccountID, testWorkspaceID, nil, "", []error{ErrNameInvalid}},
-		{"invalid ID and name", ID{}, testWorkspaceID, nil, " ", []error{ErrIDInvalid, ErrNameInvalid}},
+		{"valid with a user", testAccountID, testWorkspaceID, userIDPointer(testUserID), "EUR", "Cash", nil},
+		{"valid without a user", testAccountID, testWorkspaceID, nil, "EUR", "Cash", nil},
+		{"invalid ID", ID{}, testWorkspaceID, nil, "EUR", "Cash", []error{ErrIDInvalid}},
+		{"invalid workspace ID", testAccountID, workspaces.ID{}, nil, "EUR", "Cash", []error{workspaces.ErrIDInvalid}},
+		{"invalid user ID", testAccountID, testWorkspaceID, userIDPointer(users.UserID{}), "EUR", "Cash", []error{users.ErrUserIDInvalid}},
+		{"missing currency", testAccountID, testWorkspaceID, nil, "", "Cash", []error{currencies.ErrCodeInvalid}},
+		{"invalid currency", testAccountID, testWorkspaceID, nil, "eur", "Cash", []error{currencies.ErrCodeInvalid}},
+		{"invalid name", testAccountID, testWorkspaceID, nil, "EUR", "", []error{ErrNameInvalid}},
+		{"invalid ID, currency, and name", ID{}, testWorkspaceID, nil, "", " ", []error{ErrIDInvalid, currencies.ErrCodeInvalid, ErrNameInvalid}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			account := NewAccount(tt.id, tt.workspaceID, tt.userID, tt.accountName)
+			account := NewAccount(tt.id, tt.workspaceID, tt.userID, tt.currencyCode, tt.accountName)
 
 			if account.ID != tt.id ||
 				account.WorkspaceID != tt.workspaceID ||
 				account.UserID != tt.userID ||
+				account.CurrencyCode != tt.currencyCode ||
 				account.Name != tt.accountName {
-				t.Fatalf("NewAccount() = %+v, want the given ID, workspace, user, and name", account)
+				t.Fatalf("NewAccount() = %+v, want the given ID, workspace, user, currency, and name", account)
 			}
 
 			err := account.Validate()

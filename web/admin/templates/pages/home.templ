@@ -15,7 +15,7 @@ templ Home(props layouts.PanelProps) {
 				<p class="card__eyebrow">{ admini18n.T(ctx, "common.your_workspace") }</p>
 				<h1 id="welcome-title">{ admini18n.T(ctx, "home.welcome", map[string]any{"Name": props.FirstName}) }</h1>
 				<p>{ admini18n.T(ctx, "home.description") }</p>
-				if props.CanViewUsers || props.CanViewRoles {
+				if props.CanViewUsers || props.CanViewRoles || props.CanManageCurrencies {
 					<div class="card__links">
 						if props.CanViewUsers {
 							@components.PageLink(props.BasePath + "/users") {
@@ -25,6 +25,11 @@ templ Home(props layouts.PanelProps) {
 						if props.CanViewRoles {
 							@components.PageLink(props.BasePath + "/roles") {
 								{ admini18n.T(ctx, "navigation.roles") }
+							}
+						}
+						if props.CanManageCurrencies {
+							@components.PageLink(props.BasePath + "/currencies") {
+								{ admini18n.T(ctx, "navigation.currencies") }
 							}
 						}
 					</div>

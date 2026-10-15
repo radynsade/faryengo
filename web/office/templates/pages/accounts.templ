@@ -13,21 +13,27 @@ const AccountFormID = "account-form"
 // has left. Href is empty when the viewer may not change the account.
 
 type AccountItem struct {
-	ID     string
-	Name   string
-	Member string
-	Href   string
+	ID       string
+	Name     string
+	Member   string
+	Currency string
+	Href     string
 }
 
-// The form starts from the account's current values, or no member for a new
-// one; a failed submission shows the submitted values. User is the selected
-// member's ID, empty for none.
+// The form starts from the account's current values, or no member and no
+// currency for a new one; a failed submission shows the submitted values. User
+// is the selected member's ID, empty for none, and Currency the selected
+// currency's code. An existing account keeps its currency, so CurrencyFixed
+// shows it instead of offering Currencies.
 
 type AccountFormProps struct {
 	Action      string
 	Name        string
 	User        string
 	Users       []components.SelectOption
+	Currency      string
+	Currencies    []components.SelectOption
+	CurrencyFixed bool
 	Submit      string
 	CancelURL   string
 	Error       string
@@ -120,6 +126,7 @@ templ accountRow(item AccountItem) {
 		<span class="account-list__name">{ item.Name }</span>
 		<span class="account-list__member">{ item.Member }</span>
 	</span>
+	<span class="account-list__currency">{ item.Currency }</span>
 }
 
 // NewAccount is the page that adds an account, inside the workspace's
@@ -184,6 +191,18 @@ templ AccountForm(props AccountFormProps) {
 			Required:     true,
 			Error:        props.FieldErrors["name"],
 		})
+		if props.CurrencyFixed {
+			@accountCurrency(props.Currency)
+		} else {
+			@components.Select(components.SelectProps{
+				ID:      "account-currency",
+				Name:    "currency",
+				Label:   officei18n.T(ctx, "fields.account_currency"),
+				Value:   props.Currency,
+				Options: props.Currencies,
+				Error:   props.FieldErrors["currency"],
+			})
+		}
 		@components.Select(components.SelectProps{
 			ID:      "account-user",
 			Name:    "user",
@@ -199,6 +218,15 @@ templ AccountForm(props AccountFormProps) {
 			<button class="button" type="submit">{ props.Submit }</button>
 		</div>
 	</form>
+}
+
+// accountCurrency shows the currency an existing account keeps.
+templ accountCurrency(code string) {
+	<div class="field">
+		<span class="field__label">{ officei18n.T(ctx, "fields.account_currency") }</span>
+		<p class="field__value">{ code }</p>
+		<p class="field__hint">{ officei18n.T(ctx, "accounts.currency_fixed") }</p>
+	</div>
 }
 
 // The deletion asks for confirmation in a dialog before it is sent. Its

@@ -429,7 +429,7 @@
     "other": "Новый счёт"
   },
   "accounts.new_description": {
-    "other": "Дайте счёту название и при необходимости выберите участника, которому он принадлежит."
+    "other": "Дайте счёту название, выберите его валюту и при необходимости участника, которому он принадлежит."
   },
   "accounts.list": {
     "other": "Счета этого рабочего пространства"
@@ -742,5 +742,17 @@
   },
   "category_icons.shirt": {
     "other": "Рубашка"
+  },
+  "fields.account_currency": {
+    "other": "Валюта"
+  },
+  "accounts.choose_currency": {
+    "other": "Выберите валюту"
+  },
+  "accounts.currency_option": {
+    "other": "{{.Code}} ({{.Symbol}})"
+  },
+  "accounts.currency_fixed": {
+    "other": "Валюта выбирается при создании счёта и не может быть изменена."
   }
 }

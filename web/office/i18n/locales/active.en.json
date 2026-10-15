@@ -423,7 +423,7 @@
     "other": "New account"
   },
   "accounts.new_description": {
-    "other": "Name the account and choose the member it belongs to, if any."
+    "other": "Name the account, choose its currency, and choose the member it belongs to, if any."
   },
   "accounts.list": {
     "other": "Accounts of this workspace"
@@ -736,5 +736,17 @@
   },
   "category_icons.shirt": {
     "other": "Shirt"
+  },
+  "fields.account_currency": {
+    "other": "Currency"
+  },
+  "accounts.choose_currency": {
+    "other": "Choose a currency"
+  },
+  "accounts.currency_option": {
+    "other": "{{.Code}} ({{.Symbol}})"
+  },
+  "accounts.currency_fixed": {
+    "other": "The currency is chosen when the account is created and cannot be changed."
   }
 }

@@ -65,19 +65,22 @@ func (h *Handler) panelProps(request *http.Request, current *security.Identity, 
 		titleID = "navigation.users"
 	case layouts.SectionRoles:
 		titleID = "navigation.roles"
+	case layouts.SectionCurrencies:
+		titleID = "navigation.currencies"
 	case layouts.SectionSettings:
 		titleID = "navigation.settings"
 	}
 
 	return layouts.PanelProps{
-		Title:         admini18n.T(request.Context(), titleID),
-		BasePath:      utils.AdminPath(request),
-		ActiveSection: section,
-		FirstName:     string(current.User.FirstName),
-		LastName:      string(current.User.LastName),
-		Email:         string(current.User.Email),
-		CanViewUsers:  current.Can(users.PermissionViewUser),
-		CanViewRoles:  current.Can(users.PermissionViewRole),
+		Title:               admini18n.T(request.Context(), titleID),
+		BasePath:            utils.AdminPath(request),
+		ActiveSection:       section,
+		FirstName:           string(current.User.FirstName),
+		LastName:            string(current.User.LastName),
+		Email:               string(current.User.Email),
+		CanViewUsers:        current.Can(users.PermissionViewUser),
+		CanViewRoles:        current.Can(users.PermissionViewRole),
+		CanManageCurrencies: current.Can(users.PermissionManageCurrency),
 	}
 }
 

@@ -96,7 +96,7 @@ their content rather than a separate entity identity.
 | Password | Secret text | A new password is valid text with a non-whitespace character, at least six characters, and at most 4096 bytes. |
 | Password credential | Verification value | Nonempty value used to verify a password; distinct from the password supplied by the User. |
 | Role name | Translated text | Includes the fallback language translation when the catalog has a fallback language, otherwise at least one translation; each translation is nonblank and at most 100 characters. |
-| Permission | Authorized action | One of managing Users, viewing Users, managing Roles, viewing Roles, or managing Languages. |
+| Permission | Authorized action | One of managing Users, viewing Users, managing Roles, viewing Roles, managing Languages, or managing Currencies. |
 | Credentials version | Version identity | Nonempty value identifying the current state of the User's email and password; replaced whenever either changes or all of the User's Sessions end, and never reused. A replaced version invalidates [Sessions](security.md#session) holding it. |
 
 Permissions are independent. Permission to manage Users or Roles does not
@@ -114,6 +114,8 @@ Each action requires one of these permissions:
 | List or read Roles | Viewing or managing Roles or Users, because Users are shown and assigned with their Roles. |
 | Create, update, or delete a [Language](languages.md) | Managing Languages. |
 | List or read Languages | Any identity, because translated names are shown throughout. |
+| Create, update, or delete a Currency | Managing Currencies. |
+| List or read Currencies | Any identity, because currencies supply the monetary notation shown throughout. |
 
 A User cannot delete their own account, whatever their permissions.
 

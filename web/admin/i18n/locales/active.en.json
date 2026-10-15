@@ -208,7 +208,7 @@
     "other": "Welcome, {{.Name}}."
   },
   "home.description": {
-    "other": "You are signed in. Use the navigation menu to access users and roles."
+    "other": "You are signed in. Use the navigation menu to access users, roles, and currencies."
   },
   "roles.create": {
     "other": "Create role"
@@ -275,6 +275,9 @@
   },
   "permissions.manage_language": {
     "other": "Manage languages"
+  },
+  "permissions.manage_currency": {
+    "other": "Manage currencies"
   },
   "errors.credentials_form": {
     "other": "Enter a valid email address and password."
@@ -572,5 +575,93 @@
   },
   "errors.profile_conflict": {
     "other": "Your profile changed in the meantime. Reload the page and try again."
+  },
+  "navigation.currencies": {
+    "other": "Currencies"
+  },
+  "currencies.create": {
+    "other": "Create currency"
+  },
+  "currencies.edit": {
+    "other": "Edit currency"
+  },
+  "currencies.edit_title": {
+    "other": "Edit currency \"{{.Code}}\""
+  },
+  "currencies.delete": {
+    "other": "Delete currency"
+  },
+  "currencies.delete_title": {
+    "other": "Delete currency \"{{.Code}}\""
+  },
+  "currencies.delete_message": {
+    "other": "Are you sure you want to delete the currency? You will not be able to restore it."
+  },
+  "currencies.table": {
+    "other": "Currencies table"
+  },
+  "currencies.caption": {
+    "other": "Currencies and their symbols"
+  },
+  "currencies.empty": {
+    "other": "No currencies found."
+  },
+  "currencies.created": {
+    "other": "Currency \"{{.Code}}\" created successfully."
+  },
+  "currencies.updated": {
+    "other": "Currency \"{{.Code}}\" updated successfully."
+  },
+  "currencies.deleted": {
+    "other": "Currency \"{{.Code}}\" deleted successfully."
+  },
+  "currencies.code_help": {
+    "other": "The three-letter ISO 4217 code. It cannot be changed later."
+  },
+  "currencies.code_fixed_help": {
+    "other": "The code identifies the currency and cannot be changed."
+  },
+  "currencies.symbol_help": {
+    "one": "Up to {{.Count}} character: letters, currency signs, and punctuation, without spaces.",
+    "other": "Up to {{.Count}} characters: letters, currency signs, and punctuation, without spaces."
+  },
+  "fields.code": {
+    "other": "Code"
+  },
+  "fields.symbol": {
+    "other": "Symbol"
+  },
+  "fields.code_placeholder": {
+    "other": "EUR"
+  },
+  "fields.symbol_placeholder": {
+    "other": "€"
+  },
+  "errors.currencies": {
+    "other": "Currencies are temporarily unavailable. Please try again."
+  },
+  "errors.currency_not_found": {
+    "other": "Currency not found."
+  },
+  "errors.currency_exists": {
+    "other": "This currency already exists."
+  },
+  "errors.currency_form": {
+    "other": "Submit a valid currency form."
+  },
+  "errors.currency_values": {
+    "other": "Check the currency's code and symbol and try again."
+  },
+  "validation.currency_code": {
+    "other": "Enter three uppercase Latin letters, such as EUR."
+  },
+  "validation.currency_symbol": {
+    "other": "Use letters, currency signs, and punctuation, with at least one letter or currency sign."
+  },
+  "validation.currency_taken": {
+    "other": "A currency with this code already exists."
+  },
+  "errors.currency_used": {
+    "other": "This currency is used by accounts. Delete those accounts or change their currency first."
   }
 }

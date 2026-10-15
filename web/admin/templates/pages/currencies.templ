@@ -1,0 +1,214 @@
+package pages
+
+import (
+	"github.com/radynsade/faryengo/internal/currencies"
+	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
+	"github.com/radynsade/faryengo/web/admin/templates/components"
+	"github.com/radynsade/faryengo/web/admin/templates/layouts"
+)
+
+// The catalog of currencies is small and unpaged, so the list renders its
+// rows with the page rather than loading them afterwards.
+templ Currencies(props CurrencyListProps) {
+	@layouts.Panel(props.Panel) {
+		@components.ConfirmDelete(CurrencyDeleteDialog(ctx, "", "", nil))
+		<div class="currency-list">
+			<div class="list-toolbar">
+				@components.ActionLink(props.Panel.BasePath+"/currencies/create", "button button--primary button--compact", admini18n.T(ctx, "currencies.create")) {
+					<i class="ti ti-plus" aria-hidden="true"></i>
+					{ admini18n.T(ctx, "actions.create") }
+				}
+				<div class="list-toolbar__controls">
+					<span class="currency-total">{ admini18n.Count(ctx, "common.total_found", len(props.Rows)) }</span>
+				</div>
+			</div>
+			<div class="data-table-scroll" tabindex="0" role="region" aria-label={ admini18n.T(ctx, "currencies.table") }>
+				<table class="data-table data-table--fixed currency-table">
+					<caption class="visually-hidden">{ admini18n.T(ctx, "currencies.caption") }</caption>
+					<colgroup>
+						<col class="currency-table__col--code"/>
+						<col class="currency-table__col--symbol"/>
+						<col class="currency-table__col--actions"/>
+					</colgroup>
+					<thead>
+						<tr>
+							<th scope="col">{ admini18n.T(ctx, "fields.code") }</th>
+							<th scope="col">{ admini18n.T(ctx, "fields.symbol") }</th>
+							<th scope="col" class="data-table__actions"><span class="visually-hidden">{ admini18n.T(ctx, "fields.actions") }</span></th>
+						</tr>
+					</thead>
+					<tbody>
+						for _, row := range props.Rows {
+							<tr id={ "currency-" + row.Code }>
+								<td>
+									@components.ActionLink(props.Panel.BasePath+"/currencies/"+row.Code+"/view", "text-link", admini18n.T(ctx, "actions.view_named", map[string]any{"Name": row.Code})) {
+										{ row.Code }
+									}
+								</td>
+								<td>{ row.Symbol }</td>
+								<td class="data-table__actions">
+									<div class="action-group">
+										@components.ActionLink(props.Panel.BasePath+"/currencies/"+row.Code+"/view", "icon-button", admini18n.T(ctx, "actions.view_named", map[string]any{"Name": row.Code})) {
+											<i class="ti ti-eye" aria-hidden="true"></i>
+										}
+										@components.ActionLink(props.Panel.BasePath+"/currencies/"+row.Code+"/edit", "icon-button", admini18n.T(ctx, "actions.edit_named", map[string]any{"Name": row.Code})) {
+											<i class="ti ti-pencil" aria-hidden="true"></i>
+										}
+										@components.DeleteButton(props.Panel.BasePath+"/currencies/"+row.Code+"/delete", admini18n.T(ctx, "currencies.delete_title", map[string]any{"Code": row.Code}), "icon-button icon-button--danger", admini18n.T(ctx, "actions.delete_named", map[string]any{"Name": row.Code})) {
+											<i class="ti ti-trash" aria-hidden="true"></i>
+										}
+									</div>
+								</td>
+							</tr>
+						}
+						if len(props.Errors) > 0 {
+							<tr>
+								<td colspan="3" class="data-table__empty">
+									for _, message := range props.Errors {
+										<p class="notice notice--error" role="alert">{ message }</p>
+									}
+									@components.ActionLink(props.Panel.BasePath+"/currencies", "button button--secondary button--compact", admini18n.T(ctx, "actions.retry")) {
+										{ admini18n.T(ctx, "actions.retry") }
+									}
+								</td>
+							</tr>
+						} else if len(props.Rows) == 0 {
+							<tr><td colspan="3" class="data-table__empty">{ admini18n.T(ctx, "currencies.empty") }</td></tr>
+						}
+					</tbody>
+				</table>
+			</div>
+		</div>
+	}
+}
+
+templ CurrencyForm(props CurrencyFormProps) {
+	@layouts.Panel(props.Panel) {
+		if props.Edit {
+			@components.ConfirmDelete(CurrencyDeleteDialog(ctx, props.Panel.BasePath+"/currencies/"+props.Code+"/delete", props.Code, nil))
+		}
+		<div class="panel-page">
+			<div class="panel-page__content">
+				@components.PageTitle(props.Title, []components.BreadcrumbItem{
+					{Label: admini18n.T(ctx, "common.admin"), Href: props.Panel.BasePath},
+					{Label: admini18n.T(ctx, "navigation.currencies"), Href: props.Panel.BasePath + "/currencies"},
+					{Label: props.Title},
+				})
+				@CurrencyFieldsForm(props)
+			</div>
+		</div>
+	}
+}
+
+// CurrencyFieldsForm shares the field layout between creation and editing. It
+// is also the region a failed in-page submission replaces, so form-wide errors
+// render inside it, below the toolbar.
+templ CurrencyFieldsForm(props CurrencyFormProps) {
+	<section id={ CurrencyFormID } class="currency-form" aria-labelledby="page-heading">
+		<form method="post" action={ templ.URL(props.Action) } { components.FormAttributes()... }>
+			<header class="list-toolbar">
+				<div class="action-group">
+					<button class="button button--primary button--compact" type="submit">
+						<i class="ti ti-device-floppy" aria-hidden="true"></i>
+						if props.Edit {
+							{ admini18n.T(ctx, "actions.save") }
+						} else {
+							{ admini18n.T(ctx, "currencies.create") }
+						}
+					</button>
+					if props.Edit {
+						@components.ActionLink(props.Panel.BasePath+"/currencies/"+props.Code+"/view", "button button--secondary button--compact", admini18n.T(ctx, "actions.view")) {
+							<i class="ti ti-eye" aria-hidden="true"></i>
+							{ admini18n.T(ctx, "actions.view") }
+						}
+					}
+					@components.ActionLink(props.Panel.BasePath+"/currencies", "button button--secondary button--compact", admini18n.T(ctx, "actions.list")) {
+						<i class="ti ti-list" aria-hidden="true"></i>
+						{ admini18n.T(ctx, "actions.list") }
+					}
+				</div>
+				if props.Edit {
+					@components.DeleteButton(props.Panel.BasePath+"/currencies/"+props.Code+"/delete", admini18n.T(ctx, "currencies.delete_title", map[string]any{"Code": props.Code}), "icon-button icon-button--danger", admini18n.T(ctx, "currencies.delete")) {
+						<i class="ti ti-trash" aria-hidden="true"></i>
+					}
+				}
+			</header>
+			for _, message := range props.Errors {
+				<p class="notice notice--error" role="alert">{ message }</p>
+			}
+			<div class="currency-form__fields">
+				<div class="currency-form__row">
+					<div class="currency-form__field">
+						if props.Edit {
+							<div class="form-field">
+								<span class="form-field__label">{ admini18n.T(ctx, "fields.code") }</span>
+								<p class="currency-form__value">{ props.Code }</p>
+								<p class="form-field__help">{ admini18n.T(ctx, "currencies.code_fixed_help") }</p>
+							</div>
+						} else {
+							@components.TextInput(components.TextInputProps{
+								ID: "currency-code", Name: "code", Type: "text", Label: admini18n.T(ctx, "fields.code"),
+								Placeholder: admini18n.T(ctx, "fields.code_placeholder"), Help: admini18n.T(ctx, "currencies.code_help"), Autocomplete: "off",
+								Value: props.Code, Required: true, MaxLength: currencies.CodeLengthChars, Errors: props.FieldErrors["code"],
+							})
+						}
+					</div>
+					<div class="currency-form__field">
+						@components.TextInput(components.TextInputProps{
+							ID: "currency-symbol", Name: "symbol", Type: "text", Label: admini18n.T(ctx, "fields.symbol"),
+							Placeholder: admini18n.T(ctx, "fields.symbol_placeholder"), Help: admini18n.Count(ctx, "currencies.symbol_help", currencies.MaxSymbolLengthChars),
+							Autocomplete: "off", Value: props.Symbol, Required: true, MaxLength: currencies.MaxSymbolLengthChars,
+							Errors: props.FieldErrors["symbol"],
+						})
+					</div>
+				</div>
+			</div>
+		</form>
+	</section>
+}
+
+templ CurrencyView(props CurrencyViewProps) {
+	@layouts.Panel(props.Panel) {
+		@components.ConfirmDelete(CurrencyDeleteDialog(ctx, props.Panel.BasePath+"/currencies/"+props.Currency.Code+"/delete", props.Currency.Code, nil))
+		<div class="panel-page">
+			<div class="panel-page__content">
+				@components.PageTitle(props.Currency.Code, []components.BreadcrumbItem{
+					{Label: admini18n.T(ctx, "common.admin"), Href: props.Panel.BasePath},
+					{Label: admini18n.T(ctx, "navigation.currencies"), Href: props.Panel.BasePath + "/currencies"},
+					{Label: props.Currency.Code},
+				})
+				<section class="currency-view" aria-labelledby="page-heading">
+					<header class="list-toolbar">
+						<div class="action-group">
+							@components.ActionLink(props.Panel.BasePath+"/currencies/"+props.Currency.Code+"/edit", "button button--primary button--compact", admini18n.T(ctx, "currencies.edit")) {
+								<i class="ti ti-pencil" aria-hidden="true"></i>
+								{ admini18n.T(ctx, "currencies.edit") }
+							}
+							@components.ActionLink(props.Panel.BasePath+"/currencies", "button button--secondary button--compact", admini18n.T(ctx, "actions.list")) {
+								<i class="ti ti-list" aria-hidden="true"></i>
+								{ admini18n.T(ctx, "actions.list") }
+							}
+						</div>
+						@components.DeleteButton(props.Panel.BasePath+"/currencies/"+props.Currency.Code+"/delete", admini18n.T(ctx, "currencies.delete_title", map[string]any{"Code": props.Currency.Code}), "icon-button icon-button--danger", admini18n.T(ctx, "currencies.delete")) {
+							<i class="ti ti-trash" aria-hidden="true"></i>
+						}
+					</header>
+					<dl class="details-list">
+						<div class="details-list__row">
+							<dt>{ admini18n.T(ctx, "fields.code") }</dt>
+							<dd>
+								@components.CopyValue(props.Currency.Code, admini18n.T(ctx, "fields.code"))
+							</dd>
+						</div>
+						<div class="details-list__row">
+							<dt>{ admini18n.T(ctx, "fields.symbol") }</dt>
+							<dd>
+								@components.CopyValue(props.Currency.Symbol, admini18n.T(ctx, "fields.symbol"))
+							</dd>
+						</div>
+					</dl>
+				</section>
+			</div>
+		</div>
+	}
+}

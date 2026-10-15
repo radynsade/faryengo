@@ -29,6 +29,10 @@ func panelPages(f *fixture) []string {
 		"/admin/en/roles/create",
 		base + "/view",
 		base + "/edit",
+		"/admin/en/currencies",
+		"/admin/en/currencies/create",
+		"/admin/en/currencies/EUR/view",
+		"/admin/en/currencies/EUR/edit",
 	}
 }
 

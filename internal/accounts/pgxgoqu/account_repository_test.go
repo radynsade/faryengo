@@ -13,6 +13,7 @@ import (
 	"go.uber.org/goleak"
 
 	"github.com/radynsade/faryengo/internal/accounts"
+	"github.com/radynsade/faryengo/internal/currencies"
 	"github.com/radynsade/faryengo/internal/infra/pgxdb"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
@@ -98,15 +99,21 @@ func TestAccountMethodsValidateBeforeIO(t *testing.T) {
 		{"create nil", func() error { return repository.Create(ctx, nil) }, accounts.ErrAccountNil},
 		{"create invalid", func() error { return repository.Create(ctx, &accounts.Account{}) }, accounts.ErrAccountInvalid},
 		{"create without a workspace", func() error {
-			return repository.Create(ctx, accounts.NewAccount(validID, workspaces.ID{}, nil, "Cash"))
+			return repository.Create(ctx, accounts.NewAccount(validID, workspaces.ID{}, nil, "EUR", "Cash"))
 		}, workspaces.ErrIDInvalid},
 		{"create with an invalid user", func() error {
-			return repository.Create(ctx, accounts.NewAccount(validID, workspaceID, &invalidUserID, "Cash"))
+			return repository.Create(ctx, accounts.NewAccount(validID, workspaceID, &invalidUserID, "EUR", "Cash"))
 		}, users.ErrUserIDInvalid},
+		{"create without a currency", func() error {
+			return repository.Create(ctx, accounts.NewAccount(validID, workspaceID, nil, "", "Cash"))
+		}, currencies.ErrCodeInvalid},
 		{"update nil", func() error { return repository.Update(ctx, nil) }, accounts.ErrAccountNil},
 		{"update without a name", func() error {
-			return repository.Update(ctx, accounts.NewAccount(validID, workspaceID, nil, ""))
+			return repository.Update(ctx, accounts.NewAccount(validID, workspaceID, nil, "EUR", ""))
 		}, accounts.ErrNameInvalid},
+		{"update with an invalid currency", func() error {
+			return repository.Update(ctx, accounts.NewAccount(validID, workspaceID, nil, "eur", "Cash"))
+		}, currencies.ErrCodeInvalid},
 		{"delete invalid ID", func() error { return repository.Delete(ctx, accounts.ID{}) }, accounts.ErrIDInvalid},
 		{"find by invalid ID", func() error {
 			_, err := repository.FindByID(ctx, accounts.ID{})
@@ -275,6 +282,7 @@ func TestMapAccountErrors(t *testing.T) {
 		{"account ID taken", &pgconn.PgError{Code: "23505", ConstraintName: "account_pkey"}, accounts.ErrAccountAlreadyExists, true},
 		{"workspace missing", &pgconn.PgError{Code: "23503", ConstraintName: "account_workspace_id_fkey"}, workspaces.ErrWorkspaceNotFound, true},
 		{"user missing", &pgconn.PgError{Code: "23503", ConstraintName: "account_user_id_fkey"}, users.ErrUserNotFound, true},
+		{"currency missing", &pgconn.PgError{Code: "23503", ConstraintName: "account_currency_code_fkey"}, currencies.ErrCurrencyNotFound, true},
 		{"unrelated", cause, cause, false},
 	}
 

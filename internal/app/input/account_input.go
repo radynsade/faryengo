@@ -12,15 +12,17 @@ import (
 // Create account input
 //
 
-// Name is trimmed before it is validated, and a nil UserID means the Account
-// belongs to no User.
+// Name is trimmed before it is validated, a nil UserID means the Account
+// belongs to no User, and CurrencyCode names the Currency the Account holds
+// money in.
 
 var ErrCreateAccountInputInvalid = errors.New("invalid create account input")
 
 type CreateAccountInput struct {
-	WorkspaceID workspaces.ID
-	UserID      *users.UserID
-	Name        string
+	WorkspaceID  workspaces.ID
+	UserID       *users.UserID
+	CurrencyCode string
+	Name         string
 }
 
 //
@@ -28,7 +30,7 @@ type CreateAccountInput struct {
 //
 
 // Name is trimmed before it is validated, and a nil UserID removes the
-// Account's User.
+// Account's User. The Account keeps the Currency it was created with.
 
 var ErrUpdateAccountInputInvalid = errors.New("invalid update account input")
 

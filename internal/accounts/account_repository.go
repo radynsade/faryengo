@@ -197,11 +197,13 @@ type ErrAccountDeleteFailed interface {
 	Unwrap() error
 }
 
-// An Account stays in the Workspace it was created in, so updating one
-// changes its user and name but never its Workspace; an Account submitted with
-// a different Workspace is reported as ErrAccountNotFound. Writing an Account
-// with a missing Workspace is reported as workspaces.ErrWorkspaceNotFound, and
-// with a missing user as users.ErrUserNotFound.
+// An Account stays in the Workspace it was created in and keeps the Currency
+// it was created with, so updating one changes its user and name but never its
+// Workspace or Currency; an Account submitted with a different Workspace is
+// reported as ErrAccountNotFound, and a different Currency is ignored.
+// Writing an Account with a missing Workspace is reported as
+// workspaces.ErrWorkspaceNotFound, with a missing user as users.ErrUserNotFound,
+// and with a missing Currency as currencies.ErrCurrencyNotFound.
 
 type AccountRepository interface {
 	Create(ctx context.Context, account *Account) ErrAccountCreateFailed

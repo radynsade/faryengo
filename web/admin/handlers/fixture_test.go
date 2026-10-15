@@ -17,6 +17,8 @@ import (
 
 	"github.com/radynsade/faryengo/internal/app"
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
+	"github.com/radynsade/faryengo/internal/currencies"
+	currenciesmock "github.com/radynsade/faryengo/internal/currencies/mock"
 	"github.com/radynsade/faryengo/internal/languages"
 	languagesmock "github.com/radynsade/faryengo/internal/languages/mock"
 	"github.com/radynsade/faryengo/internal/security"
@@ -48,6 +50,8 @@ type fixture struct {
 	role         *users.Role
 	roles        map[users.RoleID]*users.Role
 	accounts     map[users.UserID]*users.User
+	currencies   map[currencies.Code]*currencies.Currency
+	usedCurrency currencies.Code
 	version      uuid.UUID
 	writes       int
 	listErr      error
@@ -71,7 +75,11 @@ func newFixture(t *testing.T, permissions users.Permissions, isSuper bool) *fixt
 		redis:    server,
 		roles:    make(map[users.RoleID]*users.Role),
 		accounts: make(map[users.UserID]*users.User),
-		version:  uuid.Must(uuid.NewV7()),
+		currencies: map[currencies.Code]*currencies.Currency{
+			"EUR": currencies.NewCurrency("EUR", "€"),
+			"USD": currencies.NewCurrency("USD", "$"),
+		},
+		version: uuid.Must(uuid.NewV7()),
 	}
 
 	f.role = f.addRole(t, "Owner", permissions, isSuper)
@@ -125,10 +133,13 @@ func newFixture(t *testing.T, permissions users.Permissions, isSuper bool) *fixt
 	languageService, err := app.NewLanguageService(transactor, catalogRepository())
 	must(t, err)
 
+	currencyService, err := app.NewCurrencyService(transactor, f.currencyRepository())
+	must(t, err)
+
 	flashes, err := flashredis.NewStore(client, "admin", utils.FlashTTL)
 	must(t, err)
 
-	handler, err := NewHandler(passwords, sessions, identities, userService, roleService, languageService, flashes, false)
+	handler, err := NewHandler(passwords, sessions, identities, userService, roleService, languageService, currencyService, flashes, false)
 	must(t, err)
 
 	f.mux = http.NewServeMux()
@@ -470,6 +481,79 @@ func (f *fixture) matching(filter users.RoleFilter) []*users.Role {
 	}
 
 	return result
+}
+
+// Codes are unique, as the database's primary key keeps them, and the
+// currency named by usedCurrency is held by an account, so it cannot be
+// deleted.
+
+func (f *fixture) currencyRepository() *currenciesmock.CurrencyRepository {
+	find := func(_ context.Context, code currencies.Code) (*currencies.Currency, error) {
+		var err error
+
+		currency, found := f.currencies[code]
+
+		if !found {
+			err = currencies.ErrCurrencyNotFound
+		}
+
+		return currency, err
+	}
+
+	return &currenciesmock.CurrencyRepository{
+		CreateFunc: func(_ context.Context, currency *currencies.Currency) currencies.ErrCurrencyCreateFailed {
+			var err currencies.ErrCurrencyCreateFailed
+
+			f.writes++
+
+			if _, found := f.currencies[currency.Code]; found {
+				err = currenciesmock.NewErrCurrencyCreateFailed(currency, currencies.ErrCurrencyAlreadyExists)
+			} else {
+				f.currencies[currency.Code] = currency
+			}
+
+			return err
+		},
+		UpdateFunc: func(_ context.Context, currency *currencies.Currency) currencies.ErrCurrencyUpdateFailed {
+			var err currencies.ErrCurrencyUpdateFailed
+
+			f.writes++
+
+			if _, found := f.currencies[currency.Code]; !found {
+				err = currenciesmock.NewErrCurrencyUpdateFailed(currency, currencies.ErrCurrencyNotFound)
+			} else {
+				f.currencies[currency.Code] = currency
+			}
+
+			return err
+		},
+		DeleteFunc: func(_ context.Context, code currencies.Code) currencies.ErrCurrencyDeleteFailed {
+			var err currencies.ErrCurrencyDeleteFailed
+
+			f.writes++
+
+			if _, found := f.currencies[code]; !found {
+				err = currenciesmock.NewErrCurrencyDeleteFailed(code, currencies.ErrCurrencyNotFound)
+			} else if code == f.usedCurrency {
+				err = currenciesmock.NewErrCurrencyDeleteFailed(code, currencies.ErrCurrencyInUse)
+			} else {
+				delete(f.currencies, code)
+			}
+
+			return err
+		},
+		FindByCodeFunc:          find,
+		FindByCodeForUpdateFunc: find,
+		FindAllFunc: func(context.Context) ([]*currencies.Currency, error) {
+			var result []*currencies.Currency
+
+			for _, code := range slices.Sorted(maps.Keys(f.currencies)) {
+				result = append(result, f.currencies[code])
+			}
+
+			return result, f.listErr
+		},
+	}
 }
 
 func catalogRepository() *languagesmock.LanguageRepository {

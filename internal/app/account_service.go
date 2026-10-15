@@ -10,6 +10,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/accounts"
 	"github.com/radynsade/faryengo/internal/app/input"
+	"github.com/radynsade/faryengo/internal/currencies"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 )
@@ -39,6 +40,11 @@ type AccountList struct {
 // assigned; any other User is reported as users.ErrUserNotFound, so a member
 // learns nothing about Users outside the Workspace. An Account keeps its User
 // after that User leaves the Workspace.
+//
+// Every Account holds money in one Currency, chosen when the Account is
+// created and never changed, so amounts in the Account keep their meaning. The
+// Currency must exist; a missing one is reported as
+// currencies.ErrCurrencyNotFound.
 //
 // The identity's Role was read before the operation began. Every write runs in
 // a transaction, locks the Workspace, and reads the caller's Role again under
@@ -89,9 +95,10 @@ func (s *AccountService) Create(
 	)
 
 	if err = s.check(); err == nil {
+		currencyCode, currencyErr := currencies.NewCode(request.CurrencyCode)
 		name, valuesErr := accountValues(request.UserID, request.Name)
 
-		err = errors.Join(request.WorkspaceID.Validate(), valuesErr)
+		err = errors.Join(request.WorkspaceID.Validate(), currencyErr, valuesErr)
 
 		if err != nil {
 			err = fmt.Errorf("create account: %w: %w", input.ErrCreateAccountInputInvalid, err)
@@ -110,7 +117,7 @@ func (s *AccountService) Create(
 			if err != nil {
 				err = fmt.Errorf("generate account ID: %w", err)
 			} else {
-				account = accounts.NewAccount(accountID, request.WorkspaceID, request.UserID, name)
+				account = accounts.NewAccount(accountID, request.WorkspaceID, request.UserID, currencyCode, name)
 			}
 		}
 	}
@@ -235,8 +242,8 @@ func (s *AccountService) List(
 	return list, err
 }
 
-// The Account keeps its Workspace; only its User and name change. A User who
-// is kept need not be a member any more.
+// The Account keeps its Workspace and its Currency; only its User and name
+// change. A User who is kept need not be a member any more.
 
 func (s *AccountService) Update(
 	ctx context.Context,
@@ -273,7 +280,7 @@ func (s *AccountService) Update(
 				}
 
 				if err == nil {
-					account = accounts.NewAccount(stored.ID, stored.WorkspaceID, request.UserID, name)
+					account = accounts.NewAccount(stored.ID, stored.WorkspaceID, request.UserID, stored.CurrencyCode, name)
 
 					if updateErr := s.repository.Update(ctx, account); updateErr != nil {
 						err = updateErr

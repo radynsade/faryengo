@@ -33,6 +33,7 @@ type Handler struct {
 	workspaces *app.WorkspaceService
 	categories *app.CategoryService
 	accounts   *app.AccountService
+	currencies *app.CurrencyService
 	users      *app.UserService
 	flashes    *utils.Flashes
 	cookies    cookie.Jar
@@ -45,6 +46,7 @@ func NewHandler(
 	workspaces *app.WorkspaceService,
 	categoryService *app.CategoryService,
 	accountService *app.AccountService,
+	currencyService *app.CurrencyService,
 	userService *app.UserService,
 	flashStorage flashmsg.FlashSessionStorage,
 	secureCookies bool,
@@ -55,7 +57,8 @@ func NewHandler(
 		err     error
 	)
 
-	if passwords == nil || sessions == nil || identities == nil || workspaces == nil || categoryService == nil || accountService == nil || userService == nil {
+	if passwords == nil || sessions == nil || identities == nil || workspaces == nil || categoryService == nil || accountService == nil ||
+		currencyService == nil || userService == nil {
 		err = ErrHandlerConfigInvalid
 	} else if flashes, err = utils.NewFlashes(flashStorage); err != nil {
 		err = fmt.Errorf("%w: %w", ErrHandlerConfigInvalid, err)
@@ -67,6 +70,7 @@ func NewHandler(
 			workspaces: workspaces,
 			categories: categoryService,
 			accounts:   accountService,
+			currencies: currencyService,
 			users:      userService,
 			flashes:    flashes,
 			cookies:    cookie.Jar{Secure: secureCookies},

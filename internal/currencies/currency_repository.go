@@ -12,6 +12,7 @@ import (
 var (
 	ErrCurrencyNotFound      = errors.New("currency not found")
 	ErrCurrencyAlreadyExists = errors.New("currency already exists")
+	ErrCurrencyInUse         = errors.New("currency is used by accounts")
 )
 
 type ErrCurrencyCreateFailed interface {
@@ -33,7 +34,8 @@ type ErrCurrencyDeleteFailed interface {
 }
 
 // A Currency is identified by its code, so updating one changes only its
-// symbol.
+// symbol. Deleting a Currency that an Account holds money in is reported as
+// ErrCurrencyInUse.
 
 type CurrencyRepository interface {
 	Create(ctx context.Context, currency *Currency) ErrCurrencyCreateFailed
