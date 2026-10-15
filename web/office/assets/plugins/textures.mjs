@@ -92,7 +92,7 @@ function paper() {
 	};
 	// Relief depth and the strongest alpha it may reach.
 	const depth = 0.6;
-	const strength = 0.055;
+	const strength = 0.07;
 	// Alpha levels are rounded to this step out of 255.
 	const step = 3;
 
