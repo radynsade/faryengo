@@ -279,6 +279,7 @@ func TestMapCategoryErrors(t *testing.T) {
 	}{
 		{"category ID taken", &pgconn.PgError{Code: "23505", ConstraintName: "category_pkey"}, categories.ErrCategoryAlreadyExists, true},
 		{"workspace missing", &pgconn.PgError{Code: "23503", ConstraintName: "category_workspace_id_fkey"}, workspaces.ErrWorkspaceNotFound, true},
+		{"category covered by a budget", &pgconn.PgError{Code: "23503", ConstraintName: "budget_category_category_fkey"}, categories.ErrCategoryInUse, true},
 		{"unrelated", cause, cause, false},
 	}
 

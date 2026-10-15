@@ -748,5 +748,104 @@
   },
   "accounts.currency_fixed": {
     "other": "The currency is chosen when the account is created and cannot be changed."
+  },
+  "nav.budgets": {
+    "other": "Budgets"
+  },
+  "budgets.new": {
+    "other": "New budget"
+  },
+  "budgets.new_description": {
+    "other": "Choose the categories the budget covers, its currency, and how much may be spent on them."
+  },
+  "budgets.list": {
+    "other": "Budgets of this workspace"
+  },
+  "budgets.read_only": {
+    "other": "Only editors and owners can change budgets."
+  },
+  "budgets.empty": {
+    "other": "There are no budgets yet."
+  },
+  "budgets.details": {
+    "other": "Budget"
+  },
+  "budgets.delete": {
+    "other": "Delete budget"
+  },
+  "budgets.delete_description": {
+    "other": "The budget is removed from the workspace for every member. Its categories are kept."
+  },
+  "budgets.delete_submit": {
+    "other": "Delete"
+  },
+  "budgets.delete_confirm_title": {
+    "other": "Delete this budget?"
+  },
+  "budgets.delete_confirm": {
+    "other": "The budget for {{.Categories}} will be deleted. This cannot be undone."
+  },
+  "budgets.create_submit": {
+    "other": "Add budget"
+  },
+  "budgets.save_submit": {
+    "other": "Save budget"
+  },
+  "budgets.created": {
+    "other": "The budget for {{.Categories}} was added."
+  },
+  "budgets.saved": {
+    "other": "The budget for {{.Categories}} was saved."
+  },
+  "budgets.deleted": {
+    "other": "The budget for {{.Categories}} was deleted."
+  },
+  "budgets.choose_currency": {
+    "other": "Choose a currency"
+  },
+  "budgets.currency_option": {
+    "other": "{{.Code}} ({{.Symbol}})"
+  },
+  "budgets.categories_required": {
+    "other": "Choose at least one category."
+  },
+  "budgets.amount_invalid": {
+    "other": "Enter an amount such as 250 or 250.50."
+  },
+  "budgets.amount": {
+    "other": "{{.Amount}} {{.Code}}"
+  },
+  "budgets.decimal_separator": {
+    "other": "."
+  },
+  "budgets.category_separator": {
+    "other": ", "
+  },
+  "budgets.unknown_category": {
+    "other": "Unknown category"
+  },
+  "budgets.no_categories": {
+    "other": "This workspace has no categories yet. Add categories first, then budget them."
+  },
+  "fields.budget_categories": {
+    "other": "Categories"
+  },
+  "fields.budget_currency": {
+    "other": "Currency"
+  },
+  "fields.budget_amount": {
+    "other": "Amount"
+  },
+  "fields.budget_amount_placeholder": {
+    "other": "250.00"
+  },
+  "fields.budget_amount_hint": {
+    "other": "The most that may be spent on these categories, with up to two decimal places."
+  },
+  "errors.budgets_unavailable": {
+    "other": "Budgets are unavailable right now. Please try again later."
+  },
+  "errors.category_in_use": {
+    "other": "A budget covers this category, so it cannot be deleted. Remove it from those budgets first."
   }
 }

@@ -751,5 +751,104 @@
   },
   "accounts.currency_fixed": {
     "other": "Valūta tiek izvēlēta, veidojot kontu, un to nevar mainīt."
+  },
+  "nav.budgets": {
+    "other": "Budžeti"
+  },
+  "budgets.new": {
+    "other": "Jauns budžets"
+  },
+  "budgets.new_description": {
+    "other": "Izvēlieties kategorijas, uz kurām attiecas budžets, tā valūtu un to, cik daudz drīkst tērēt."
+  },
+  "budgets.list": {
+    "other": "Šīs darbvietas budžeti"
+  },
+  "budgets.read_only": {
+    "other": "Budžetus var mainīt tikai redaktori un īpašnieki."
+  },
+  "budgets.empty": {
+    "other": "Budžetu vēl nav."
+  },
+  "budgets.details": {
+    "other": "Budžets"
+  },
+  "budgets.delete": {
+    "other": "Dzēst budžetu"
+  },
+  "budgets.delete_description": {
+    "other": "Budžets tiks noņemts no darbvietas visiem dalībniekiem. Tā kategorijas paliek."
+  },
+  "budgets.delete_submit": {
+    "other": "Dzēst"
+  },
+  "budgets.delete_confirm_title": {
+    "other": "Dzēst šo budžetu?"
+  },
+  "budgets.delete_confirm": {
+    "other": "Budžets kategorijām {{.Categories}} tiks dzēsts. To nevar atsaukt."
+  },
+  "budgets.create_submit": {
+    "other": "Pievienot budžetu"
+  },
+  "budgets.save_submit": {
+    "other": "Saglabāt budžetu"
+  },
+  "budgets.created": {
+    "other": "Budžets kategorijām {{.Categories}} tika pievienots."
+  },
+  "budgets.saved": {
+    "other": "Budžets kategorijām {{.Categories}} tika saglabāts."
+  },
+  "budgets.deleted": {
+    "other": "Budžets kategorijām {{.Categories}} tika dzēsts."
+  },
+  "budgets.choose_currency": {
+    "other": "Izvēlieties valūtu"
+  },
+  "budgets.currency_option": {
+    "other": "{{.Code}} ({{.Symbol}})"
+  },
+  "budgets.categories_required": {
+    "other": "Izvēlieties vismaz vienu kategoriju."
+  },
+  "budgets.amount_invalid": {
+    "other": "Ievadiet summu, piemēram, 250 vai 250,50."
+  },
+  "budgets.amount": {
+    "other": "{{.Amount}} {{.Code}}"
+  },
+  "budgets.decimal_separator": {
+    "other": ","
+  },
+  "budgets.category_separator": {
+    "other": ", "
+  },
+  "budgets.unknown_category": {
+    "other": "Nezināma kategorija"
+  },
+  "budgets.no_categories": {
+    "other": "Šai darbvietai vēl nav kategoriju. Vispirms pievienojiet kategorijas, tad veidojiet tām budžetu."
+  },
+  "fields.budget_categories": {
+    "other": "Kategorijas"
+  },
+  "fields.budget_currency": {
+    "other": "Valūta"
+  },
+  "fields.budget_amount": {
+    "other": "Summa"
+  },
+  "fields.budget_amount_placeholder": {
+    "other": "250,00"
+  },
+  "fields.budget_amount_hint": {
+    "other": "Lielākā summa, ko drīkst tērēt šīm kategorijām, ar ne vairāk kā divām zīmēm aiz komata."
+  },
+  "errors.budgets_unavailable": {
+    "other": "Budžeti pašlaik nav pieejami. Lūdzu, mēģiniet vēlreiz vēlāk."
+  },
+  "errors.category_in_use": {
+    "other": "Šī kategorija ir iekļauta budžetā, tāpēc to nevar dzēst. Vispirms noņemiet to no šiem budžetiem."
   }
 }

@@ -19,6 +19,8 @@ import (
 	accountsmock "github.com/radynsade/faryengo/internal/accounts/mock"
 	"github.com/radynsade/faryengo/internal/app"
 	appmock "github.com/radynsade/faryengo/internal/app/mock"
+	"github.com/radynsade/faryengo/internal/budgets"
+	budgetsmock "github.com/radynsade/faryengo/internal/budgets/mock"
 	"github.com/radynsade/faryengo/internal/categories"
 	categoriesmock "github.com/radynsade/faryengo/internal/categories/mock"
 	"github.com/radynsade/faryengo/internal/currencies"
@@ -69,6 +71,8 @@ type fixture struct {
 	categoryErr error
 	accounts    []*accounts.Account
 	accountErr  error
+	budgets     []*budgets.Budget
+	budgetErr   error
 	currencies  []*currencies.Currency
 	currencyErr error
 }
@@ -171,13 +175,16 @@ func newFixture(t *testing.T) *fixture {
 	accountService, err := app.NewAccountService(&appmock.Transactor{}, f.accountRepository(), f.workspaceRepository())
 	must(t, err)
 
+	budgetService, err := app.NewBudgetService(&appmock.Transactor{}, f.budgetRepository(), f.workspaceRepository())
+	must(t, err)
+
 	currencyService, err := app.NewCurrencyService(&appmock.Transactor{}, f.currencyRepository())
 	must(t, err)
 
 	flashes, err := flashredis.NewStore(client, "office", time.Minute)
 	must(t, err)
 
-	handler, err := NewHandler(passwords, sessions, identities, workspaceService, categoryService, accountService, currencyService, userService, flashes, false)
+	handler, err := NewHandler(passwords, sessions, identities, workspaceService, categoryService, accountService, budgetService, currencyService, userService, flashes, false)
 	must(t, err)
 
 	f.mux = http.NewServeMux()
@@ -624,6 +631,8 @@ func (f *fixture) categoryRepository() *categoriesmock.CategoryRepository {
 				err = categoriesmock.NewErrCategoryDeleteFailed(id, f.categoryErr)
 			} else if found := index(id); found < 0 {
 				err = categoriesmock.NewErrCategoryDeleteFailed(id, categories.ErrCategoryNotFound)
+			} else if slices.ContainsFunc(f.budgets, func(budget *budgets.Budget) bool { return slices.Contains(budget.Categories, id) }) {
+				err = categoriesmock.NewErrCategoryDeleteFailed(id, categories.ErrCategoryInUse)
 			} else {
 				f.categories = slices.Delete(f.categories, found, found+1)
 			}
@@ -793,6 +802,146 @@ func (f *fixture) addAccount(workspaceID string, name string, userID *users.User
 	f.accounts = append(f.accounts, account)
 
 	return account
+}
+
+// The budgets are kept in memory, the largest first. Find honors the query's
+// workspace and page, like the PostgreSQL repository; budgetErr fails every
+// read and write. A write must name an existing currency and categories of the
+// budget's workspace, as the database's foreign keys keep them.
+
+func (f *fixture) budgetRepository() *budgetsmock.BudgetRepository {
+	matching := func(filter budgets.BudgetFilter) []*budgets.Budget {
+		result := make([]*budgets.Budget, 0, len(f.budgets))
+
+		for _, budget := range f.budgets {
+			if filter.WorkspaceID == nil || budget.WorkspaceID == *filter.WorkspaceID {
+				result = append(result, budget)
+			}
+		}
+
+		slices.SortStableFunc(result, func(a, b *budgets.Budget) int {
+			return int(b.Amount - a.Amount)
+		})
+
+		return result
+	}
+
+	index := func(id budgets.ID) int {
+		return slices.IndexFunc(f.budgets, func(budget *budgets.Budget) bool { return budget.ID == id })
+	}
+
+	references := func(budget *budgets.Budget) error {
+		var err error
+
+		if !f.hasCurrency(budget.Currency) {
+			err = currencies.ErrCurrencyNotFound
+		}
+
+		for _, id := range budget.Categories {
+			if err == nil && !slices.ContainsFunc(f.categories, func(category *categories.Category) bool {
+				return category.ID == id && category.WorkspaceID == budget.WorkspaceID
+			}) {
+				err = categories.ErrCategoryNotFound
+			}
+		}
+
+		return err
+	}
+
+	return &budgetsmock.BudgetRepository{
+		CreateFunc: func(_ context.Context, budget *budgets.Budget) budgets.ErrBudgetCreateFailed {
+			var err budgets.ErrBudgetCreateFailed
+
+			if f.budgetErr != nil {
+				err = budgetsmock.NewErrBudgetCreateFailed(budget, f.budgetErr)
+			} else if referenceErr := references(budget); referenceErr != nil {
+				err = budgetsmock.NewErrBudgetCreateFailed(budget, referenceErr)
+			} else {
+				f.budgets = append(f.budgets, budget)
+			}
+
+			return err
+		},
+		UpdateFunc: func(_ context.Context, budget *budgets.Budget) budgets.ErrBudgetUpdateFailed {
+			var err budgets.ErrBudgetUpdateFailed
+
+			if f.budgetErr != nil {
+				err = budgetsmock.NewErrBudgetUpdateFailed(budget, f.budgetErr)
+			} else if found := index(budget.ID); found < 0 {
+				err = budgetsmock.NewErrBudgetUpdateFailed(budget, budgets.ErrBudgetNotFound)
+			} else if referenceErr := references(budget); referenceErr != nil {
+				err = budgetsmock.NewErrBudgetUpdateFailed(budget, referenceErr)
+			} else {
+				f.budgets[found] = budget
+			}
+
+			return err
+		},
+		DeleteFunc: func(_ context.Context, id budgets.ID) budgets.ErrBudgetDeleteFailed {
+			var err budgets.ErrBudgetDeleteFailed
+
+			if f.budgetErr != nil {
+				err = budgetsmock.NewErrBudgetDeleteFailed(id, f.budgetErr)
+			} else if found := index(id); found < 0 {
+				err = budgetsmock.NewErrBudgetDeleteFailed(id, budgets.ErrBudgetNotFound)
+			} else {
+				f.budgets = slices.Delete(f.budgets, found, found+1)
+			}
+
+			return err
+		},
+		FindByIDFunc: func(_ context.Context, id budgets.ID) (*budgets.Budget, error) {
+			var (
+				budget *budgets.Budget
+				err    = budgets.ErrBudgetNotFound
+			)
+
+			if f.budgetErr != nil {
+				err = f.budgetErr
+			} else if found := index(id); found >= 0 {
+				copied := *f.budgets[found]
+				copied.Categories = slices.Clone(copied.Categories)
+				budget, err = &copied, nil
+			}
+
+			return budget, err
+		},
+		FindFunc: func(_ context.Context, query budgets.BudgetQuery) ([]*budgets.Budget, error) {
+			var result []*budgets.Budget
+
+			if f.budgetErr == nil {
+				all := matching(query.Filter)
+				start := min(int((query.Page-1)*query.Limit), len(all))
+				result = all[start:min(start+int(query.Limit), len(all))]
+			}
+
+			return result, f.budgetErr
+		},
+		CountFunc: func(_ context.Context, filter budgets.BudgetFilter) (int, error) {
+			return len(matching(filter)), f.budgetErr
+		},
+	}
+}
+
+// Budgets added directly are set in euros.
+
+func (f *fixture) addBudget(workspaceID string, amount budgets.Amount, categoryList ...*categories.Category) *budgets.Budget {
+	ids := make(budgets.CategoryIDs, 0, len(categoryList))
+
+	for _, category := range categoryList {
+		ids = append(ids, category.ID)
+	}
+
+	budget := budgets.NewBudget(
+		budgets.ID(uuid.Must(uuid.NewV7())),
+		workspaces.ID(uuid.MustParse(workspaceID)),
+		ids,
+		"EUR",
+		amount,
+	)
+	f.budgets = append(f.budgets, budget)
+
+	return budget
 }
 
 // The currencies are kept in memory in code order; currencyErr fails listing

@@ -33,6 +33,7 @@ type Handler struct {
 	workspaces *app.WorkspaceService
 	categories *app.CategoryService
 	accounts   *app.AccountService
+	budgets    *app.BudgetService
 	currencies *app.CurrencyService
 	users      *app.UserService
 	flashes    *utils.Flashes
@@ -46,6 +47,7 @@ func NewHandler(
 	workspaces *app.WorkspaceService,
 	categoryService *app.CategoryService,
 	accountService *app.AccountService,
+	budgetService *app.BudgetService,
 	currencyService *app.CurrencyService,
 	userService *app.UserService,
 	flashStorage flashmsg.FlashSessionStorage,
@@ -58,7 +60,7 @@ func NewHandler(
 	)
 
 	if passwords == nil || sessions == nil || identities == nil || workspaces == nil || categoryService == nil || accountService == nil ||
-		currencyService == nil || userService == nil {
+		budgetService == nil || currencyService == nil || userService == nil {
 		err = ErrHandlerConfigInvalid
 	} else if flashes, err = utils.NewFlashes(flashStorage); err != nil {
 		err = fmt.Errorf("%w: %w", ErrHandlerConfigInvalid, err)
@@ -70,6 +72,7 @@ func NewHandler(
 			workspaces: workspaces,
 			categories: categoryService,
 			accounts:   accountService,
+			budgets:    budgetService,
 			currencies: currencyService,
 			users:      userService,
 			flashes:    flashes,
@@ -121,6 +124,12 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 			{"GET /office/{language}/workspaces/{workspace}/accounts/{account}", h.editAccount},
 			{"POST /office/{language}/workspaces/{workspace}/accounts/{account}", h.updateAccount},
 			{"POST /office/{language}/workspaces/{workspace}/accounts/{account}/delete", h.deleteAccount},
+			{"GET /office/{language}/workspaces/{workspace}/budgets", h.listBudgets},
+			{"POST /office/{language}/workspaces/{workspace}/budgets", h.createBudget},
+			{"GET /office/{language}/workspaces/{workspace}/budgets/new", h.newBudget},
+			{"GET /office/{language}/workspaces/{workspace}/budgets/{budget}", h.editBudget},
+			{"POST /office/{language}/workspaces/{workspace}/budgets/{budget}", h.updateBudget},
+			{"POST /office/{language}/workspaces/{workspace}/budgets/{budget}/delete", h.deleteBudget},
 			{"GET /office/{language}/workspaces/{workspace}/profile-settings", h.profileSettings},
 			{"POST /office/{language}/workspaces/{workspace}/profile-settings/profile", h.updateProfile},
 			{"POST /office/{language}/workspaces/{workspace}/profile-settings/password", h.changePassword},

@@ -203,7 +203,7 @@ func (r *CategoryRepository) Update(
 	return err
 }
 
-// Delete
+// A budget that covers the category reports it as in use.
 
 func (r *CategoryRepository) Delete(
 	ctx context.Context,
@@ -557,6 +557,8 @@ func mapCategoryError(err error) error {
 			result = errors.Join(categories.ErrCategoryAlreadyExists, err)
 		case postgresErr.Code == "23503" && postgresErr.ConstraintName == "category_workspace_id_fkey":
 			result = errors.Join(workspaces.ErrWorkspaceNotFound, err)
+		case postgresErr.Code == "23503" && postgresErr.ConstraintName == "budget_category_category_fkey":
+			result = errors.Join(categories.ErrCategoryInUse, err)
 		}
 	}
 

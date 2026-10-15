@@ -167,6 +167,7 @@ func (q CategoryQuery) Validate() error {
 var (
 	ErrCategoryNotFound      = errors.New("category not found")
 	ErrCategoryAlreadyExists = errors.New("category already exists")
+	ErrCategoryInUse         = errors.New("category is in use")
 )
 
 type ErrCategoryCreateFailed interface {
@@ -191,7 +192,8 @@ type ErrCategoryDeleteFailed interface {
 // changes its name, icon, and color but never its Workspace; a Category
 // submitted with a different Workspace is reported as ErrCategoryNotFound.
 // Creating a Category in a missing Workspace is reported as
-// workspaces.ErrWorkspaceNotFound.
+// workspaces.ErrWorkspaceNotFound, and deleting a Category that a Budget
+// covers as ErrCategoryInUse.
 
 type CategoryRepository interface {
 	Create(ctx context.Context, category *Category) ErrCategoryCreateFailed

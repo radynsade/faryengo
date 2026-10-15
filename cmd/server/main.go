@@ -18,6 +18,7 @@ import (
 
 	accountspgxgoqu "github.com/radynsade/faryengo/internal/accounts/pgxgoqu"
 	"github.com/radynsade/faryengo/internal/app"
+	budgetspgxgoqu "github.com/radynsade/faryengo/internal/budgets/pgxgoqu"
 	categoriespgxgoqu "github.com/radynsade/faryengo/internal/categories/pgxgoqu"
 	"github.com/radynsade/faryengo/internal/config"
 	currenciespgxgoqu "github.com/radynsade/faryengo/internal/currencies/pgxgoqu"
@@ -262,6 +263,8 @@ func wireHandlers(
 		categoryService     *app.CategoryService
 		accountRepository   *accountspgxgoqu.AccountRepository
 		accountService      *app.AccountService
+		budgetRepository    *budgetspgxgoqu.BudgetRepository
+		budgetService       *app.BudgetService
 		flashes             *flashredis.Store
 		officeFlashes       *flashredis.Store
 		err                 error
@@ -351,6 +354,14 @@ func wireHandlers(
 	}
 
 	if err == nil {
+		budgetRepository, err = budgetspgxgoqu.NewBudgetRepository(pool)
+	}
+
+	if err == nil {
+		budgetService, err = app.NewBudgetService(transactor, budgetRepository, workspaceRepository)
+	}
+
+	if err == nil {
 		flashes, err = flashredis.NewStore(client, "admin", flashTTL)
 	}
 
@@ -364,8 +375,8 @@ func wireHandlers(
 
 	if err == nil {
 		office, err = officehandlers.NewHandler(
-			passwords, sessions, identities, workspaceService, categoryService, accountService, currencyService, userService,
-			officeFlashes, settings.AuthCookieSecure,
+			passwords, sessions, identities, workspaceService, categoryService, accountService, budgetService, currencyService,
+			userService, officeFlashes, settings.AuthCookieSecure,
 		)
 	}
 

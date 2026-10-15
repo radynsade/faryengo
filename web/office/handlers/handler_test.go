@@ -7,7 +7,7 @@ import (
 )
 
 func TestHandlerConfiguration(t *testing.T) {
-	if _, err := NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, false); err != ErrHandlerConfigInvalid {
+	if _, err := NewHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, false); err != ErrHandlerConfigInvalid {
 		t.Fatalf("NewHandler(nil...) = %v, want %v", err, ErrHandlerConfigInvalid)
 	}
 
@@ -209,7 +209,7 @@ func TestUnimplementedSectionsAbsent(t *testing.T) {
 	cookies := f.signIn(t)
 	menu := f.do(request{path: designPath, cookies: cookies}).Body.String()
 
-	for _, section := range []string{"budgets", "transactions", "goals", "reports"} {
+	for _, section := range []string{"transactions", "goals", "reports"} {
 		if strings.Contains(menu, `href="`+designPath+"/"+section+`"`) {
 			t.Fatalf("menu leads to %s:\n%s", section, menu)
 		}

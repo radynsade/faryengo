@@ -754,5 +754,104 @@
   },
   "accounts.currency_fixed": {
     "other": "Валюта выбирается при создании счёта и не может быть изменена."
+  },
+  "nav.budgets": {
+    "other": "Бюджеты"
+  },
+  "budgets.new": {
+    "other": "Новый бюджет"
+  },
+  "budgets.new_description": {
+    "other": "Выберите категории, на которые распространяется бюджет, его валюту и сколько на них можно потратить."
+  },
+  "budgets.list": {
+    "other": "Бюджеты этого рабочего пространства"
+  },
+  "budgets.read_only": {
+    "other": "Изменять бюджеты могут только редакторы и владельцы."
+  },
+  "budgets.empty": {
+    "other": "Бюджетов пока нет."
+  },
+  "budgets.details": {
+    "other": "Бюджет"
+  },
+  "budgets.delete": {
+    "other": "Удалить бюджет"
+  },
+  "budgets.delete_description": {
+    "other": "Бюджет будет удалён из рабочего пространства для всех участников. Его категории сохранятся."
+  },
+  "budgets.delete_submit": {
+    "other": "Удалить"
+  },
+  "budgets.delete_confirm_title": {
+    "other": "Удалить этот бюджет?"
+  },
+  "budgets.delete_confirm": {
+    "other": "Бюджет для категорий {{.Categories}} будет удалён. Это нельзя отменить."
+  },
+  "budgets.create_submit": {
+    "other": "Добавить бюджет"
+  },
+  "budgets.save_submit": {
+    "other": "Сохранить бюджет"
+  },
+  "budgets.created": {
+    "other": "Бюджет для категорий {{.Categories}} добавлен."
+  },
+  "budgets.saved": {
+    "other": "Бюджет для категорий {{.Categories}} сохранён."
+  },
+  "budgets.deleted": {
+    "other": "Бюджет для категорий {{.Categories}} удалён."
+  },
+  "budgets.choose_currency": {
+    "other": "Выберите валюту"
+  },
+  "budgets.currency_option": {
+    "other": "{{.Code}} ({{.Symbol}})"
+  },
+  "budgets.categories_required": {
+    "other": "Выберите хотя бы одну категорию."
+  },
+  "budgets.amount_invalid": {
+    "other": "Введите сумму, например 250 или 250,50."
+  },
+  "budgets.amount": {
+    "other": "{{.Amount}} {{.Code}}"
+  },
+  "budgets.decimal_separator": {
+    "other": ","
+  },
+  "budgets.category_separator": {
+    "other": ", "
+  },
+  "budgets.unknown_category": {
+    "other": "Неизвестная категория"
+  },
+  "budgets.no_categories": {
+    "other": "В этом рабочем пространстве пока нет категорий. Сначала добавьте категории, затем задайте для них бюджет."
+  },
+  "fields.budget_categories": {
+    "other": "Категории"
+  },
+  "fields.budget_currency": {
+    "other": "Валюта"
+  },
+  "fields.budget_amount": {
+    "other": "Сумма"
+  },
+  "fields.budget_amount_placeholder": {
+    "other": "250,00"
+  },
+  "fields.budget_amount_hint": {
+    "other": "Наибольшая сумма, которую можно потратить на эти категории, не более двух знаков после запятой."
+  },
+  "errors.budgets_unavailable": {
+    "other": "Бюджеты сейчас недоступны. Попробуйте позже."
+  },
+  "errors.category_in_use": {
+    "other": "Эта категория входит в бюджет, поэтому её нельзя удалить. Сначала уберите её из этих бюджетов."
   }
 }

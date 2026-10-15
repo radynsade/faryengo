@@ -1,0 +1,314 @@
+package pages
+
+import (
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
+	"github.com/radynsade/faryengo/web/office/templates/layouts"
+)
+
+// The form names the region a failed in-page submission replaces.
+const BudgetFormID = "budget-form"
+
+// A category as a budget shows it: its name beside a tile of its color and
+// icon. The name says which category it is, so the tile is decorative. Icon
+// is empty for a category without one, and Color for one that is no longer
+// known.
+
+type BudgetCategoryTag struct {
+	Name  string
+	Icon  string
+	Color string
+}
+
+// A category the form offers; Value is its ID.
+
+type BudgetCategoryChoice struct {
+	Value   string
+	Tag     BudgetCategoryTag
+	Checked bool
+}
+
+// Title names the budget by its categories, and Amount shows its amount with
+// its currency's code. Href is empty when the viewer may not change the
+// budget.
+
+type BudgetItem struct {
+	ID         string
+	Title      string
+	Categories []BudgetCategoryTag
+	Amount     string
+	Href       string
+}
+
+// The form starts from the budget's current values, or no categories, no
+// currency, and no amount for a new one; a failed submission shows the
+// submitted values. Currency is the selected currency's code, and Amount is
+// written in the currency's major units.
+
+type BudgetFormProps struct {
+	Action      string
+	Categories  []BudgetCategoryChoice
+	Currency    string
+	Currencies  []components.SelectOption
+	Amount      string
+	Submit      string
+	CancelURL   string
+	Error       string
+	FieldErrors map[string]string
+}
+
+// ListError replaces the list when it could not be loaded. NewURL is empty for
+// members who may not edit the workspace's content; they see the budgets
+// without ways to add or change them.
+
+type BudgetsContentProps struct {
+	Notices    []string
+	NewURL     string
+	Items      []BudgetItem
+	ListError  string
+	Pagination PaginationProps
+}
+
+type EditBudgetContentProps struct {
+	Form      BudgetFormProps
+	DeleteURL string
+	Title     string
+}
+
+// Budgets is a section of the workspace, inside its dashboard.
+templ Budgets(dashboard layouts.DashboardProps, content BudgetsContentProps) {
+	@layouts.Dashboard(dashboard) {
+		<div class="settings">
+			@BudgetsContent(content)
+		</div>
+	}
+}
+
+// BudgetsContent shows the confirmations of a saved change as messages,
+// which come from the flash messages the redirect left for this page.
+templ BudgetsContent(props BudgetsContentProps) {
+	@components.Messages(props.Notices, false)
+	<section class="settings__section" aria-labelledby="budget-list-title">
+		<div class="budgets-header">
+			<header class="settings__heading">
+				<h2 id="budget-list-title">{ officei18n.T(ctx, "budgets.list") }</h2>
+				if props.NewURL == "" {
+					<p>{ officei18n.T(ctx, "budgets.read_only") }</p>
+				}
+			</header>
+			if props.NewURL != "" {
+				<a class="button" href={ templ.URL(props.NewURL) } { components.NavigationAttributes()... }>
+					@components.Icon("plus")
+					{ officei18n.T(ctx, "budgets.create_submit") }
+				</a>
+			}
+		</div>
+		@budgetList(props.Items, props.ListError)
+		if props.Pagination.PreviousURL != "" || props.Pagination.NextURL != "" {
+			@pagination(props.Pagination)
+		}
+	</section>
+}
+
+// Each row carries its budget's ID, so morphing matches rows between renders.
+// A row leads to the budget's own page when the viewer may change it.
+templ budgetList(items []BudgetItem, loadError string) {
+	if loadError != "" {
+		@components.FormAlert(loadError)
+	} else if len(items) == 0 {
+		<p class="budget-list__empty">{ officei18n.T(ctx, "budgets.empty") }</p>
+	} else {
+		<ul class="budget-list" aria-labelledby="budget-list-title">
+			for _, item := range items {
+				<li id={ "budget-" + item.ID } class="budget-list__item">
+					if item.Href != "" {
+						<a class="budget-list__link" href={ templ.URL(item.Href) } { components.NavigationAttributes()... }>
+							@budgetRow(item)
+							@components.Icon("arrow-right")
+						</a>
+					} else {
+						<div class="budget-list__link">
+							@budgetRow(item)
+						</div>
+					}
+				</li>
+			}
+		</ul>
+	}
+}
+
+// The tiles show the budget's categories at a glance; their names follow as
+// the row's title.
+templ budgetRow(item BudgetItem) {
+	<span class="budget-list__icons" aria-hidden="true">
+		for _, tag := range item.Categories {
+			@CategoryIcon(tag.Icon, tag.Color, "")
+		}
+	</span>
+	<span class="budget-list__title">{ item.Title }</span>
+	<span class="budget-list__amount">{ item.Amount }</span>
+}
+
+// NewBudget is the page that adds a budget, inside the workspace's
+// dashboard. Its messages region starts empty; a rejected submission clears
+// it out of band, like on every page with a form.
+templ NewBudget(dashboard layouts.DashboardProps, form BudgetFormProps) {
+	@layouts.Dashboard(dashboard) {
+		<div class="settings">
+			@components.Messages(nil, false)
+			<section class="settings__section" aria-labelledby="budget-new-title">
+				<header class="settings__heading">
+					<h2 id="budget-new-title">{ officei18n.T(ctx, "budgets.details") }</h2>
+					<p>{ officei18n.T(ctx, "budgets.new_description") }</p>
+				</header>
+				@BudgetForm(form)
+			</section>
+		</div>
+	}
+}
+
+// EditBudget is the page of one budget, inside the workspace's dashboard.
+// Its messages region starts empty, like the new budget's page.
+templ EditBudget(dashboard layouts.DashboardProps, content EditBudgetContentProps) {
+	@layouts.Dashboard(dashboard) {
+		<div class="settings">
+			@components.Messages(nil, false)
+			<section class="settings__section" aria-labelledby="budget-edit-title">
+				<header class="settings__heading">
+					<h2 id="budget-edit-title">{ officei18n.T(ctx, "budgets.details") }</h2>
+				</header>
+				@BudgetForm(content.Form)
+			</section>
+			<section class="settings__section" aria-labelledby="budget-delete-title">
+				<header class="settings__heading">
+					<h2 id="budget-delete-title">{ officei18n.T(ctx, "budgets.delete") }</h2>
+				</header>
+				@budgetDelete(content.DeleteURL, content.Title)
+			</section>
+		</div>
+	}
+}
+
+// BudgetForm creates a budget or changes one. A workspace without categories
+// has nothing to budget, so the form says so instead of offering an empty
+// list.
+templ BudgetForm(props BudgetFormProps) {
+	<form
+		id={ BudgetFormID }
+		class="form"
+		method="post"
+		action={ templ.URL(props.Action) }
+		novalidate
+		{ components.FormAttributes()... }
+	>
+		@components.FormAlert(props.Error)
+		@budgetCategories(props.Categories, props.FieldErrors["categories"])
+		@components.Select(components.SelectProps{
+			ID:      "budget-currency",
+			Name:    "currency",
+			Label:   officei18n.T(ctx, "fields.budget_currency"),
+			Value:   props.Currency,
+			Options: props.Currencies,
+			Error:   props.FieldErrors["currency"],
+		})
+		@components.TextInput(components.TextInputProps{
+			ID:           "budget-amount",
+			Name:         "amount",
+			Type:         "text",
+			Label:        officei18n.T(ctx, "fields.budget_amount"),
+			Placeholder:  officei18n.T(ctx, "fields.budget_amount_placeholder"),
+			Autocomplete: "off",
+			Value:        props.Amount,
+			Required:     true,
+			Hint:         officei18n.T(ctx, "fields.budget_amount_hint"),
+			Error:        props.FieldErrors["amount"],
+		})
+		<div class="form__submit">
+			<a class="form__cancel" href={ templ.URL(props.CancelURL) } { components.NavigationAttributes()... }>
+				{ officei18n.T(ctx, "common.cancel") }
+			</a>
+			<button class="button" type="submit">{ props.Submit }</button>
+		</div>
+	</form>
+}
+
+// The categories are checkboxes, each with its tile and name; every checked
+// one is submitted as a repeated field.
+templ budgetCategories(choices []BudgetCategoryChoice, fieldError string) {
+	<fieldset
+		class="budget-categories"
+		if fieldError != "" {
+			aria-invalid="true"
+			aria-describedby="budget-categories-error"
+		}
+	>
+		<legend class="budget-categories__legend">{ officei18n.T(ctx, "fields.budget_categories") }</legend>
+		if len(choices) == 0 {
+			<p class="budget-categories__empty">{ officei18n.T(ctx, "budgets.no_categories") }</p>
+		} else {
+			<div class="budget-categories__options">
+				for _, choice := range choices {
+					<label class="budget-categories__option">
+						<input
+							type="checkbox"
+							id={ "budget-category-" + choice.Value }
+							name="categories"
+							value={ choice.Value }
+							checked?={ choice.Checked }
+						/>
+						@CategoryIcon(choice.Tag.Icon, choice.Tag.Color, "")
+						<span class="budget-categories__name">{ choice.Tag.Name }</span>
+						@components.Icon("check")
+					</label>
+				}
+			</div>
+		}
+		if fieldError != "" {
+			<p class="field__error" id="budget-categories-error">{ fieldError }</p>
+		}
+	</fieldset>
+}
+
+// The deletion asks for confirmation in a dialog before it is sent. Its
+// confirm button names the confirmation, so the server deletes only a
+// confirmed request.
+templ budgetDelete(action string, title string) {
+	<form
+		id="budget-delete-form"
+		class="danger-zone"
+		method="post"
+		action={ templ.URL(action) }
+		data-confirm-always
+		{ components.FormAttributes()... }
+	>
+		<p>{ officei18n.T(ctx, "budgets.delete_description") }</p>
+		<button class="button button--danger" type="submit">
+			@components.Icon("trash")
+			{ officei18n.T(ctx, "budgets.delete_submit") }
+		</button>
+		<dialog
+			id="budget-delete-confirm"
+			class="confirm-dialog"
+			aria-labelledby="budget-delete-confirm-title"
+			aria-describedby="budget-delete-confirm-description"
+			data-confirm-dialog
+		>
+			<div class="confirm-dialog__body">
+				<header class="confirm-dialog__heading">
+					<h2 id="budget-delete-confirm-title">{ officei18n.T(ctx, "budgets.delete_confirm_title") }</h2>
+					<p id="budget-delete-confirm-description">
+						{ officei18n.T(ctx, "budgets.delete_confirm", map[string]any{"Categories": title}) }
+					</p>
+				</header>
+				<div class="confirm-dialog__actions">
+					<button class="confirm-dialog__cancel" type="button" data-dialog-close>
+						{ officei18n.T(ctx, "common.cancel") }
+					</button>
+					<button class="button button--danger" type="submit" name="confirm" value="1" data-confirm-submit>
+						{ officei18n.T(ctx, "budgets.delete_submit") }
+					</button>
+				</div>
+			</div>
+		</dialog>
+	</form>
+}

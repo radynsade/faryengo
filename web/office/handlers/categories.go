@@ -248,6 +248,8 @@ func (h *Handler) categoryUnavailable(
 		utils.Fail(writer, request, http.StatusNotFound, "errors.not_found")
 	} else if errors.Is(err, categories.ErrCategoryNotFound) {
 		http.Redirect(writer, request, scope.url, http.StatusSeeOther)
+	} else if errors.Is(err, categories.ErrCategoryInUse) {
+		utils.Fail(writer, request, http.StatusConflict, "errors.category_in_use")
 	} else if utils.IsUnauthenticated(err) || isWorkspaceAccessError(err) {
 		h.settingsUnavailable(writer, request, err)
 	} else {
