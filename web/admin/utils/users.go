@@ -18,9 +18,9 @@ import (
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	"github.com/radynsade/faryengo/pkg/domquery"
+	"github.com/radynsade/faryengo/pkg/forms"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
-	"github.com/radynsade/faryengo/web/forms"
 )
 
 //

@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/radynsade/faryengo/pkg/cookie"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
-	"github.com/radynsade/faryengo/web/cookie"
 )
 
 //

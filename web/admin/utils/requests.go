@@ -14,9 +14,9 @@ import (
 	"github.com/radynsade/faryengo/internal/languages"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
+	"github.com/radynsade/faryengo/pkg/forms"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
-	"github.com/radynsade/faryengo/web/forms"
 )
 
 //

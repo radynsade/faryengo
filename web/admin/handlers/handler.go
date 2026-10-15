@@ -12,11 +12,11 @@ import (
 	"github.com/radynsade/faryengo/internal/security/emailpass"
 	"github.com/radynsade/faryengo/internal/security/sessionid"
 	"github.com/radynsade/faryengo/middleware"
+	"github.com/radynsade/faryengo/pkg/cookie"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	"github.com/radynsade/faryengo/web/admin/assets"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/utils"
-	"github.com/radynsade/faryengo/web/cookie"
 )
 
 //

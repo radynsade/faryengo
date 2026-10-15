@@ -32,8 +32,10 @@ in the Go guides.
 | [docs/bin/migrate.md](docs/bin/migrate.md) | Migration commands, database configuration, and the rule that only humans run migrations. |
 | [docs/bin/server.md](docs/bin/server.md) | Server startup, environment settings, admin access, and shutdown. |
 | [docs/pkg/how-to-doc.md](docs/pkg/how-to-doc.md) | Package documentation writing guide. |
+| [docs/pkg/cookie.md](docs/pkg/cookie.md) | Cookie naming, the shared cookie security policy, and reading, writing, and clearing cookies. |
 | [docs/pkg/domquery.md](docs/pkg/domquery.md) | Shared filtering, sorting, and pagination query types. |
 | [docs/pkg/flashmsg.md](docs/pkg/flashmsg.md) | Flash message API, session naming, persistence, lifecycle, and usage conventions. |
+| [docs/pkg/forms.md](docs/pkg/forms.md) | URL-encoded form parsing, size limits, and allowed-field checks. |
 | [docs/pkg/staticast.md](docs/pkg/staticast.md) | Static asset loading, URL resolution, and HTTP delivery. |
 | [docs/pkg/viteast.md](docs/pkg/viteast.md) | Vite manifest loading, compiled asset URL resolution, and HTTP delivery. |
 
