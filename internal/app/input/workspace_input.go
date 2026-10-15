@@ -28,7 +28,7 @@ type CreateWorkspaceInput struct {
 var ErrRenameWorkspaceInputInvalid = errors.New("invalid rename workspace input")
 
 type RenameWorkspaceInput struct {
-	ID   workspaces.WorkspaceID
+	ID   workspaces.ID
 	Name string
 }
 
@@ -41,7 +41,7 @@ type RenameWorkspaceInput struct {
 var ErrAddMemberByEmailInputInvalid = errors.New("invalid add member by email input")
 
 type AddMemberByEmailInput struct {
-	WorkspaceID workspaces.WorkspaceID
+	WorkspaceID workspaces.ID
 	Email       string
 	Role        string
 }
@@ -53,7 +53,7 @@ type AddMemberByEmailInput struct {
 var ErrChangeMemberRoleInputInvalid = errors.New("invalid change member role input")
 
 type ChangeMemberRoleInput struct {
-	WorkspaceID workspaces.WorkspaceID
+	WorkspaceID workspaces.ID
 	UserID      users.UserID
 	Role        string
 }

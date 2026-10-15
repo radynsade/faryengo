@@ -70,13 +70,13 @@ func (h *Handler) enterWorkspace(request *http.Request) (*http.Request, app.Memb
 	var (
 		found    app.MemberWorkspace
 		identity *workspaces.Identity
-		id       workspaces.WorkspaceID
+		id       workspaces.ID
 	)
 
 	parsed, err := uuid.Parse(request.PathValue("workspace"))
 
 	if err == nil {
-		id, err = workspaces.NewWorkspaceID(parsed)
+		id, err = workspaces.NewID(parsed)
 	}
 
 	if err != nil {

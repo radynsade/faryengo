@@ -58,7 +58,7 @@ func TestNewCategoryRepositoryRejectsNilDB(t *testing.T) {
 
 func TestCategoryMethodsRejectMissingPool(t *testing.T) {
 	ctx := context.Background()
-	id := categories.CategoryID(uuid.Must(uuid.NewV7()))
+	id := categories.ID(uuid.Must(uuid.NewV7()))
 
 	tests := []struct {
 		name string
@@ -85,8 +85,8 @@ func TestCategoryMethodsRejectMissingPool(t *testing.T) {
 func TestCategoryMethodsValidateBeforeIO(t *testing.T) {
 	ctx := context.Background()
 	repository := &CategoryRepository{pool: newLazyPool(t)}
-	validID := categories.CategoryID(uuid.Must(uuid.NewV7()))
-	workspaceID := workspaces.WorkspaceID(uuid.Must(uuid.NewV7()))
+	validID := categories.ID(uuid.Must(uuid.NewV7()))
+	workspaceID := workspaces.ID(uuid.Must(uuid.NewV7()))
 	unknownIcon := categories.Icon("rocket")
 
 	tests := []struct {
@@ -100,21 +100,21 @@ func TestCategoryMethodsValidateBeforeIO(t *testing.T) {
 			return repository.Create(ctx, categories.NewCategory(validID, workspaceID, "Food", &unknownIcon, categories.ColorRed))
 		}, categories.ErrIconInvalid},
 		{"create without a workspace", func() error {
-			return repository.Create(ctx, categories.NewCategory(validID, workspaces.WorkspaceID{}, "Food", nil, categories.ColorRed))
-		}, workspaces.ErrWorkspaceIDInvalid},
+			return repository.Create(ctx, categories.NewCategory(validID, workspaces.ID{}, "Food", nil, categories.ColorRed))
+		}, workspaces.ErrIDInvalid},
 		{"update nil", func() error { return repository.Update(ctx, nil) }, categories.ErrCategoryNil},
 		{"update without a color", func() error {
 			return repository.Update(ctx, categories.NewCategory(validID, workspaceID, "Food", nil, ""))
 		}, categories.ErrColorInvalid},
-		{"delete invalid ID", func() error { return repository.Delete(ctx, categories.CategoryID{}) }, categories.ErrCategoryIDInvalid},
+		{"delete invalid ID", func() error { return repository.Delete(ctx, categories.ID{}) }, categories.ErrIDInvalid},
 		{"find by invalid ID", func() error {
-			_, err := repository.FindByID(ctx, categories.CategoryID{})
+			_, err := repository.FindByID(ctx, categories.ID{})
 			return err
-		}, categories.ErrCategoryIDInvalid},
+		}, categories.ErrIDInvalid},
 		{"find by invalid ID for update", func() error {
-			_, err := repository.FindByIDForUpdate(ctx, categories.CategoryID{})
+			_, err := repository.FindByIDForUpdate(ctx, categories.ID{})
 			return err
-		}, categories.ErrCategoryIDInvalid},
+		}, categories.ErrIDInvalid},
 		{"find by ID for update outside a transaction", func() error {
 			_, err := repository.FindByIDForUpdate(ctx, validID)
 			return err
@@ -129,13 +129,13 @@ func TestCategoryMethodsValidateBeforeIO(t *testing.T) {
 		}, categories.ErrCategoryQueryInvalid},
 		{"find with invalid workspace", func() error {
 			_, err := repository.Find(ctx, categories.CategoryQuery{
-				Filter: categories.CategoryFilter{WorkspaceID: &workspaces.WorkspaceID{}},
+				Filter: categories.CategoryFilter{WorkspaceID: &workspaces.ID{}},
 				SortBy: categories.CategorySortID,
 				Limit:  10,
 				Page:   1,
 			})
 			return err
-		}, workspaces.ErrWorkspaceIDInvalid},
+		}, workspaces.ErrIDInvalid},
 		{"count with invalid filter", func() error {
 			_, err := repository.Count(ctx, categories.CategoryFilter{NameLike: strings.Repeat("a", categories.MaxCategoryFilterNameLikeLength+1)})
 			return err
@@ -154,7 +154,7 @@ func TestCategoryMethodsValidateBeforeIO(t *testing.T) {
 func TestCategoryWriteFailuresExposeInput(t *testing.T) {
 	ctx := context.Background()
 	category := &categories.Category{}
-	id := categories.CategoryID{}
+	id := categories.ID{}
 	repository := &CategoryRepository{}
 
 	if err := repository.Create(ctx, category); err == nil || err.Category() != category {
@@ -171,7 +171,7 @@ func TestCategoryWriteFailuresExposeInput(t *testing.T) {
 }
 
 func TestCategoryFindQuery(t *testing.T) {
-	workspaceID := workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-000000000003"))
+	workspaceID := workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-000000000003"))
 
 	tests := []struct {
 		name     string

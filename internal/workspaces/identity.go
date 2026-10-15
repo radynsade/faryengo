@@ -16,12 +16,12 @@ import (
 // only in that Workspace.
 
 type Identity struct {
-	WorkspaceID WorkspaceID
+	WorkspaceID ID
 	User        *users.User
 	Role        Role
 }
 
-func NewIdentity(workspaceID WorkspaceID, user *users.User, role Role) *Identity {
+func NewIdentity(workspaceID ID, user *users.User, role Role) *Identity {
 	return &Identity{
 		WorkspaceID: workspaceID,
 		User:        user,

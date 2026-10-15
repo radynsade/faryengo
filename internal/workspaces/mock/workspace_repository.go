@@ -66,15 +66,15 @@ func (e *ErrWorkspaceUpdateFailed) Error() string {
 // Implementation of workspaces.ErrWorkspaceDeleteFailed
 
 type ErrWorkspaceDeleteFailed struct {
-	id  workspaces.WorkspaceID
+	id  workspaces.ID
 	err error
 }
 
-func NewErrWorkspaceDeleteFailed(id workspaces.WorkspaceID, err error) *ErrWorkspaceDeleteFailed {
+func NewErrWorkspaceDeleteFailed(id workspaces.ID, err error) *ErrWorkspaceDeleteFailed {
 	return &ErrWorkspaceDeleteFailed{id, err}
 }
 
-func (e *ErrWorkspaceDeleteFailed) WorkspaceID() workspaces.WorkspaceID {
+func (e *ErrWorkspaceDeleteFailed) WorkspaceID() workspaces.ID {
 	return e.id
 }
 
@@ -158,16 +158,16 @@ func (e *ErrMembershipRemoveFailed) Error() string {
 type WorkspaceRepository struct {
 	CreateFunc            func(ctx context.Context, workspace *workspaces.Workspace) workspaces.ErrWorkspaceCreateFailed
 	UpdateFunc            func(ctx context.Context, workspace *workspaces.Workspace) workspaces.ErrWorkspaceUpdateFailed
-	DeleteFunc            func(ctx context.Context, id workspaces.WorkspaceID) workspaces.ErrWorkspaceDeleteFailed
-	FindByIDFunc          func(ctx context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error)
-	FindByIDForUpdateFunc func(ctx context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error)
+	DeleteFunc            func(ctx context.Context, id workspaces.ID) workspaces.ErrWorkspaceDeleteFailed
+	FindByIDFunc          func(ctx context.Context, id workspaces.ID) (*workspaces.Workspace, error)
+	FindByIDForUpdateFunc func(ctx context.Context, id workspaces.ID) (*workspaces.Workspace, error)
 	FindFunc              func(ctx context.Context, query workspaces.WorkspaceQuery) ([]*workspaces.Workspace, error)
 	CountFunc             func(ctx context.Context, filter workspaces.WorkspaceFilter) (int, error)
 	AddMemberFunc         func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipAddFailed
 	UpdateMemberFunc      func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipUpdateFailed
 	RemoveMemberFunc      func(ctx context.Context, membership workspaces.Membership) workspaces.ErrMembershipRemoveFailed
-	FindMemberFunc        func(ctx context.Context, id workspaces.WorkspaceID, userID users.UserID) (workspaces.Membership, error)
-	FindMembersFunc       func(ctx context.Context, id workspaces.WorkspaceID) (workspaces.Memberships, error)
+	FindMemberFunc        func(ctx context.Context, id workspaces.ID, userID users.UserID) (workspaces.Membership, error)
+	FindMembersFunc       func(ctx context.Context, id workspaces.ID) (workspaces.Memberships, error)
 }
 
 var _ workspaces.WorkspaceRepository = (*WorkspaceRepository)(nil)
@@ -210,7 +210,7 @@ func (r *WorkspaceRepository) Update(
 
 func (r *WorkspaceRepository) Delete(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 ) workspaces.ErrWorkspaceDeleteFailed {
 	var err workspaces.ErrWorkspaceDeleteFailed
 
@@ -227,7 +227,7 @@ func (r *WorkspaceRepository) Delete(
 
 func (r *WorkspaceRepository) FindByID(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 ) (*workspaces.Workspace, error) {
 	var (
 		workspace *workspaces.Workspace
@@ -245,7 +245,7 @@ func (r *WorkspaceRepository) FindByID(
 
 func (r *WorkspaceRepository) FindByIDForUpdate(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 ) (*workspaces.Workspace, error) {
 	var (
 		workspace *workspaces.Workspace
@@ -350,7 +350,7 @@ func (r *WorkspaceRepository) RemoveMember(
 
 func (r *WorkspaceRepository) FindMember(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 	userID users.UserID,
 ) (workspaces.Membership, error) {
 	var (
@@ -369,7 +369,7 @@ func (r *WorkspaceRepository) FindMember(
 
 func (r *WorkspaceRepository) FindMembers(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 ) (workspaces.Memberships, error) {
 	var (
 		result workspaces.Memberships

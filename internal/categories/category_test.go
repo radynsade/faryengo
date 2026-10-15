@@ -15,8 +15,8 @@ import (
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 
 var (
-	testCategoryID  = CategoryID(uuid.MustParse("01920000-0000-7000-8000-000000000004"))
-	testWorkspaceID = workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-000000000003"))
+	testCategoryID  = ID(uuid.MustParse("01920000-0000-7000-8000-000000000004"))
+	testWorkspaceID = workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-000000000003"))
 )
 
 func iconPointer(icon Icon) *Icon {
@@ -30,14 +30,14 @@ func TestNewCategoryID(t *testing.T) {
 		want  error
 	}{
 		{"valid", uuid.UUID(testCategoryID), nil},
-		{"nil", uuid.Nil, ErrCategoryIDInvalid},
+		{"nil", uuid.Nil, ErrIDInvalid},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			id, err := NewCategoryID(tt.value)
+			id, err := NewID(tt.value)
 
-			if id != CategoryID(tt.value) || !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
+			if id != ID(tt.value) || !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
 				t.Fatalf("NewCategoryID(%s) = (%v, %v), want %v", tt.value, id, err, tt.want)
 			}
 		})
@@ -53,15 +53,15 @@ func TestNewCategoryName(t *testing.T) {
 		want  error
 	}{
 		{"valid", "Groceries", nil},
-		{"only whitespace", " \t ", ErrCategoryNameEmpty},
-		{"too long", strings.Repeat("a", MaxCategoryNameLength+1), ErrCategoryNameTooLong},
+		{"only whitespace", " \t ", ErrNameEmpty},
+		{"too long", strings.Repeat("a", MaxNameLength+1), ErrNameTooLong},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			name, err := NewCategoryName(tt.value)
+			name, err := NewName(tt.value)
 
-			if name != CategoryName(tt.value) || !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
+			if name != Name(tt.value) || !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
 				t.Fatalf("NewCategoryName(%q) = (%q, %v), want %v", tt.value, name, err, tt.want)
 			}
 		})
@@ -71,18 +71,18 @@ func TestNewCategoryName(t *testing.T) {
 func TestCategoryNameValidate(t *testing.T) {
 	tests := []struct {
 		name         string
-		categoryName CategoryName
+		categoryName Name
 		want         error
 	}{
 		{"valid", "Groceries", nil},
 		{"single character", "a", nil},
-		{"limit in ASCII characters", CategoryName(strings.Repeat("a", MaxCategoryNameLength)), nil},
-		{"limit in multibyte characters", CategoryName(strings.Repeat("ā", MaxCategoryNameLength)), nil},
-		{"empty", "", ErrCategoryNameEmpty},
-		{"blank", " \t\n", ErrCategoryNameEmpty},
-		{"invalid UTF-8", "Food\xff", ErrCategoryNameInvalidChars},
-		{"too long", CategoryName(strings.Repeat("a", MaxCategoryNameLength+1)), ErrCategoryNameTooLong},
-		{"too long in multibyte characters", CategoryName(strings.Repeat("ā", MaxCategoryNameLength+1)), ErrCategoryNameTooLong},
+		{"limit in ASCII characters", Name(strings.Repeat("a", MaxNameLength)), nil},
+		{"limit in multibyte characters", Name(strings.Repeat("ā", MaxNameLength)), nil},
+		{"empty", "", ErrNameEmpty},
+		{"blank", " \t\n", ErrNameEmpty},
+		{"invalid UTF-8", "Food\xff", ErrNameInvalidChars},
+		{"too long", Name(strings.Repeat("a", MaxNameLength+1)), ErrNameTooLong},
+		{"too long in multibyte characters", Name(strings.Repeat("ā", MaxNameLength+1)), ErrNameTooLong},
 	}
 
 	for _, tt := range tests {
@@ -93,8 +93,8 @@ func TestCategoryNameValidate(t *testing.T) {
 				t.Fatalf("Validate() = %v, want %v", err, tt.want)
 			}
 
-			if tt.want != nil && !errors.Is(err, ErrCategoryNameInvalid) {
-				t.Fatalf("Validate() = %v, want it wrapped in %v", err, ErrCategoryNameInvalid)
+			if tt.want != nil && !errors.Is(err, ErrNameInvalid) {
+				t.Fatalf("Validate() = %v, want it wrapped in %v", err, ErrNameInvalid)
 			}
 		})
 	}
@@ -168,16 +168,16 @@ func TestCategoryValidate(t *testing.T) {
 		{"valid with an icon", NewCategory(testCategoryID, testWorkspaceID, "Groceries", iconPointer(IconShoppingCart), ColorGreen), nil},
 		{"valid without an icon", NewCategory(testCategoryID, testWorkspaceID, "Groceries", nil, ColorGreen), nil},
 		{"nil", nil, []error{ErrCategoryNil}},
-		{"nil ID", NewCategory(CategoryID{}, testWorkspaceID, "Groceries", nil, ColorGreen), []error{ErrCategoryIDInvalid}},
-		{"nil workspace", NewCategory(testCategoryID, workspaces.WorkspaceID{}, "Groceries", nil, ColorGreen), []error{workspaces.ErrWorkspaceIDInvalid}},
-		{"blank name", NewCategory(testCategoryID, testWorkspaceID, " ", nil, ColorGreen), []error{ErrCategoryNameEmpty}},
+		{"nil ID", NewCategory(ID{}, testWorkspaceID, "Groceries", nil, ColorGreen), []error{ErrIDInvalid}},
+		{"nil workspace", NewCategory(testCategoryID, workspaces.ID{}, "Groceries", nil, ColorGreen), []error{workspaces.ErrIDInvalid}},
+		{"blank name", NewCategory(testCategoryID, testWorkspaceID, " ", nil, ColorGreen), []error{ErrNameEmpty}},
 		{"unknown icon", NewCategory(testCategoryID, testWorkspaceID, "Groceries", iconPointer("rocket"), ColorGreen), []error{ErrIconInvalid}},
 		{"empty icon", NewCategory(testCategoryID, testWorkspaceID, "Groceries", iconPointer(""), ColorGreen), []error{ErrIconInvalid}},
 		{"missing color", NewCategory(testCategoryID, testWorkspaceID, "Groceries", nil, ""), []error{ErrColorInvalid}},
 		{
 			"every field invalid",
-			NewCategory(CategoryID{}, workspaces.WorkspaceID{}, "", iconPointer("rocket"), "pink"),
-			[]error{ErrCategoryIDInvalid, workspaces.ErrWorkspaceIDInvalid, ErrCategoryNameEmpty, ErrIconInvalid, ErrColorInvalid},
+			NewCategory(ID{}, workspaces.ID{}, "", iconPointer("rocket"), "pink"),
+			[]error{ErrIDInvalid, workspaces.ErrIDInvalid, ErrNameEmpty, ErrIconInvalid, ErrColorInvalid},
 		},
 	}
 
@@ -203,7 +203,7 @@ func TestCategoryValidate(t *testing.T) {
 }
 
 func TestCategoryFilterValidate(t *testing.T) {
-	invalidWorkspaceID := workspaces.WorkspaceID{}
+	invalidWorkspaceID := workspaces.ID{}
 
 	tests := []struct {
 		name   string
@@ -217,7 +217,7 @@ func TestCategoryFilterValidate(t *testing.T) {
 		{"invalid name characters", NewCategoryFilter("", "Food\xff", nil), ErrCategoryFilterNameLikeInvalidChars},
 		{"ID too long", NewCategoryFilter(strings.Repeat("a", MaxCategoryFilterIDLikeLength+1), "", nil), ErrCategoryFilterIDLikeTooLong},
 		{"name too long", NewCategoryFilter("", strings.Repeat("a", MaxCategoryFilterNameLikeLength+1), nil), ErrCategoryFilterNameLikeTooLong},
-		{"invalid workspace", NewCategoryFilter("", "", &invalidWorkspaceID), workspaces.ErrWorkspaceIDInvalid},
+		{"invalid workspace", NewCategoryFilter("", "", &invalidWorkspaceID), workspaces.ErrIDInvalid},
 	}
 
 	for _, tt := range tests {

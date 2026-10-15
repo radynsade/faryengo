@@ -20,8 +20,8 @@ import (
 )
 
 var (
-	testCategoryID        = categories.CategoryID(uuid.MustParse("01920000-0000-7000-8000-000000000004"))
-	testMissingCategoryID = categories.CategoryID(uuid.MustParse("01920000-0000-7000-8000-0000000000fe"))
+	testCategoryID        = categories.ID(uuid.MustParse("01920000-0000-7000-8000-000000000004"))
+	testMissingCategoryID = categories.ID(uuid.MustParse("01920000-0000-7000-8000-0000000000fe"))
 )
 
 func TestNewCategoryService(t *testing.T) {
@@ -111,7 +111,7 @@ func TestCategoryServiceRolePermissions(t *testing.T) {
 			workspaceStore := newWorkspaceStore(t, testMemberships()...)
 			store := newCategoryStore(t, workspaceStore)
 			service := newCategoryStoreService(t, store, workspaceStore)
-			otherWorkspaceID := workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff"))
+			otherWorkspaceID := workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff"))
 
 			err := operation.call(memberContext(t, otherWorkspaceID, testOutsiderID, workspaces.RoleOwner), service)
 
@@ -205,16 +205,16 @@ func TestCategoryServiceCreate(t *testing.T) {
 			request: input.CreateCategoryInput{Name: "  ", Icon: "rocket", Color: "pink"},
 			wantErrs: []error{
 				input.ErrCreateCategoryInputInvalid,
-				workspaces.ErrWorkspaceIDInvalid,
-				categories.ErrCategoryNameEmpty,
+				workspaces.ErrIDInvalid,
+				categories.ErrNameEmpty,
 				categories.ErrIconInvalid,
 				categories.ErrColorInvalid,
 			},
 		},
 		{
 			name:     "long name",
-			request:  input.CreateCategoryInput{WorkspaceID: testWorkspaceID, Name: strings.Repeat("a", categories.MaxCategoryNameLength+1), Color: "red"},
-			wantErrs: []error{input.ErrCreateCategoryInputInvalid, categories.ErrCategoryNameTooLong},
+			request:  input.CreateCategoryInput{WorkspaceID: testWorkspaceID, Name: strings.Repeat("a", categories.MaxNameLength+1), Color: "red"},
+			wantErrs: []error{input.ErrCreateCategoryInputInvalid, categories.ErrNameTooLong},
 		},
 		{
 			name:     "missing color",
@@ -223,7 +223,7 @@ func TestCategoryServiceCreate(t *testing.T) {
 		},
 		{
 			name:        "missing workspace",
-			request:     input.CreateCategoryInput{WorkspaceID: workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")), Name: "Groceries", Color: "green"},
+			request:     input.CreateCategoryInput{WorkspaceID: workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")), Name: "Groceries", Color: "green"},
 			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
 			wantTxCalls: 1,
 		},
@@ -290,12 +290,12 @@ func TestCategoryServiceFindByID(t *testing.T) {
 	for _, tt := range []struct {
 		name     string
 		ctx      context.Context
-		id       categories.CategoryID
+		id       categories.ID
 		readErr  error
 		wantErrs []error
 	}{
 		{name: "found", ctx: viewer, id: testCategoryID},
-		{name: "invalid ID", ctx: viewer, id: categories.CategoryID{}, wantErrs: []error{categories.ErrCategoryIDInvalid}},
+		{name: "invalid ID", ctx: viewer, id: categories.ID{}, wantErrs: []error{categories.ErrIDInvalid}},
 		{name: "missing", ctx: viewer, id: testMissingCategoryID, wantErrs: []error{categories.ErrCategoryNotFound}},
 		{name: "read failure", ctx: viewer, id: testCategoryID, readErr: context.DeadlineExceeded, wantErrs: []error{context.DeadlineExceeded}},
 		{
@@ -326,7 +326,7 @@ func TestCategoryServiceFindByID(t *testing.T) {
 }
 
 func TestCategoryServiceList(t *testing.T) {
-	otherWorkspaceID := workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff"))
+	otherWorkspaceID := workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff"))
 	withOtherWorkspace := validCategoryQuery()
 	withOtherWorkspace.Filter.WorkspaceID = &otherWorkspaceID
 	withoutSort := validCategoryQuery()
@@ -396,7 +396,7 @@ func TestCategoryServiceUpdate(t *testing.T) {
 		request     input.UpdateCategoryInput
 		lockErr     error
 		writeErr    error
-		wantName    categories.CategoryName
+		wantName    categories.Name
 		wantIcon    *categories.Icon
 		wantErrs    []error
 		wantTxCalls int
@@ -422,8 +422,8 @@ func TestCategoryServiceUpdate(t *testing.T) {
 			request: input.UpdateCategoryInput{Name: "", Icon: "Bus", Color: ""},
 			wantErrs: []error{
 				input.ErrUpdateCategoryInputInvalid,
-				categories.ErrCategoryIDInvalid,
-				categories.ErrCategoryNameEmpty,
+				categories.ErrIDInvalid,
+				categories.ErrNameEmpty,
 				categories.ErrIconInvalid,
 				categories.ErrColorInvalid,
 			},
@@ -497,7 +497,7 @@ func TestCategoryServiceUpdate(t *testing.T) {
 func TestCategoryServiceDelete(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
-		id          categories.CategoryID
+		id          categories.ID
 		writeErr    error
 		wantErrs    []error
 		wantStored  bool
@@ -505,7 +505,7 @@ func TestCategoryServiceDelete(t *testing.T) {
 		wantWrites  int
 	}{
 		{name: "deleted", id: testCategoryID, wantTxCalls: 1, wantWrites: 1},
-		{name: "invalid ID", id: categories.CategoryID{}, wantErrs: []error{categories.ErrCategoryIDInvalid}, wantStored: true},
+		{name: "invalid ID", id: categories.ID{}, wantErrs: []error{categories.ErrIDInvalid}, wantStored: true},
 		{name: "missing", id: testMissingCategoryID, wantErrs: []error{categories.ErrCategoryNotFound}, wantStored: true, wantTxCalls: 1},
 		{
 			name:        "delete failure",
@@ -599,7 +599,7 @@ func categoryOperations() []categoryOperation {
 type categoryStore struct {
 	t          *testing.T
 	workspace  *workspaceStore
-	categories map[categories.CategoryID]*categories.Category
+	categories map[categories.ID]*categories.Category
 	readErr    error
 	writeErr   error
 	writes     int
@@ -609,7 +609,7 @@ func newCategoryStore(t *testing.T, workspace *workspaceStore) *categoryStore {
 	return &categoryStore{
 		t:         t,
 		workspace: workspace,
-		categories: map[categories.CategoryID]*categories.Category{
+		categories: map[categories.ID]*categories.Category{
 			testCategoryID: categories.NewCategory(testCategoryID, testWorkspaceID, "Groceries", new(categories.IconShoppingCart), categories.ColorGreen),
 		},
 	}
@@ -671,7 +671,7 @@ func (s *categoryStore) repository() *categoriesmock.CategoryRepository {
 
 			return err
 		},
-		DeleteFunc: func(ctx context.Context, id categories.CategoryID) categories.ErrCategoryDeleteFailed {
+		DeleteFunc: func(ctx context.Context, id categories.ID) categories.ErrCategoryDeleteFailed {
 			var err categories.ErrCategoryDeleteFailed
 
 			writeErr := s.write(ctx)
@@ -688,7 +688,7 @@ func (s *categoryStore) repository() *categoriesmock.CategoryRepository {
 
 			return err
 		},
-		FindByIDFunc: func(_ context.Context, id categories.CategoryID) (*categories.Category, error) {
+		FindByIDFunc: func(_ context.Context, id categories.ID) (*categories.Category, error) {
 			var (
 				found *categories.Category
 				err   = categories.ErrCategoryNotFound

@@ -17,7 +17,7 @@ import (
 var ErrCreateCategoryInputInvalid = errors.New("invalid create category input")
 
 type CreateCategoryInput struct {
-	WorkspaceID workspaces.WorkspaceID
+	WorkspaceID workspaces.ID
 	Name        string
 	Icon        string
 	Color       string
@@ -33,7 +33,7 @@ type CreateCategoryInput struct {
 var ErrUpdateCategoryInputInvalid = errors.New("invalid update category input")
 
 type UpdateCategoryInput struct {
-	ID    categories.CategoryID
+	ID    categories.ID
 	Name  string
 	Icon  string
 	Color string

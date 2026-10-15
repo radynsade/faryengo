@@ -17,7 +17,7 @@ import (
 
 const (
 	MaxCategoryFilterIDLikeLength   = 36
-	MaxCategoryFilterNameLikeLength = MaxCategoryNameLength
+	MaxCategoryFilterNameLikeLength = MaxNameLength
 )
 
 var (
@@ -33,13 +33,13 @@ var (
 type CategoryFilter struct {
 	IDLike      string
 	NameLike    string
-	WorkspaceID *workspaces.WorkspaceID
+	WorkspaceID *workspaces.ID
 }
 
 func NewCategoryFilter(
 	idLike string,
 	nameLike string,
-	workspaceID *workspaces.WorkspaceID,
+	workspaceID *workspaces.ID,
 ) CategoryFilter {
 	return CategoryFilter{
 		IDLike:      idLike,
@@ -183,7 +183,7 @@ type ErrCategoryUpdateFailed interface {
 
 type ErrCategoryDeleteFailed interface {
 	error
-	CategoryID() CategoryID
+	CategoryID() ID
 	Unwrap() error
 }
 
@@ -196,9 +196,9 @@ type ErrCategoryDeleteFailed interface {
 type CategoryRepository interface {
 	Create(ctx context.Context, category *Category) ErrCategoryCreateFailed
 	Update(ctx context.Context, category *Category) ErrCategoryUpdateFailed
-	Delete(ctx context.Context, id CategoryID) ErrCategoryDeleteFailed
-	FindByID(ctx context.Context, id CategoryID) (*Category, error)
-	FindByIDForUpdate(ctx context.Context, id CategoryID) (*Category, error)
+	Delete(ctx context.Context, id ID) ErrCategoryDeleteFailed
+	FindByID(ctx context.Context, id ID) (*Category, error)
+	FindByIDForUpdate(ctx context.Context, id ID) (*Category, error)
 	Find(ctx context.Context, query CategoryQuery) ([]*Category, error)
 	Count(ctx context.Context, filter CategoryFilter) (int, error)
 }

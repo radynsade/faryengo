@@ -28,11 +28,11 @@ func ProfileSettingsPath(request *http.Request) string {
 	return OfficePath(request) + "/profile-settings"
 }
 
-func WorkspaceProfileSettingsPath(request *http.Request, id workspaces.WorkspaceID) string {
+func WorkspaceProfileSettingsPath(request *http.Request, id workspaces.ID) string {
 	return WorkspacePath(request, id) + "/profile-settings"
 }
 
-func WorkspacePath(request *http.Request, id workspaces.WorkspaceID) string {
+func WorkspacePath(request *http.Request, id workspaces.ID) string {
 	return WorkspacesPath(request) + "/" + uuid.UUID(id).String()
 }
 

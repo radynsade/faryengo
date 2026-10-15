@@ -19,7 +19,7 @@ import (
 	"github.com/radynsade/faryengo/pkg/domquery"
 )
 
-var testWorkspaceID = workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-000000000003"))
+var testWorkspaceID = workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-000000000003"))
 
 func TestNewWorkspaceService(t *testing.T) {
 	for _, tt := range []struct {
@@ -82,7 +82,7 @@ func TestWorkspaceServiceResolveIdentity(t *testing.T) {
 	for _, tt := range []struct {
 		name        string
 		ctx         context.Context
-		workspaceID workspaces.WorkspaceID
+		workspaceID workspaces.ID
 		readErr     error
 		wantRole    workspaces.Role
 		wantErrs    []error
@@ -98,7 +98,7 @@ func TestWorkspaceServiceResolveIdentity(t *testing.T) {
 		{
 			name:        "missing workspace",
 			ctx:         userContext(t, testOwnerID),
-			workspaceID: workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")),
+			workspaceID: workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")),
 			wantErrs:    []error{workspaces.ErrWorkspaceNotFound},
 		},
 		{
@@ -115,7 +115,7 @@ func TestWorkspaceServiceResolveIdentity(t *testing.T) {
 			readErr:     storageErr,
 			wantErrs:    []error{storageErr},
 		},
-		{name: "invalid workspace ID", ctx: userContext(t, testOwnerID), wantErrs: []error{workspaces.ErrWorkspaceIDInvalid}},
+		{name: "invalid workspace ID", ctx: userContext(t, testOwnerID), wantErrs: []error{workspaces.ErrIDInvalid}},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
 			store := newWorkspaceStore(t, testMemberships()...)
@@ -174,7 +174,7 @@ func TestWorkspaceServiceCreate(t *testing.T) {
 			name:     "invalid name",
 			ctx:      userContext(t, testUserID),
 			request:  input.CreateWorkspaceInput{Name: "  "},
-			wantErrs: []error{input.ErrCreateWorkspaceInputInvalid, workspaces.ErrWorkspaceNameEmpty},
+			wantErrs: []error{input.ErrCreateWorkspaceInputInvalid, workspaces.ErrNameEmpty},
 		},
 		{
 			name:        "workspace not written",
@@ -267,12 +267,12 @@ func TestWorkspaceServiceCreate(t *testing.T) {
 
 func TestWorkspaceServiceFindForMember(t *testing.T) {
 	storageErr := errors.New("storage unavailable")
-	otherWorkspaceID := workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff"))
+	otherWorkspaceID := workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff"))
 
 	for _, tt := range []struct {
 		name        string
 		ctx         context.Context
-		workspaceID workspaces.WorkspaceID
+		workspaceID workspaces.ID
 		readErr     error
 		wantRole    workspaces.Role
 		wantErrs    []error
@@ -317,7 +317,7 @@ func TestWorkspaceServiceFindForMember(t *testing.T) {
 		{
 			name:     "invalid workspace ID",
 			ctx:      memberContext(t, testWorkspaceID, testOwnerID, workspaces.RoleOwner),
-			wantErrs: []error{workspaces.ErrWorkspaceIDInvalid},
+			wantErrs: []error{workspaces.ErrIDInvalid},
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
@@ -389,7 +389,7 @@ func TestWorkspaceServiceRolePermissions(t *testing.T) {
 		{"missing identity", userContext(t, testOwnerID), ErrUnauthenticated, workspaces.ErrWorkspaceNotFound},
 		{
 			"identity for another workspace",
-			memberContext(t, workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")), testOwnerID, workspaces.RoleOwner),
+			memberContext(t, workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff")), testOwnerID, workspaces.RoleOwner),
 			workspaces.ErrWorkspaceNotFound,
 			workspaces.ErrRolePermissionDenied,
 		},
@@ -415,7 +415,7 @@ func TestWorkspaceServiceRolePermissions(t *testing.T) {
 // refused and writes nothing.
 
 func TestWorkspaceServiceStaleIdentity(t *testing.T) {
-	missingID := workspaces.WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff"))
+	missingID := workspaces.ID(uuid.MustParse("01920000-0000-7000-8000-0000000000ff"))
 
 	for _, tt := range []struct {
 		name       string
@@ -572,7 +572,7 @@ func TestWorkspaceServiceRename(t *testing.T) {
 		request     input.RenameWorkspaceInput
 		lockErr     error
 		writeErr    error
-		wantName    workspaces.WorkspaceName
+		wantName    workspaces.Name
 		wantErrs    []error
 		wantTxCalls int
 		wantWrites  int
@@ -589,15 +589,15 @@ func TestWorkspaceServiceRename(t *testing.T) {
 			request: input.RenameWorkspaceInput{Name: "  "},
 			wantErrs: []error{
 				input.ErrRenameWorkspaceInputInvalid,
-				workspaces.ErrWorkspaceIDInvalid,
-				workspaces.ErrWorkspaceNameEmpty,
+				workspaces.ErrIDInvalid,
+				workspaces.ErrNameEmpty,
 			},
 			wantName: "Design",
 		},
 		{
 			name:     "long name",
-			request:  input.RenameWorkspaceInput{ID: testWorkspaceID, Name: strings.Repeat("a", workspaces.MaxWorkspaceNameLength+1)},
-			wantErrs: []error{input.ErrRenameWorkspaceInputInvalid, workspaces.ErrWorkspaceNameTooLong},
+			request:  input.RenameWorkspaceInput{ID: testWorkspaceID, Name: strings.Repeat("a", workspaces.MaxNameLength+1)},
+			wantErrs: []error{input.ErrRenameWorkspaceInputInvalid, workspaces.ErrNameTooLong},
 			wantName: "Design",
 		},
 		{
@@ -684,7 +684,7 @@ func TestWorkspaceServiceAddMemberByEmail(t *testing.T) {
 			request: input.AddMemberByEmailInput{Email: "Grace <grace@example.com>", Role: "admin"},
 			wantErrs: []error{
 				input.ErrAddMemberByEmailInputInvalid,
-				workspaces.ErrWorkspaceIDInvalid,
+				workspaces.ErrIDInvalid,
 				users.ErrEmailInvalid,
 				workspaces.ErrRoleInvalid,
 			},
@@ -788,7 +788,7 @@ func TestWorkspaceServiceChangeMemberRole(t *testing.T) {
 			request: input.ChangeMemberRoleInput{Role: "admin"},
 			wantErrs: []error{
 				input.ErrChangeMemberRoleInputInvalid,
-				workspaces.ErrWorkspaceIDInvalid,
+				workspaces.ErrIDInvalid,
 				users.ErrUserIDInvalid,
 				workspaces.ErrRoleInvalid,
 			},
@@ -901,7 +901,7 @@ func TestWorkspaceServiceListMembers(t *testing.T) {
 
 	for _, tt := range []struct {
 		name      string
-		id        workspaces.WorkspaceID
+		id        workspaces.ID
 		readErr   error
 		usersErr  error
 		wantErrs  []error
@@ -914,7 +914,7 @@ func TestWorkspaceServiceListMembers(t *testing.T) {
 			wantNames: []string{"Edgar", "Olga", "Vera"},
 			wantRoles: []workspaces.Role{workspaces.RoleEditor, workspaces.RoleOwner, workspaces.RoleViewer},
 		},
-		{name: "invalid ID", wantErrs: []error{workspaces.ErrWorkspaceIDInvalid}},
+		{name: "invalid ID", wantErrs: []error{workspaces.ErrIDInvalid}},
 		{name: "membership failure", id: testWorkspaceID, readErr: storageErr, wantErrs: []error{storageErr}},
 		{name: "user failure", id: testWorkspaceID, usersErr: storageErr, wantErrs: []error{storageErr}},
 	} {
@@ -1155,7 +1155,7 @@ func (s *workspaceStore) write(ctx context.Context, needsLock bool) error {
 
 func (s *workspaceStore) repository() *workspacesmock.WorkspaceRepository {
 	return &workspacesmock.WorkspaceRepository{
-		FindByIDFunc: func(_ context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
+		FindByIDFunc: func(_ context.Context, id workspaces.ID) (*workspaces.Workspace, error) {
 			var (
 				found *workspaces.Workspace
 				err   = workspaces.ErrWorkspaceNotFound
@@ -1169,7 +1169,7 @@ func (s *workspaceStore) repository() *workspacesmock.WorkspaceRepository {
 
 			return found, err
 		},
-		FindByIDForUpdateFunc: func(ctx context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
+		FindByIDForUpdateFunc: func(ctx context.Context, id workspaces.ID) (*workspaces.Workspace, error) {
 			var (
 				found *workspaces.Workspace
 				err   = workspaces.ErrWorkspaceNotFound
@@ -1252,7 +1252,7 @@ func (s *workspaceStore) repository() *workspacesmock.WorkspaceRepository {
 
 			return err
 		},
-		FindMemberFunc: func(_ context.Context, id workspaces.WorkspaceID, userID users.UserID) (workspaces.Membership, error) {
+		FindMemberFunc: func(_ context.Context, id workspaces.ID, userID users.UserID) (workspaces.Membership, error) {
 			var membership workspaces.Membership
 
 			err := s.readErr
@@ -1266,7 +1266,7 @@ func (s *workspaceStore) repository() *workspacesmock.WorkspaceRepository {
 
 			return membership, err
 		},
-		FindMembersFunc: func(_ context.Context, id workspaces.WorkspaceID) (workspaces.Memberships, error) {
+		FindMembersFunc: func(_ context.Context, id workspaces.ID) (workspaces.Memberships, error) {
 			var result workspaces.Memberships
 
 			err := s.readErr

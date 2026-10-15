@@ -65,15 +65,15 @@ func (e *ErrCategoryUpdateFailed) Error() string {
 // Implementation of categories.ErrCategoryDeleteFailed
 
 type ErrCategoryDeleteFailed struct {
-	id  categories.CategoryID
+	id  categories.ID
 	err error
 }
 
-func NewErrCategoryDeleteFailed(id categories.CategoryID, err error) *ErrCategoryDeleteFailed {
+func NewErrCategoryDeleteFailed(id categories.ID, err error) *ErrCategoryDeleteFailed {
 	return &ErrCategoryDeleteFailed{id, err}
 }
 
-func (e *ErrCategoryDeleteFailed) CategoryID() categories.CategoryID {
+func (e *ErrCategoryDeleteFailed) CategoryID() categories.ID {
 	return e.id
 }
 
@@ -92,9 +92,9 @@ func (e *ErrCategoryDeleteFailed) Error() string {
 type CategoryRepository struct {
 	CreateFunc            func(ctx context.Context, category *categories.Category) categories.ErrCategoryCreateFailed
 	UpdateFunc            func(ctx context.Context, category *categories.Category) categories.ErrCategoryUpdateFailed
-	DeleteFunc            func(ctx context.Context, id categories.CategoryID) categories.ErrCategoryDeleteFailed
-	FindByIDFunc          func(ctx context.Context, id categories.CategoryID) (*categories.Category, error)
-	FindByIDForUpdateFunc func(ctx context.Context, id categories.CategoryID) (*categories.Category, error)
+	DeleteFunc            func(ctx context.Context, id categories.ID) categories.ErrCategoryDeleteFailed
+	FindByIDFunc          func(ctx context.Context, id categories.ID) (*categories.Category, error)
+	FindByIDForUpdateFunc func(ctx context.Context, id categories.ID) (*categories.Category, error)
 	FindFunc              func(ctx context.Context, query categories.CategoryQuery) ([]*categories.Category, error)
 	CountFunc             func(ctx context.Context, filter categories.CategoryFilter) (int, error)
 }
@@ -139,7 +139,7 @@ func (r *CategoryRepository) Update(
 
 func (r *CategoryRepository) Delete(
 	ctx context.Context,
-	id categories.CategoryID,
+	id categories.ID,
 ) categories.ErrCategoryDeleteFailed {
 	var err categories.ErrCategoryDeleteFailed
 
@@ -156,7 +156,7 @@ func (r *CategoryRepository) Delete(
 
 func (r *CategoryRepository) FindByID(
 	ctx context.Context,
-	id categories.CategoryID,
+	id categories.ID,
 ) (*categories.Category, error) {
 	var (
 		category *categories.Category
@@ -174,7 +174,7 @@ func (r *CategoryRepository) FindByID(
 
 func (r *CategoryRepository) FindByIDForUpdate(
 	ctx context.Context,
-	id categories.CategoryID,
+	id categories.ID,
 ) (*categories.Category, error) {
 	var (
 		category *categories.Category

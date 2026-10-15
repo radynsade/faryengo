@@ -58,7 +58,7 @@ func TestNewWorkspaceRepositoryRejectsNilDB(t *testing.T) {
 
 func TestWorkspaceMethodsRejectMissingPool(t *testing.T) {
 	ctx := context.Background()
-	id := workspaces.WorkspaceID(uuid.Must(uuid.NewV7()))
+	id := workspaces.ID(uuid.Must(uuid.NewV7()))
 	userID := users.UserID(uuid.Must(uuid.NewV7()))
 	membership := workspaces.NewMembership(id, userID, workspaces.RoleViewer)
 
@@ -92,7 +92,7 @@ func TestWorkspaceMethodsRejectMissingPool(t *testing.T) {
 func TestWorkspaceMethodsValidateBeforeIO(t *testing.T) {
 	ctx := context.Background()
 	repository := &WorkspaceRepository{pool: newLazyPool(t)}
-	validID := workspaces.WorkspaceID(uuid.Must(uuid.NewV7()))
+	validID := workspaces.ID(uuid.Must(uuid.NewV7()))
 	validUserID := users.UserID(uuid.Must(uuid.NewV7()))
 	untrimmed := workspaces.NewWorkspace(validID, " Design")
 
@@ -103,18 +103,18 @@ func TestWorkspaceMethodsValidateBeforeIO(t *testing.T) {
 	}{
 		{"create nil", func() error { return repository.Create(ctx, nil) }, workspaces.ErrWorkspaceNil},
 		{"create invalid", func() error { return repository.Create(ctx, &workspaces.Workspace{}) }, workspaces.ErrWorkspaceInvalid},
-		{"create untrimmed name", func() error { return repository.Create(ctx, untrimmed) }, workspaces.ErrWorkspaceNameUntrimmed},
+		{"create untrimmed name", func() error { return repository.Create(ctx, untrimmed) }, workspaces.ErrNameUntrimmed},
 		{"update nil", func() error { return repository.Update(ctx, nil) }, workspaces.ErrWorkspaceNil},
 		{"update invalid", func() error { return repository.Update(ctx, &workspaces.Workspace{}) }, workspaces.ErrWorkspaceInvalid},
-		{"delete invalid ID", func() error { return repository.Delete(ctx, workspaces.WorkspaceID{}) }, workspaces.ErrWorkspaceIDInvalid},
+		{"delete invalid ID", func() error { return repository.Delete(ctx, workspaces.ID{}) }, workspaces.ErrIDInvalid},
 		{"find by invalid ID", func() error {
-			_, err := repository.FindByID(ctx, workspaces.WorkspaceID{})
+			_, err := repository.FindByID(ctx, workspaces.ID{})
 			return err
-		}, workspaces.ErrWorkspaceIDInvalid},
+		}, workspaces.ErrIDInvalid},
 		{"find by invalid ID for update", func() error {
-			_, err := repository.FindByIDForUpdate(ctx, workspaces.WorkspaceID{})
+			_, err := repository.FindByIDForUpdate(ctx, workspaces.ID{})
 			return err
-		}, workspaces.ErrWorkspaceIDInvalid},
+		}, workspaces.ErrIDInvalid},
 		{"find by ID for update outside a transaction", func() error {
 			_, err := repository.FindByIDForUpdate(ctx, validID)
 			return err
@@ -144,7 +144,7 @@ func TestWorkspaceMethodsValidateBeforeIO(t *testing.T) {
 			return repository.AddMember(ctx, workspaces.NewMembership(validID, users.UserID{}, workspaces.RoleViewer))
 		}, users.ErrUserIDInvalid},
 		{"add member without a workspace", func() error {
-			return repository.AddMember(ctx, workspaces.NewMembership(workspaces.WorkspaceID{}, validUserID, workspaces.RoleViewer))
+			return repository.AddMember(ctx, workspaces.NewMembership(workspaces.ID{}, validUserID, workspaces.RoleViewer))
 		}, workspaces.ErrMembershipInvalid},
 		{"add member without a role", func() error {
 			return repository.AddMember(ctx, workspaces.NewMembership(validID, validUserID, ""))
@@ -156,17 +156,17 @@ func TestWorkspaceMethodsValidateBeforeIO(t *testing.T) {
 			return repository.UpdateMember(ctx, workspaces.NewMembership(validID, users.UserID{}, workspaces.RoleOwner))
 		}, workspaces.ErrMembershipInvalid},
 		{"find members of an invalid workspace", func() error {
-			_, err := repository.FindMembers(ctx, workspaces.WorkspaceID{})
+			_, err := repository.FindMembers(ctx, workspaces.ID{})
 			return err
-		}, workspaces.ErrWorkspaceIDInvalid},
+		}, workspaces.ErrIDInvalid},
 		{"find member without a user", func() error {
 			_, err := repository.FindMember(ctx, validID, users.UserID{})
 			return err
 		}, users.ErrUserIDInvalid},
 		{"find member of an invalid workspace", func() error {
-			_, err := repository.FindMember(ctx, workspaces.WorkspaceID{}, validUserID)
+			_, err := repository.FindMember(ctx, workspaces.ID{}, validUserID)
 			return err
-		}, workspaces.ErrWorkspaceIDInvalid},
+		}, workspaces.ErrIDInvalid},
 		{"remove member without a user", func() error {
 			return repository.RemoveMember(ctx, workspaces.NewMembership(validID, users.UserID{}, workspaces.RoleViewer))
 		}, workspaces.ErrMembershipInvalid},
@@ -184,7 +184,7 @@ func TestWorkspaceMethodsValidateBeforeIO(t *testing.T) {
 func TestWorkspaceWriteFailuresExposeInput(t *testing.T) {
 	ctx := context.Background()
 	workspace := &workspaces.Workspace{}
-	id := workspaces.WorkspaceID{}
+	id := workspaces.ID{}
 	membership := workspaces.Membership{}
 	repository := &WorkspaceRepository{}
 

@@ -54,7 +54,7 @@ type fixture struct {
 	role        *users.Role
 	version     uuid.UUID
 	workspaces  []*workspaces.Workspace
-	members     map[workspaces.WorkspaceID]workspaces.Memberships
+	members     map[workspaces.ID]workspaces.Memberships
 	findErr     error
 	createErr   error
 	updateErr   error
@@ -113,11 +113,11 @@ func newFixture(t *testing.T) *fixture {
 		time.Now(),
 	)}
 
-	design := workspaces.NewWorkspace(workspaces.WorkspaceID(uuid.MustParse(designID)), "Design")
-	family := workspaces.NewWorkspace(workspaces.WorkspaceID(uuid.MustParse(familyID)), "Family budget")
-	other := workspaces.NewWorkspace(workspaces.WorkspaceID(uuid.MustParse(otherID)), "Someone else's")
+	design := workspaces.NewWorkspace(workspaces.ID(uuid.MustParse(designID)), "Design")
+	family := workspaces.NewWorkspace(workspaces.ID(uuid.MustParse(familyID)), "Family budget")
+	other := workspaces.NewWorkspace(workspaces.ID(uuid.MustParse(otherID)), "Someone else's")
 	f.workspaces = []*workspaces.Workspace{family, design, other}
-	f.members = map[workspaces.WorkspaceID]workspaces.Memberships{
+	f.members = map[workspaces.ID]workspaces.Memberships{
 		design.ID: {workspaces.NewMembership(design.ID, f.user.ID, workspaces.RoleOwner)},
 		family.ID: {workspaces.NewMembership(family.ID, f.user.ID, workspaces.RoleOwner)},
 	}
@@ -380,7 +380,7 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 		CountFunc: func(_ context.Context, filter workspaces.WorkspaceFilter) (int, error) {
 			return len(matching(filter)), nil
 		},
-		FindByIDFunc: func(_ context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
+		FindByIDFunc: func(_ context.Context, id workspaces.ID) (*workspaces.Workspace, error) {
 			var (
 				found *workspaces.Workspace
 				err   = workspaces.ErrWorkspaceNotFound
@@ -424,7 +424,7 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 
 			return err
 		},
-		FindMembersFunc: func(_ context.Context, id workspaces.WorkspaceID) (workspaces.Memberships, error) {
+		FindMembersFunc: func(_ context.Context, id workspaces.ID) (workspaces.Memberships, error) {
 			var memberships workspaces.Memberships
 
 			if f.membersErr == nil {
@@ -433,7 +433,7 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 
 			return memberships, f.membersErr
 		},
-		FindMemberFunc: func(_ context.Context, id workspaces.WorkspaceID, userID users.UserID) (workspaces.Membership, error) {
+		FindMemberFunc: func(_ context.Context, id workspaces.ID, userID users.UserID) (workspaces.Membership, error) {
 			var (
 				membership workspaces.Membership
 				err        = workspaces.ErrMembershipNotFound
@@ -445,7 +445,7 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 
 			return membership, err
 		},
-		FindByIDForUpdateFunc: func(_ context.Context, id workspaces.WorkspaceID) (*workspaces.Workspace, error) {
+		FindByIDForUpdateFunc: func(_ context.Context, id workspaces.ID) (*workspaces.Workspace, error) {
 			var (
 				found *workspaces.Workspace
 				err   = workspaces.ErrWorkspaceNotFound
@@ -491,7 +491,7 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 			var err workspaces.ErrMembershipAddFailed
 
 			if f.members == nil {
-				f.members = make(map[workspaces.WorkspaceID]workspaces.Memberships)
+				f.members = make(map[workspaces.ID]workspaces.Memberships)
 			}
 
 			if f.memberIndex(membership.WorkspaceID, membership.UserID) >= 0 {
@@ -505,7 +505,7 @@ func (f *fixture) workspaceRepository() *workspacesmock.WorkspaceRepository {
 	}
 }
 
-func (f *fixture) memberIndex(workspaceID workspaces.WorkspaceID, userID users.UserID) int {
+func (f *fixture) memberIndex(workspaceID workspaces.ID, userID users.UserID) int {
 	return slices.IndexFunc(f.members[workspaceID], func(membership workspaces.Membership) bool {
 		return membership.UserID == userID
 	})
@@ -513,7 +513,7 @@ func (f *fixture) memberIndex(workspaceID workspaces.WorkspaceID, userID users.U
 
 // The role is empty for a User who is not a member.
 
-func (f *fixture) memberRole(workspaceID workspaces.WorkspaceID, userID users.UserID) workspaces.Role {
+func (f *fixture) memberRole(workspaceID workspaces.ID, userID users.UserID) workspaces.Role {
 	var role workspaces.Role
 
 	if index := f.memberIndex(workspaceID, userID); index >= 0 {
@@ -525,7 +525,7 @@ func (f *fixture) memberRole(workspaceID workspaces.WorkspaceID, userID users.Us
 
 // A User who is not yet a member joins with the role.
 
-func (f *fixture) setMemberRole(workspaceID workspaces.WorkspaceID, userID users.UserID, role workspaces.Role) {
+func (f *fixture) setMemberRole(workspaceID workspaces.ID, userID users.UserID, role workspaces.Role) {
 	if index := f.memberIndex(workspaceID, userID); index >= 0 {
 		f.members[workspaceID][index].Role = role
 	} else {
@@ -566,7 +566,7 @@ func (f *fixture) categoryRepository() *categoriesmock.CategoryRepository {
 		return result
 	}
 
-	index := func(id categories.CategoryID) int {
+	index := func(id categories.ID) int {
 		return slices.IndexFunc(f.categories, func(category *categories.Category) bool { return category.ID == id })
 	}
 
@@ -595,7 +595,7 @@ func (f *fixture) categoryRepository() *categoriesmock.CategoryRepository {
 
 			return err
 		},
-		DeleteFunc: func(_ context.Context, id categories.CategoryID) categories.ErrCategoryDeleteFailed {
+		DeleteFunc: func(_ context.Context, id categories.ID) categories.ErrCategoryDeleteFailed {
 			var err categories.ErrCategoryDeleteFailed
 
 			if f.categoryErr != nil {
@@ -608,7 +608,7 @@ func (f *fixture) categoryRepository() *categoriesmock.CategoryRepository {
 
 			return err
 		},
-		FindByIDFunc: func(_ context.Context, id categories.CategoryID) (*categories.Category, error) {
+		FindByIDFunc: func(_ context.Context, id categories.ID) (*categories.Category, error) {
 			var (
 				category *categories.Category
 				err      = categories.ErrCategoryNotFound
@@ -648,9 +648,9 @@ func (f *fixture) addCategory(workspaceID string, name string, icon string, colo
 	}
 
 	category := categories.NewCategory(
-		categories.CategoryID(uuid.Must(uuid.NewV7())),
-		workspaces.WorkspaceID(uuid.MustParse(workspaceID)),
-		categories.CategoryName(name),
+		categories.ID(uuid.Must(uuid.NewV7())),
+		workspaces.ID(uuid.MustParse(workspaceID)),
+		categories.Name(name),
 		categoryIcon,
 		color,
 	)

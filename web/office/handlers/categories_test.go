@@ -214,7 +214,7 @@ func TestCreateCategory(t *testing.T) {
 	created := f.categories[0]
 
 	if created.Name != "Transport" || created.Icon == nil || *created.Icon != categories.IconBus || created.Color != categories.ColorBlue ||
-		created.WorkspaceID != workspaces.WorkspaceID(uuid.MustParse(designID)) {
+		created.WorkspaceID != workspaces.ID(uuid.MustParse(designID)) {
 		t.Fatalf("created = %+v", created)
 	}
 
@@ -242,9 +242,9 @@ func TestCreateCategoryRejected(t *testing.T) {
 		},
 		{
 			name:   "long name",
-			body:   "name=" + strings.Repeat("a", categories.MaxCategoryNameLength+1) + "&color=green",
+			body:   "name=" + strings.Repeat("a", categories.MaxNameLength+1) + "&color=green",
 			status: http.StatusUnprocessableEntity,
-			wants:  []string{fmt.Sprintf("Use at most %d characters.", categories.MaxCategoryNameLength)},
+			wants:  []string{fmt.Sprintf("Use at most %d characters.", categories.MaxNameLength)},
 		},
 		{
 			name:   "missing color and unknown icon",
@@ -387,6 +387,6 @@ func TestCategoriesPagination(t *testing.T) {
 // The role is changed in place for the signed-in User.
 
 func (f *fixture) setRole(workspaceID string, role workspaces.Role) {
-	id := workspaces.WorkspaceID(uuid.MustParse(workspaceID))
+	id := workspaces.ID(uuid.MustParse(workspaceID))
 	f.members[id][f.memberIndex(id, f.user.ID)].Role = role
 }

@@ -71,15 +71,15 @@ func (e *errWorkspaceUpdateFailed) Error() string {
 // Implementation of workspaces.ErrWorkspaceDeleteFailed
 
 type errWorkspaceDeleteFailed struct {
-	id  workspaces.WorkspaceID
+	id  workspaces.ID
 	err error
 }
 
-func newErrWorkspaceDeleteFailed(id workspaces.WorkspaceID, err error) *errWorkspaceDeleteFailed {
+func newErrWorkspaceDeleteFailed(id workspaces.ID, err error) *errWorkspaceDeleteFailed {
 	return &errWorkspaceDeleteFailed{id, err}
 }
 
-func (e errWorkspaceDeleteFailed) WorkspaceID() workspaces.WorkspaceID {
+func (e errWorkspaceDeleteFailed) WorkspaceID() workspaces.ID {
 	return e.id
 }
 
@@ -258,7 +258,7 @@ func (r *WorkspaceRepository) Update(
 
 func (r *WorkspaceRepository) Delete(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 ) workspaces.ErrWorkspaceDeleteFailed {
 	var err workspaces.ErrWorkspaceDeleteFailed
 
@@ -293,7 +293,7 @@ func (r *WorkspaceRepository) Delete(
 
 func (r *WorkspaceRepository) FindByID(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 ) (*workspaces.Workspace, error) {
 	var (
 		workspace *workspaces.Workspace
@@ -322,7 +322,7 @@ func (r *WorkspaceRepository) FindByID(
 
 func (r *WorkspaceRepository) FindByIDForUpdate(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 ) (*workspaces.Workspace, error) {
 	var (
 		workspace *workspaces.Workspace
@@ -559,7 +559,7 @@ func (r *WorkspaceRepository) RemoveMember(
 
 func (r *WorkspaceRepository) FindMember(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 	userID users.UserID,
 ) (workspaces.Membership, error) {
 	var (
@@ -600,7 +600,7 @@ func (r *WorkspaceRepository) FindMember(
 
 func (r *WorkspaceRepository) FindMembers(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 ) (workspaces.Memberships, error) {
 	var (
 		result workspaces.Memberships
@@ -783,14 +783,14 @@ func scanWorkspace(row pgx.Row) (*workspaces.Workspace, error) {
 		err = fmt.Errorf("scan workspace: %w", scanErr)
 	} else {
 		var (
-			workspaceID   workspaces.WorkspaceID
-			workspaceName workspaces.WorkspaceName
+			workspaceID   workspaces.ID
+			workspaceName workspaces.Name
 		)
 
-		workspaceID, err = workspaces.NewWorkspaceID(uuid.UUID(id.Bytes))
+		workspaceID, err = workspaces.NewID(uuid.UUID(id.Bytes))
 
 		if err == nil {
-			workspaceName, err = workspaces.NewWorkspaceName(name)
+			workspaceName, err = workspaces.NewName(name)
 		}
 
 		if err == nil {
@@ -820,7 +820,7 @@ func scanMembership(row pgx.Row) (workspaces.Membership, error) {
 		err = fmt.Errorf("scan workspace member: %w", scanErr)
 	} else {
 		membership = workspaces.NewMembership(
-			workspaces.WorkspaceID(workspaceID.Bytes),
+			workspaces.ID(workspaceID.Bytes),
 			users.UserID(userID.Bytes),
 			workspaces.Role(role),
 		)

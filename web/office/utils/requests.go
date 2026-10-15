@@ -93,13 +93,13 @@ func WorkspaceFieldErrors(ctx context.Context, err error) map[string]string {
 	var fields map[string]string
 
 	switch {
-	case errors.Is(err, workspaces.ErrWorkspaceNameEmpty):
+	case errors.Is(err, workspaces.ErrNameEmpty):
 		fields = map[string]string{"name": officei18n.T(ctx, "validation.required")}
-	case errors.Is(err, workspaces.ErrWorkspaceNameTooLong):
+	case errors.Is(err, workspaces.ErrNameTooLong):
 		fields = map[string]string{
-			"name": officei18n.Count(ctx, "validation.too_long_chars", workspaces.MaxWorkspaceNameLength),
+			"name": officei18n.Count(ctx, "validation.too_long_chars", workspaces.MaxNameLength),
 		}
-	case errors.Is(err, workspaces.ErrWorkspaceNameInvalid):
+	case errors.Is(err, workspaces.ErrNameInvalid):
 		fields = map[string]string{"name": officei18n.T(ctx, "validation.invalid")}
 	}
 

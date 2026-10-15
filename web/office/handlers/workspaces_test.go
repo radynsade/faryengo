@@ -256,7 +256,7 @@ func TestCreateWorkspaceRejected(t *testing.T) {
 		{
 			name:     "too long name in characters",
 			path:     "/office/ru/workspaces",
-			body:     "name=" + url.QueryEscape(strings.Repeat("ā", workspaces.MaxWorkspaceNameLength+1)),
+			body:     "name=" + url.QueryEscape(strings.Repeat("ā", workspaces.MaxNameLength+1)),
 			status:   http.StatusUnprocessableEntity,
 			contains: []string{"Используйте не более 100 символов."},
 		},

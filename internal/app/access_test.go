@@ -34,7 +34,7 @@ func userContext(t *testing.T, userID users.UserID, permissions ...users.Permiss
 
 func memberContext(
 	t *testing.T,
-	workspaceID workspaces.WorkspaceID,
+	workspaceID workspaces.ID,
 	userID users.UserID,
 	role workspaces.Role,
 ) context.Context {

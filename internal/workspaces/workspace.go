@@ -15,76 +15,76 @@ import (
 // Workspace ID
 //
 
-var ErrWorkspaceIDInvalid = errors.New("invalid workspace ID")
+var ErrIDInvalid = errors.New("invalid ID")
 
-type WorkspaceID uuid.UUID
+type ID uuid.UUID
 
-func NewWorkspaceID(value uuid.UUID) (WorkspaceID, error) {
+func NewID(value uuid.UUID) (ID, error) {
 	var (
 		err error
-		id  WorkspaceID
+		id  ID
 	)
 
-	id = WorkspaceID(value)
+	id = ID(value)
 	err = id.Validate()
 	return id, err
 }
 
-func (id WorkspaceID) Validate() error {
+func (id ID) Validate() error {
 	var err error
 
 	if uuid.UUID(id) == uuid.Nil {
-		err = ErrWorkspaceIDInvalid
+		err = ErrIDInvalid
 	}
 
 	return err
 }
 
 //
-// Workspace name
+// Name
 //
 
-const MaxWorkspaceNameLength = 100
+const MaxNameLength = 100
 
 var (
-	ErrWorkspaceNameInvalid      = errors.New("invalid workspace name")
-	ErrWorkspaceNameEmpty        = errors.New("is empty")
-	ErrWorkspaceNameInvalidChars = errors.New("invalid characters")
-	ErrWorkspaceNameUntrimmed    = errors.New("has surrounding whitespace")
-	ErrWorkspaceNameTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxWorkspaceNameLength)
+	ErrNameInvalid      = errors.New("invalid workspace name")
+	ErrNameEmpty        = errors.New("is empty")
+	ErrNameInvalidChars = errors.New("invalid characters")
+	ErrNameUntrimmed    = errors.New("has surrounding whitespace")
+	ErrNameTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxNameLength)
 )
 
-type WorkspaceName string
+type Name string
 
 // A Workspace name is stored trimmed, so a name given by a person is trimmed
 // before it is constructed.
 
-func NewWorkspaceName(value string) (WorkspaceName, error) {
+func NewName(value string) (Name, error) {
 	var (
 		err  error
-		name WorkspaceName
+		name Name
 	)
 
-	name = WorkspaceName(value)
+	name = Name(value)
 	err = name.Validate()
 	return name, err
 }
 
-func (n WorkspaceName) Validate() error {
+func (n Name) Validate() error {
 	var err error
 
 	if strings.TrimSpace(string(n)) == "" {
-		err = ErrWorkspaceNameEmpty
+		err = ErrNameEmpty
 	} else if !utf8.ValidString(string(n)) {
-		err = ErrWorkspaceNameInvalidChars
+		err = ErrNameInvalidChars
 	} else if strings.TrimSpace(string(n)) != string(n) {
-		err = ErrWorkspaceNameUntrimmed
-	} else if utf8.RuneCountInString(string(n)) > MaxWorkspaceNameLength {
-		err = ErrWorkspaceNameTooLong
+		err = ErrNameUntrimmed
+	} else if utf8.RuneCountInString(string(n)) > MaxNameLength {
+		err = ErrNameTooLong
 	}
 
 	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrWorkspaceNameInvalid, err)
+		err = fmt.Errorf("%w: %w", ErrNameInvalid, err)
 	}
 
 	return err
@@ -169,12 +169,12 @@ func (r Role) Allows(action Action) bool {
 var ErrMembershipInvalid = errors.New("invalid membership")
 
 type Membership struct {
-	WorkspaceID WorkspaceID
+	WorkspaceID ID
 	UserID      users.UserID
 	Role        Role
 }
 
-func NewMembership(workspaceID WorkspaceID, userID users.UserID, role Role) Membership {
+func NewMembership(workspaceID ID, userID users.UserID, role Role) Membership {
 	return Membership{
 		WorkspaceID: workspaceID,
 		UserID:      userID,
@@ -253,11 +253,11 @@ var (
 )
 
 type Workspace struct {
-	ID   WorkspaceID
-	Name WorkspaceName
+	ID   ID
+	Name Name
 }
 
-func NewWorkspace(id WorkspaceID, name WorkspaceName) *Workspace {
+func NewWorkspace(id ID, name Name) *Workspace {
 	return &Workspace{
 		ID:   id,
 		Name: name,

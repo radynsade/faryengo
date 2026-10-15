@@ -15,7 +15,7 @@ import (
 func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 
 var (
-	testWorkspaceID = WorkspaceID(uuid.MustParse("01920000-0000-7000-8000-000000000003"))
+	testWorkspaceID = ID(uuid.MustParse("01920000-0000-7000-8000-000000000003"))
 	testUserID      = users.UserID(uuid.MustParse("01920000-0000-7000-8000-000000000001"))
 )
 
@@ -26,14 +26,14 @@ func TestNewWorkspaceID(t *testing.T) {
 		want  error
 	}{
 		{"valid", uuid.UUID(testWorkspaceID), nil},
-		{"nil", uuid.Nil, ErrWorkspaceIDInvalid},
+		{"nil", uuid.Nil, ErrIDInvalid},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			id, err := NewWorkspaceID(tt.value)
+			id, err := NewID(tt.value)
 
-			if id != WorkspaceID(tt.value) || !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
+			if id != ID(tt.value) || !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
 				t.Fatalf("NewWorkspaceID(%s) = (%v, %v), want %v", tt.value, id, err, tt.want)
 			}
 		})
@@ -50,15 +50,15 @@ func TestNewWorkspaceName(t *testing.T) {
 		want  error
 	}{
 		{"valid", "Design team", nil},
-		{"surrounding spaces", "  Design  ", ErrWorkspaceNameUntrimmed},
-		{"only whitespace", " \t ", ErrWorkspaceNameEmpty},
+		{"surrounding spaces", "  Design  ", ErrNameUntrimmed},
+		{"only whitespace", " \t ", ErrNameEmpty},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			name, err := NewWorkspaceName(tt.value)
+			name, err := NewName(tt.value)
 
-			if name != WorkspaceName(tt.value) || !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
+			if name != Name(tt.value) || !errors.Is(err, tt.want) || (err == nil) != (tt.want == nil) {
 				t.Fatalf("NewWorkspaceName(%q) = (%q, %v), want %v", tt.value, name, err, tt.want)
 			}
 		})
@@ -68,19 +68,19 @@ func TestNewWorkspaceName(t *testing.T) {
 func TestWorkspaceNameValidate(t *testing.T) {
 	tests := []struct {
 		name          string
-		workspaceName WorkspaceName
+		workspaceName Name
 		want          error
 	}{
 		{"valid", "Design", nil},
-		{"limit in multibyte characters", WorkspaceName(strings.Repeat("ā", MaxWorkspaceNameLength)), nil},
-		{"limit in ASCII characters", WorkspaceName(strings.Repeat("a", MaxWorkspaceNameLength)), nil},
-		{"empty", "", ErrWorkspaceNameEmpty},
-		{"blank", " \t", ErrWorkspaceNameEmpty},
-		{"invalid UTF-8", "Design\xff", ErrWorkspaceNameInvalidChars},
-		{"leading space", " Design", ErrWorkspaceNameUntrimmed},
-		{"trailing newline", "Design\n", ErrWorkspaceNameUntrimmed},
-		{"too long", WorkspaceName(strings.Repeat("a", MaxWorkspaceNameLength+1)), ErrWorkspaceNameTooLong},
-		{"too long in multibyte characters", WorkspaceName(strings.Repeat("ā", MaxWorkspaceNameLength+1)), ErrWorkspaceNameTooLong},
+		{"limit in multibyte characters", Name(strings.Repeat("ā", MaxNameLength)), nil},
+		{"limit in ASCII characters", Name(strings.Repeat("a", MaxNameLength)), nil},
+		{"empty", "", ErrNameEmpty},
+		{"blank", " \t", ErrNameEmpty},
+		{"invalid UTF-8", "Design\xff", ErrNameInvalidChars},
+		{"leading space", " Design", ErrNameUntrimmed},
+		{"trailing newline", "Design\n", ErrNameUntrimmed},
+		{"too long", Name(strings.Repeat("a", MaxNameLength+1)), ErrNameTooLong},
+		{"too long in multibyte characters", Name(strings.Repeat("ā", MaxNameLength+1)), ErrNameTooLong},
 	}
 
 	for _, tt := range tests {
@@ -91,8 +91,8 @@ func TestWorkspaceNameValidate(t *testing.T) {
 				t.Fatalf("Validate() = %v, want %v", err, tt.want)
 			}
 
-			if tt.want != nil && !errors.Is(err, ErrWorkspaceNameInvalid) {
-				t.Fatalf("Validate() = %v, want it wrapped in %v", err, ErrWorkspaceNameInvalid)
+			if tt.want != nil && !errors.Is(err, ErrNameInvalid) {
+				t.Fatalf("Validate() = %v, want it wrapped in %v", err, ErrNameInvalid)
 			}
 		})
 	}
@@ -106,9 +106,9 @@ func TestWorkspaceValidate(t *testing.T) {
 	}{
 		{"valid", NewWorkspace(testWorkspaceID, "Design"), nil},
 		{"nil", nil, []error{ErrWorkspaceNil}},
-		{"nil ID", NewWorkspace(WorkspaceID{}, "Design"), []error{ErrWorkspaceIDInvalid}},
-		{"invalid name", NewWorkspace(testWorkspaceID, " "), []error{ErrWorkspaceNameEmpty}},
-		{"invalid ID and name", NewWorkspace(WorkspaceID{}, " "), []error{ErrWorkspaceIDInvalid, ErrWorkspaceNameEmpty}},
+		{"nil ID", NewWorkspace(ID{}, "Design"), []error{ErrIDInvalid}},
+		{"invalid name", NewWorkspace(testWorkspaceID, " "), []error{ErrNameEmpty}},
+		{"invalid ID and name", NewWorkspace(ID{}, " "), []error{ErrIDInvalid, ErrNameEmpty}},
 	}
 
 	for _, tt := range tests {
@@ -214,22 +214,22 @@ func TestRoleAllows(t *testing.T) {
 func TestMembershipValidate(t *testing.T) {
 	tests := []struct {
 		name        string
-		workspaceID WorkspaceID
+		workspaceID ID
 		userID      users.UserID
 		role        Role
 		wantErrs    []error
 	}{
 		{"valid", testWorkspaceID, testUserID, RoleViewer, nil},
-		{"nil workspace", WorkspaceID{}, testUserID, RoleOwner, []error{ErrWorkspaceIDInvalid}},
+		{"nil workspace", ID{}, testUserID, RoleOwner, []error{ErrIDInvalid}},
 		{"nil user", testWorkspaceID, users.UserID{}, RoleEditor, []error{users.ErrUserIDInvalid}},
 		{"missing role", testWorkspaceID, testUserID, "", []error{ErrRoleInvalid}},
 		{"unknown role", testWorkspaceID, testUserID, "admin", []error{ErrRoleInvalid}},
 		{
 			"nil workspace and user and unknown role",
-			WorkspaceID{},
+			ID{},
 			users.UserID{},
 			"admin",
-			[]error{ErrWorkspaceIDInvalid, users.ErrUserIDInvalid, ErrRoleInvalid},
+			[]error{ErrIDInvalid, users.ErrUserIDInvalid, ErrRoleInvalid},
 		},
 	}
 

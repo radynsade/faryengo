@@ -25,11 +25,11 @@ import (
 
 const CategoriesSection = "categories"
 
-func CategoriesPath(request *http.Request, workspaceID workspaces.WorkspaceID) string {
+func CategoriesPath(request *http.Request, workspaceID workspaces.ID) string {
 	return WorkspacePath(request, workspaceID) + "/categories"
 }
 
-func CategoryPath(request *http.Request, workspaceID workspaces.WorkspaceID, id categories.CategoryID) string {
+func CategoryPath(request *http.Request, workspaceID workspaces.ID, id categories.ID) string {
 	return CategoriesPath(request, workspaceID) + "/" + uuid.UUID(id).String()
 }
 
@@ -75,12 +75,12 @@ func CategoryFieldErrors(ctx context.Context, err error) map[string]string {
 
 	addTransportErrors(ctx, fields, err)
 
-	if _, found := fields["name"]; !found && errors.Is(err, categories.ErrCategoryNameInvalid) {
+	if _, found := fields["name"]; !found && errors.Is(err, categories.ErrNameInvalid) {
 		switch {
-		case errors.Is(err, categories.ErrCategoryNameEmpty):
+		case errors.Is(err, categories.ErrNameEmpty):
 			fields["name"] = officei18n.T(ctx, "validation.required")
-		case errors.Is(err, categories.ErrCategoryNameTooLong):
-			fields["name"] = officei18n.Count(ctx, "validation.too_long_chars", categories.MaxCategoryNameLength)
+		case errors.Is(err, categories.ErrNameTooLong):
+			fields["name"] = officei18n.Count(ctx, "validation.too_long_chars", categories.MaxNameLength)
 		default:
 			fields["name"] = officei18n.T(ctx, "validation.invalid")
 		}
@@ -115,17 +115,17 @@ func ParseDeleteCategoryForm(writer http.ResponseWriter, request *http.Request) 
 // A category ID that is not a UUID, or is nil, names no category, so it is
 // reported like a missing one.
 
-func ParseCategoryID(request *http.Request) (categories.CategoryID, error) {
-	var id categories.CategoryID
+func ParseCategoryID(request *http.Request) (categories.ID, error) {
+	var id categories.ID
 
 	parsed, err := uuid.Parse(request.PathValue("category"))
 
 	if err == nil {
-		id, err = categories.NewCategoryID(parsed)
+		id, err = categories.NewID(parsed)
 	}
 
 	if err != nil {
-		id = categories.CategoryID{}
+		id = categories.ID{}
 		err = errors.Join(categories.ErrCategoryNotFound, err)
 	}
 
@@ -216,7 +216,7 @@ func CategoriesContentProps(
 // A new category's form starts from the first color and no icon, and posts to
 // the list, which it leads back to.
 
-func NewCategoryFormProps(request *http.Request, workspaceID workspaces.WorkspaceID) pages.CategoryFormProps {
+func NewCategoryFormProps(request *http.Request, workspaceID workspaces.ID) pages.CategoryFormProps {
 	ctx := request.Context()
 
 	return pages.CategoryFormProps{
@@ -292,7 +292,7 @@ func CategoryItems(
 
 func CategoriesPagination(
 	request *http.Request,
-	workspaceID workspaces.WorkspaceID,
+	workspaceID workspaces.ID,
 	query categories.CategoryQuery,
 	total int,
 ) pages.PaginationProps {

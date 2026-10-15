@@ -92,13 +92,13 @@ func (s *CategoryService) Create(
 		} else {
 			var (
 				id         uuid.UUID
-				categoryID categories.CategoryID
+				categoryID categories.ID
 			)
 
 			id, err = uuid.NewV7()
 
 			if err == nil {
-				categoryID, err = categories.NewCategoryID(id)
+				categoryID, err = categories.NewID(id)
 			}
 
 			if err != nil {
@@ -148,7 +148,7 @@ func (s *CategoryService) Create(
 
 func (s *CategoryService) FindByID(
 	ctx context.Context,
-	id categories.CategoryID,
+	id categories.ID,
 ) (*categories.Category, error) {
 	var (
 		category *categories.Category
@@ -188,7 +188,7 @@ func (s *CategoryService) FindByID(
 
 func (s *CategoryService) List(
 	ctx context.Context,
-	workspaceID workspaces.WorkspaceID,
+	workspaceID workspaces.ID,
 	query categories.CategoryQuery,
 ) (CategoryList, error) {
 	var (
@@ -234,7 +234,7 @@ func (s *CategoryService) Update(
 	var (
 		category *categories.Category
 		identity *workspaces.Identity
-		name     categories.CategoryName
+		name     categories.Name
 		icon     *categories.Icon
 		color    categories.Color
 		err      error
@@ -285,7 +285,7 @@ func (s *CategoryService) Update(
 
 // Delete
 
-func (s *CategoryService) Delete(ctx context.Context, id categories.CategoryID) error {
+func (s *CategoryService) Delete(ctx context.Context, id categories.ID) error {
 	var identity *workspaces.Identity
 
 	err := s.check()
@@ -363,7 +363,7 @@ func (s *CategoryService) authorizeEdit(ctx context.Context) (*workspaces.Identi
 func (s *CategoryService) findForUpdate(
 	ctx context.Context,
 	identity *workspaces.Identity,
-	id categories.CategoryID,
+	id categories.ID,
 ) (*categories.Category, error) {
 	category, err := s.repository.FindByID(ctx, id)
 
@@ -389,13 +389,13 @@ func categoryValues(
 	rawName string,
 	rawIcon string,
 	rawColor string,
-) (categories.CategoryName, *categories.Icon, categories.Color, error) {
+) (categories.Name, *categories.Icon, categories.Color, error) {
 	var (
 		icon    *categories.Icon
 		iconErr error
 	)
 
-	name, nameErr := categories.NewCategoryName(strings.TrimSpace(rawName))
+	name, nameErr := categories.NewName(strings.TrimSpace(rawName))
 
 	if rawIcon != "" {
 		var value categories.Icon

@@ -99,7 +99,7 @@ func NewWorkspaceService(
 
 func (s *WorkspaceService) ResolveIdentity(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 ) (*workspaces.Identity, error) {
 	var (
 		identity   *workspaces.Identity
@@ -172,7 +172,7 @@ func (s *WorkspaceService) Create(
 
 func (s *WorkspaceService) FindForMember(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 ) (MemberWorkspace, error) {
 	var (
 		found    MemberWorkspace
@@ -252,7 +252,7 @@ func (s *WorkspaceService) Rename(
 	)
 
 	if err = s.check(); err == nil {
-		name, nameErr := workspaces.NewWorkspaceName(strings.TrimSpace(request.Name))
+		name, nameErr := workspaces.NewName(strings.TrimSpace(request.Name))
 
 		err = errors.Join(request.ID.Validate(), nameErr)
 
@@ -297,7 +297,7 @@ func (s *WorkspaceService) Rename(
 
 func (s *WorkspaceService) ListMembers(
 	ctx context.Context,
-	id workspaces.WorkspaceID,
+	id workspaces.ID,
 ) ([]WorkspaceMember, error) {
 	var (
 		members     []WorkspaceMember
@@ -506,7 +506,7 @@ func (s *WorkspaceService) ChangeMemberRole(
 
 func (s *WorkspaceService) RemoveMember(
 	ctx context.Context,
-	workspaceID workspaces.WorkspaceID,
+	workspaceID workspaces.ID,
 	userID users.UserID,
 ) error {
 	var identity *workspaces.Identity
@@ -600,20 +600,20 @@ func (s *WorkspaceService) create(
 ) (*workspaces.Workspace, error) {
 	var workspace *workspaces.Workspace
 
-	name, err := workspaces.NewWorkspaceName(strings.TrimSpace(request.Name))
+	name, err := workspaces.NewName(strings.TrimSpace(request.Name))
 
 	if err != nil {
 		err = fmt.Errorf("create workspace: %w: %w", input.ErrCreateWorkspaceInputInvalid, err)
 	} else {
 		var (
 			id          uuid.UUID
-			workspaceID workspaces.WorkspaceID
+			workspaceID workspaces.ID
 		)
 
 		id, err = uuid.NewV7()
 
 		if err == nil {
-			workspaceID, err = workspaces.NewWorkspaceID(id)
+			workspaceID, err = workspaces.NewID(id)
 		}
 
 		if err != nil {

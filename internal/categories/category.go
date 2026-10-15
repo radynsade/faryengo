@@ -12,73 +12,73 @@ import (
 )
 
 //
-// Category ID
+// ID
 //
 
-var ErrCategoryIDInvalid = errors.New("invalid category ID")
+var ErrIDInvalid = errors.New("invalid ID")
 
-type CategoryID uuid.UUID
+type ID uuid.UUID
 
-func NewCategoryID(value uuid.UUID) (CategoryID, error) {
+func NewID(value uuid.UUID) (ID, error) {
 	var (
 		err error
-		id  CategoryID
+		id  ID
 	)
 
-	id = CategoryID(value)
+	id = ID(value)
 	err = id.Validate()
 	return id, err
 }
 
-func (id CategoryID) Validate() error {
+func (id ID) Validate() error {
 	var err error
 
 	if uuid.UUID(id) == uuid.Nil {
-		err = ErrCategoryIDInvalid
+		err = ErrIDInvalid
 	}
 
 	return err
 }
 
 //
-// Category name
+// Name
 //
 
-const MaxCategoryNameLength = 100
+const MaxNameLength = 100
 
 var (
-	ErrCategoryNameInvalid      = errors.New("invalid category name")
-	ErrCategoryNameEmpty        = errors.New("is empty")
-	ErrCategoryNameInvalidChars = errors.New("invalid characters")
-	ErrCategoryNameTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxCategoryNameLength)
+	ErrNameInvalid      = errors.New("invalid name")
+	ErrNameEmpty        = errors.New("is empty")
+	ErrNameInvalidChars = errors.New("invalid characters")
+	ErrNameTooLong      = fmt.Errorf("exceeds the limit of %d characters", MaxNameLength)
 )
 
-type CategoryName string
+type Name string
 
-func NewCategoryName(value string) (CategoryName, error) {
+func NewName(value string) (Name, error) {
 	var (
 		err  error
-		name CategoryName
+		name Name
 	)
 
-	name = CategoryName(value)
+	name = Name(value)
 	err = name.Validate()
 	return name, err
 }
 
-func (n CategoryName) Validate() error {
+func (n Name) Validate() error {
 	var err error
 
 	if strings.TrimSpace(string(n)) == "" {
-		err = ErrCategoryNameEmpty
+		err = ErrNameEmpty
 	} else if !utf8.ValidString(string(n)) {
-		err = ErrCategoryNameInvalidChars
-	} else if utf8.RuneCountInString(string(n)) > MaxCategoryNameLength {
-		err = ErrCategoryNameTooLong
+		err = ErrNameInvalidChars
+	} else if utf8.RuneCountInString(string(n)) > MaxNameLength {
+		err = ErrNameTooLong
 	}
 
 	if err != nil {
-		err = fmt.Errorf("%w: %w", ErrCategoryNameInvalid, err)
+		err = fmt.Errorf("%w: %w", ErrNameInvalid, err)
 	}
 
 	return err
@@ -96,17 +96,17 @@ var (
 // A Category without an icon has a nil Icon.
 
 type Category struct {
-	ID          CategoryID
-	WorkspaceID workspaces.WorkspaceID
-	Name        CategoryName
+	ID          ID
+	WorkspaceID workspaces.ID
+	Name        Name
 	Icon        *Icon
 	Color       Color
 }
 
 func NewCategory(
-	id CategoryID,
-	workspaceID workspaces.WorkspaceID,
-	name CategoryName,
+	id ID,
+	workspaceID workspaces.ID,
+	name Name,
 	icon *Icon,
 	color Color,
 ) *Category {

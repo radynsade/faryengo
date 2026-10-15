@@ -77,7 +77,7 @@ func currentUser(ctx context.Context) (*users.User, error) {
 
 func authorizeMember(
 	ctx context.Context,
-	workspaceID workspaces.WorkspaceID,
+	workspaceID workspaces.ID,
 	action workspaces.Action,
 	notFound error,
 ) (*workspaces.Identity, error) {

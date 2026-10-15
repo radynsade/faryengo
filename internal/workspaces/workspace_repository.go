@@ -17,7 +17,7 @@ import (
 
 const (
 	MaxWorkspaceFilterIDLikeLength   = 36
-	MaxWorkspaceFilterNameLikeLength = MaxWorkspaceNameLength
+	MaxWorkspaceFilterNameLikeLength = MaxNameLength
 )
 
 var (
@@ -185,7 +185,7 @@ type ErrWorkspaceUpdateFailed interface {
 
 type ErrWorkspaceDeleteFailed interface {
 	error
-	WorkspaceID() WorkspaceID
+	WorkspaceID() ID
 	Unwrap() error
 }
 
@@ -215,14 +215,14 @@ type ErrMembershipRemoveFailed interface {
 type WorkspaceRepository interface {
 	Create(ctx context.Context, workspace *Workspace) ErrWorkspaceCreateFailed
 	Update(ctx context.Context, workspace *Workspace) ErrWorkspaceUpdateFailed
-	Delete(ctx context.Context, id WorkspaceID) ErrWorkspaceDeleteFailed
-	FindByID(ctx context.Context, id WorkspaceID) (*Workspace, error)
-	FindByIDForUpdate(ctx context.Context, id WorkspaceID) (*Workspace, error)
+	Delete(ctx context.Context, id ID) ErrWorkspaceDeleteFailed
+	FindByID(ctx context.Context, id ID) (*Workspace, error)
+	FindByIDForUpdate(ctx context.Context, id ID) (*Workspace, error)
 	Find(ctx context.Context, query WorkspaceQuery) ([]*Workspace, error)
 	Count(ctx context.Context, filter WorkspaceFilter) (int, error)
 	AddMember(ctx context.Context, membership Membership) ErrMembershipAddFailed
 	UpdateMember(ctx context.Context, membership Membership) ErrMembershipUpdateFailed
 	RemoveMember(ctx context.Context, membership Membership) ErrMembershipRemoveFailed
-	FindMember(ctx context.Context, id WorkspaceID, userID users.UserID) (Membership, error)
-	FindMembers(ctx context.Context, id WorkspaceID) (Memberships, error)
+	FindMember(ctx context.Context, id ID, userID users.UserID) (Membership, error)
+	FindMembers(ctx context.Context, id ID) (Memberships, error)
 }

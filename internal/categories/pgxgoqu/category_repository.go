@@ -71,15 +71,15 @@ func (e *errCategoryUpdateFailed) Error() string {
 // Implementation of categories.ErrCategoryDeleteFailed
 
 type errCategoryDeleteFailed struct {
-	id  categories.CategoryID
+	id  categories.ID
 	err error
 }
 
-func newErrCategoryDeleteFailed(id categories.CategoryID, err error) *errCategoryDeleteFailed {
+func newErrCategoryDeleteFailed(id categories.ID, err error) *errCategoryDeleteFailed {
 	return &errCategoryDeleteFailed{id, err}
 }
 
-func (e *errCategoryDeleteFailed) CategoryID() categories.CategoryID {
+func (e *errCategoryDeleteFailed) CategoryID() categories.ID {
 	return e.id
 }
 
@@ -208,7 +208,7 @@ func (r *CategoryRepository) Update(
 
 func (r *CategoryRepository) Delete(
 	ctx context.Context,
-	id categories.CategoryID,
+	id categories.ID,
 ) categories.ErrCategoryDeleteFailed {
 	var err categories.ErrCategoryDeleteFailed
 
@@ -243,7 +243,7 @@ func (r *CategoryRepository) Delete(
 
 func (r *CategoryRepository) FindByID(
 	ctx context.Context,
-	id categories.CategoryID,
+	id categories.ID,
 ) (*categories.Category, error) {
 	var (
 		category *categories.Category
@@ -272,7 +272,7 @@ func (r *CategoryRepository) FindByID(
 
 func (r *CategoryRepository) FindByIDForUpdate(
 	ctx context.Context,
-	id categories.CategoryID,
+	id categories.ID,
 ) (*categories.Category, error) {
 	var (
 		category *categories.Category
@@ -509,21 +509,21 @@ func scanCategory(row pgx.Row) (*categories.Category, error) {
 		err = fmt.Errorf("scan category: %w", scanErr)
 	} else {
 		var (
-			categoryID          categories.CategoryID
-			categoryWorkspaceID workspaces.WorkspaceID
-			categoryName        categories.CategoryName
+			categoryID          categories.ID
+			categoryWorkspaceID workspaces.ID
+			categoryName        categories.Name
 			categoryIcon        *categories.Icon
 			categoryColor       categories.Color
 		)
 
-		categoryID, err = categories.NewCategoryID(uuid.UUID(id.Bytes))
+		categoryID, err = categories.NewID(uuid.UUID(id.Bytes))
 
 		if err == nil {
-			categoryWorkspaceID, err = workspaces.NewWorkspaceID(uuid.UUID(workspaceID.Bytes))
+			categoryWorkspaceID, err = workspaces.NewID(uuid.UUID(workspaceID.Bytes))
 		}
 
 		if err == nil {
-			categoryName, err = categories.NewCategoryName(name)
+			categoryName, err = categories.NewName(name)
 		}
 
 		if err == nil && icon.Valid {

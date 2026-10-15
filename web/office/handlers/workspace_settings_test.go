@@ -229,8 +229,8 @@ func TestRenameWorkspaceRejected(t *testing.T) {
 	}
 }
 
-func workspaceName(f *fixture, id string) workspaces.WorkspaceName {
-	var name workspaces.WorkspaceName
+func workspaceName(f *fixture, id string) workspaces.Name {
+	var name workspaces.Name
 
 	for _, workspace := range f.workspaces {
 		if uuid.UUID(workspace.ID).String() == id {
@@ -260,7 +260,7 @@ func TestAddWorkspaceMember(t *testing.T) {
 		t.Fatalf("add = %d %q: %s", response.Code, response.Header().Get("Location"), response.Body.String())
 	}
 
-	if role := f.memberRole(workspaces.WorkspaceID(uuid.MustParse(designID)), grace.ID); role != workspaces.RoleViewer {
+	if role := f.memberRole(workspaces.ID(uuid.MustParse(designID)), grace.ID); role != workspaces.RoleViewer {
 		t.Fatalf("Grace's role = %q, want her added as a viewer by default", role)
 	}
 
@@ -326,7 +326,7 @@ func TestAddWorkspaceMemberRejected(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
 			cookies := f.signIn(t)
-			before := len(f.members[workspaces.WorkspaceID(uuid.MustParse(designID))]) + len(f.members[workspaces.WorkspaceID(uuid.MustParse(otherID))])
+			before := len(f.members[workspaces.ID(uuid.MustParse(designID))]) + len(f.members[workspaces.ID(uuid.MustParse(otherID))])
 
 			response := f.do(request{method: http.MethodPost, path: tt.path, body: tt.body, cookies: cookies})
 			body := response.Body.String()
@@ -335,7 +335,7 @@ func TestAddWorkspaceMemberRejected(t *testing.T) {
 				t.Fatalf("status = %d %q, want %d %q:\n%s", response.Code, response.Header().Get("Location"), tt.status, tt.location, body)
 			}
 
-			if after := len(f.members[workspaces.WorkspaceID(uuid.MustParse(designID))]) + len(f.members[workspaces.WorkspaceID(uuid.MustParse(otherID))]); after != before {
+			if after := len(f.members[workspaces.ID(uuid.MustParse(designID))]) + len(f.members[workspaces.ID(uuid.MustParse(otherID))]); after != before {
 				t.Fatal("a rejected addition changed the memberships")
 			}
 
@@ -417,7 +417,7 @@ func TestRemoveWorkspaceMember(t *testing.T) {
 	f := newFixture(t)
 	cookies := f.signIn(t)
 	grace := f.others[0]
-	design := workspaces.WorkspaceID(uuid.MustParse(designID))
+	design := workspaces.ID(uuid.MustParse(designID))
 	f.setMemberRole(design, grace.ID, workspaces.RoleViewer)
 	removePath := designPath + "/settings/members/" + uuid.UUID(grace.ID).String() + "/remove"
 
@@ -528,7 +528,7 @@ func withRole(t *testing.T, role workspaces.Role) (*fixture, []*http.Cookie) {
 	t.Helper()
 
 	f := newFixture(t)
-	design := workspaces.WorkspaceID(uuid.MustParse(designID))
+	design := workspaces.ID(uuid.MustParse(designID))
 	graceRole := workspaces.RoleEditor
 
 	if role != workspaces.RoleOwner {
@@ -627,7 +627,7 @@ func TestWorkspaceSettingsByRole(t *testing.T) {
 func TestWorkspaceSettingsLastOwner(t *testing.T) {
 	f := newFixture(t)
 	cookies := f.signIn(t)
-	design := workspaces.WorkspaceID(uuid.MustParse(designID))
+	design := workspaces.ID(uuid.MustParse(designID))
 	grace := f.others[0]
 	adaRole := designPath + "/settings/members/" + uuid.UUID(f.user.ID).String() + "/role"
 	graceRole := designPath + "/settings/members/" + uuid.UUID(grace.ID).String() + "/role"
@@ -723,7 +723,7 @@ func TestWorkspaceSettingsPostsByRole(t *testing.T) {
 
 func TestChangeWorkspaceMemberRole(t *testing.T) {
 	f, cookies := withRole(t, workspaces.RoleOwner)
-	design := workspaces.WorkspaceID(uuid.MustParse(designID))
+	design := workspaces.ID(uuid.MustParse(designID))
 	grace := f.others[0]
 	rolePath := designPath + "/settings/members/" + uuid.UUID(grace.ID).String() + "/role"
 
@@ -833,7 +833,7 @@ func TestChangeWorkspaceMemberRoleRejected(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			f := newFixture(t)
 			cookies := f.signIn(t)
-			f.setMemberRole(workspaces.WorkspaceID(uuid.MustParse(designID)), f.others[0].ID, workspaces.RoleEditor)
+			f.setMemberRole(workspaces.ID(uuid.MustParse(designID)), f.others[0].ID, workspaces.RoleEditor)
 			before := fmt.Sprint(f.members)
 
 			response := f.do(request{method: http.MethodPost, path: tt.path(f), body: tt.body, cookies: cookies})
@@ -869,7 +869,7 @@ func TestChangeWorkspaceMemberRoleRejected(t *testing.T) {
 func TestAddWorkspaceMemberWithRole(t *testing.T) {
 	f := newFixture(t)
 	cookies := f.signIn(t)
-	design := workspaces.WorkspaceID(uuid.MustParse(designID))
+	design := workspaces.ID(uuid.MustParse(designID))
 
 	response := f.do(request{
 		method:  http.MethodPost,
