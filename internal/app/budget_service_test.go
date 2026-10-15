@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -14,6 +15,7 @@ import (
 	budgetsmock "github.com/radynsade/faryengo/internal/budgets/mock"
 	"github.com/radynsade/faryengo/internal/categories"
 	"github.com/radynsade/faryengo/internal/currencies"
+	"github.com/radynsade/faryengo/internal/period"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	workspacesmock "github.com/radynsade/faryengo/internal/workspaces/mock"
@@ -196,6 +198,40 @@ func TestBudgetServiceCreate(t *testing.T) {
 			wantWrites:  1,
 		},
 		{
+			name: "created for each month",
+			request: input.CreateBudgetInput{
+				WorkspaceID:  testWorkspaceID,
+				CategoryIDs:  []categories.ID{testCategoryID},
+				CurrencyCode: "EUR",
+				Period:       testMonthlyPeriod(),
+				Amount:       100_00,
+			},
+			wantTxCalls: 1,
+			wantWrites:  1,
+		},
+		{
+			name: "repeating without an end",
+			request: input.CreateBudgetInput{
+				WorkspaceID:  testWorkspaceID,
+				CategoryIDs:  []categories.ID{testCategoryID},
+				CurrencyCode: "EUR",
+				Period:       input.PeriodInput{From: testMonthlyPeriod().From, Repeat: "monthly"},
+				Amount:       100_00,
+			},
+			wantErrs: []error{input.ErrCreateBudgetInputInvalid, period.ErrPeriodRepeatUnbounded},
+		},
+		{
+			name: "unknown repeat",
+			request: input.CreateBudgetInput{
+				WorkspaceID:  testWorkspaceID,
+				CategoryIDs:  []categories.ID{testCategoryID},
+				CurrencyCode: "EUR",
+				Period:       input.PeriodInput{Repeat: "hourly"},
+				Amount:       100_00,
+			},
+			wantErrs: []error{input.ErrCreateBudgetInputInvalid, period.ErrRepeatKindInvalid},
+		},
+		{
 			name:        "created with a zero amount",
 			request:     input.CreateBudgetInput{WorkspaceID: testWorkspaceID, CategoryIDs: []categories.ID{testCategoryID}, CurrencyCode: "EUR"},
 			wantTxCalls: 1,
@@ -306,6 +342,7 @@ func TestBudgetServiceCreate(t *testing.T) {
 				if stored != budget || budget.WorkspaceID != testWorkspaceID ||
 					!slices.Equal(budget.Categories, tt.request.CategoryIDs) ||
 					budget.Currency != currencies.Code(tt.request.CurrencyCode) ||
+					!samePeriod(budget.Period, tt.request.Period) ||
 					budget.Amount != budgets.Amount(tt.request.Amount) {
 					t.Fatalf("Create() = %+v, stored %+v, want the request's values", budget, stored)
 				}
@@ -453,6 +490,7 @@ func TestBudgetServiceUpdate(t *testing.T) {
 		writeErr       error
 		wantCategories budgets.CategoryIDs
 		wantCurrency   currencies.Code
+		wantPeriod     input.PeriodInput
 		wantAmount     budgets.Amount
 		wantErrs       []error
 		wantTxCalls    int
@@ -463,9 +501,28 @@ func TestBudgetServiceUpdate(t *testing.T) {
 			request:        validUpdateBudgetInput(),
 			wantCategories: budgets.CategoryIDs{testOtherCategoryID, testCategoryID},
 			wantCurrency:   "USD",
+			wantPeriod:     testMonthlyPeriod(),
 			wantAmount:     250_00,
 			wantTxCalls:    1,
 			wantWrites:     1,
+		},
+		{
+			name: "window too long",
+			request: input.UpdateBudgetInput{
+				ID:           testBudgetID,
+				CategoryIDs:  []categories.ID{testCategoryID},
+				CurrencyCode: "EUR",
+				Period: input.PeriodInput{
+					From:   new(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)),
+					To:     new(time.Date(2026, 1, 9, 0, 0, 0, 0, time.UTC)),
+					Repeat: "weekly",
+				},
+				Amount: 1,
+			},
+			wantErrs:       []error{input.ErrUpdateBudgetInputInvalid, period.ErrPeriodWindowTooLong},
+			wantCategories: testStoredCategories,
+			wantCurrency:   "EUR",
+			wantAmount:     100_00,
 		},
 		{
 			name: "all fields invalid",
@@ -551,7 +608,7 @@ func TestBudgetServiceUpdate(t *testing.T) {
 
 			// The budget keeps its workspace.
 			if !slices.Equal(stored.Categories, tt.wantCategories) || stored.Currency != tt.wantCurrency ||
-				stored.Amount != tt.wantAmount || stored.WorkspaceID != testWorkspaceID {
+				!samePeriod(stored.Period, tt.wantPeriod) || stored.Amount != tt.wantAmount || stored.WorkspaceID != testWorkspaceID {
 				t.Fatalf(
 					"stored budget = %+v, want categories %v, currency %s, and amount %d in workspace %v",
 					stored, tt.wantCategories, tt.wantCurrency, tt.wantAmount, testWorkspaceID,
@@ -629,11 +686,34 @@ func validCreateBudgetInput() input.CreateBudgetInput {
 	}
 }
 
+// The first window is January 2026 in UTC, and it repeats every month until
+// the end of the year.
+
+func testMonthlyPeriod() input.PeriodInput {
+	return input.PeriodInput{
+		From:   new(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)),
+		To:     new(time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)),
+		Repeat: "monthly",
+		Until:  new(time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)),
+	}
+}
+
+func samePeriod(got period.Period, want input.PeriodInput) bool {
+	return sameTimePointer(got.From, want.From) && sameTimePointer(got.To, want.To) &&
+		string(got.Repeat.Kind) == want.Repeat && got.Repeat.Every == want.Every &&
+		sameTimePointer(got.Repeat.Until, want.Until)
+}
+
+func sameTimePointer(a *time.Time, b *time.Time) bool {
+	return (a == nil) == (b == nil) && (a == nil || a.Equal(*b))
+}
+
 func validUpdateBudgetInput() input.UpdateBudgetInput {
 	return input.UpdateBudgetInput{
 		ID:           testBudgetID,
 		CategoryIDs:  []categories.ID{testOtherCategoryID, testCategoryID},
 		CurrencyCode: "USD",
+		Period:       testMonthlyPeriod(),
 		Amount:       250_00,
 	}
 }
@@ -693,7 +773,7 @@ func newBudgetStore(t *testing.T, workspace *workspaceStore) *budgetStore {
 		t:         t,
 		workspace: workspace,
 		budgets: map[budgets.ID]*budgets.Budget{
-			testBudgetID: budgets.NewBudget(testBudgetID, testWorkspaceID, slices.Clone(testStoredCategories), "EUR", 100_00),
+			testBudgetID: budgets.NewBudget(testBudgetID, testWorkspaceID, slices.Clone(testStoredCategories), "EUR", period.Period{}, 100_00),
 		},
 	}
 }

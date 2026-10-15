@@ -762,7 +762,7 @@
     "other": "Новый бюджет"
   },
   "budgets.new_description": {
-    "other": "Выберите категории, на которые распространяется бюджет, его валюту и сколько на них можно потратить."
+    "other": "Выберите категории, на которые распространяется бюджет, его валюту, когда он действует и сколько на них можно потратить."
   },
   "budgets.list": {
     "other": "Бюджеты этого рабочего пространства"
@@ -846,12 +846,210 @@
     "other": "250,00"
   },
   "fields.budget_amount_hint": {
-    "other": "Наибольшая сумма, которую можно потратить на эти категории, не более двух знаков после запятой."
+    "other": "Наибольшая сумма, которую можно потратить на эти категории в каждом окне периода, не более двух знаков после запятой."
   },
   "errors.budgets_unavailable": {
     "other": "Бюджеты сейчас недоступны. Попробуйте позже."
   },
   "errors.category_in_use": {
     "other": "Эта категория входит в бюджет, поэтому её нельзя удалить. Сначала уберите её из этих бюджетов."
+  },
+  "periods.legend": {
+    "other": "Период"
+  },
+  "periods.presets": {
+    "other": "Частые периоды"
+  },
+  "periods.preset_daily": {
+    "other": "Каждый день"
+  },
+  "periods.preset_weekly": {
+    "other": "Каждую неделю"
+  },
+  "periods.preset_monthly": {
+    "other": "Каждый месяц"
+  },
+  "periods.preset_this_month": {
+    "other": "Этот месяц"
+  },
+  "periods.repeat": {
+    "other": "Повторяется"
+  },
+  "periods.repeat_none": {
+    "other": "Не повторяется"
+  },
+  "periods.repeat_daily": {
+    "other": "Каждый день"
+  },
+  "periods.repeat_weekly": {
+    "other": "Каждую неделю"
+  },
+  "periods.repeat_monthly": {
+    "other": "Каждый месяц"
+  },
+  "periods.repeat_yearly": {
+    "other": "Каждый год"
+  },
+  "periods.repeat_every": {
+    "other": "Со своим интервалом"
+  },
+  "periods.from": {
+    "other": "Начало"
+  },
+  "periods.to": {
+    "other": "Конец"
+  },
+  "periods.window_hint": {
+    "other": "Это первое окно; каждый повтор сдвигает его на один шаг."
+  },
+  "periods.open_hint": {
+    "other": "Оставьте поле пустым, чтобы не ограничивать эту сторону."
+  },
+  "periods.every": {
+    "other": "Каждые"
+  },
+  "periods.every_unit": {
+    "other": "Единица"
+  },
+  "periods.unit_minutes": {
+    "other": "минуты"
+  },
+  "periods.unit_hours": {
+    "other": "часы"
+  },
+  "periods.unit_days": {
+    "other": "дни"
+  },
+  "periods.until": {
+    "other": "Повторять до"
+  },
+  "periods.until_hint": {
+    "other": "Необязательно. Ни одно окно не заходит дальше."
+  },
+  "periods.device_time_zone": {
+    "other": "Время указано в часовом поясе вашего устройства."
+  },
+  "periods.time_zone": {
+    "other": "Время указано в часовом поясе {{.Zone}}."
+  },
+  "periods.every_invalid": {
+    "other": "Введите целое число от 1 до 99999."
+  },
+  "periods.end_before_start": {
+    "other": "Конец должен быть позже начала."
+  },
+  "periods.window_too_long": {
+    "other": "Окно должно заканчиваться до начала следующего повтора."
+  },
+  "periods.until_before_start": {
+    "other": "Повторы должны заканчиваться после начала."
+  },
+  "periods.bounds_required": {
+    "other": "Для повторяющегося периода нужны начало и конец."
+  },
+  "periods.summary_any_time": {
+    "other": "В любое время"
+  },
+  "periods.summary_from": {
+    "other": "С {{.From}}"
+  },
+  "periods.summary_before": {
+    "other": "До {{.To}}"
+  },
+  "periods.summary_window": {
+    "other": "{{.From}} – {{.To}}"
+  },
+  "periods.summary_repeating": {
+    "other": "{{.Repeat}}, первое — {{.Window}}"
+  },
+  "periods.summary_repeating_until": {
+    "other": "{{.Repeat}}, первое — {{.Window}}, до {{.Until}}"
+  },
+  "periods.every_minutes": {
+    "one": "Каждую {{.Count}} минуту",
+    "few": "Каждые {{.Count}} минуты",
+    "many": "Каждые {{.Count}} минут",
+    "other": "Каждые {{.Count}} минуты"
+  },
+  "periods.every_hours": {
+    "one": "Каждый {{.Count}} час",
+    "few": "Каждые {{.Count}} часа",
+    "many": "Каждые {{.Count}} часов",
+    "other": "Каждые {{.Count}} часа"
+  },
+  "periods.every_days": {
+    "one": "Каждый {{.Count}} день",
+    "few": "Каждые {{.Count}} дня",
+    "many": "Каждые {{.Count}} дней",
+    "other": "Каждые {{.Count}} дня"
+  },
+  "periods.window": {
+    "other": "Окно"
+  },
+  "periods.window_custom": {
+    "other": "Свой интервал"
+  },
+  "periods.window_day": {
+    "other": "Весь день"
+  },
+  "periods.window_month": {
+    "other": "Весь месяц"
+  },
+  "periods.window_year": {
+    "other": "Весь год"
+  },
+  "periods.day": {
+    "other": "День"
+  },
+  "periods.month": {
+    "other": "Месяц"
+  },
+  "periods.year": {
+    "other": "Год"
+  },
+  "periods.year_invalid": {
+    "other": "Введите год от 1 до 9999."
+  },
+  "periods.month_year": {
+    "other": "{{.Month}} {{.Year}}"
+  },
+  "periods.month_1": {
+    "other": "январь"
+  },
+  "periods.month_2": {
+    "other": "февраль"
+  },
+  "periods.month_3": {
+    "other": "март"
+  },
+  "periods.month_4": {
+    "other": "апрель"
+  },
+  "periods.month_5": {
+    "other": "май"
+  },
+  "periods.month_6": {
+    "other": "июнь"
+  },
+  "periods.month_7": {
+    "other": "июль"
+  },
+  "periods.month_8": {
+    "other": "август"
+  },
+  "periods.month_9": {
+    "other": "сентябрь"
+  },
+  "periods.month_10": {
+    "other": "октябрь"
+  },
+  "periods.month_11": {
+    "other": "ноябрь"
+  },
+  "periods.month_12": {
+    "other": "декабрь"
+  },
+  "periods.repeat_unfit": {
+    "other": "Этот повтор не подходит к выбранному окну."
   }
 }

@@ -1,0 +1,177 @@
+package pages
+
+import (
+	"slices"
+
+	officei18n "github.com/radynsade/faryengo/web/office/i18n"
+	"github.com/radynsade/faryengo/web/office/templates/components"
+)
+
+// A preset fills the selector with a common period, such as every month
+// starting with the current one; the browser computes it in the device's
+// calendar.
+
+type PeriodPreset struct {
+	Value string
+	Label string
+}
+
+// Repeat is the chosen repeat's value, empty for none. Window is the kind of
+// the first window: a custom range of From and To, or the whole Day, Month of
+// Year, or Year. From, To, and Until are local date-times in TimeZone, Day is
+// a date, Month is the month's number, and Every is a whole number of
+// EveryUnit. TimeZone is empty for a new period, whose zone the browser fills
+// with the device's when the form is sent.
+
+// RepeatFits maps each whole window to the repeats that fit it, in JSON, the
+// first being the one to switch to; the script follows it.
+
+type PeriodSelectorProps struct {
+	Repeat       string
+	Repeats      []components.SelectOption
+	RepeatFits   string
+	Window       string
+	Windows      []components.SelectOption
+	From         string
+	To           string
+	Day          string
+	Month        string
+	Months       []components.SelectOption
+	Year         string
+	Every        string
+	EveryUnit    string
+	EveryUnits   []components.SelectOption
+	Until        string
+	TimeZone     string
+	TimeZoneHint string
+	Presets      []PeriodPreset
+}
+
+// PeriodSelector chooses when something applies: one window, or a first
+// window that repeats every day, week, month, year, or interval of its own,
+// until an optional end. The window is a custom range, whose sides may be open
+// when it does not repeat, or a whole day, month, or year. The server renders
+// which fields the window and the repeat use, and the script keeps them in
+// step as they change; hidden fields keep their values but are not read.
+templ PeriodSelector(props PeriodSelectorProps, fieldErrors map[string]string) {
+	<fieldset class="period-selector" data-period-selector data-period-fits={ props.RepeatFits }>
+		<legend class="period-selector__legend">{ officei18n.T(ctx, "periods.legend") }</legend>
+		<div class="period-selector__presets" role="group" aria-label={ officei18n.T(ctx, "periods.presets") }>
+			for _, preset := range props.Presets {
+				<button class="period-selector__preset" type="button" data-period-preset={ preset.Value }>{ preset.Label }</button>
+			}
+		</div>
+		<div class="form__row">
+			@components.Select(components.SelectProps{
+				ID:      "period-window",
+				Name:    "period_window",
+				Label:   officei18n.T(ctx, "periods.window"),
+				Value:   props.Window,
+				Options: props.Windows,
+				Error:   fieldErrors["period_window"],
+			})
+			@components.Select(components.SelectProps{
+				ID:      "period-repeat",
+				Name:    "period_repeat",
+				Label:   officei18n.T(ctx, "periods.repeat"),
+				Value:   props.Repeat,
+				Options: props.Repeats,
+				Error:   fieldErrors["period_repeat"],
+			})
+		</div>
+		<div class="form__row" data-period-window-show="custom" hidden?={ windowHidden(props.Window, "custom") }>
+			@components.TextInput(components.TextInputProps{
+				ID:    "period-from",
+				Name:  "period_from",
+				Type:  "datetime-local",
+				Label: officei18n.T(ctx, "periods.from"),
+				Value: props.From,
+				Error: fieldErrors["period_from"],
+			})
+			@components.TextInput(components.TextInputProps{
+				ID:    "period-to",
+				Name:  "period_to",
+				Type:  "datetime-local",
+				Label: officei18n.T(ctx, "periods.to"),
+				Value: props.To,
+				Error: fieldErrors["period_to"],
+			})
+		</div>
+		<div data-period-window-show="day" hidden?={ windowHidden(props.Window, "day") }>
+			@components.TextInput(components.TextInputProps{
+				ID:    "period-day",
+				Name:  "period_day",
+				Type:  "date",
+				Label: officei18n.T(ctx, "periods.day"),
+				Value: props.Day,
+				Error: fieldErrors["period_day"],
+			})
+		</div>
+		<div class="form__row" data-period-window-show="month year" hidden?={ windowHidden(props.Window, "month", "year") }>
+			<div data-period-window-show="month" hidden?={ windowHidden(props.Window, "month") }>
+				@components.Select(components.SelectProps{
+					ID:      "period-month",
+					Name:    "period_month",
+					Label:   officei18n.T(ctx, "periods.month"),
+					Value:   props.Month,
+					Options: props.Months,
+					Error:   fieldErrors["period_month"],
+				})
+			</div>
+			@components.TextInput(components.TextInputProps{
+				ID:           "period-year",
+				Name:         "period_year",
+				Type:         "number",
+				Label:        officei18n.T(ctx, "periods.year"),
+				Autocomplete: "off",
+				Value:        props.Year,
+				Error:        fieldErrors["period_year"],
+			})
+		</div>
+		<p class="field__hint" data-period-repeating hidden?={ props.Repeat == "" }>
+			{ officei18n.T(ctx, "periods.window_hint") }
+		</p>
+		<p class="field__hint" data-period-open hidden?={ props.Repeat != "" || props.Window != "custom" }>
+			{ officei18n.T(ctx, "periods.open_hint") }
+		</p>
+		<div class="form__row" data-period-every hidden?={ props.Repeat != "every" }>
+			@components.TextInput(components.TextInputProps{
+				ID:           "period-every",
+				Name:         "period_every",
+				Type:         "number",
+				Label:        officei18n.T(ctx, "periods.every"),
+				Placeholder:  "2",
+				Autocomplete: "off",
+				Value:        props.Every,
+				Error:        fieldErrors["period_every"],
+			})
+			@components.Select(components.SelectProps{
+				ID:      "period-every-unit",
+				Name:    "period_every_unit",
+				Label:   officei18n.T(ctx, "periods.every_unit"),
+				Value:   props.EveryUnit,
+				Options: props.EveryUnits,
+				Error:   fieldErrors["period_every_unit"],
+			})
+		</div>
+		<div data-period-repeating hidden?={ props.Repeat == "" }>
+			@components.TextInput(components.TextInputProps{
+				ID:    "period-until",
+				Name:  "period_until",
+				Type:  "datetime-local",
+				Label: officei18n.T(ctx, "periods.until"),
+				Value: props.Until,
+				Hint:  officei18n.T(ctx, "periods.until_hint"),
+				Error: fieldErrors["period_until"],
+			})
+		</div>
+		<input type="hidden" name="time_zone" value={ props.TimeZone } data-period-time-zone/>
+		<p class="field__hint period-selector__zone">{ props.TimeZoneHint }</p>
+	</fieldset>
+}
+
+// A part of the selector shows only for the kinds of window it lists.
+func windowHidden(window string, shows ...string) bool {
+	return !slices.Contains(shows, window)
+}
+

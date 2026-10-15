@@ -8,6 +8,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/categories"
 	"github.com/radynsade/faryengo/internal/currencies"
+	"github.com/radynsade/faryengo/internal/period"
 	"github.com/radynsade/faryengo/internal/workspaces"
 )
 
@@ -133,13 +134,16 @@ var (
 )
 
 // A Budget limits the Amount spent across Categories of its Workspace, in one
-// Currency referenced by its code.
+// Currency referenced by its code, during its Period. A repeating Period
+// limits the Amount in each of its windows; a Period without bounds limits it
+// at any time.
 
 type Budget struct {
 	ID          ID
 	WorkspaceID workspaces.ID
 	Categories  CategoryIDs
 	Currency    currencies.Code
+	Period      period.Period
 	Amount      Amount
 }
 
@@ -148,6 +152,7 @@ func NewBudget(
 	workspaceID workspaces.ID,
 	categoryIDs CategoryIDs,
 	currency currencies.Code,
+	budgetPeriod period.Period,
 	amount Amount,
 ) *Budget {
 	return &Budget{
@@ -155,6 +160,7 @@ func NewBudget(
 		WorkspaceID: workspaceID,
 		Categories:  categoryIDs,
 		Currency:    currency,
+		Period:      budgetPeriod,
 		Amount:      amount,
 	}
 }
@@ -170,6 +176,7 @@ func (b *Budget) Validate() error {
 			b.WorkspaceID.Validate(),
 			b.Categories.Validate(),
 			b.Currency.Validate(),
+			b.Period.Validate(),
 			b.Amount.Validate(),
 		)
 	}

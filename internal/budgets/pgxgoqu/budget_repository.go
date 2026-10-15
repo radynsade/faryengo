@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/doug-martin/goqu/v9"
 	_ "github.com/doug-martin/goqu/v9/dialect/postgres"
@@ -17,6 +18,7 @@ import (
 	"github.com/radynsade/faryengo/internal/categories"
 	"github.com/radynsade/faryengo/internal/currencies"
 	"github.com/radynsade/faryengo/internal/infra/pgxdb"
+	"github.com/radynsade/faryengo/internal/period"
 	"github.com/radynsade/faryengo/internal/workspaces"
 )
 
@@ -137,10 +139,16 @@ func (r *BudgetRepository) Create(
 		query, args, buildErr := goqu.Dialect("postgres").
 			Insert("budget").
 			Rows(goqu.Record{
-				"id":            uuid.UUID(budget.ID).String(),
-				"workspace_id":  uuid.UUID(budget.WorkspaceID).String(),
-				"currency_code": string(budget.Currency),
-				"amount":        int64(budget.Amount),
+				"id":               uuid.UUID(budget.ID).String(),
+				"workspace_id":     uuid.UUID(budget.WorkspaceID).String(),
+				"currency_code":    string(budget.Currency),
+				"period_from":      storedTime(budget.Period.From),
+				"period_to":        storedTime(budget.Period.To),
+				"period_repeat":    string(budget.Period.Repeat.Kind),
+				"period_every":     storedEvery(budget.Period.Repeat),
+				"period_until":     storedTime(budget.Period.Repeat.Until),
+				"period_time_zone": budget.Period.Location().String(),
+				"amount":           int64(budget.Amount),
 			}).
 			Prepared(true).
 			ToSQL()
@@ -189,8 +197,14 @@ func (r *BudgetRepository) Update(
 		updateQuery, updateArgs, updateBuildErr := goqu.Dialect("postgres").
 			Update("budget").
 			Set(goqu.Record{
-				"currency_code": string(budget.Currency),
-				"amount":        int64(budget.Amount),
+				"currency_code":    string(budget.Currency),
+				"period_from":      storedTime(budget.Period.From),
+				"period_to":        storedTime(budget.Period.To),
+				"period_repeat":    string(budget.Period.Repeat.Kind),
+				"period_every":     storedEvery(budget.Period.Repeat),
+				"period_until":     storedTime(budget.Period.Repeat.Until),
+				"period_time_zone": budget.Period.Location().String(),
+				"amount":           int64(budget.Amount),
 			}).
 			Where(goqu.Ex{
 				"id":           storedID,
@@ -499,6 +513,12 @@ func budgetColumns() []any {
 			`WHERE "budget_category".budget_id = "budget".id ` +
 			`ORDER BY "budget_category".position)`),
 		"currency_code",
+		"period_from",
+		"period_to",
+		"period_repeat",
+		goqu.L(`(extract(epoch FROM "budget".period_every) * 1000000)::bigint`),
+		"period_until",
+		"period_time_zone",
 		"amount",
 	}
 }
@@ -559,10 +579,23 @@ func scanBudget(row pgx.Row) (*budgets.Budget, error) {
 		workspaceID pgtype.UUID
 		categoryIDs []pgtype.UUID
 		code        string
+		stored      storedPeriod
 		amount      int64
 	)
 
-	scanErr := row.Scan(&id, &workspaceID, &categoryIDs, &code, &amount)
+	scanErr := row.Scan(
+		&id,
+		&workspaceID,
+		&categoryIDs,
+		&code,
+		&stored.from,
+		&stored.to,
+		&stored.repeat,
+		&stored.everyMicroseconds,
+		&stored.until,
+		&stored.timeZone,
+		&amount,
+	)
 
 	if errors.Is(scanErr, pgx.ErrNoRows) {
 		err = budgets.ErrBudgetNotFound
@@ -574,6 +607,7 @@ func scanBudget(row pgx.Row) (*budgets.Budget, error) {
 			budgetWorkspaceID workspaces.ID
 			budgetCategoryIDs budgets.CategoryIDs
 			budgetCurrency    currencies.Code
+			budgetPeriod      period.Period
 			budgetAmount      budgets.Amount
 		)
 
@@ -592,6 +626,10 @@ func scanBudget(row pgx.Row) (*budgets.Budget, error) {
 		}
 
 		if err == nil {
+			budgetPeriod, err = stored.decode()
+		}
+
+		if err == nil {
 			budgetAmount, err = budgets.NewAmount(amount)
 		}
 
@@ -601,6 +639,7 @@ func scanBudget(row pgx.Row) (*budgets.Budget, error) {
 				budgetWorkspaceID,
 				budgetCategoryIDs,
 				budgetCurrency,
+				budgetPeriod,
 				budgetAmount,
 			)
 		} else {
@@ -609,6 +648,88 @@ func scanBudget(row pgx.Row) (*budgets.Budget, error) {
 	}
 
 	return budget, err
+}
+
+// PostgreSQL keeps instants without their location, so the period's time zone
+// is kept beside them; a period without times keeps UTC. The step is kept as
+// an interval with PostgreSQL's precision of a microsecond, the precision of
+// its timestamps too.
+
+func storedTime(value *time.Time) any {
+	var stored any
+
+	if value != nil {
+		stored = *value
+	}
+
+	return stored
+}
+
+func storedEvery(repeat period.Repeat) any {
+	var stored any
+
+	if repeat.Kind == period.RepeatEvery {
+		stored = goqu.L("?::double precision * interval '1 microsecond'", repeat.Every.Microseconds())
+	}
+
+	return stored
+}
+
+type storedPeriod struct {
+	from              pgtype.Timestamptz
+	to                pgtype.Timestamptz
+	repeat            string
+	everyMicroseconds *int64
+	until             pgtype.Timestamptz
+	timeZone          string
+}
+
+// The instants are read in the period's time zone, so repeated windows follow
+// its calendar again. The period is validated as a whole, since its parts must
+// still fit together.
+
+func (s storedPeriod) decode() (period.Period, error) {
+	var (
+		result   period.Period
+		location *time.Location
+		kind     period.RepeatKind
+		every    time.Duration
+	)
+
+	location, err := time.LoadLocation(s.timeZone)
+
+	if err == nil {
+		kind, err = period.NewRepeatKind(s.repeat)
+	}
+
+	if err == nil {
+		if s.everyMicroseconds != nil {
+			every = time.Duration(*s.everyMicroseconds) * time.Microsecond
+		}
+
+		result = period.NewPeriod(
+			decodeTime(s.from, location),
+			decodeTime(s.to, location),
+			period.NewRepeat(kind, every, decodeTime(s.until, location)),
+		)
+		err = result.Validate()
+	}
+
+	if err != nil {
+		result = period.Period{}
+	}
+
+	return result, err
+}
+
+func decodeTime(stored pgtype.Timestamptz, location *time.Location) *time.Time {
+	var value *time.Time
+
+	if stored.Valid {
+		value = new(stored.Time.In(location))
+	}
+
+	return value
 }
 
 // The collection is validated as a whole, since a stored budget must still

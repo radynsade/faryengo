@@ -6,7 +6,9 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/doug-martin/goqu/v9"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -18,6 +20,7 @@ import (
 	"github.com/radynsade/faryengo/internal/categories"
 	"github.com/radynsade/faryengo/internal/currencies"
 	"github.com/radynsade/faryengo/internal/infra/pgxdb"
+	"github.com/radynsade/faryengo/internal/period"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	"github.com/radynsade/faryengo/pkg/domquery"
 )
@@ -106,22 +109,22 @@ func TestBudgetMethodsValidateBeforeIO(t *testing.T) {
 		{"create nil", func() error { return repository.Create(ctx, nil) }, budgets.ErrBudgetNil},
 		{"create invalid", func() error { return repository.Create(ctx, &budgets.Budget{}) }, budgets.ErrBudgetInvalid},
 		{"create without a workspace", func() error {
-			return repository.Create(ctx, budgets.NewBudget(testBudgetID, workspaces.ID{}, categoryIDs, "EUR", 100))
+			return repository.Create(ctx, budgets.NewBudget(testBudgetID, workspaces.ID{}, categoryIDs, "EUR", period.Period{}, 100))
 		}, workspaces.ErrIDInvalid},
 		{"create without categories", func() error {
-			return repository.Create(ctx, budgets.NewBudget(testBudgetID, testWorkspaceID, nil, "EUR", 100))
+			return repository.Create(ctx, budgets.NewBudget(testBudgetID, testWorkspaceID, nil, "EUR", period.Period{}, 100))
 		}, budgets.ErrCategoryIDsEmpty},
 		{"create without a currency", func() error {
-			return repository.Create(ctx, budgets.NewBudget(testBudgetID, testWorkspaceID, categoryIDs, "", 100))
+			return repository.Create(ctx, budgets.NewBudget(testBudgetID, testWorkspaceID, categoryIDs, "", period.Period{}, 100))
 		}, currencies.ErrCodeInvalid},
 		{"update nil", func() error { return repository.Update(ctx, nil) }, budgets.ErrBudgetNil},
 		{"update with duplicate categories", func() error {
 			return repository.Update(ctx, budgets.NewBudget(
-				testBudgetID, testWorkspaceID, budgets.CategoryIDs{testCategoryID, testCategoryID}, "EUR", 100,
+				testBudgetID, testWorkspaceID, budgets.CategoryIDs{testCategoryID, testCategoryID}, "EUR", period.Period{}, 100,
 			))
 		}, budgets.ErrCategoryIDsDuplicate},
 		{"update with a negative amount", func() error {
-			return repository.Update(ctx, budgets.NewBudget(testBudgetID, testWorkspaceID, categoryIDs, "EUR", -1))
+			return repository.Update(ctx, budgets.NewBudget(testBudgetID, testWorkspaceID, categoryIDs, "EUR", period.Period{}, -1))
 		}, budgets.ErrAmountNegative},
 		{"delete invalid ID", func() error { return repository.Delete(ctx, budgets.ID{}) }, budgets.ErrIDInvalid},
 		{"find by invalid ID", func() error {
@@ -198,7 +201,9 @@ func TestBudgetFindQuery(t *testing.T) {
 			wantSQL: []string{
 				`SELECT "id", "workspace_id", ARRAY(SELECT "budget_category".category_id FROM "budget_category" ` +
 					`WHERE "budget_category".budget_id = "budget".id ORDER BY "budget_category".position), ` +
-					`"currency_code", "amount" FROM "budget"`,
+					`"currency_code", "period_from", "period_to", "period_repeat", ` +
+					`(extract(epoch FROM "budget".period_every) * 1000000)::bigint, "period_until", "period_time_zone", ` +
+					`"amount" FROM "budget"`,
 			},
 			wantArgs: []any{int64(1)},
 		},
@@ -277,6 +282,7 @@ func TestBudgetCategoriesInsert(t *testing.T) {
 		testWorkspaceID,
 		budgets.CategoryIDs{testCategoryID2, testCategoryID},
 		"EUR",
+		period.Period{},
 		100,
 	)
 
@@ -338,6 +344,117 @@ func TestDecodeCategoryIDs(t *testing.T) {
 			}
 		})
 	}
+}
+
+// A period is stored as instants with its time zone and read back in that
+// zone, so repeated windows follow the same calendar.
+
+func TestStoredPeriodRoundTrip(t *testing.T) {
+	riga, err := time.LoadLocation("Europe/Riga")
+
+	if err != nil {
+		t.Skipf("time zone data unavailable: %v", err)
+	}
+
+	from := time.Date(2026, 3, 1, 13, 0, 0, 0, riga)
+	to := time.Date(2026, 3, 1, 15, 20, 0, 0, riga)
+	until := time.Date(2026, 6, 1, 0, 0, 0, 0, riga)
+
+	for _, tt := range []struct {
+		name   string
+		period period.Period
+	}{
+		{"any time", period.Period{}},
+		{"open end", period.NewPeriod(&from, nil, period.NewRepeat(period.RepeatNone, 0, nil))},
+		{"daily until a date", period.NewPeriod(&from, &to, period.NewRepeat(period.RepeatDaily, 0, &until))},
+		{"every ten days", period.NewPeriod(&from, &to, period.NewRepeat(period.RepeatEvery, 240*time.Hour, nil))},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			stored := storedPeriod{
+				from:     storedTimestamp(tt.period.From),
+				to:       storedTimestamp(tt.period.To),
+				repeat:   string(tt.period.Repeat.Kind),
+				until:    storedTimestamp(tt.period.Repeat.Until),
+				timeZone: tt.period.Location().String(),
+			}
+
+			if every := storedEvery(tt.period.Repeat); every != nil {
+				stored.everyMicroseconds = new(tt.period.Repeat.Every.Microseconds())
+			}
+
+			decoded, err := stored.decode()
+
+			if err != nil {
+				t.Fatalf("decode() = %v", err)
+			}
+
+			if !sameTime(decoded.From, tt.period.From) || !sameTime(decoded.To, tt.period.To) ||
+				!sameTime(decoded.Repeat.Until, tt.period.Repeat.Until) || decoded.Repeat.Kind != tt.period.Repeat.Kind ||
+				decoded.Repeat.Every != tt.period.Repeat.Every || decoded.Location().String() != tt.period.Location().String() {
+				t.Fatalf("decode() = %+v, want %+v", decoded, tt.period)
+			}
+
+			if decoded.From != nil && decoded.From.Hour() != 13 {
+				t.Fatalf("decoded start = %s, want it in the stored time zone", decoded.From)
+			}
+		})
+	}
+}
+
+func TestStoredPeriodRejected(t *testing.T) {
+	from := pgtype.Timestamptz{Time: time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC), Valid: true}
+	to := pgtype.Timestamptz{Time: time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC), Valid: true}
+
+	for _, tt := range []struct {
+		name   string
+		stored storedPeriod
+		want   error
+	}{
+		{"unknown repeat", storedPeriod{from: from, to: to, repeat: "hourly", timeZone: "UTC"}, period.ErrRepeatKindInvalid},
+		{"repeat without bounds", storedPeriod{repeat: "monthly", timeZone: "UTC"}, period.ErrPeriodRepeatUnbounded},
+		{"every without a step", storedPeriod{from: from, to: to, repeat: "every", timeZone: "UTC"}, period.ErrRepeatEveryNotPositive},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			decoded, err := tt.stored.decode()
+
+			if !errors.Is(err, tt.want) || decoded != (period.Period{}) {
+				t.Fatalf("decode() = (%+v, %v), want %v", decoded, err, tt.want)
+			}
+		})
+	}
+
+	if _, err := (storedPeriod{timeZone: "Mars/Olympus_Mons"}).decode(); err == nil {
+		t.Fatal("decode() of an unknown time zone succeeded")
+	}
+}
+
+func TestStoredEvery(t *testing.T) {
+	if got := storedEvery(period.NewRepeat(period.RepeatMonthly, 0, nil)); got != nil {
+		t.Fatalf("storedEvery(monthly) = %v, want nil", got)
+	}
+
+	sql, args, err := goqu.Dialect("postgres").From("budget").
+		Select(storedEvery(period.NewRepeat(period.RepeatEvery, 90*time.Minute, nil))).
+		Prepared(true).
+		ToSQL()
+
+	if err != nil || !strings.Contains(sql, `$1::double precision * interval '1 microsecond'`) || len(args) != 1 || args[0] != int64(5_400_000_000) {
+		t.Fatalf("storedEvery(90m) = %q %v %v", sql, args, err)
+	}
+}
+
+func storedTimestamp(value *time.Time) pgtype.Timestamptz {
+	var stored pgtype.Timestamptz
+
+	if value != nil {
+		stored = pgtype.Timestamptz{Time: value.UTC(), Valid: true}
+	}
+
+	return stored
+}
+
+func sameTime(a *time.Time, b *time.Time) bool {
+	return (a == nil) == (b == nil) && (a == nil || a.Equal(*b))
 }
 
 func TestMapBudgetErrors(t *testing.T) {

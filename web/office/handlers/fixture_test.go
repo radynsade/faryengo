@@ -26,6 +26,7 @@ import (
 	"github.com/radynsade/faryengo/internal/currencies"
 	currenciesmock "github.com/radynsade/faryengo/internal/currencies/mock"
 	"github.com/radynsade/faryengo/internal/languages"
+	"github.com/radynsade/faryengo/internal/period"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
 	emailpassredis "github.com/radynsade/faryengo/internal/security/emailpass/redis"
@@ -923,7 +924,7 @@ func (f *fixture) budgetRepository() *budgetsmock.BudgetRepository {
 	}
 }
 
-// Budgets added directly are set in euros.
+// Budgets added directly are set in euros and apply at any time.
 
 func (f *fixture) addBudget(workspaceID string, amount budgets.Amount, categoryList ...*categories.Category) *budgets.Budget {
 	ids := make(budgets.CategoryIDs, 0, len(categoryList))
@@ -937,6 +938,7 @@ func (f *fixture) addBudget(workspaceID string, amount budgets.Amount, categoryL
 		workspaces.ID(uuid.MustParse(workspaceID)),
 		ids,
 		"EUR",
+		period.Period{},
 		amount,
 	)
 	f.budgets = append(f.budgets, budget)

@@ -756,7 +756,7 @@
     "other": "New budget"
   },
   "budgets.new_description": {
-    "other": "Choose the categories the budget covers, its currency, and how much may be spent on them."
+    "other": "Choose the categories the budget covers, its currency, when it applies, and how much may be spent on them."
   },
   "budgets.list": {
     "other": "Budgets of this workspace"
@@ -840,12 +840,204 @@
     "other": "250.00"
   },
   "fields.budget_amount_hint": {
-    "other": "The most that may be spent on these categories, with up to two decimal places."
+    "other": "The most that may be spent on these categories in each window of the period, with up to two decimal places."
   },
   "errors.budgets_unavailable": {
     "other": "Budgets are unavailable right now. Please try again later."
   },
   "errors.category_in_use": {
     "other": "A budget covers this category, so it cannot be deleted. Remove it from those budgets first."
+  },
+  "periods.legend": {
+    "other": "Period"
+  },
+  "periods.presets": {
+    "other": "Common periods"
+  },
+  "periods.preset_daily": {
+    "other": "Every day"
+  },
+  "periods.preset_weekly": {
+    "other": "Every week"
+  },
+  "periods.preset_monthly": {
+    "other": "Every month"
+  },
+  "periods.preset_this_month": {
+    "other": "This month"
+  },
+  "periods.repeat": {
+    "other": "Repeats"
+  },
+  "periods.repeat_none": {
+    "other": "Does not repeat"
+  },
+  "periods.repeat_daily": {
+    "other": "Every day"
+  },
+  "periods.repeat_weekly": {
+    "other": "Every week"
+  },
+  "periods.repeat_monthly": {
+    "other": "Every month"
+  },
+  "periods.repeat_yearly": {
+    "other": "Every year"
+  },
+  "periods.repeat_every": {
+    "other": "At a custom interval"
+  },
+  "periods.from": {
+    "other": "Starts"
+  },
+  "periods.to": {
+    "other": "Ends"
+  },
+  "periods.window_hint": {
+    "other": "This is the first window; each repeat moves it forward one step."
+  },
+  "periods.open_hint": {
+    "other": "Leave a side empty to leave it open."
+  },
+  "periods.every": {
+    "other": "Every"
+  },
+  "periods.every_unit": {
+    "other": "Unit"
+  },
+  "periods.unit_minutes": {
+    "other": "minutes"
+  },
+  "periods.unit_hours": {
+    "other": "hours"
+  },
+  "periods.unit_days": {
+    "other": "days"
+  },
+  "periods.until": {
+    "other": "Stops repeating"
+  },
+  "periods.until_hint": {
+    "other": "Optional. No window reaches past it."
+  },
+  "periods.device_time_zone": {
+    "other": "Times are in your device's time zone."
+  },
+  "periods.time_zone": {
+    "other": "Times are in the {{.Zone}} time zone."
+  },
+  "periods.every_invalid": {
+    "other": "Enter a whole number from 1 to 99999."
+  },
+  "periods.end_before_start": {
+    "other": "The end must be after the start."
+  },
+  "periods.window_too_long": {
+    "other": "The window must end before its next repeat starts."
+  },
+  "periods.until_before_start": {
+    "other": "Repeating must stop after the start."
+  },
+  "periods.bounds_required": {
+    "other": "A repeating period needs a start and an end."
+  },
+  "periods.summary_any_time": {
+    "other": "Any time"
+  },
+  "periods.summary_from": {
+    "other": "From {{.From}}"
+  },
+  "periods.summary_before": {
+    "other": "Before {{.To}}"
+  },
+  "periods.summary_window": {
+    "other": "{{.From}} – {{.To}}"
+  },
+  "periods.summary_repeating": {
+    "other": "{{.Repeat}}, first {{.Window}}"
+  },
+  "periods.summary_repeating_until": {
+    "other": "{{.Repeat}}, first {{.Window}}, until {{.Until}}"
+  },
+  "periods.every_minutes": {
+    "one": "Every {{.Count}} minute",
+    "other": "Every {{.Count}} minutes"
+  },
+  "periods.every_hours": {
+    "one": "Every {{.Count}} hour",
+    "other": "Every {{.Count}} hours"
+  },
+  "periods.every_days": {
+    "one": "Every {{.Count}} day",
+    "other": "Every {{.Count}} days"
+  },
+  "periods.window": {
+    "other": "Window"
+  },
+  "periods.window_custom": {
+    "other": "Custom range"
+  },
+  "periods.window_day": {
+    "other": "Whole day"
+  },
+  "periods.window_month": {
+    "other": "Whole month"
+  },
+  "periods.window_year": {
+    "other": "Whole year"
+  },
+  "periods.day": {
+    "other": "Day"
+  },
+  "periods.month": {
+    "other": "Month"
+  },
+  "periods.year": {
+    "other": "Year"
+  },
+  "periods.year_invalid": {
+    "other": "Enter a year from 1 to 9999."
+  },
+  "periods.month_year": {
+    "other": "{{.Month}} {{.Year}}"
+  },
+  "periods.month_1": {
+    "other": "January"
+  },
+  "periods.month_2": {
+    "other": "February"
+  },
+  "periods.month_3": {
+    "other": "March"
+  },
+  "periods.month_4": {
+    "other": "April"
+  },
+  "periods.month_5": {
+    "other": "May"
+  },
+  "periods.month_6": {
+    "other": "June"
+  },
+  "periods.month_7": {
+    "other": "July"
+  },
+  "periods.month_8": {
+    "other": "August"
+  },
+  "periods.month_9": {
+    "other": "September"
+  },
+  "periods.month_10": {
+    "other": "October"
+  },
+  "periods.month_11": {
+    "other": "November"
+  },
+  "periods.month_12": {
+    "other": "December"
+  },
+  "periods.repeat_unfit": {
+    "other": "This repeat does not fit the chosen window."
   }
 }

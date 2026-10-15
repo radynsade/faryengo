@@ -106,6 +106,7 @@ func TestPeriodValidate(t *testing.T) {
 		{"window longer than a week", NewPeriod(date(2026, 1, 1), date(2026, 1, 9), NewRepeat(RepeatWeekly, 0, nil)), ErrPeriodWindowTooLong},
 		{"window longer than the step", NewPeriod(date(2026, 1, 1), date(2026, 1, 12), NewRepeat(RepeatEvery, 10*24*time.Hour, nil)), ErrPeriodWindowTooLong},
 		{"stops when it starts", NewPeriod(date(2026, 1, 1), date(2026, 2, 1), NewRepeat(RepeatMonthly, 0, date(2026, 1, 1))), ErrPeriodUntilBeforeStart},
+		{"times in different locations", NewPeriod(date(2026, 1, 1), new(time.Date(2026, 2, 1, 0, 0, 0, 0, time.FixedZone("EET", 2*60*60))), none), ErrPeriodLocationsDiffer},
 		{"stops before it starts", NewPeriod(date(2026, 1, 1), date(2026, 2, 1), NewRepeat(RepeatMonthly, 0, date(2025, 12, 1))), ErrPeriodUntilBeforeStart},
 	}
 

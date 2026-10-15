@@ -43,7 +43,7 @@ function open(select: Parts) {
 	select.toggle.setAttribute('aria-expanded', 'true');
 	(
 		select.options.find((option) => option.ariaSelected === 'true')
-		?? select.options[0]
+		?? select.options.find((option) => !disabled(option))
 	)?.focus();
 }
 
@@ -74,6 +74,11 @@ function choose(select: Parts, chosen: HTMLElement) {
 	}
 }
 
+// A disabled option is shown but cannot be chosen.
+function disabled(option: HTMLElement) {
+	return option.getAttribute('aria-disabled') === 'true';
+}
+
 function openSelects() {
 	return [
 		...document.querySelectorAll<HTMLElement>(
@@ -95,7 +100,7 @@ document.addEventListener('click', (event) => {
 	const option = target?.closest<HTMLElement>('[role="option"]');
 
 	if (select && option) {
-		choose(select, option);
+		if (!disabled(option)) choose(select, option);
 	} else if (select && target?.closest('.select__toggle')) {
 		if (select.list.hidden) open(select);
 		else close(select, true);
@@ -124,8 +129,10 @@ document.addEventListener('keydown', (event) => {
 
 	if (!option) return;
 
-	const index = select.options.indexOf(option);
-	const last = select.options.length - 1;
+	// The keys move between the options that can be chosen.
+	const enabled = select.options.filter((candidate) => !disabled(candidate));
+	const index = enabled.indexOf(option);
+	const last = enabled.length - 1;
 	const moves: Record<string, number> = {
 		ArrowDown: Math.min(index + 1, last),
 		ArrowUp: Math.max(index - 1, 0),
@@ -135,10 +142,11 @@ document.addEventListener('keydown', (event) => {
 
 	if (event.key in moves) {
 		event.preventDefault();
-		select.options[moves[event.key]]?.focus();
+		enabled[moves[event.key]]?.focus();
 	} else if (event.key === 'Enter' || event.key === ' ') {
 		event.preventDefault();
-		choose(select, option);
+
+		if (!disabled(option)) choose(select, option);
 	} else if (event.key === 'Escape') {
 		event.preventDefault();
 		close(select, true);

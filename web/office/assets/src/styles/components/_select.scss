@@ -99,6 +99,18 @@
 			background: var(--color-canvas);
 		}
 
+		// An option that cannot be chosen now, such as a repeat that does
+		// not fit the chosen window.
+		&[aria-disabled='true'] {
+			color: var(--color-muted);
+			opacity: 0.55;
+			cursor: not-allowed;
+
+			&:hover {
+				background: none;
+			}
+		}
+
 		&[aria-selected='true'] {
 			color: var(--color-primary-strong);
 			background: var(--color-primary-soft);

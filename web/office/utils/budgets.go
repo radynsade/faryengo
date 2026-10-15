@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/radynsade/faryengo/internal/app"
+	"github.com/radynsade/faryengo/internal/app/input"
 	"github.com/radynsade/faryengo/internal/budgets"
 	"github.com/radynsade/faryengo/internal/categories"
 	"github.com/radynsade/faryengo/internal/currencies"
@@ -98,17 +99,18 @@ func FormatAmount(ctx context.Context, amount budgets.Amount) string {
 // Budget form
 //
 
-// Which categories a budget may cover, which currencies exist, and the
-// amount's sign belong to the domain; the transport bounds the size of each
-// field and of the whole form, and reads the amount. Each chosen category is
-// a repeated field.
+// Which categories a budget may cover, which currencies exist, the rules of a
+// period, and the amount's sign belong to the domain; the transport bounds the
+// size of each field and of the whole form, and reads the period's times and
+// the amount. Each chosen category is a repeated field.
 
 const maxBudgetFormBytes = 16 << 10
 
 type BudgetForm struct {
 	Categories []string `form:"categories"`
 	Currency   string   `form:"currency" validate:"maxbytes=12"`
-	Amount     string   `form:"amount" validate:"maxbytes=64"`
+	Period     PeriodForm
+	Amount     string `form:"amount" validate:"maxbytes=64"`
 }
 
 var ErrBudgetCategoryInvalid = errors.New("budget category is not a category ID")
@@ -119,13 +121,14 @@ func ParseBudgetForm(writer http.ResponseWriter, request *http.Request) (BudgetF
 	err := forms.Parse(writer, request, maxBudgetFormBytes)
 
 	if err == nil {
-		err = forms.CheckFields(request.PostForm, []string{"currency", "amount"}, []string{"categories"})
+		err = forms.CheckFields(request.PostForm, append([]string{"currency", "amount"}, periodFields...), []string{"categories"})
 	}
 
 	if err == nil {
 		form = BudgetForm{
 			Categories: request.PostForm["categories"],
 			Currency:   request.PostForm.Get("currency"),
+			Period:     readPeriodForm(request.PostForm),
 			Amount:     request.PostForm.Get("amount"),
 		}
 
@@ -135,12 +138,12 @@ func ParseBudgetForm(writer http.ResponseWriter, request *http.Request) (BudgetF
 	return form, err
 }
 
-// BudgetValues reads the form's categories and amount. A category that is not
-// a UUID names none. A form that cannot be read never reaches the service, so
-// the categories and the currency are then checked here too, and every
-// problem with the form is reported at once.
+// BudgetValues reads the form's categories, period, and amount. A category
+// that is not a UUID names none. A form that cannot be read never reaches the
+// service, so the categories and the currency are then checked here too, and
+// every problem with the form is reported at once.
 
-func BudgetValues(form BudgetForm) ([]categories.ID, int64, error) {
+func BudgetValues(form BudgetForm) ([]categories.ID, input.PeriodInput, int64, error) {
 	var (
 		ids         = make([]categories.ID, 0, len(form.Categories))
 		categoryErr error
@@ -156,8 +159,9 @@ func BudgetValues(form BudgetForm) ([]categories.ID, int64, error) {
 		}
 	}
 
+	budgetPeriod, periodErr := PeriodValues(form.Period)
 	amount, amountErr := ParseAmount(form.Amount)
-	err := errors.Join(categoryErr, amountErr)
+	err := errors.Join(categoryErr, periodErr, amountErr)
 
 	if err != nil {
 		if categoryErr == nil {
@@ -165,11 +169,11 @@ func BudgetValues(form BudgetForm) ([]categories.ID, int64, error) {
 		}
 
 		_, currencyErr := currencies.NewCode(form.Currency)
-		err = errors.Join(categoryErr, currencyErr, amountErr)
-		ids, amount = nil, 0
+		err = errors.Join(categoryErr, currencyErr, periodErr, amountErr)
+		ids, budgetPeriod, amount = nil, input.PeriodInput{}, 0
 	}
 
-	return ids, amount, err
+	return ids, budgetPeriod, amount, err
 }
 
 // BudgetFieldErrors maps a rejected budget to translated messages keyed by
@@ -179,10 +183,11 @@ func BudgetValues(form BudgetForm) ([]categories.ID, int64, error) {
 // currency that is missing, malformed, or no longer exists is a problem with
 // the currency, because the form offers only existing ones.
 
-func BudgetFieldErrors(ctx context.Context, err error) map[string]string {
+func BudgetFieldErrors(ctx context.Context, form BudgetForm, err error) map[string]string {
 	fields := make(map[string]string)
 
 	addTransportErrors(ctx, fields, err)
+	PeriodFieldErrors(ctx, fields, form.Period, err)
 
 	if _, found := fields["categories"]; !found {
 		if errors.Is(err, budgets.ErrCategoryIDsEmpty) {
@@ -409,6 +414,7 @@ func NewBudgetFormProps(
 		Action:     BudgetsPath(request, workspaceID),
 		Categories: BudgetCategoryChoices(categoryList, nil),
 		Currencies: BudgetCurrencyOptions(ctx, currencyList),
+		Period:     NewPeriodSelectorProps(ctx),
 		Submit:     officei18n.T(ctx, "budgets.create_submit"),
 		CancelURL:  BudgetsPath(request, workspaceID),
 	}
@@ -434,6 +440,7 @@ func EditBudgetContentProps(
 			Categories: BudgetCategoryChoices(categoryList, selected),
 			Currency:   string(budget.Currency),
 			Currencies: BudgetCurrencyOptions(ctx, currencyList),
+			Period:     PeriodSelectorProps(ctx, budget.Period),
 			Amount:     FormatAmount(ctx, budget.Amount),
 			Submit:     officei18n.T(ctx, "budgets.save_submit"),
 			CancelURL:  BudgetsPath(request, budget.WorkspaceID),
@@ -443,7 +450,8 @@ func EditBudgetContentProps(
 	}
 }
 
-// Each budget shows its categories and its amount with its currency's code.
+// Each budget shows its categories, its period, and its amount with its
+// currency's code.
 
 func BudgetItems(
 	request *http.Request,
@@ -459,6 +467,7 @@ func BudgetItems(
 			ID:         uuid.UUID(budget.ID).String(),
 			Title:      BudgetTitle(ctx, budget, categoryList),
 			Categories: budgetTags(ctx, budget, categoryList),
+			Period:     PeriodSummary(ctx, budget.Period),
 			Amount: officei18n.T(ctx, "budgets.amount", map[string]any{
 				"Amount": FormatAmount(ctx, budget.Amount),
 				"Code":   string(budget.Currency),

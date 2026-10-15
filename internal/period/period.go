@@ -181,7 +181,8 @@ func (w Window) Contains(t time.Time) bool {
 // From and To bound the Period's first window; a nil bound leaves that side
 // open. A repeating Period moves that window forward one step at a time, so
 // it needs both bounds, and its window must end before the next one starts.
-// Its repetition starts at From, so Until must come after it.
+// Its repetition starts at From, so Until must come after it. Calendar steps
+// follow the location of the times, so every time is in the same location.
 
 var (
 	ErrPeriodInvalid          = errors.New("invalid period")
@@ -189,6 +190,7 @@ var (
 	ErrPeriodRepeatUnbounded  = errors.New("repeats a window without both bounds")
 	ErrPeriodWindowTooLong    = errors.New("repeats a window longer than its step")
 	ErrPeriodUntilBeforeStart = errors.New("stops repeating before it starts")
+	ErrPeriodLocationsDiffer  = errors.New("has times in different locations")
 )
 
 type Period struct {
@@ -210,6 +212,8 @@ func (p Period) Validate() error {
 
 	if p.From != nil && p.To != nil && !p.To.After(*p.From) {
 		err = ErrPeriodEmpty
+	} else if !p.sameLocation() {
+		err = ErrPeriodLocationsDiffer
 	} else {
 		err = p.Repeat.Validate()
 	}
@@ -267,6 +271,32 @@ func (p Period) Contains(t time.Time) bool {
 	_, found := p.WindowAt(t)
 
 	return found
+}
+
+// Location is the location of the Period's times, or UTC for a Period
+// without any.
+
+func (p Period) Location() *time.Location {
+	location := time.UTC
+
+	for _, value := range []*time.Time{p.Repeat.Until, p.To, p.From} {
+		if value != nil {
+			location = value.Location()
+		}
+	}
+
+	return location
+}
+
+func (p Period) sameLocation() bool {
+	location := p.Location()
+	same := true
+
+	for _, value := range []*time.Time{p.From, p.To, p.Repeat.Until} {
+		same = same && (value == nil || value.Location().String() == location.String())
+	}
+
+	return same
 }
 
 //

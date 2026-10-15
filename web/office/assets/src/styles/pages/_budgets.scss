@@ -59,13 +59,26 @@
 		}
 	}
 
-	&__title {
+	&__text {
+		display: grid;
 		flex: 1;
 		min-width: 0;
+	}
+
+	&__title,
+	&__period {
 		overflow: hidden;
-		font-weight: 700;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	&__title {
+		font-weight: 700;
+	}
+
+	&__period {
+		color: var(--color-muted);
+		font-size: 0.8125rem;
 	}
 
 	&__amount {

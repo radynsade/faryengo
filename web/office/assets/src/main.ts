@@ -3,6 +3,7 @@ import './style.scss';
 import './navigation';
 import './auto-submit';
 import './select';
+import './period-selector';
 import './password-toggle';
 import './sidebar';
 import './dropdown';

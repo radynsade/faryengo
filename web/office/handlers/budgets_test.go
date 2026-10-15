@@ -7,11 +7,13 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/radynsade/faryengo/internal/budgets"
 	"github.com/radynsade/faryengo/internal/categories"
+	"github.com/radynsade/faryengo/internal/period"
 	"github.com/radynsade/faryengo/internal/workspaces"
 )
 
@@ -569,4 +571,505 @@ func budgetBody(currency string, amount string, categoryList ...*categories.Cate
 	}
 
 	return values.Encode()
+}
+
+// A budget's period is typed in the time zone the form sends, and kept in it.
+
+func TestCreateBudgetWithPeriod(t *testing.T) {
+	riga, err := time.LoadLocation("Europe/Riga")
+
+	if err != nil {
+		t.Skipf("time zone data unavailable: %v", err)
+	}
+
+	for _, tt := range []struct {
+		name   string
+		fields url.Values
+		want   period.Period
+	}{
+		{
+			name: "every month until a date",
+			fields: url.Values{
+				"period_repeat": {"monthly"}, "period_from": {"2026-01-01T00:00"}, "period_to": {"2026-02-01T00:00"},
+				"period_until": {"2027-01-01T00:00"}, "time_zone": {"Europe/Riga"},
+				// Fields a monthly repeat does not use are ignored.
+				"period_every": {"nonsense"}, "period_every_unit": {"weeks"},
+			},
+			want: period.NewPeriod(
+				new(time.Date(2026, 1, 1, 0, 0, 0, 0, riga)),
+				new(time.Date(2026, 2, 1, 0, 0, 0, 0, riga)),
+				period.NewRepeat(period.RepeatMonthly, 0, new(time.Date(2027, 1, 1, 0, 0, 0, 0, riga))),
+			),
+		},
+		{
+			name: "every two days",
+			fields: url.Values{
+				"period_repeat": {"every"}, "period_from": {"2026-01-01T13:00"}, "period_to": {"2026-01-01T15:20"},
+				"period_every": {"2"}, "period_every_unit": {"days"}, "time_zone": {"Europe/Riga"},
+			},
+			want: period.NewPeriod(
+				new(time.Date(2026, 1, 1, 13, 0, 0, 0, riga)),
+				new(time.Date(2026, 1, 1, 15, 20, 0, 0, riga)),
+				period.NewRepeat(period.RepeatEvery, 48*time.Hour, nil),
+			),
+		},
+		{
+			name: "one window in UTC without a zone",
+			fields: url.Values{
+				"period_repeat": {""}, "period_from": {"2026-03-01T00:00"}, "period_to": {""},
+				// A repetition's end is ignored when nothing repeats.
+				"period_until": {"2026-01-01T00:00"},
+			},
+			want: period.NewPeriod(new(time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)), nil, period.Repeat{}),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			food := f.addCategory(designID, "Food", "", "green")
+			body := budgetBody("EUR", "100", food) + "&" + tt.fields.Encode()
+
+			response := f.do(request{method: http.MethodPost, path: budgetsPath, body: body, cookies: f.signIn(t)})
+
+			if response.Code != http.StatusSeeOther || len(f.budgets) != 1 {
+				t.Fatalf("create = %d with %d budgets:\n%s", response.Code, len(f.budgets), response.Body.String())
+			}
+
+			got := f.budgets[0].Period
+
+			if !sameTime(got.From, tt.want.From) || !sameTime(got.To, tt.want.To) || got.Repeat.Kind != tt.want.Repeat.Kind ||
+				got.Repeat.Every != tt.want.Repeat.Every || !sameTime(got.Repeat.Until, tt.want.Repeat.Until) ||
+				got.Location().String() != tt.want.Location().String() {
+				t.Fatalf("period = %+v in %s, want %+v in %s", got, got.Location(), tt.want, tt.want.Location())
+			}
+		})
+	}
+}
+
+// A rejected period keeps what was typed and explains which field is wrong.
+
+func TestCreateBudgetPeriodRejected(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		fields url.Values
+		status int
+		wants  []string
+	}{
+		{
+			name:   "repeating without an end",
+			fields: url.Values{"period_repeat": {"monthly"}, "period_from": {"2026-01-01T00:00"}},
+			status: http.StatusUnprocessableEntity,
+			wants: []string{
+				`<p class="field__error" id="period-to-error">A repeating period needs a start and an end.</p>`,
+				`value="2026-01-01T00:00"`,
+			},
+		},
+		{
+			name:   "end before start",
+			fields: url.Values{"period_from": {"2026-02-01T00:00"}, "period_to": {"2026-01-01T00:00"}},
+			status: http.StatusUnprocessableEntity,
+			wants:  []string{`<p class="field__error" id="period-to-error">The end must be after the start.</p>`},
+		},
+		{
+			name:   "window longer than a week",
+			fields: url.Values{"period_repeat": {"weekly"}, "period_from": {"2026-01-01T00:00"}, "period_to": {"2026-01-09T00:00"}},
+			status: http.StatusUnprocessableEntity,
+			wants:  []string{`<p class="field__error" id="period-to-error">The window must end before its next repeat starts.</p>`},
+		},
+		{
+			name: "stops before it starts",
+			fields: url.Values{
+				"period_repeat": {"daily"}, "period_from": {"2026-01-02T00:00"}, "period_to": {"2026-01-03T00:00"},
+				"period_until": {"2026-01-01T00:00"},
+			},
+			status: http.StatusUnprocessableEntity,
+			wants:  []string{`<p class="field__error" id="period-until-error">Repeating must stop after the start.</p>`},
+		},
+		{
+			name:   "malformed start",
+			fields: url.Values{"period_from": {"yesterday"}},
+			status: http.StatusUnprocessableEntity,
+			wants:  []string{`<p class="field__error" id="period-from-error">This value is not valid.</p>`, `value="yesterday"`},
+		},
+		{
+			name: "interval that is not a number",
+			fields: url.Values{
+				"period_repeat": {"every"}, "period_from": {"2026-01-01T00:00"}, "period_to": {"2026-01-02T00:00"},
+				"period_every": {"0"}, "period_every_unit": {"days"},
+			},
+			status: http.StatusUnprocessableEntity,
+			wants: []string{
+				`<p class="field__error" id="period-every-error">Enter a whole number from 1 to 99999.</p>`,
+				`<div class="form__row" data-period-every>`,
+			},
+		},
+		{
+			name:   "unknown repeat",
+			fields: url.Values{"period_repeat": {"hourly"}},
+			status: http.StatusUnprocessableEntity,
+			wants:  []string{`<p class="field__error" id="period-repeat-error">Choose one of the options.</p>`},
+		},
+		{
+			name:   "unknown time zone",
+			fields: url.Values{"period_from": {"2026-01-01T00:00"}, "time_zone": {"Mars/Olympus_Mons"}},
+			status: http.StatusBadRequest,
+			wants:  []string{`<div class="form-alert" role="alert">`},
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			food := f.addCategory(designID, "Food", "", "green")
+			body := budgetBody("EUR", "100", food) + "&" + tt.fields.Encode()
+
+			response := f.do(request{method: http.MethodPost, path: budgetsPath, body: body, cookies: f.signIn(t), headers: toContent})
+			got := response.Body.String()
+
+			if response.Code != tt.status || !strings.HasPrefix(got, `<form id="budget-form"`) {
+				t.Fatalf("create = %d, want %d with only the form:\n%s", response.Code, tt.status, got)
+			}
+
+			for _, want := range tt.wants {
+				if !strings.Contains(got, want) {
+					t.Fatalf("form lacks %s:\n%s", want, got)
+				}
+			}
+
+			if len(f.budgets) != 0 {
+				t.Fatalf("budgets = %+v, want none", f.budgets)
+			}
+		})
+	}
+}
+
+// A new budget applies at any time, its selector shows only what that uses,
+// and the browser fills in the time zone.
+
+func TestNewBudgetPeriodSelector(t *testing.T) {
+	f := newFixture(t)
+	body := f.do(request{path: budgetsPath + "/new", cookies: f.signIn(t)}).Body.String()
+
+	for _, want := range []string{
+		`<fieldset class="period-selector" data-period-selector data-period-fits=`,
+		`<button class="period-selector__preset" type="button" data-period-preset="monthly">Every month</button>`,
+		`<option value selected>Does not repeat</option>`,
+		`<option value="custom" selected>Custom range</option>`,
+		`<div class="form__row" data-period-window-show="custom">`,
+		`<div data-period-window-show="day" hidden>`,
+		`<div class="form__row" data-period-window-show="month year" hidden>`,
+		`value="` + time.Now().Format(time.DateOnly) + `"`,
+		`<input class="field__input" id="period-from" name="period_from" type="datetime-local"`,
+		`<div class="form__row" data-period-every hidden>`,
+		`<div data-period-repeating hidden>`,
+		`<input type="hidden" name="time_zone" data-period-time-zone>`,
+		"Times are in your device's time zone.",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("selector lacks %s:\n%s", want, body)
+		}
+	}
+}
+
+// An existing budget's period is shown in its own time zone, which it keeps,
+// and the list describes it.
+
+func TestEditBudgetPeriod(t *testing.T) {
+	riga, err := time.LoadLocation("Europe/Riga")
+
+	if err != nil {
+		t.Skipf("time zone data unavailable: %v", err)
+	}
+
+	f := newFixture(t)
+	cookies := f.signIn(t)
+	budget := f.addBudget(designID, 100_00, f.addCategory(designID, "Food", "", "green"))
+	budget.Period = period.NewPeriod(
+		new(time.Date(2026, 1, 1, 13, 0, 0, 0, riga)),
+		new(time.Date(2026, 1, 1, 15, 20, 0, 0, riga)),
+		period.NewRepeat(period.RepeatEvery, 90*time.Minute, new(time.Date(2026, 2, 1, 0, 0, 0, 0, riga))),
+	)
+	path := budgetsPath + "/" + uuid.UUID(budget.ID).String()
+
+	body := f.do(request{path: path, cookies: cookies}).Body.String()
+
+	for _, want := range []string{
+		`<option value="every" selected>At a custom interval</option>`,
+		`value="2026-01-01T13:00"`,
+		`value="2026-01-01T15:20"`,
+		`value="2026-02-01T00:00"`,
+		`value="90"`,
+		`<option value="minutes" selected>minutes</option>`,
+		`<div class="form__row" data-period-every>`,
+		`<input type="hidden" name="time_zone" value="Europe/Riga" data-period-time-zone>`,
+		"Times are in the Europe/Riga time zone.",
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("edit page lacks %s:\n%s", want, body)
+		}
+	}
+
+	list := f.do(request{path: budgetsPath, cookies: cookies}).Body.String()
+
+	if !strings.Contains(list, `<span class="budget-list__period">Every 90 minutes, first 2026-01-01 13:00 – 2026-01-01 15:20, until 2026-02-01 00:00</span>`) {
+		t.Fatalf("list does not describe the period:\n%s", list)
+	}
+}
+
+func TestBudgetPeriodSummaries(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+	food := f.addCategory(designID, "Food", "", "green")
+
+	for _, tt := range []struct {
+		period period.Period
+		want   string
+	}{
+		{period.Period{}, "Any time"},
+		{period.NewPeriod(new(time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)), nil, period.Repeat{}), "From 2026-03-01"},
+		{period.NewPeriod(nil, new(time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)), period.Repeat{}), "Before 2026-03-01"},
+		{
+			period.NewPeriod(
+				new(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)),
+				new(time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)),
+				period.NewRepeat(period.RepeatMonthly, 0, nil),
+			),
+			"Every month, first January 2026",
+		},
+		{
+			period.NewPeriod(
+				new(time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC)),
+				new(time.Date(2026, 1, 6, 0, 0, 0, 0, time.UTC)),
+				period.NewRepeat(period.RepeatWeekly, 0, new(time.Date(2026, 4, 1, 0, 0, 0, 0, time.UTC))),
+			),
+			"Every week, first 2026-01-05, until 2026-04-01",
+		},
+		{
+			period.NewPeriod(new(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)), new(time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC)), period.Repeat{}),
+			"2026",
+		},
+		{
+			period.NewPeriod(new(time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)), new(time.Date(2026, 1, 8, 0, 0, 0, 0, time.UTC)), period.Repeat{}),
+			"2026-01-01 – 2026-01-08",
+		},
+	} {
+		f.budgets = nil
+		f.addBudget(designID, 100_00, food).Period = tt.period
+
+		if body := f.do(request{path: budgetsPath, cookies: cookies}).Body.String(); !strings.Contains(body, `<span class="budget-list__period">`+tt.want+`</span>`) {
+			t.Fatalf("list lacks %q:\n%s", tt.want, body)
+		}
+	}
+}
+
+func sameTime(a *time.Time, b *time.Time) bool {
+	return (a == nil) == (b == nil) && (a == nil || a.Equal(*b))
+}
+
+// A whole day, month, or year is chosen without typing its bounds, and becomes
+// the range from its first moment to the first moment of the next one.
+
+func TestCreateBudgetWithWholeWindow(t *testing.T) {
+	riga, err := time.LoadLocation("Europe/Riga")
+
+	if err != nil {
+		t.Skipf("time zone data unavailable: %v", err)
+	}
+
+	for _, tt := range []struct {
+		name     string
+		fields   url.Values
+		wantFrom time.Time
+		wantTo   time.Time
+	}{
+		{
+			name: "day",
+			fields: url.Values{
+				"period_window": {"day"}, "period_day": {"2026-03-29"}, "period_repeat": {"weekly"}, "time_zone": {"Europe/Riga"},
+				// The custom range is ignored.
+				"period_from": {"nonsense"},
+			},
+			// The clocks move forward that night, so the day is 23 hours long.
+			wantFrom: time.Date(2026, 3, 29, 0, 0, 0, 0, riga),
+			wantTo:   time.Date(2026, 3, 30, 0, 0, 0, 0, riga),
+		},
+		{
+			name:     "month",
+			fields:   url.Values{"period_window": {"month"}, "period_month": {"2"}, "period_year": {"2028"}, "period_repeat": {"monthly"}, "time_zone": {"Europe/Riga"}},
+			wantFrom: time.Date(2028, 2, 1, 0, 0, 0, 0, riga),
+			wantTo:   time.Date(2028, 3, 1, 0, 0, 0, 0, riga),
+		},
+		{
+			name: "year",
+			fields: url.Values{
+				"period_window": {"year"}, "period_year": {"2027"}, "time_zone": {"Europe/Riga"},
+				// The month is only for a whole month.
+				"period_month": {"13"},
+			},
+			wantFrom: time.Date(2027, 1, 1, 0, 0, 0, 0, riga),
+			wantTo:   time.Date(2028, 1, 1, 0, 0, 0, 0, riga),
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			food := f.addCategory(designID, "Food", "", "green")
+			body := budgetBody("EUR", "100", food) + "&" + tt.fields.Encode()
+
+			response := f.do(request{method: http.MethodPost, path: budgetsPath, body: body, cookies: f.signIn(t)})
+
+			if response.Code != http.StatusSeeOther || len(f.budgets) != 1 {
+				t.Fatalf("create = %d with %d budgets:\n%s", response.Code, len(f.budgets), response.Body.String())
+			}
+
+			got := f.budgets[0].Period
+
+			if !sameTime(got.From, &tt.wantFrom) || !sameTime(got.To, &tt.wantTo) || got.Location().String() != "Europe/Riga" {
+				t.Fatalf("window = [%s, %s) in %s, want [%s, %s)", got.From, got.To, got.Location(), tt.wantFrom, tt.wantTo)
+			}
+		})
+	}
+}
+
+func TestCreateBudgetWholeWindowRejected(t *testing.T) {
+	for _, tt := range []struct {
+		name   string
+		fields url.Values
+		want   string
+	}{
+		{"no day", url.Values{"period_window": {"day"}, "period_day": {""}}, `<p class="field__error" id="period-day-error">Please fill in this field.</p>`},
+		{"malformed day", url.Values{"period_window": {"day"}, "period_day": {"2026-02-30"}}, `<p class="field__error" id="period-day-error">This value is not valid.</p>`},
+		{"unknown month", url.Values{"period_window": {"month"}, "period_month": {"13"}, "period_year": {"2026"}}, `<p class="field__error" id="period-month-error">Choose one of the options.</p>`},
+		{"no year", url.Values{"period_window": {"year"}, "period_year": {""}}, `<p class="field__error" id="period-year-error">Please fill in this field.</p>`},
+		{"year out of range", url.Values{"period_window": {"year"}, "period_year": {"10000"}}, `<p class="field__error" id="period-year-error">Enter a year from 1 to 9999.</p>`},
+		{"unknown window", url.Values{"period_window": {"week"}}, `<p class="field__error" id="period-window-error">Choose one of the options.</p>`},
+		{
+			"month every week",
+			url.Values{"period_window": {"month"}, "period_month": {"1"}, "period_year": {"2026"}, "period_repeat": {"weekly"}},
+			`<p class="field__error" id="period-repeat-error">This repeat does not fit the chosen window.</p>`,
+		},
+		{
+			"month every day",
+			url.Values{"period_window": {"month"}, "period_month": {"1"}, "period_year": {"2026"}, "period_repeat": {"daily"}},
+			`<p class="field__error" id="period-repeat-error">This repeat does not fit the chosen window.</p>`,
+		},
+		{
+			"year every month",
+			url.Values{"period_window": {"year"}, "period_year": {"2026"}, "period_repeat": {"monthly"}},
+			`<p class="field__error" id="period-repeat-error">This repeat does not fit the chosen window.</p>`,
+		},
+		{
+			// A long enough interval would be a valid period, but it moves the
+			// window off the calendar's months.
+			"month at a custom interval",
+			url.Values{
+				"period_window": {"month"}, "period_month": {"1"}, "period_year": {"2026"},
+				"period_repeat": {"every"}, "period_every": {"40"}, "period_every_unit": {"days"},
+			},
+			`<p class="field__error" id="period-repeat-error">This repeat does not fit the chosen window.</p>`,
+		},
+		{
+			"day at a custom interval",
+			url.Values{"period_window": {"day"}, "period_day": {"2026-01-01"}, "period_repeat": {"every"}, "period_every": {"2"}, "period_every_unit": {"days"}},
+			`<p class="field__error" id="period-repeat-error">This repeat does not fit the chosen window.</p>`,
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			f := newFixture(t)
+			food := f.addCategory(designID, "Food", "", "green")
+			body := budgetBody("EUR", "100", food) + "&" + tt.fields.Encode()
+
+			response := f.do(request{method: http.MethodPost, path: budgetsPath, body: body, cookies: f.signIn(t), headers: toContent})
+
+			if response.Code != http.StatusUnprocessableEntity || !strings.Contains(response.Body.String(), tt.want) || len(f.budgets) != 0 {
+				t.Fatalf("create = %d with %d budgets, want %s:\n%s", response.Code, len(f.budgets), tt.want, response.Body.String())
+			}
+
+			if window := tt.fields.Get("period_window"); window != "week" &&
+				!strings.Contains(response.Body.String(), `<option value="`+window+`" selected>`) {
+				t.Fatalf("form does not keep the %s window:\n%s", window, response.Body.String())
+			}
+		})
+	}
+}
+
+// An existing window that is a whole day, month, or year reopens as one.
+
+func TestEditBudgetWholeWindow(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+	budget := f.addBudget(designID, 100_00, f.addCategory(designID, "Food", "", "green"))
+	path := budgetsPath + "/" + uuid.UUID(budget.ID).String()
+
+	for _, tt := range []struct {
+		from, to time.Time
+		wants    []string
+	}{
+		{
+			time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC),
+			[]string{`<option value="month" selected>Whole month</option>`, `<option value="10" selected>October</option>`, `value="2026"`,
+				`<div class="form__row" data-period-window-show="custom" hidden>`},
+		},
+		{
+			time.Date(2026, 10, 15, 0, 0, 0, 0, time.UTC), time.Date(2026, 10, 16, 0, 0, 0, 0, time.UTC),
+			[]string{`<option value="day" selected>Whole day</option>`, `value="2026-10-15"`},
+		},
+		{
+			time.Date(2027, 1, 1, 0, 0, 0, 0, time.UTC), time.Date(2028, 1, 1, 0, 0, 0, 0, time.UTC),
+			[]string{`<option value="year" selected>Whole year</option>`, `value="2027"`},
+		},
+		{
+			time.Date(2026, 10, 15, 9, 0, 0, 0, time.UTC), time.Date(2026, 10, 16, 9, 0, 0, 0, time.UTC),
+			[]string{`<option value="custom" selected>Custom range</option>`, `value="2026-10-15T09:00"`},
+		},
+	} {
+		budget.Period = period.NewPeriod(&tt.from, &tt.to, period.Repeat{})
+		body := f.do(request{path: path, cookies: cookies}).Body.String()
+
+		for _, want := range tt.wants {
+			if !strings.Contains(body, want) {
+				t.Fatalf("edit page for [%s, %s) lacks %s:\n%s", tt.from, tt.to, want, body)
+			}
+		}
+	}
+}
+
+// A whole window offers only the repeats that fit it; the others stay in the
+// list, disabled, and the script learns the same rule.
+
+func TestPeriodSelectorRepeatsFitTheWindow(t *testing.T) {
+	f := newFixture(t)
+	cookies := f.signIn(t)
+
+	body := f.do(request{path: budgetsPath + "/new", cookies: cookies}).Body.String()
+
+	if !strings.Contains(body, `data-period-fits='{"day":["daily","","weekly","monthly","yearly"],"month":["monthly","","yearly"],"year":["yearly",""]}'`) ||
+		strings.Contains(body, `<option value="daily" disabled>`) {
+		t.Fatalf("new selector lacks the rule, or limits a custom range:\n%s", body)
+	}
+
+	budget := f.addBudget(designID, 100_00, f.addCategory(designID, "Food", "", "green"))
+	path := budgetsPath + "/" + uuid.UUID(budget.ID).String()
+	from, to := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC), time.Date(2026, 11, 1, 0, 0, 0, 0, time.UTC)
+	budget.Period = period.NewPeriod(&from, &to, period.NewRepeat(period.RepeatMonthly, 0, nil))
+
+	body = f.do(request{path: path, cookies: cookies}).Body.String()
+
+	for _, want := range []string{
+		`<option value="month" selected>Whole month</option>`,
+		`<option value="daily" disabled>Every day</option>`,
+		`<option value="weekly" disabled>Every week</option>`,
+		`<option value="every" disabled>At a custom interval</option>`,
+		`<option value="monthly" selected>Every month</option>`,
+		`data-value="daily" aria-selected="false" aria-disabled="true"`,
+	} {
+		if !strings.Contains(body, want) {
+			t.Fatalf("edit page lacks %s:\n%s", want, body)
+		}
+	}
+
+	// A whole month at a custom interval, saved before the rule, reopens as a
+	// custom range, which it may still be.
+	budget.Period = period.NewPeriod(&from, &to, period.NewRepeat(period.RepeatEvery, 40*24*time.Hour, nil))
+	body = f.do(request{path: path, cookies: cookies}).Body.String()
+
+	if !strings.Contains(body, `<option value="custom" selected>Custom range</option>`) || strings.Contains(body, `<option value="every" disabled`) {
+		t.Fatalf("edit page does not reopen the window as a custom range:\n%s", body)
+	}
 }

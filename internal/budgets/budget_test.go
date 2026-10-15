@@ -5,12 +5,14 @@ import (
 	"math"
 	"slices"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"go.uber.org/goleak"
 
 	"github.com/radynsade/faryengo/internal/categories"
 	"github.com/radynsade/faryengo/internal/currencies"
+	"github.com/radynsade/faryengo/internal/period"
 	"github.com/radynsade/faryengo/internal/workspaces"
 )
 
@@ -111,40 +113,52 @@ func TestNewAmount(t *testing.T) {
 }
 
 func TestBudgetValidate(t *testing.T) {
+	var (
+		monthStart = time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
+		monthEnd   = time.Date(2026, 2, 1, 0, 0, 0, 0, time.UTC)
+		anyTime    = period.Period{}
+		monthly    = period.NewPeriod(&monthStart, &monthEnd, period.NewRepeat(period.RepeatMonthly, 0, nil))
+		unbounded  = period.NewPeriod(&monthStart, nil, period.NewRepeat(period.RepeatMonthly, 0, nil))
+	)
+
 	tests := []struct {
 		name        string
 		id          ID
 		workspaceID workspaces.ID
 		categoryIDs CategoryIDs
 		currency    currencies.Code
+		period      period.Period
 		amount      Amount
 		want        []error
 	}{
-		{"valid", testBudgetID, testWorkspaceID, testCategoryIDs, "EUR", 100_00, nil},
-		{"valid zero amount", testBudgetID, testWorkspaceID, testCategoryIDs, "EUR", 0, nil},
-		{"invalid ID", ID{}, testWorkspaceID, testCategoryIDs, "EUR", 100_00, []error{ErrIDInvalid}},
-		{"invalid workspace ID", testBudgetID, workspaces.ID{}, testCategoryIDs, "EUR", 100_00, []error{workspaces.ErrIDInvalid}},
-		{"no categories", testBudgetID, testWorkspaceID, nil, "EUR", 100_00, []error{ErrCategoryIDsEmpty}},
-		{"missing currency", testBudgetID, testWorkspaceID, testCategoryIDs, "", 100_00, []error{currencies.ErrCodeInvalid}},
-		{"invalid currency", testBudgetID, testWorkspaceID, testCategoryIDs, "eur", 100_00, []error{currencies.ErrCodeInvalid}},
-		{"negative amount", testBudgetID, testWorkspaceID, testCategoryIDs, "EUR", -1, []error{ErrAmountNegative}},
+		{"valid", testBudgetID, testWorkspaceID, testCategoryIDs, "EUR", anyTime, 100_00, nil},
+		{"valid monthly", testBudgetID, testWorkspaceID, testCategoryIDs, "EUR", monthly, 100_00, nil},
+		{"repeating without an end", testBudgetID, testWorkspaceID, testCategoryIDs, "EUR", unbounded, 100_00, []error{period.ErrPeriodRepeatUnbounded}},
+		{"valid zero amount", testBudgetID, testWorkspaceID, testCategoryIDs, "EUR", anyTime, 0, nil},
+		{"invalid ID", ID{}, testWorkspaceID, testCategoryIDs, "EUR", anyTime, 100_00, []error{ErrIDInvalid}},
+		{"invalid workspace ID", testBudgetID, workspaces.ID{}, testCategoryIDs, "EUR", anyTime, 100_00, []error{workspaces.ErrIDInvalid}},
+		{"no categories", testBudgetID, testWorkspaceID, nil, "EUR", anyTime, 100_00, []error{ErrCategoryIDsEmpty}},
+		{"missing currency", testBudgetID, testWorkspaceID, testCategoryIDs, "", anyTime, 100_00, []error{currencies.ErrCodeInvalid}},
+		{"invalid currency", testBudgetID, testWorkspaceID, testCategoryIDs, "eur", anyTime, 100_00, []error{currencies.ErrCodeInvalid}},
+		{"negative amount", testBudgetID, testWorkspaceID, testCategoryIDs, "EUR", anyTime, -1, []error{ErrAmountNegative}},
 		{
-			"invalid ID, workspace ID, categories, currency, and amount",
-			ID{}, workspaces.ID{}, CategoryIDs{testCategoryID, testCategoryID}, "", -1,
-			[]error{ErrIDInvalid, workspaces.ErrIDInvalid, ErrCategoryIDsDuplicate, currencies.ErrCodeInvalid, ErrAmountNegative},
+			"every field invalid",
+			ID{}, workspaces.ID{}, CategoryIDs{testCategoryID, testCategoryID}, "", unbounded, -1,
+			[]error{ErrIDInvalid, workspaces.ErrIDInvalid, ErrCategoryIDsDuplicate, currencies.ErrCodeInvalid, period.ErrPeriodInvalid, ErrAmountNegative},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			budget := NewBudget(tt.id, tt.workspaceID, tt.categoryIDs, tt.currency, tt.amount)
+			budget := NewBudget(tt.id, tt.workspaceID, tt.categoryIDs, tt.currency, tt.period, tt.amount)
 
 			if budget.ID != tt.id ||
 				budget.WorkspaceID != tt.workspaceID ||
 				!slices.Equal(budget.Categories, tt.categoryIDs) ||
 				budget.Currency != tt.currency ||
+				budget.Period != tt.period ||
 				budget.Amount != tt.amount {
-				t.Fatalf("NewBudget() = %+v, want the given ID, workspace, categories, currency, and amount", budget)
+				t.Fatalf("NewBudget() = %+v, want the given ID, workspace, categories, currency, period, and amount", budget)
 			}
 
 			err := budget.Validate()

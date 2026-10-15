@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/radynsade/faryengo/internal/budgets"
 	"github.com/radynsade/faryengo/internal/categories"
 	"github.com/radynsade/faryengo/internal/currencies"
+	"github.com/radynsade/faryengo/internal/period"
 	"github.com/radynsade/faryengo/internal/workspaces"
 )
 
@@ -91,7 +93,12 @@ func (s *BudgetService) Create(
 	)
 
 	if err = s.check(); err == nil {
-		categoryIDs, currencyCode, amount, valuesErr := budgetValues(request.CategoryIDs, request.CurrencyCode, request.Amount)
+		categoryIDs, currencyCode, budgetPeriod, amount, valuesErr := budgetValues(
+			request.CategoryIDs,
+			request.CurrencyCode,
+			request.Period,
+			request.Amount,
+		)
 
 		err = errors.Join(request.WorkspaceID.Validate(), valuesErr)
 
@@ -112,7 +119,7 @@ func (s *BudgetService) Create(
 			if err != nil {
 				err = fmt.Errorf("generate budget ID: %w", err)
 			} else {
-				budget = budgets.NewBudget(budgetID, request.WorkspaceID, categoryIDs, currencyCode, amount)
+				budget = budgets.NewBudget(budgetID, request.WorkspaceID, categoryIDs, currencyCode, budgetPeriod, amount)
 			}
 		}
 	}
@@ -233,8 +240,8 @@ func (s *BudgetService) List(
 	return list, err
 }
 
-// The Budget keeps its Workspace; its Categories, Currency, and Amount are
-// replaced.
+// The Budget keeps its Workspace; its Categories, Currency, Period, and Amount
+// are replaced.
 
 func (s *BudgetService) Update(
 	ctx context.Context,
@@ -245,6 +252,7 @@ func (s *BudgetService) Update(
 		identity     *workspaces.Identity
 		categoryIDs  budgets.CategoryIDs
 		currencyCode currencies.Code
+		budgetPeriod period.Period
 		amount       budgets.Amount
 		err          error
 	)
@@ -252,7 +260,12 @@ func (s *BudgetService) Update(
 	if err = s.check(); err == nil {
 		var valuesErr error
 
-		categoryIDs, currencyCode, amount, valuesErr = budgetValues(request.CategoryIDs, request.CurrencyCode, request.Amount)
+		categoryIDs, currencyCode, budgetPeriod, amount, valuesErr = budgetValues(
+			request.CategoryIDs,
+			request.CurrencyCode,
+			request.Period,
+			request.Amount,
+		)
 
 		err = errors.Join(request.ID.Validate(), valuesErr)
 
@@ -269,7 +282,7 @@ func (s *BudgetService) Update(
 				stored, err := s.findForUpdate(ctx, identity, request.ID)
 
 				if err == nil {
-					budget = budgets.NewBudget(stored.ID, stored.WorkspaceID, categoryIDs, currencyCode, amount)
+					budget = budgets.NewBudget(stored.ID, stored.WorkspaceID, categoryIDs, currencyCode, budgetPeriod, amount)
 
 					if updateErr := s.repository.Update(ctx, budget); updateErr != nil {
 						err = updateErr
@@ -392,17 +405,44 @@ func (s *BudgetService) findForUpdate(
 }
 
 // Build the values a create or update request supplies. Every invalid value is
-// reported. The Categories are copied, so the caller's slice cannot change the
-// Budget afterwards.
+// reported. The Categories and the Period's times are copied, so the caller
+// cannot change the Budget afterwards.
 
 func budgetValues(
 	rawCategoryIDs []categories.ID,
 	rawCurrencyCode string,
+	rawPeriod input.PeriodInput,
 	rawAmount int64,
-) (budgets.CategoryIDs, currencies.Code, budgets.Amount, error) {
+) (budgets.CategoryIDs, currencies.Code, period.Period, budgets.Amount, error) {
 	categoryIDs := budgets.NewCategoryIDs(slices.Clone(rawCategoryIDs))
 	currencyCode, currencyErr := currencies.NewCode(rawCurrencyCode)
+	budgetPeriod, periodErr := periodValue(rawPeriod)
 	amount, amountErr := budgets.NewAmount(rawAmount)
 
-	return categoryIDs, currencyCode, amount, errors.Join(categoryIDs.Validate(), currencyErr, amountErr)
+	return categoryIDs, currencyCode, budgetPeriod, amount, errors.Join(categoryIDs.Validate(), currencyErr, periodErr, amountErr)
+}
+
+func periodValue(raw input.PeriodInput) (period.Period, error) {
+	kind, err := period.NewRepeatKind(raw.Repeat)
+	value := period.NewPeriod(
+		copyTime(raw.From),
+		copyTime(raw.To),
+		period.NewRepeat(kind, raw.Every, copyTime(raw.Until)),
+	)
+
+	if err == nil {
+		err = value.Validate()
+	}
+
+	return value, err
+}
+
+func copyTime(value *time.Time) *time.Time {
+	var copied *time.Time
+
+	if value != nil {
+		copied = new(*value)
+	}
+
+	return copied
 }

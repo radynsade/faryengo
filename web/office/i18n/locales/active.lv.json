@@ -759,7 +759,7 @@
     "other": "Jauns budžets"
   },
   "budgets.new_description": {
-    "other": "Izvēlieties kategorijas, uz kurām attiecas budžets, tā valūtu un to, cik daudz drīkst tērēt."
+    "other": "Izvēlieties kategorijas, uz kurām attiecas budžets, tā valūtu, kad tas ir spēkā, un to, cik daudz drīkst tērēt."
   },
   "budgets.list": {
     "other": "Šīs darbvietas budžeti"
@@ -843,12 +843,207 @@
     "other": "250,00"
   },
   "fields.budget_amount_hint": {
-    "other": "Lielākā summa, ko drīkst tērēt šīm kategorijām, ar ne vairāk kā divām zīmēm aiz komata."
+    "other": "Lielākā summa, ko drīkst tērēt šīm kategorijām katrā perioda logā, ar ne vairāk kā divām zīmēm aiz komata."
   },
   "errors.budgets_unavailable": {
     "other": "Budžeti pašlaik nav pieejami. Lūdzu, mēģiniet vēlreiz vēlāk."
   },
   "errors.category_in_use": {
     "other": "Šī kategorija ir iekļauta budžetā, tāpēc to nevar dzēst. Vispirms noņemiet to no šiem budžetiem."
+  },
+  "periods.legend": {
+    "other": "Periods"
+  },
+  "periods.presets": {
+    "other": "Biežāk lietotie periodi"
+  },
+  "periods.preset_daily": {
+    "other": "Katru dienu"
+  },
+  "periods.preset_weekly": {
+    "other": "Katru nedēļu"
+  },
+  "periods.preset_monthly": {
+    "other": "Katru mēnesi"
+  },
+  "periods.preset_this_month": {
+    "other": "Šis mēnesis"
+  },
+  "periods.repeat": {
+    "other": "Atkārtojas"
+  },
+  "periods.repeat_none": {
+    "other": "Neatkārtojas"
+  },
+  "periods.repeat_daily": {
+    "other": "Katru dienu"
+  },
+  "periods.repeat_weekly": {
+    "other": "Katru nedēļu"
+  },
+  "periods.repeat_monthly": {
+    "other": "Katru mēnesi"
+  },
+  "periods.repeat_yearly": {
+    "other": "Katru gadu"
+  },
+  "periods.repeat_every": {
+    "other": "Ar savu intervālu"
+  },
+  "periods.from": {
+    "other": "Sākas"
+  },
+  "periods.to": {
+    "other": "Beidzas"
+  },
+  "periods.window_hint": {
+    "other": "Šis ir pirmais logs; katrs atkārtojums to pārbīda par vienu soli."
+  },
+  "periods.open_hint": {
+    "other": "Atstājiet pusi tukšu, lai tā paliktu atvērta."
+  },
+  "periods.every": {
+    "other": "Ik pēc"
+  },
+  "periods.every_unit": {
+    "other": "Vienība"
+  },
+  "periods.unit_minutes": {
+    "other": "minūtēm"
+  },
+  "periods.unit_hours": {
+    "other": "stundām"
+  },
+  "periods.unit_days": {
+    "other": "dienām"
+  },
+  "periods.until": {
+    "other": "Beidz atkārtoties"
+  },
+  "periods.until_hint": {
+    "other": "Nav obligāti. Neviens logs nesniedzas tālāk par to."
+  },
+  "periods.device_time_zone": {
+    "other": "Laiki ir jūsu ierīces laika joslā."
+  },
+  "periods.time_zone": {
+    "other": "Laiki ir laika joslā {{.Zone}}."
+  },
+  "periods.every_invalid": {
+    "other": "Ievadiet veselu skaitli no 1 līdz 99999."
+  },
+  "periods.end_before_start": {
+    "other": "Beigām jābūt pēc sākuma."
+  },
+  "periods.window_too_long": {
+    "other": "Logam jābeidzas pirms nākamā atkārtojuma sākuma."
+  },
+  "periods.until_before_start": {
+    "other": "Atkārtošanai jābeidzas pēc sākuma."
+  },
+  "periods.bounds_required": {
+    "other": "Atkārtotam periodam vajag sākumu un beigas."
+  },
+  "periods.summary_any_time": {
+    "other": "Jebkurā laikā"
+  },
+  "periods.summary_from": {
+    "other": "No {{.From}}"
+  },
+  "periods.summary_before": {
+    "other": "Līdz {{.To}}"
+  },
+  "periods.summary_window": {
+    "other": "{{.From}} – {{.To}}"
+  },
+  "periods.summary_repeating": {
+    "other": "{{.Repeat}}, pirmais {{.Window}}"
+  },
+  "periods.summary_repeating_until": {
+    "other": "{{.Repeat}}, pirmais {{.Window}}, līdz {{.Until}}"
+  },
+  "periods.every_minutes": {
+    "zero": "Ik pēc {{.Count}} minūtēm",
+    "one": "Ik pēc {{.Count}} minūtes",
+    "other": "Ik pēc {{.Count}} minūtēm"
+  },
+  "periods.every_hours": {
+    "zero": "Ik pēc {{.Count}} stundām",
+    "one": "Ik pēc {{.Count}} stundas",
+    "other": "Ik pēc {{.Count}} stundām"
+  },
+  "periods.every_days": {
+    "zero": "Ik pēc {{.Count}} dienām",
+    "one": "Ik pēc {{.Count}} dienas",
+    "other": "Ik pēc {{.Count}} dienām"
+  },
+  "periods.window": {
+    "other": "Logs"
+  },
+  "periods.window_custom": {
+    "other": "Brīvs intervāls"
+  },
+  "periods.window_day": {
+    "other": "Visa diena"
+  },
+  "periods.window_month": {
+    "other": "Viss mēnesis"
+  },
+  "periods.window_year": {
+    "other": "Viss gads"
+  },
+  "periods.day": {
+    "other": "Diena"
+  },
+  "periods.month": {
+    "other": "Mēnesis"
+  },
+  "periods.year": {
+    "other": "Gads"
+  },
+  "periods.year_invalid": {
+    "other": "Ievadiet gadu no 1 līdz 9999."
+  },
+  "periods.month_year": {
+    "other": "{{.Year}}. gada {{.Month}}"
+  },
+  "periods.month_1": {
+    "other": "janvāris"
+  },
+  "periods.month_2": {
+    "other": "februāris"
+  },
+  "periods.month_3": {
+    "other": "marts"
+  },
+  "periods.month_4": {
+    "other": "aprīlis"
+  },
+  "periods.month_5": {
+    "other": "maijs"
+  },
+  "periods.month_6": {
+    "other": "jūnijs"
+  },
+  "periods.month_7": {
+    "other": "jūlijs"
+  },
+  "periods.month_8": {
+    "other": "augusts"
+  },
+  "periods.month_9": {
+    "other": "septembris"
+  },
+  "periods.month_10": {
+    "other": "oktobris"
+  },
+  "periods.month_11": {
+    "other": "novembris"
+  },
+  "periods.month_12": {
+    "other": "decembris"
+  },
+  "periods.repeat_unfit": {
+    "other": "Šis atkārtojums neder izvēlētajam logam."
   }
 }

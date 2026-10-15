@@ -27,8 +27,9 @@ import (
 // members reach them. Every member sees them; only those whose role allows
 // editing the workspace's content create, change, or delete them. A budget
 // covers some of the workspace's categories, which are offered by name, and
-// is set in one of the currencies, which are offered by code. Budgets have no
-// names of their own, so each is named by its categories.
+// is set in one of the currencies, which are offered by code, during a period
+// chosen with the period selector. Budgets have no names of their own, so
+// each is named by its categories.
 
 type budgetsScope struct {
 	current *security.Identity
@@ -79,15 +80,16 @@ func (h *Handler) createBudget(writer http.ResponseWriter, request *http.Request
 
 	if ok {
 		var (
-			budget      *budgets.Budget
-			categoryIDs []categories.ID
-			amount      int64
+			budget       *budgets.Budget
+			categoryIDs  []categories.ID
+			budgetPeriod input.PeriodInput
+			amount       int64
 		)
 
 		form, err := utils.ParseBudgetForm(writer, request)
 
 		if err == nil {
-			categoryIDs, amount, err = utils.BudgetValues(form)
+			categoryIDs, budgetPeriod, amount, err = utils.BudgetValues(form)
 		}
 
 		if err == nil {
@@ -95,6 +97,7 @@ func (h *Handler) createBudget(writer http.ResponseWriter, request *http.Request
 				WorkspaceID:  scope.found.Workspace.ID,
 				CategoryIDs:  categoryIDs,
 				CurrencyCode: form.Currency,
+				Period:       budgetPeriod,
 				Amount:       amount,
 			})
 		}
@@ -145,18 +148,19 @@ func (h *Handler) editBudget(writer http.ResponseWriter, request *http.Request) 
 	}
 }
 
-// The budget keeps its workspace; its categories, currency, and amount are
-// replaced.
+// The budget keeps its workspace; its categories, currency, period, and
+// amount are replaced.
 
 func (h *Handler) updateBudget(writer http.ResponseWriter, request *http.Request) {
 	request, scope, ok := h.budgetsScope(writer, request, workspaces.ActionEditContent)
 
 	if ok {
 		var (
-			form        utils.BudgetForm
-			categoryIDs []categories.ID
-			amount      int64
-			updated     *budgets.Budget
+			form         utils.BudgetForm
+			categoryIDs  []categories.ID
+			budgetPeriod input.PeriodInput
+			amount       int64
+			updated      *budgets.Budget
 		)
 
 		budget, err := h.findBudget(request)
@@ -166,7 +170,7 @@ func (h *Handler) updateBudget(writer http.ResponseWriter, request *http.Request
 		}
 
 		if err == nil {
-			categoryIDs, amount, err = utils.BudgetValues(form)
+			categoryIDs, budgetPeriod, amount, err = utils.BudgetValues(form)
 		}
 
 		if err == nil {
@@ -174,6 +178,7 @@ func (h *Handler) updateBudget(writer http.ResponseWriter, request *http.Request
 				ID:           budget.ID,
 				CategoryIDs:  categoryIDs,
 				CurrencyCode: form.Currency,
+				Period:       budgetPeriod,
 				Amount:       amount,
 			})
 		}
@@ -394,7 +399,8 @@ func budgetFormFailure(
 
 	props.Categories = utils.BudgetCategoryChoices(categoryList, form.Categories)
 	props.Currency, props.Amount = form.Currency, form.Amount
-	props.FieldErrors = utils.BudgetFieldErrors(request.Context(), err)
+	props.Period = utils.SubmittedPeriodSelectorProps(request.Context(), props.Period, form.Period)
+	props.FieldErrors = utils.BudgetFieldErrors(request.Context(), form, err)
 
 	if props.FieldErrors == nil {
 		status, props.Error = utils.SettingsFormError(request.Context(), err)

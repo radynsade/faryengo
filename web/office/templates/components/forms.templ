@@ -91,9 +91,13 @@ templ PasswordInput(props TextInputProps) {
 	</div>
 }
 
+// A disabled option stays in the list to show that it exists, but cannot be
+// chosen.
+
 type SelectOption struct {
-	Value string
-	Label string
+	Value    string
+	Label    string
+	Disabled bool
 }
 
 type SelectProps struct {
@@ -164,7 +168,7 @@ templ SelectControl(props SelectControlProps) {
 			}
 		>
 			for _, option := range props.Options {
-				<option value={ option.Value } selected?={ option.Value == props.Value }>{ option.Label }</option>
+				<option value={ option.Value } selected?={ option.Value == props.Value } disabled?={ option.Disabled }>{ option.Label }</option>
 			}
 		</select>
 		<button
@@ -207,6 +211,9 @@ templ SelectControl(props SelectControlProps) {
 					tabindex="-1"
 					data-value={ option.Value }
 					aria-selected={ strconv.FormatBool(option.Value == props.Value) }
+					if option.Disabled {
+						aria-disabled="true"
+					}
 				>
 					<span>{ option.Label }</span>
 					@Icon("check")

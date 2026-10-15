@@ -28,14 +28,15 @@ type BudgetCategoryChoice struct {
 	Checked bool
 }
 
-// Title names the budget by its categories, and Amount shows its amount with
-// its currency's code. Href is empty when the viewer may not change the
-// budget.
+// Title names the budget by its categories, Period describes when it
+// applies, and Amount shows its amount with its currency's code. Href is
+// empty when the viewer may not change the budget.
 
 type BudgetItem struct {
 	ID         string
 	Title      string
 	Categories []BudgetCategoryTag
+	Period     string
 	Amount     string
 	Href       string
 }
@@ -50,6 +51,7 @@ type BudgetFormProps struct {
 	Categories  []BudgetCategoryChoice
 	Currency    string
 	Currencies  []components.SelectOption
+	Period      PeriodSelectorProps
 	Amount      string
 	Submit      string
 	CancelURL   string
@@ -145,7 +147,10 @@ templ budgetRow(item BudgetItem) {
 			@CategoryIcon(tag.Icon, tag.Color, "")
 		}
 	</span>
-	<span class="budget-list__title">{ item.Title }</span>
+	<span class="budget-list__text">
+		<span class="budget-list__title">{ item.Title }</span>
+		<span class="budget-list__period">{ item.Period }</span>
+	</span>
 	<span class="budget-list__amount">{ item.Amount }</span>
 }
 
@@ -211,6 +216,7 @@ templ BudgetForm(props BudgetFormProps) {
 			Options: props.Currencies,
 			Error:   props.FieldErrors["currency"],
 		})
+		@PeriodSelector(props.Period, props.FieldErrors)
 		@components.TextInput(components.TextInputProps{
 			ID:           "budget-amount",
 			Name:         "amount",
