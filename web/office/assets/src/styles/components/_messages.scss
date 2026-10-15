@@ -27,9 +27,9 @@ $visible: 3s;
 	color: var(--color-ink);
 	font-weight: 600;
 	box-shadow:
-		0 6px 16px rgb(29 27 46 / 0.08),
-		0 3px 6px -4px rgb(29 27 46 / 0.12),
-		0 9px 28px 8px rgb(29 27 46 / 0.05);
+		0 6px 16px rgb(var(--rgb-ink) / 0.08),
+		0 3px 6px -4px rgb(var(--rgb-ink) / 0.12),
+		0 9px 28px 8px rgb(var(--rgb-ink) / 0.05);
 	pointer-events: auto;
 	animation:
 		message-in 240ms ease-out,
@@ -41,7 +41,7 @@ $visible: 3s;
 
 	.icon {
 		flex: none;
-		color: #2e7d32;
+		color: var(--color-success);
 	}
 
 	p {

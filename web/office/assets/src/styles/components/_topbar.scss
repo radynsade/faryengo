@@ -17,7 +17,7 @@ $wide: 960px;
 	min-height: var(--topbar-height);
 	padding: 0.625rem 1rem;
 	border-bottom: 1px solid var(--color-border);
-	background: rgb(248 246 242 / 0.85);
+	background: rgb(var(--rgb-canvas) / 0.85);
 	backdrop-filter: blur(12px);
 
 	@media (max-width: #{$narrow - 1px}) {
@@ -92,7 +92,7 @@ $wide: 960px;
 		height: 1.75rem;
 		border-radius: var(--radius-sm);
 		background: var(--gradient-showcase);
-		color: var(--color-on-primary);
+		color: var(--color-on-showcase);
 		font-size: 0.8125rem;
 		font-weight: 800;
 	}

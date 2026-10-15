@@ -38,7 +38,7 @@
 		background: var(--color-surface);
 		color: var(--color-ink);
 		text-decoration: none;
-		box-shadow: 0 1px 2px rgb(29 27 46 / 0.04);
+		box-shadow: 0 1px 2px rgb(var(--rgb-ink) / 0.04);
 		transition:
 			border-color var(--transition),
 			box-shadow var(--transition);
@@ -69,7 +69,7 @@
 		height: 2.5rem;
 		border-radius: var(--radius-md);
 		background: var(--gradient-showcase);
-		color: var(--color-on-primary);
+		color: var(--color-on-showcase);
 		font-weight: 800;
 	}
 

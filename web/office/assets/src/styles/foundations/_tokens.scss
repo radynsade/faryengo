@@ -1,30 +1,53 @@
+@use 'sass:color';
+@use '../abstracts/palette' as p;
+
+// Colors come from the palette; change base colors there, not here.
 :root {
 	color-scheme: light;
 
 	--font-sans: 'Manrope Variable', system-ui, sans-serif;
 
-	--color-ink: #1d1b2e;
-	--color-muted: #6b6880;
-	--color-canvas: #f8f6f2;
-	--color-surface: #ffffff;
-	--color-border: #e3e0e8;
-	--color-border-strong: #c9c4d4;
+	--color-ink: #{p.$ink};
+	--color-muted: #{p.$muted};
+	--color-canvas: #{p.$canvas};
+	--color-surface: #{p.$surface};
+	--color-border: #{p.$border};
+	--color-border-strong: #{p.$border-strong};
 
-	--color-primary: #5b4bdb;
-	--color-primary-strong: #4636c2;
-	--color-primary-soft: rgb(91 75 219 / 0.16);
-	--color-on-primary: #ffffff;
-	--color-accent: #ffcf6e;
-	--color-danger: #c8323c;
-	--color-danger-soft: #fdeeee;
-	--color-danger-ring: rgb(200 50 60 / 0.16);
+	// Brand and ordinary actions.
+	--color-primary: #{p.$primary};
+	--color-primary-fill: #{p.$primary-fill};
+	--color-primary-hover: #{p.hover(p.$primary-fill, p.$primary-text)};
+	--color-primary-strong: #{p.$primary-strong};
+	--color-primary-soft: #{p.$primary-soft};
+	--color-on-primary: #{p.$primary-text};
+	--color-accent: #{p.$accent};
+	--color-on-accent: #{p.on(p.$accent)};
+	--color-success: #{p.$success};
 
+	// Destructive actions and errors. Never reuse the primary colors here.
+	--color-danger: #{p.$danger};
+	--color-danger-strong: #{p.$danger-strong};
+	--color-danger-soft: #{color.mix(p.$danger, p.$surface, 7%)};
+	--color-danger-ring: rgb(#{p.channels(p.$danger)} / 0.16);
+	--color-danger-border: rgb(#{p.channels(p.$danger)} / 0.24);
+	--color-on-danger: #{p.on(p.$danger)};
+
+	// Brand panels: avatars, workspace marks, and the auth showcase.
+	--color-on-showcase: #{p.$showcase-text};
+	--color-showcase-thread: #{p.$showcase-thread};
 	--gradient-showcase: linear-gradient(
 		155deg,
-		#2a1d6e 0%,
-		#4b3cc9 55%,
-		#8d6ff2 100%
+		#{p.$showcase-start} 0%,
+		#{p.$showcase-middle} 55%,
+		#{p.$showcase-end} 100%
 	);
+
+	// Channels for translucent shades: rgb(var(--rgb-ink) / 0.4).
+	--rgb-ink: #{p.channels(p.$ink)};
+	--rgb-canvas: #{p.channels(p.$canvas)};
+	--rgb-accent: #{p.channels(p.$accent)};
+	--rgb-light: #{p.channels(p.$light)};
 
 	--topbar-height: 3.625rem;
 
@@ -33,6 +56,6 @@
 	--radius-lg: 18px;
 	--radius-pill: 999px;
 
-	--shadow-soft: 0 24px 48px -24px rgb(29 27 46 / 0.35);
+	--shadow-soft: 0 24px 48px -24px rgb(var(--rgb-ink) / 0.35);
 	--transition: 160ms ease;
 }

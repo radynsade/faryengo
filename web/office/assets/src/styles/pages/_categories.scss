@@ -167,16 +167,3 @@
 		margin-top: 0;
 	}
 }
-
-.button--danger {
-	background: var(--color-danger);
-	box-shadow: 0 8px 16px -10px var(--color-danger);
-
-	&:hover {
-		background: #a8262f;
-
-		svg {
-			transform: none;
-		}
-	}
-}
