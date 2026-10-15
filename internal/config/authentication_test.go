@@ -15,7 +15,7 @@ func TestMain(m *testing.M) { goleak.VerifyTestMain(m) }
 func clearAuthEnvironment(t *testing.T) {
 	t.Helper()
 
-	for _, key := range []string{"REDIS_URL", "HTTP_ADDRESS", "JWT_SIGNING_SEED", "JWT_KEY_ID", "JWT_ISSUER", "JWT_ACCESS_AUDIENCE", "JWT_REFRESH_AUDIENCE", "ACCESS_TOKEN_TTL", "REFRESH_TOKEN_TTL", "SESSION_TTL", "AUTH_COOKIE_SECURE"} {
+	for _, key := range []string{"REDIS_URL", "HTTP_ADDRESS", "JWT_SIGNING_SEED", "JWT_KEY_ID", "JWT_ISSUER", "JWT_ACCESS_AUDIENCE", "JWT_REFRESH_AUDIENCE", "ACCESS_TOKEN_TTL", "REFRESH_TOKEN_TTL", "SESSION_TTL", "AUTH_COOKIE_SECURE", "TRUSTED_PROXIES"} {
 		t.Setenv(key, "")
 	}
 }

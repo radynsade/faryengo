@@ -2,8 +2,11 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
+
+	"github.com/radynsade/faryengo/internal/security/emailpass"
 )
 
 func TestSignIn(t *testing.T) {
@@ -128,5 +131,22 @@ func TestSignOut(t *testing.T) {
 
 	if response.Code != http.StatusSeeOther || response.Header().Get("Location") != "/office/lv/sign-in" {
 		t.Fatalf("dashboard after sign out = %d %q", response.Code, response.Header().Get("Location"))
+	}
+}
+
+func TestSignInBoundsAttempts(t *testing.T) {
+	f := newFixture(t)
+
+	for range emailpass.MaxAttemptsPerEmail {
+		f.do(request{method: http.MethodPost, path: "/office/en/sign-in", body: "email=" + testEmail + "&password=wrong+horse"})
+	}
+
+	response := f.do(request{method: http.MethodPost, path: "/office/en/sign-in", body: "email=" + testEmail + "&password=correct+horse"})
+
+	if response.Code != http.StatusTooManyRequests ||
+		response.Header().Get("Retry-After") != strconv.Itoa(int(emailpass.AttemptWindow.Seconds())) ||
+		len(response.Result().Cookies()) != 0 ||
+		!strings.Contains(response.Body.String(), "Too many sign-in attempts.") {
+		t.Fatalf("got %d %v %q, want a refused sign-in", response.Code, response.Header(), response.Body.String())
 	}
 }

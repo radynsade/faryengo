@@ -193,12 +193,6 @@ func TestSignInRejectsRevokedSessions(t *testing.T) {
 		revoke func(f *fixture, session *security.Session)
 		want   error
 	}{
-		{"credentials changed", func(f *fixture, session *security.Session) {
-			f.versions[session.UserID] = uuid.Must(uuid.NewV7())
-		}, security.ErrSessionRevoked},
-		{"user deleted", func(f *fixture, session *security.Session) {
-			delete(f.versions, session.UserID)
-		}, users.ErrUserNotFound},
 		{"session expired in storage", func(f *fixture, _ *security.Session) {
 			f.server.FastForward(2 * time.Hour)
 		}, sessionid.ErrSessionNotFound},
@@ -222,6 +216,40 @@ func TestSignInRejectsRevokedSessions(t *testing.T) {
 	}
 }
 
+// The credentials version is the identity resolver's to check, so a Session
+// whose User has since replaced their credentials, or no longer exists, is
+// still found here.
+
+func TestSignInLeavesCredentialsToTheResolver(t *testing.T) {
+	tests := []struct {
+		name   string
+		change func(f *fixture, session *security.Session)
+	}{
+		{"credentials changed", func(f *fixture, session *security.Session) {
+			f.versions[session.UserID] = uuid.Must(uuid.NewV7())
+		}},
+		{"user deleted", func(f *fixture, session *security.Session) {
+			delete(f.versions, session.UserID)
+		}},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			f := newFixture(t)
+			session := f.newSession(time.Hour)
+			id := f.issue(t, session)
+
+			test.change(f, session)
+
+			found, err := f.authenticator.SignIn(context.Background(), id)
+
+			if err != nil || *found != *session {
+				t.Fatalf("got (%+v, %v), want (%+v, nil)", found, err, session)
+			}
+		})
+	}
+}
+
 func TestSignInFailsClosedWhenStorageIsUnavailable(t *testing.T) {
 	f := newFixture(t)
 	id := f.issue(t, f.newSession(time.Hour))
@@ -238,13 +266,15 @@ func TestSignInFailsClosedWhenStorageIsUnavailable(t *testing.T) {
 func TestSignOut(t *testing.T) {
 	ctx := context.Background()
 
+	// Signing out everywhere replaces the credentials version, which the
+	// identity resolver refuses for every other Session.
 	tests := []struct {
-		name          string
-		all           bool
-		wantOtherLive bool
+		name        string
+		all         bool
+		wantRotated bool
 	}{
-		{"one session", false, true},
-		{"every session", true, false},
+		{"one session", false, false},
+		{"every session", true, true},
 	}
 
 	for _, test := range tests {
@@ -265,10 +295,12 @@ func TestSignOut(t *testing.T) {
 				t.Fatalf("signed-out session: got %v, want %v", err, security.ErrSessionRevoked)
 			}
 
-			_, err := f.authenticator.SignIn(ctx, otherID)
+			if _, err := f.authenticator.SignIn(ctx, otherID); err != nil {
+				t.Fatalf("other session: got %v, want it still stored", err)
+			}
 
-			if test.wantOtherLive != (err == nil) {
-				t.Fatalf("other session: got %v, want live %v", err, test.wantOtherLive)
+			if rotated := f.versions[session.UserID] != session.CredentialsVersion; rotated != test.wantRotated {
+				t.Fatalf("rotated = %v, want %v", rotated, test.wantRotated)
 			}
 		})
 	}

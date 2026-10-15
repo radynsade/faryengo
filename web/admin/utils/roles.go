@@ -23,6 +23,7 @@ import (
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
+	"github.com/radynsade/faryengo/web/forms"
 )
 
 //
@@ -61,7 +62,7 @@ func ParseRoleQuery(request *http.Request) (users.RoleQuery, error) {
 	values, err := url.ParseQuery(request.URL.RawQuery)
 
 	if err == nil {
-		err = checkFields(values, []string{"uuid", "name", "super", "sort", "order", "page", "size"}, []string{"permissions"})
+		err = forms.CheckFields(values, []string{"uuid", "name", "super", "sort", "order", "page", "size"}, []string{"permissions"})
 	}
 
 	if err == nil {
@@ -210,7 +211,7 @@ func RoleError(request *http.Request, err error) (int, string) {
 		status, messageID = http.StatusConflict, "errors.role_used"
 	case errors.Is(err, users.ErrRoleAlreadyExists):
 		status, messageID = http.StatusConflict, "errors.role_exists"
-	case errors.Is(err, users.ErrRoleIDInvalid), errors.Is(err, ErrFormInvalid):
+	case errors.Is(err, users.ErrRoleIDInvalid), errors.Is(err, forms.ErrInvalid):
 		status, messageID = http.StatusBadRequest, "errors.role_form"
 	case errors.Is(err, users.ErrInvalidRoleQuery), errors.Is(err, users.ErrRoleFilterInvalid):
 		status, messageID = http.StatusBadRequest, "errors.role_query"

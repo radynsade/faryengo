@@ -24,6 +24,7 @@ import (
 	languagespgxgoqu "github.com/radynsade/faryengo/internal/languages/pgxgoqu"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
+	emailpassredis "github.com/radynsade/faryengo/internal/security/emailpass/redis"
 	"github.com/radynsade/faryengo/internal/security/sessionid"
 	sessionidredis "github.com/radynsade/faryengo/internal/security/sessionid/redis"
 	"github.com/radynsade/faryengo/internal/users/argon2id"
@@ -113,7 +114,7 @@ func run(ctx context.Context) error {
 		} else {
 			err = serve(ctx, &http.Server{
 				Addr:              settings.HTTPAddress,
-				Handler:           middleware.RedirectTrailingSlash(mux),
+				Handler:           newServerHandler(settings, mux),
 				ReadHeaderTimeout: 5 * time.Second,
 				ReadTimeout:       15 * time.Second,
 				WriteTimeout:      30 * time.Second,
@@ -123,6 +124,23 @@ func run(ctx context.Context) error {
 	}
 
 	return err
+}
+
+// The client's address is resolved first, so the access log and every handler
+// see it. The log wraps recovery so a panicking request is logged with its
+// failure status. Routes recover again with their application's error page,
+// so this recovery only answers requests outside them, such as assets.
+
+func newServerHandler(settings config.Config, mux *http.ServeMux) http.Handler {
+	var handler http.Handler = mux
+
+	handler = middleware.RedirectTrailingSlash(handler)
+	handler = middleware.SecurityHeaders(handler)
+	handler = middleware.Recover(nil, handler)
+	handler = middleware.AccessLog(handler)
+	handler = middleware.ClientAddress(settings.TrustedProxies, handler)
+
+	return handler
 }
 
 // The server stops accepting connections when the context ends and gives
@@ -228,6 +246,7 @@ func wireHandlers(
 		userRepository      *userspgxgoqu.UserRepository
 		credentials         *userspgxgoqu.CredentialsSnapshotRepository
 		sessionStorage      *sessionidredis.SessionStorage
+		attemptStorage      *emailpassredis.AttemptStorage
 		passwords           *emailpass.Authenticator
 		sessions            *sessionid.Authenticator
 		identities          *security.IdentityResolver
@@ -269,7 +288,11 @@ func wireHandlers(
 	}
 
 	if err == nil {
-		passwords, err = emailpass.NewAuthenticator(ctx, credentials, hasher, settings.SessionTTL)
+		attemptStorage, err = emailpassredis.NewAttemptStorage(client)
+	}
+
+	if err == nil {
+		passwords, err = emailpass.NewAuthenticator(ctx, credentials, hasher, attemptStorage, settings.SessionTTL)
 	}
 
 	if err == nil {

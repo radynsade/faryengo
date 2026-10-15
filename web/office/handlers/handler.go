@@ -9,7 +9,9 @@ import (
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
 	"github.com/radynsade/faryengo/internal/security/sessionid"
+	"github.com/radynsade/faryengo/middleware"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
+	"github.com/radynsade/faryengo/web/cookie"
 	"github.com/radynsade/faryengo/web/office/assets"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 	"github.com/radynsade/faryengo/web/office/utils"
@@ -33,7 +35,7 @@ type Handler struct {
 	accounts   *app.AccountService
 	users      *app.UserService
 	flashes    *utils.Flashes
-	cookies    utils.Cookies
+	cookies    cookie.Jar
 }
 
 func NewHandler(
@@ -67,7 +69,7 @@ func NewHandler(
 			accounts:   accountService,
 			users:      userService,
 			flashes:    flashes,
-			cookies:    utils.Cookies{Secure: secureCookies},
+			cookies:    cookie.Jar{Secure: secureCookies},
 		}
 	}
 
@@ -150,18 +152,28 @@ func (h *Handler) notFound(writer http.ResponseWriter, request *http.Request) {
 //
 
 func wrapRoute(protection *http.CrossOriginProtection, next http.HandlerFunc) http.Handler {
-	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
-		ctx := officei18n.WithLocale(request.Context(), request.PathValue("language"), request.URL)
-		request = request.WithContext(ctx)
-
-		writer.Header().Set("Cache-Control", "no-store")
-		writer.Header().Set("X-Content-Type-Options", "nosniff")
-		writer.Header().Set("Content-Language", officei18n.Language(ctx))
-
+	guarded := middleware.Recover(unexpected, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		if checkErr := protection.Check(request); checkErr != nil {
 			utils.Fail(writer, request, http.StatusForbidden, "errors.cross_origin")
 		} else {
 			next(writer, request)
 		}
+	}))
+
+	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		ctx := officei18n.WithLocale(request.Context(), request.PathValue("language"), request.URL)
+		request = request.WithContext(ctx)
+
+		writer.Header().Set("Cache-Control", "no-store")
+		writer.Header().Set("Content-Language", officei18n.Language(ctx))
+
+		guarded.ServeHTTP(writer, request)
 	})
+}
+
+// A panicking handler is answered with the error page, in the request's
+// language, when nothing has been written yet.
+
+func unexpected(writer http.ResponseWriter, request *http.Request) {
+	utils.Fail(writer, request, http.StatusInternalServerError, "errors.unexpected")
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/doug-martin/goqu/v9"
 	_ "github.com/doug-martin/goqu/v9/dialect/postgres"
@@ -448,11 +447,11 @@ func accountFilterDataset(filter accounts.AccountFilter) *goqu.SelectDataset {
 	dataset := goqu.Dialect("postgres").From("account")
 
 	if filter.IDLike != "" {
-		dataset = dataset.Where(goqu.L(`"account".id::text ILIKE ?`, likeSubstring(filter.IDLike)))
+		dataset = dataset.Where(goqu.L(`"account".id::text ILIKE ?`, pgxdb.LikeSubstring(filter.IDLike)))
 	}
 
 	if filter.NameLike != "" {
-		dataset = dataset.Where(goqu.L(`"account".name ILIKE ?`, likeSubstring(filter.NameLike)))
+		dataset = dataset.Where(goqu.L(`"account".name ILIKE ?`, pgxdb.LikeSubstring(filter.NameLike)))
 	}
 
 	if filter.WorkspaceID != nil {
@@ -486,10 +485,6 @@ func accountOrder(query accounts.AccountQuery) []exp.OrderedExpression {
 	}
 
 	return order
-}
-
-func likeSubstring(value string) string {
-	return "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(value) + "%"
 }
 
 func scanAccount(row pgx.Row) (*accounts.Account, error) {

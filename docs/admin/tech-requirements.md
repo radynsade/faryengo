@@ -65,6 +65,10 @@ A full document load is allowed only for:
   modifier clicks, middle clicks, and opening a link in a new tab keep working.
 - Content received from the server never executes inline scripts. Client
   behavior is loaded once and must keep working for content inserted later.
+- Markup carries no inline scripts, event handler attributes, `<style>`
+  elements, or `style` attributes, and scripts insert none: the server's
+  content security policy refuses them. Styles come from the built stylesheet;
+  scripts may still set an element's style properties.
 
 ## 2. DOM morphing
 

@@ -576,17 +576,17 @@ func userFilterDataset(filter users.UserFilter) *goqu.SelectDataset {
 	dataset := goqu.Dialect("postgres").From("user")
 
 	if filter.IDLike != "" {
-		dataset = dataset.Where(goqu.L(`"user".id::text ILIKE ?`, likeSubstring(filter.IDLike)))
+		dataset = dataset.Where(goqu.L(`"user".id::text ILIKE ?`, pgxdb.LikeSubstring(filter.IDLike)))
 	}
 
 	if filter.EmailLike != "" {
-		dataset = dataset.Where(goqu.L(`"user".email ILIKE ?`, likeSubstring(filter.EmailLike)))
+		dataset = dataset.Where(goqu.L(`"user".email ILIKE ?`, pgxdb.LikeSubstring(filter.EmailLike)))
 	}
 
 	if filter.NameLike != "" {
 		dataset = dataset.Where(goqu.L(
 			`("user".first_name || ' ' || "user".last_name) ILIKE ?`,
-			likeSubstring(filter.NameLike),
+			pgxdb.LikeSubstring(filter.NameLike),
 		))
 	}
 

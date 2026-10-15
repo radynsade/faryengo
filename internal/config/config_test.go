@@ -105,3 +105,49 @@ func unsetEnv(t *testing.T, key string) {
 		}
 	})
 }
+
+func TestTrustedProxies(t *testing.T) {
+	for _, tt := range []struct {
+		name    string
+		value   string
+		want    []string
+		wantErr bool
+	}{
+		{name: "none by default"},
+		{name: "addresses and prefixes", value: "10.0.0.1, 192.168.0.0/16,::1", want: []string{"10.0.0.1/32", "192.168.0.0/16", "::1/128"}},
+		{name: "prefix is masked", value: "10.1.2.3/8", want: []string{"10.0.0.0/8"}},
+		{name: "empty items are skipped", value: " ,10.0.0.1,", want: []string{"10.0.0.1/32"}},
+		{name: "invalid address", value: "10.0.0.1,proxy", wantErr: true},
+		{name: "invalid prefix", value: "10.0.0.0/33", wantErr: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Chdir(t.TempDir())
+			clearAuthEnvironment(t)
+			t.Setenv("TRUSTED_PROXIES", tt.value)
+
+			settings, err := Load()
+
+			if tt.wantErr {
+				if err == nil || !strings.Contains(err.Error(), "TRUSTED_PROXIES") {
+					t.Fatalf("Load() error = %v, want a TRUSTED_PROXIES error", err)
+				}
+
+				return
+			}
+
+			if err != nil {
+				t.Fatalf("Load() error = %v", err)
+			}
+
+			got := make([]string, len(settings.TrustedProxies))
+
+			for index, prefix := range settings.TrustedProxies {
+				got[index] = prefix.String()
+			}
+
+			if strings.Join(got, ",") != strings.Join(tt.want, ",") {
+				t.Fatalf("TrustedProxies = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

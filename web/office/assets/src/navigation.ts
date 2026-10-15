@@ -6,6 +6,9 @@ import 'idiomorph/htmx';
 htmx.config.historyRestoreAsHxRequest = false;
 htmx.config.allowEval = false;
 htmx.config.allowScriptTags = false;
+// The content security policy refuses inline styles, so htmx must not insert
+// its indicator stylesheet; no htmx indicators are used.
+htmx.config.includeIndicatorStyles = false;
 
 // Navigation replaces either the whole page region or, inside the dashboard,
 // only its main region; both are page changes for focus. Each layout names

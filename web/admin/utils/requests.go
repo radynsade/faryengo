@@ -4,10 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"maps"
-	"mime"
 	"net/http"
-	"net/url"
 	"slices"
 	"strings"
 	"time"
@@ -19,6 +16,7 @@ import (
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
+	"github.com/radynsade/faryengo/web/forms"
 )
 
 //
@@ -54,46 +52,6 @@ const (
 	maxDeleteFormBytes = 1 << 10
 )
 
-// A form with an unexpected content type, an oversized body, an unknown field
-// or a repeated single-valued field is malformed rather than invalid, so it
-// is rejected without field errors.
-
-var ErrFormInvalid = errors.New("invalid form")
-
-func parseForm(writer http.ResponseWriter, request *http.Request, maxBytes int64) error {
-	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
-
-	if err != nil || mediaType != "application/x-www-form-urlencoded" {
-		err = ErrFormInvalid
-	} else {
-		request.Body = http.MaxBytesReader(writer, request.Body, maxBytes)
-
-		if parseErr := request.ParseForm(); parseErr != nil {
-			err = fmt.Errorf("%w: %w", ErrFormInvalid, parseErr)
-		}
-	}
-
-	return err
-}
-
-func checkFields(values url.Values, single []string, multiple []string) error {
-	var err error
-
-	for _, key := range slices.Sorted(maps.Keys(values)) {
-		if !slices.Contains(single, key) && !slices.Contains(multiple, key) {
-			err = ErrFormInvalid
-		} else if slices.Contains(single, key) && len(values[key]) > 1 {
-			err = ErrFormInvalid
-		}
-
-		if err != nil {
-			break
-		}
-	}
-
-	return err
-}
-
 //
 // Sign-in form
 //
@@ -106,10 +64,10 @@ type SignInForm struct {
 func ParseSignInForm(writer http.ResponseWriter, request *http.Request) (SignInForm, error) {
 	var form SignInForm
 
-	err := parseForm(writer, request, maxSignInFormBytes)
+	err := forms.Parse(writer, request, maxSignInFormBytes)
 
 	if err == nil {
-		err = checkFields(request.PostForm, []string{"email", "password"}, nil)
+		err = forms.CheckFields(request.PostForm, []string{"email", "password"}, nil)
 	}
 
 	if err == nil {
@@ -144,10 +102,10 @@ func ParseRoleForm(
 		fields = append(fields, "name["+string(language.Code)+"]")
 	}
 
-	err := parseForm(writer, request, maxRoleFormBytes)
+	err := forms.Parse(writer, request, maxRoleFormBytes)
 
 	if err == nil {
-		err = checkFields(request.PostForm, fields, []string{"permissions"})
+		err = forms.CheckFields(request.PostForm, fields, []string{"permissions"})
 	}
 
 	if err == nil {
@@ -164,7 +122,7 @@ func ParseRoleForm(
 	}
 
 	if err == nil && form.IsSuper != "" && form.IsSuper != "1" {
-		err = ErrFormInvalid
+		err = forms.ErrInvalid
 	}
 
 	return form, err
@@ -199,10 +157,10 @@ func ParseUserForm(writer http.ResponseWriter, request *http.Request, edit bool)
 		fields = append(fields, "updated_at")
 	}
 
-	err := parseForm(writer, request, maxUserFormBytes)
+	err := forms.Parse(writer, request, maxUserFormBytes)
 
 	if err == nil {
-		err = checkFields(request.PostForm, fields, nil)
+		err = forms.CheckFields(request.PostForm, fields, nil)
 	}
 
 	if err == nil {
@@ -222,7 +180,7 @@ func ParseUserForm(writer http.ResponseWriter, request *http.Request, edit bool)
 		form.UpdatedAt, parseErr = time.Parse(time.RFC3339Nano, request.PostForm.Get("updated_at"))
 
 		if parseErr != nil {
-			err = fmt.Errorf("%w: %w", ErrFormInvalid, parseErr)
+			err = fmt.Errorf("%w: %w", forms.ErrInvalid, parseErr)
 		}
 	}
 
@@ -245,14 +203,14 @@ func (f UserForm) Role() users.RoleID {
 //
 
 func ParseDeleteForm(writer http.ResponseWriter, request *http.Request) error {
-	err := parseForm(writer, request, maxDeleteFormBytes)
+	err := forms.Parse(writer, request, maxDeleteFormBytes)
 
 	if err == nil {
-		err = checkFields(request.PostForm, []string{"confirm"}, nil)
+		err = forms.CheckFields(request.PostForm, []string{"confirm"}, nil)
 	}
 
 	if err == nil && request.PostForm.Get("confirm") != "delete" {
-		err = ErrFormInvalid
+		err = forms.ErrInvalid
 	}
 
 	return err

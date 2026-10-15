@@ -178,8 +178,11 @@ func (a *Authenticator) Issue(
 	return id, err
 }
 
-// Every sign-in checks the stored Session and the User's current credentials
-// version, so revocation takes effect on the next request.
+// SignIn proves that the client holds a stored, unexpired Session. Whether the
+// Session still authenticates its User, that is whether the User exists and
+// still holds the credentials version it captured, is decided by
+// security.IdentityResolver, which every request resolves its identity
+// through; repeating that check here would only read the version twice.
 
 func (a *Authenticator) SignIn(
 	ctx context.Context,
@@ -194,10 +197,6 @@ func (a *Authenticator) SignIn(
 		err = ErrAuthenticatorNil
 	} else {
 		session, err = a.find(ctx, id)
-
-		if err == nil {
-			err = a.checkVersion(ctx, session)
-		}
 	}
 
 	if err != nil {
@@ -280,21 +279,4 @@ func (a *Authenticator) find(
 	}
 
 	return session, err
-}
-
-func (a *Authenticator) checkVersion(
-	ctx context.Context,
-	session *security.Session,
-) error {
-	version, err := a.credentials.FindVersionByUserID(ctx, session.UserID)
-
-	if errors.Is(err, users.ErrUserNotFound) {
-		err = fmt.Errorf("%w: %w", security.ErrSessionRevoked, err)
-	} else if err != nil {
-		err = fmt.Errorf("check the credentials version: %w", err)
-	} else if version != session.CredentialsVersion {
-		err = security.ErrSessionRevoked
-	}
-
-	return err
 }

@@ -5,16 +5,19 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strconv"
 
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
 	"github.com/radynsade/faryengo/internal/security/sessionid"
 	"github.com/radynsade/faryengo/internal/users"
+	"github.com/radynsade/faryengo/middleware"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
 	"github.com/radynsade/faryengo/web/admin/utils"
+	"github.com/radynsade/faryengo/web/forms"
 )
 
 //
@@ -92,7 +95,7 @@ func (h *Handler) signIn(writer http.ResponseWriter, request *http.Request) {
 		err = requestvalidation.Validate(request.Context(), form)
 	}
 
-	if errors.Is(err, utils.ErrFormInvalid) {
+	if errors.Is(err, forms.ErrInvalid) {
 		h.showSignInError(writer, request, http.StatusBadRequest, "", "errors.credentials_form")
 	} else if err != nil {
 		h.renderSignIn(writer, request, http.StatusUnprocessableEntity, form.Email, nil, utils.FieldErrors(request.Context(), err))
@@ -111,6 +114,7 @@ func (h *Handler) signIn(writer http.ResponseWriter, request *http.Request) {
 			session, err = h.passwords.SignIn(request.Context(), emailpass.Credentials{
 				Email:    email,
 				Password: form.Password,
+				Client:   middleware.RemoteHost(request),
 			})
 		}
 
@@ -224,6 +228,9 @@ func (h *Handler) signInFailed(
 
 	if utils.IsUnauthenticated(err) {
 		status, messageID = http.StatusUnauthorized, "errors.invalid_session"
+	} else if errors.Is(err, emailpass.ErrAttemptsExceeded) {
+		status, messageID = http.StatusTooManyRequests, "errors.sign_in_attempts"
+		writer.Header().Set("Retry-After", strconv.Itoa(int(emailpass.AttemptWindow.Seconds())))
 	} else if errors.Is(err, emailpass.ErrVerificationBusy) {
 		status, messageID = http.StatusServiceUnavailable, "errors.sign_in_busy"
 		writer.Header().Set("Retry-After", "1")

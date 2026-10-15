@@ -366,6 +366,9 @@
   "errors.sign_in_busy": {
     "other": "Pašlaik tiek apstrādāts pārāk daudz pieslēgšanās mēģinājumu. Lūdzu, mēģiniet vēlreiz pēc brīža."
   },
+  "errors.sign_in_attempts": {
+    "other": "Pārāk daudz pieteikšanās mēģinājumu. Lūdzu, uzgaidiet dažas minūtes un mēģiniet vēlreiz."
+  },
   "common.full_name": {
     "other": "{{.FirstName}} {{.LastName}}"
   },

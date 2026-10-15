@@ -13,6 +13,7 @@ import (
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
+	"github.com/radynsade/faryengo/web/forms"
 )
 
 //
@@ -37,10 +38,10 @@ type ProfileForm struct {
 func ParseProfileForm(writer http.ResponseWriter, request *http.Request) (ProfileForm, error) {
 	var form ProfileForm
 
-	err := parseForm(writer, request, maxSettingsFormBytes)
+	err := forms.Parse(writer, request, maxSettingsFormBytes)
 
 	if err == nil {
-		err = checkFields(request.PostForm, []string{"first_name", "last_name", "email", "current_password", "confirm", "updated_at"}, nil)
+		err = forms.CheckFields(request.PostForm, []string{"first_name", "last_name", "email", "current_password", "confirm", "updated_at"}, nil)
 	}
 
 	if err == nil {
@@ -55,7 +56,7 @@ func ParseProfileForm(writer http.ResponseWriter, request *http.Request) (Profil
 		form.UpdatedAt, err = time.Parse(time.RFC3339Nano, request.PostForm.Get("updated_at"))
 
 		if err != nil {
-			err = errors.Join(ErrFormInvalid, err)
+			err = errors.Join(forms.ErrInvalid, err)
 		}
 	}
 
@@ -87,10 +88,10 @@ type PasswordForm struct {
 func ParsePasswordForm(writer http.ResponseWriter, request *http.Request) (PasswordForm, error) {
 	var form PasswordForm
 
-	err := parseForm(writer, request, maxSettingsFormBytes)
+	err := forms.Parse(writer, request, maxSettingsFormBytes)
 
 	if err == nil {
-		err = checkFields(request.PostForm, []string{"current_password", "new_password", "new_password_repeat", "confirm"}, nil)
+		err = forms.CheckFields(request.PostForm, []string{"current_password", "new_password", "new_password_repeat", "confirm"}, nil)
 	}
 
 	if err == nil {
@@ -173,7 +174,7 @@ func SettingsProps(current *security.Identity, settingsURL string) (pages.Profil
 func SettingsError(err error) (int, string) {
 	status, messageID := http.StatusServiceUnavailable, "errors.settings_unavailable"
 
-	if errors.Is(err, ErrFormInvalid) {
+	if errors.Is(err, forms.ErrInvalid) {
 		status, messageID = http.StatusBadRequest, "errors.settings_form"
 	} else if errors.Is(err, users.ErrUserConflict) {
 		status, messageID = http.StatusConflict, "errors.profile_conflict"

@@ -30,8 +30,9 @@ func TestGuestFlashSession(t *testing.T) {
 		t.Fatal("a consumed message was shown again")
 	}
 
+	// The failed sign-in also stores its attempt counts beside the flashes.
 	for _, key := range f.redis.Keys() {
-		if !strings.HasPrefix(key, "faryen:web:admin:flashes:guest:") {
+		if strings.HasPrefix(key, "faryen:web:admin:flashes:") && !strings.HasPrefix(key, "faryen:web:admin:flashes:guest:") {
 			t.Fatalf("guest message stored under %s", key)
 		}
 	}

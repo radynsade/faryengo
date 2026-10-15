@@ -21,6 +21,7 @@ import (
 	languagesmock "github.com/radynsade/faryengo/internal/languages/mock"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
+	emailpassredis "github.com/radynsade/faryengo/internal/security/emailpass/redis"
 	"github.com/radynsade/faryengo/internal/security/sessionid"
 	sessionidredis "github.com/radynsade/faryengo/internal/security/sessionid/redis"
 	"github.com/radynsade/faryengo/internal/users"
@@ -103,7 +104,10 @@ func newFixture(t *testing.T, permissions users.Permissions, isSuper bool) *fixt
 	storage, err := sessionidredis.NewSessionStorage(client)
 	must(t, err)
 
-	passwords, err := emailpass.NewAuthenticator(t.Context(), f.credentials(), hasher, time.Hour)
+	attempts, err := emailpassredis.NewAttemptStorage(client)
+	must(t, err)
+
+	passwords, err := emailpass.NewAuthenticator(t.Context(), f.credentials(), hasher, attempts, time.Hour)
 	must(t, err)
 
 	sessions, err := sessionid.NewAuthenticator(storage, f.credentials())

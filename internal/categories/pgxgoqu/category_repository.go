@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/doug-martin/goqu/v9"
 	_ "github.com/doug-martin/goqu/v9/dialect/postgres"
@@ -450,11 +449,11 @@ func categoryFilterDataset(filter categories.CategoryFilter) *goqu.SelectDataset
 	dataset := goqu.Dialect("postgres").From("category")
 
 	if filter.IDLike != "" {
-		dataset = dataset.Where(goqu.L(`"category".id::text ILIKE ?`, likeSubstring(filter.IDLike)))
+		dataset = dataset.Where(goqu.L(`"category".id::text ILIKE ?`, pgxdb.LikeSubstring(filter.IDLike)))
 	}
 
 	if filter.NameLike != "" {
-		dataset = dataset.Where(goqu.L(`"category".name ILIKE ?`, likeSubstring(filter.NameLike)))
+		dataset = dataset.Where(goqu.L(`"category".name ILIKE ?`, pgxdb.LikeSubstring(filter.NameLike)))
 	}
 
 	if filter.WorkspaceID != nil {
@@ -484,10 +483,6 @@ func categoryOrder(query categories.CategoryQuery) []exp.OrderedExpression {
 	}
 
 	return order
-}
-
-func likeSubstring(value string) string {
-	return "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(value) + "%"
 }
 
 func scanCategory(row pgx.Row) (*categories.Category, error) {

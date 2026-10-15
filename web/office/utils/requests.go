@@ -3,15 +3,12 @@ package utils
 import (
 	"context"
 	"errors"
-	"fmt"
-	"maps"
-	"mime"
 	"net/http"
-	"slices"
 
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
+	"github.com/radynsade/faryengo/web/forms"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 )
 
@@ -37,12 +34,6 @@ func init() {
 //
 
 const maxSignInFormBytes = 32 << 10
-
-// A form with an unexpected content type, an oversized body, an unknown field
-// or a repeated field is malformed rather than invalid, so it is rejected
-// without field errors.
-
-var ErrFormInvalid = errors.New("invalid form")
 
 type SignInForm struct {
 	Email    string `form:"email" validate:"required,office_mailbox,maxbytes=254"`
@@ -119,24 +110,10 @@ func parseForm(
 	maxBytes int64,
 	allowed ...string,
 ) error {
-	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
-
-	if err != nil || mediaType != "application/x-www-form-urlencoded" {
-		err = ErrFormInvalid
-	} else {
-		request.Body = http.MaxBytesReader(writer, request.Body, maxBytes)
-
-		if parseErr := request.ParseForm(); parseErr != nil {
-			err = fmt.Errorf("%w: %w", ErrFormInvalid, parseErr)
-		}
-	}
+	err := forms.Parse(writer, request, maxBytes)
 
 	if err == nil {
-		for _, key := range slices.Sorted(maps.Keys(request.PostForm)) {
-			if !slices.Contains(allowed, key) || len(request.PostForm[key]) > 1 {
-				err = ErrFormInvalid
-			}
-		}
+		err = forms.CheckFields(request.PostForm, allowed, nil)
 	}
 
 	return err

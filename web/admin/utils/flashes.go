@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/radynsade/faryengo/pkg/flashmsg"
+	"github.com/radynsade/faryengo/web/cookie"
 )
 
 //
@@ -32,10 +33,10 @@ var ErrFlashStorageNil = errors.New("flash storage is nil")
 
 type Flashes struct {
 	storage flashmsg.FlashSessionStorage
-	cookies Cookies
+	cookies cookie.Jar
 }
 
-func NewFlashes(storage flashmsg.FlashSessionStorage, cookies Cookies) (*Flashes, error) {
+func NewFlashes(storage flashmsg.FlashSessionStorage, cookies cookie.Jar) (*Flashes, error) {
 	var (
 		flashes *Flashes
 		err     error

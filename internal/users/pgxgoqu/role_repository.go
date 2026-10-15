@@ -535,13 +535,13 @@ func roleFilterDataset(filter users.RoleFilter) *goqu.SelectDataset {
 	dataset := goqu.Dialect("postgres").From("role")
 
 	if filter.IDLike != "" {
-		dataset = dataset.Where(goqu.L(`"role".id::text ILIKE ?`, likeSubstring(filter.IDLike)))
+		dataset = dataset.Where(goqu.L(`"role".id::text ILIKE ?`, pgxdb.LikeSubstring(filter.IDLike)))
 	}
 
 	if filter.NameLike != "" {
 		dataset = dataset.Where(goqu.L(
 			`EXISTS (SELECT 1 FROM "translation" WHERE text_id = "role".name_id AND content ILIKE ?)`,
-			likeSubstring(filter.NameLike),
+			pgxdb.LikeSubstring(filter.NameLike),
 		))
 	}
 
@@ -588,10 +588,6 @@ func roleOrder(query users.RoleQuery) []exp.OrderedExpression {
 	}
 
 	return order
-}
-
-func likeSubstring(value string) string {
-	return "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(value) + "%"
 }
 
 func rolePermissionsArray(permissions users.Permissions) exp.LiteralExpression {

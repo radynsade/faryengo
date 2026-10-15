@@ -15,6 +15,7 @@ import (
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
 	"github.com/radynsade/faryengo/middleware/requestvalidation"
+	"github.com/radynsade/faryengo/web/forms"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 	"github.com/radynsade/faryengo/web/office/templates/components"
 	"github.com/radynsade/faryengo/web/office/templates/pages"
@@ -56,7 +57,7 @@ func ParseProfileForm(writer http.ResponseWriter, request *http.Request) (Profil
 		form.UpdatedAt, err = time.Parse(time.RFC3339Nano, request.PostForm.Get("updated_at"))
 
 		if err != nil {
-			err = errors.Join(ErrFormInvalid, err)
+			err = errors.Join(forms.ErrInvalid, err)
 		}
 	}
 
@@ -239,7 +240,7 @@ func ParseRoleForm(writer http.ResponseWriter, request *http.Request) (RoleForm,
 		form = RoleForm{UserID: id, Role: request.PostForm.Get("role")}
 
 		if validationErr := requestvalidation.Validate(request.Context(), form); validationErr != nil {
-			err = errors.Join(ErrFormInvalid, validationErr)
+			err = errors.Join(forms.ErrInvalid, validationErr)
 		}
 	}
 
@@ -337,7 +338,7 @@ func ParseRemoveMemberForm(writer http.ResponseWriter, request *http.Request, al
 
 		if parseErr != nil {
 			id = users.UserID{}
-			err = errors.Join(ErrFormInvalid, users.ErrUserIDInvalid)
+			err = errors.Join(forms.ErrInvalid, users.ErrUserIDInvalid)
 		}
 	}
 
@@ -430,7 +431,7 @@ func WorkspaceSettingsContentProps(
 func SettingsFormError(ctx context.Context, err error) (int, string) {
 	status, messageID := http.StatusServiceUnavailable, "errors.settings_unavailable"
 
-	if errors.Is(err, ErrFormInvalid) {
+	if errors.Is(err, forms.ErrInvalid) {
 		status, messageID = http.StatusBadRequest, "errors.form"
 	} else if errors.Is(err, users.ErrUserConflict) {
 		status, messageID = http.StatusConflict, "errors.profile_conflict"

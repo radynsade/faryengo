@@ -24,9 +24,39 @@ Run the command without arguments; configure it through environment settings.
 | `HTTP_ADDRESS` | Listening address in `<host>:<port>` format. An omitted host listens on all interfaces. | `:8080` |
 | `SESSION_TTL` | Browser session lifetime, from `1s` to `2160h`. | `168h` |
 | `AUTH_COOKIE_SECURE` | Require HTTPS for authentication cookies. | `true` |
+| `TRUSTED_PROXIES` | Comma-separated IP addresses and CIDR prefixes of the reverse proxies in front of the server, such as `10.0.0.0/8,::1`. | None |
 
 Keep `AUTH_COOKIE_SECURE=true` in production and provide HTTPS through a trusted
 reverse proxy. For local use over plain HTTP, set `AUTH_COOKIE_SECURE=false`.
+
+List every reverse proxy in `TRUSTED_PROXIES`. The server takes the client's
+address from `X-Forwarded-For` only on connections from those proxies, reading
+it from the right and stopping at the first untrusted address, so each proxy
+must append the address it received the request from rather than pass the
+header through. Without trusted proxies the connection's own address is the
+client's, so behind an unlisted proxy every visitor shares the proxy's address
+and its sign-in limit.
+
+## Sign-in limits
+
+Every sign-in attempt in the admin panel and the office counts against its
+email and its client address, whether it succeeds or not. Within 15 minutes of
+the first counted attempt, an email allows 10 attempts and a client address
+100; later attempts are refused with `429 Too Many Requests` until those 15
+minutes pass. A successful sign-in clears its email's count. Counts live in
+Redis-compatible storage under digests of the email and address; when that
+storage is unavailable, signing in is refused. At most four passwords are
+verified at once, and an attempt that waits more than two seconds for its turn
+is refused with `503 Service Unavailable`.
+
+## Responses and logs
+
+Every response forbids framing and carries a content security policy that
+allows only the server's own scripts, styles, and connections, plus data URLs
+for fonts and images. Each request is logged once answered, with its method,
+path without the query string, status, size, duration, and client address. A
+handler that fails unexpectedly is logged with its stack trace and answered
+with the application's error page.
 
 ## Access and shutdown
 

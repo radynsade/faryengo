@@ -10,6 +10,7 @@ import (
 
 	"github.com/radynsade/faryengo/internal/workspaces"
 	"github.com/radynsade/faryengo/pkg/domquery"
+	"github.com/radynsade/faryengo/web/forms"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 	"github.com/radynsade/faryengo/web/office/templates/pages"
 	"github.com/radynsade/faryengo/web/office/utils"
@@ -111,7 +112,7 @@ func (h *Handler) submitWorkspace(
 
 	if err == nil {
 		http.Redirect(writer, request, utils.WorkspacePath(request, workspace.ID), http.StatusSeeOther)
-	} else if errors.Is(err, utils.ErrFormInvalid) {
+	} else if errors.Is(err, forms.ErrInvalid) {
 		props.Error = officei18n.T(request.Context(), "errors.form")
 		h.renderCreateWorkspace(writer, request, http.StatusBadRequest, props)
 	} else if errors.Is(err, input.ErrCreateWorkspaceInputInvalid) {

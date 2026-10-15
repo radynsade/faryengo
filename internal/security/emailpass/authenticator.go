@@ -3,8 +3,11 @@ package emailpass
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,6 +25,7 @@ var (
 	ErrAuthenticatorNil = errors.New("email and password authenticator is nil")
 	ErrConfigInvalid    = errors.New("invalid email and password authenticator configuration")
 	ErrVerificationBusy = errors.New("too many concurrent password verifications")
+	ErrAttemptsExceeded = errors.New("too many sign-in attempts")
 	ErrSessionNotStored = errors.New("email and password sessions are not stored")
 )
 
@@ -35,9 +39,13 @@ var (
 	ErrCredentialsMismatch        = errors.New("email or password does not match")
 )
 
+// Client is the network address the attempt comes from. Attempts are bounded
+// per Client as well as per Email; an empty Client is bounded only per Email.
+
 type Credentials struct {
 	Email    users.Email
 	Password string
+	Client   string
 }
 
 // Only the byte limit applies to the password, so passwords accepted under
@@ -60,6 +68,19 @@ func (c Credentials) Validate() error {
 }
 
 //
+// Attempt storage
+//
+
+// Add counts one attempt under every key and returns each key's count, in key
+// order. A key's count starts at its first attempt and is forgotten once the
+// window has passed since then. Reset forgets a key's attempts at once.
+
+type AttemptStorage interface {
+	Add(ctx context.Context, window time.Duration, keys ...string) ([]int64, error)
+	Reset(ctx context.Context, key string) error
+}
+
+//
 // Authenticator
 //
 
@@ -67,11 +88,16 @@ const (
 	MinSessionTTL              = time.Second
 	MaxSessionTTL              = 90 * 24 * time.Hour
 	MaxConcurrentVerifications = 4
+	MaxVerificationWait        = 2 * time.Second
+	AttemptWindow              = 15 * time.Minute
+	MaxAttemptsPerEmail        = 10
+	MaxAttemptsPerClient       = 100
 )
 
 type Authenticator struct {
 	credentials   users.CredentialsSnapshotRepository
 	hasher        users.PasswordHasher
+	attempts      AttemptStorage
 	sessionTTL    time.Duration
 	dummyHash     users.PasswordHash
 	verifications *semaphore.Weighted
@@ -86,6 +112,7 @@ func NewAuthenticator(
 	ctx context.Context,
 	credentials users.CredentialsSnapshotRepository,
 	hasher users.PasswordHasher,
+	attempts AttemptStorage,
 	sessionTTL time.Duration,
 ) (*Authenticator, error) {
 	var (
@@ -93,7 +120,7 @@ func NewAuthenticator(
 		err           error
 	)
 
-	if credentials == nil || hasher == nil {
+	if credentials == nil || hasher == nil || attempts == nil {
 		err = ErrConfigInvalid
 	} else if sessionTTL < MinSessionTTL || sessionTTL > MaxSessionTTL {
 		err = ErrConfigInvalid
@@ -106,6 +133,7 @@ func NewAuthenticator(
 			authenticator = &Authenticator{
 				credentials:   credentials,
 				hasher:        hasher,
+				attempts:      attempts,
 				sessionTTL:    sessionTTL,
 				dummyHash:     dummyHash,
 				verifications: semaphore.NewWeighted(MaxConcurrentVerifications),
@@ -123,32 +151,45 @@ func NewAuthenticator(
 // The returned Session is not stored anywhere. Hand it to the mechanism that
 // will carry it, such as sessionid or jwt, to obtain a credential for the
 // client.
+//
+// Every attempt counts against its Email and its Client before the password
+// is verified, whether it succeeds or not, and one over either limit is
+// refused with ErrAttemptsExceeded until its window passes. A successful
+// sign-in forgets its Email's attempts. An attempt that cannot be counted is
+// refused, since the limits cannot be enforced without their storage. An
+// attempt that finds no free verification within MaxVerificationWait is
+// refused with ErrVerificationBusy.
 
 func (a *Authenticator) SignIn(
 	ctx context.Context,
 	credentials Credentials,
 ) (*security.Session, error) {
 	var (
-		session *security.Session
-		err     error
+		session  *security.Session
+		snapshot *users.CredentialsSnapshot
+		err      error
 	)
 
-	if a == nil || a.credentials == nil {
+	if a == nil || a.credentials == nil || a.attempts == nil {
 		err = ErrAuthenticatorNil
 	} else if validationErr := credentials.Validate(); validationErr != nil {
 		err = validationErr
-	} else if !a.verifications.TryAcquire(1) {
-		err = ErrVerificationBusy
 	} else {
-		var snapshot *users.CredentialsSnapshot
+		err = a.countAttempt(ctx, credentials)
+	}
 
-		snapshot, err = a.verify(ctx, credentials)
+	if err == nil {
+		snapshot, err = a.verifyBounded(ctx, credentials)
+	}
 
-		a.verifications.Release(1)
+	if err == nil {
+		session, err = a.newSession(snapshot)
+	}
 
-		if err == nil {
-			session, err = a.newSession(snapshot)
-		}
+	// A count that cannot be forgotten only lasts until its window passes, so
+	// the sign-in still succeeds.
+	if err == nil {
+		_ = a.attempts.Reset(ctx, emailAttemptKey(credentials.Email))
 	}
 
 	if err != nil {
@@ -190,6 +231,54 @@ func (a *Authenticator) SignOut(
 //
 // Helpers
 //
+
+func (a *Authenticator) countAttempt(ctx context.Context, credentials Credentials) error {
+	keys := []string{emailAttemptKey(credentials.Email)}
+	limits := []int64{MaxAttemptsPerEmail}
+
+	if credentials.Client != "" {
+		keys = append(keys, clientAttemptKey(credentials.Client))
+		limits = append(limits, MaxAttemptsPerClient)
+	}
+
+	counts, err := a.attempts.Add(ctx, AttemptWindow, keys...)
+
+	if err != nil {
+		err = fmt.Errorf("count the sign-in attempt: %w", err)
+	} else if len(counts) != len(keys) {
+		err = fmt.Errorf("count the sign-in attempt: got %d counts for %d keys", len(counts), len(keys))
+	}
+
+	for index := 0; err == nil && index < len(keys); index++ {
+		if counts[index] > limits[index] {
+			err = ErrAttemptsExceeded
+		}
+	}
+
+	return err
+}
+
+func (a *Authenticator) verifyBounded(
+	ctx context.Context,
+	credentials Credentials,
+) (*users.CredentialsSnapshot, error) {
+	var snapshot *users.CredentialsSnapshot
+
+	waitCtx, cancel := context.WithTimeout(ctx, MaxVerificationWait)
+	err := a.verifications.Acquire(waitCtx, 1)
+
+	cancel()
+
+	if err != nil {
+		err = ErrVerificationBusy
+	} else {
+		snapshot, err = a.verify(ctx, credentials)
+
+		a.verifications.Release(1)
+	}
+
+	return snapshot, err
+}
 
 func (a *Authenticator) verify(
 	ctx context.Context,
@@ -250,4 +339,22 @@ func (a *Authenticator) newSession(snapshot *users.CredentialsSnapshot) (*securi
 	}
 
 	return session, err
+}
+
+// Attempt keys carry digests rather than the addresses themselves, so the
+// attempt storage holds no emails or client addresses. Emails differing only
+// in case share one count.
+
+func emailAttemptKey(email users.Email) string {
+	return attemptKey("email", strings.ToLower(string(email)))
+}
+
+func clientAttemptKey(client string) string {
+	return attemptKey("client", client)
+}
+
+func attemptKey(kind string, value string) string {
+	digest := sha256.Sum256([]byte(value))
+
+	return kind + ":" + hex.EncodeToString(digest[:])
 }

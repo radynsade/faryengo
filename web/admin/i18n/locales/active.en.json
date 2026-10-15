@@ -364,6 +364,9 @@
   "errors.sign_in_busy": {
     "other": "Too many sign-in attempts are being processed. Please try again in a moment."
   },
+  "errors.sign_in_attempts": {
+    "other": "Too many sign-in attempts. Please wait a few minutes and try again."
+  },
   "common.full_name": {
     "other": "{{.FirstName}} {{.LastName}}"
   },

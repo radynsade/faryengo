@@ -113,6 +113,9 @@
   "errors.sign_in_busy": {
     "other": "Too many people are signing in right now. Please try again in a moment."
   },
+  "errors.sign_in_attempts": {
+    "other": "Too many sign-in attempts. Please wait a few minutes and try again."
+  },
   "errors.sign_in_unavailable": {
     "other": "Signing in is temporarily unavailable. Please try again later."
   },

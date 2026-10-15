@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 
 	"github.com/doug-martin/goqu/v9"
 	_ "github.com/doug-martin/goqu/v9/dialect/postgres"
@@ -724,11 +723,11 @@ func workspaceFilterDataset(filter workspaces.WorkspaceFilter) *goqu.SelectDatas
 	dataset := goqu.Dialect("postgres").From("workspace")
 
 	if filter.IDLike != "" {
-		dataset = dataset.Where(goqu.L(`"workspace".id::text ILIKE ?`, likeSubstring(filter.IDLike)))
+		dataset = dataset.Where(goqu.L(`"workspace".id::text ILIKE ?`, pgxdb.LikeSubstring(filter.IDLike)))
 	}
 
 	if filter.NameLike != "" {
-		dataset = dataset.Where(goqu.L(`"workspace".name ILIKE ?`, likeSubstring(filter.NameLike)))
+		dataset = dataset.Where(goqu.L(`"workspace".name ILIKE ?`, pgxdb.LikeSubstring(filter.NameLike)))
 	}
 
 	if filter.MemberID != nil {
@@ -761,10 +760,6 @@ func workspaceOrder(query workspaces.WorkspaceQuery) []exp.OrderedExpression {
 	}
 
 	return order
-}
-
-func likeSubstring(value string) string {
-	return "%" + strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(value) + "%"
 }
 
 func scanWorkspace(row pgx.Row) (*workspaces.Workspace, error) {

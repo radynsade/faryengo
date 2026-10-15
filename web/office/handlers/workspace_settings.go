@@ -14,6 +14,7 @@ import (
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/users"
 	"github.com/radynsade/faryengo/internal/workspaces"
+	"github.com/radynsade/faryengo/web/forms"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 	"github.com/radynsade/faryengo/web/office/templates/pages"
 	"github.com/radynsade/faryengo/web/office/utils"
@@ -283,7 +284,7 @@ func (h *Handler) memberChangeFailed(
 		http.Redirect(writer, request, scope.url, http.StatusSeeOther)
 	} else if isWorkspaceAccessError(err) {
 		h.settingsUnavailable(writer, request, err)
-	} else if errors.Is(err, utils.ErrFormInvalid) || errors.Is(err, input.ErrChangeMemberRoleInputInvalid) {
+	} else if errors.Is(err, forms.ErrInvalid) || errors.Is(err, input.ErrChangeMemberRoleInputInvalid) {
 		utils.Fail(writer, request, http.StatusBadRequest, "errors.form")
 	} else if errors.Is(err, workspaces.ErrMembershipLastOwner) {
 		utils.Fail(writer, request, http.StatusConflict, "errors.last_owner")

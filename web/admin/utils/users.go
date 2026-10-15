@@ -20,6 +20,7 @@ import (
 	"github.com/radynsade/faryengo/pkg/domquery"
 	"github.com/radynsade/faryengo/web/admin/templates/components"
 	"github.com/radynsade/faryengo/web/admin/templates/pages"
+	"github.com/radynsade/faryengo/web/forms"
 )
 
 //
@@ -58,7 +59,7 @@ func ParseUserQuery(request *http.Request) (users.UserQuery, error) {
 	values, err := url.ParseQuery(request.URL.RawQuery)
 
 	if err == nil {
-		err = checkFields(values, []string{"uuid", "email", "name", "role", "sort", "order", "page", "size"}, nil)
+		err = forms.CheckFields(values, []string{"uuid", "email", "name", "role", "sort", "order", "page", "size"}, nil)
 	}
 
 	if err == nil {
@@ -170,7 +171,7 @@ func UserError(request *http.Request, err error) (int, string) {
 		status, messageID = http.StatusConflict, "errors.user_exists"
 	case errors.Is(err, users.ErrInvalidUserQuery), errors.Is(err, users.ErrUserFilterInvalid):
 		status, messageID = http.StatusBadRequest, "errors.user_query"
-	case errors.Is(err, users.ErrUserIDInvalid), errors.Is(err, ErrFormInvalid):
+	case errors.Is(err, users.ErrUserIDInvalid), errors.Is(err, forms.ErrInvalid):
 		status, messageID = http.StatusBadRequest, "errors.user_form"
 	case errors.Is(err, users.ErrRoleNotFound),
 		errors.Is(err, requestvalidation.ErrInvalidRequest),

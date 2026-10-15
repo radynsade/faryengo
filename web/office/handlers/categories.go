@@ -11,6 +11,7 @@ import (
 	"github.com/radynsade/faryengo/internal/categories"
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/workspaces"
+	"github.com/radynsade/faryengo/web/forms"
 	officei18n "github.com/radynsade/faryengo/web/office/i18n"
 	"github.com/radynsade/faryengo/web/office/templates/pages"
 	"github.com/radynsade/faryengo/web/office/utils"
@@ -175,7 +176,7 @@ func (h *Handler) deleteCategory(writer http.ResponseWriter, request *http.Reque
 			h.settingsSaved(writer, request, scope.current.Session, scope.url, []string{message})
 		} else if err == nil {
 			http.Redirect(writer, request, utils.CategoryPath(request, category.WorkspaceID, category.ID), http.StatusSeeOther)
-		} else if errors.Is(err, utils.ErrFormInvalid) {
+		} else if errors.Is(err, forms.ErrInvalid) {
 			utils.Fail(writer, request, http.StatusBadRequest, "errors.form")
 		} else {
 			h.categoryUnavailable(writer, request, scope, err)

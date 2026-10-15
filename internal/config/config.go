@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"net/netip"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/joho/godotenv"
@@ -26,6 +28,7 @@ type Config struct {
 	RefreshTokenTTL    time.Duration
 	SessionTTL         time.Duration
 	AuthCookieSecure   bool
+	TrustedProxies     []netip.Prefix
 }
 
 // Load adds variables from .env when present, then reads application settings.
@@ -49,6 +52,7 @@ func Load() (Config, error) {
 	refreshTTL, refreshErr := time.ParseDuration(envDefault("REFRESH_TOKEN_TTL", "720h"))
 	sessionTTL, sessionErr := time.ParseDuration(envDefault("SESSION_TTL", "168h"))
 	secure, secureErr := strconv.ParseBool(envDefault("AUTH_COOKIE_SECURE", "true"))
+	proxies, proxiesErr := parsePrefixes(os.Getenv("TRUSTED_PROXIES"))
 	var err error
 
 	if accessErr != nil {
@@ -61,8 +65,11 @@ func Load() (Config, error) {
 		err = errors.New("SESSION_TTL must be between 1s and 2160h")
 	} else if secureErr != nil {
 		err = fmt.Errorf("parse AUTH_COOKIE_SECURE: %w", secureErr)
+	} else if proxiesErr != nil {
+		err = fmt.Errorf("parse TRUSTED_PROXIES: %w", proxiesErr)
 	} else {
 		settings.AccessTokenTTL, settings.RefreshTokenTTL, settings.SessionTTL, settings.AuthCookieSecure = accessTTL, refreshTTL, sessionTTL, secure
+		settings.TrustedProxies = proxies
 	}
 
 	return settings, err
@@ -76,6 +83,39 @@ func envDefault(key, fallback string) string {
 	}
 
 	return value
+}
+
+// parsePrefixes reads a comma-separated list of IP addresses and CIDR
+// prefixes; a single address stands for a prefix holding only itself.
+func parsePrefixes(value string) ([]netip.Prefix, error) {
+	var (
+		prefixes []netip.Prefix
+		err      error
+	)
+
+	items := strings.Split(value, ",")
+
+	for index := 0; err == nil && index < len(items); index++ {
+		item := strings.TrimSpace(items[index])
+
+		if strings.Contains(item, "/") {
+			var prefix netip.Prefix
+
+			prefix, err = netip.ParsePrefix(item)
+			prefixes = append(prefixes, prefix.Masked())
+		} else if item != "" {
+			var addr netip.Addr
+
+			addr, err = netip.ParseAddr(item)
+			prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
+		}
+	}
+
+	if err != nil {
+		prefixes = nil
+	}
+
+	return prefixes, err
 }
 
 // SigningKey deliberately has no generated or development fallback. Keeping a

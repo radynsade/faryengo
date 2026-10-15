@@ -11,10 +11,12 @@ import (
 	"github.com/radynsade/faryengo/internal/security"
 	"github.com/radynsade/faryengo/internal/security/emailpass"
 	"github.com/radynsade/faryengo/internal/security/sessionid"
+	"github.com/radynsade/faryengo/middleware"
 	"github.com/radynsade/faryengo/pkg/flashmsg"
 	"github.com/radynsade/faryengo/web/admin/assets"
 	admini18n "github.com/radynsade/faryengo/web/admin/i18n"
 	"github.com/radynsade/faryengo/web/admin/utils"
+	"github.com/radynsade/faryengo/web/cookie"
 )
 
 //
@@ -34,7 +36,7 @@ type Handler struct {
 	roles      *app.RoleService
 	languages  *app.LanguageService
 	flashes    *utils.Flashes
-	cookies    utils.Cookies
+	cookies    cookie.Jar
 }
 
 func NewHandler(
@@ -53,7 +55,7 @@ func NewHandler(
 		err     error
 	)
 
-	cookies := utils.Cookies{Secure: secureCookies}
+	cookies := cookie.Jar{Secure: secureCookies}
 
 	if passwords == nil || sessions == nil || identities == nil || userService == nil || roles == nil || languages == nil {
 		err = ErrHandlerConfigInvalid
@@ -130,21 +132,31 @@ func (h *Handler) RegisterHandlers(mux *http.ServeMux) error {
 //
 
 func wrapRoute(protection *http.CrossOriginProtection, next http.HandlerFunc) http.Handler {
+	guarded := middleware.Recover(unexpected, http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if checkErr := protection.Check(request); checkErr != nil {
+			utils.Fail(writer, request, http.StatusForbidden, "errors.cross_origin")
+		} else {
+			next(writer, request)
+		}
+	}))
+
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		ctx := admini18n.WithLocale(request.Context(), request.PathValue("language"), request.URL)
 		ctx = utils.WithState(ctx)
 		request = request.WithContext(ctx)
 
 		writer.Header().Set("Cache-Control", "no-store")
-		writer.Header().Set("X-Content-Type-Options", "nosniff")
 		writer.Header().Set("Content-Language", admini18n.Language(ctx))
 
-		if checkErr := protection.Check(request); checkErr != nil {
-			utils.Fail(writer, request, http.StatusForbidden, "errors.cross_origin")
-		} else {
-			next(writer, request)
-		}
+		guarded.ServeHTTP(writer, request)
 	})
+}
+
+// A panicking handler is answered with the error page, in the request's
+// language, when nothing has been written yet.
+
+func unexpected(writer http.ResponseWriter, request *http.Request) {
+	utils.Fail(writer, request, http.StatusInternalServerError, "navigation.error")
 }
 
 // Rendering a page consumes every pending flash message, so a message shown
